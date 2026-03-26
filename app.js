@@ -1863,7 +1863,6 @@ function renderExpensesList() {
       body.appendChild(monthRow);
     }
     const tr = document.createElement("tr");
-    if (prevMonthKey && monthKey !== prevMonthKey) tr.classList.add("month-break");
     prevMonthKey = monthKey;
     tr.innerHTML = `
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
