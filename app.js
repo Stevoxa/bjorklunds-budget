@@ -1152,6 +1152,7 @@ function openIncomeOverlay(incomeId, opts = {}) {
   const backdrop = requireEl("incomeModalBackdrop");
 
   const editing = Boolean(incomeId);
+  modal.dataset.mode = editing ? "edit" : "create";
   requireEl("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
   requireEl("incomeEditorNote").textContent = "";
   requireEl("incomeDeleteBtn").hidden = !editing;
@@ -1233,6 +1234,7 @@ function closeIncomeOverlay() {
   ui.focusPaymentDateISO = null;
   requireEl("incomeModalBackdrop").hidden = true;
   requireEl("incomeModal").hidden = true;
+  delete requireEl("incomeModal").dataset.mode;
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }

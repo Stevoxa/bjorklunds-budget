@@ -652,6 +652,12 @@ tr.month-break td {
   width: 100%;
 }
 
+/* Create mode: Save should span full row */
+#incomeModal[data-mode="create"] #incomeSaveBtn {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+}
+
 html.modal-open,
 body.modal-open {
   overflow: hidden;
