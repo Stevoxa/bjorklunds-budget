@@ -1071,7 +1071,8 @@ function buildIncomePaymentRowsForList(yearFilter) {
       });
     }
   }
-  rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+  // Sort ascending so later dates are further down
+  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
 }
 
@@ -1423,11 +1424,23 @@ function renderIncomePaymentsEditorRows() {
 
   // If requested, scroll to a specific payment row.
   if (ui.scrollToPaymentId) {
-    const targetRow = body.querySelector(`[data-inc-payment-id="${CSS.escape(String(ui.scrollToPaymentId))}"]`);
+    const pid = String(ui.scrollToPaymentId);
+    // Avoid CSS.escape dependency issues by scanning.
+    const targetRow = Array.from(body.querySelectorAll("[data-inc-payment-id]")).find(
+      (el) => el.getAttribute("data-inc-payment-id") === pid
+    );
     if (targetRow) {
-      // Ensure it is visible in modal-body scroll container
       targetRow.classList.add("row-highlight");
-      targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      const container = document.querySelector("#incomeModal .modal-body");
+      if (container) {
+        const cRect = container.getBoundingClientRect();
+        const rRect = targetRow.getBoundingClientRect();
+        const delta = rRect.top - cRect.top;
+        const top = container.scrollTop + delta - 80;
+        container.scrollTo({ top, behavior: "smooth" });
+      } else {
+        targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
       const firstInput = targetRow.querySelector("input");
       if (firstInput) firstInput.focus({ preventScroll: true });
       setTimeout(() => targetRow.classList.remove("row-highlight"), 1600);

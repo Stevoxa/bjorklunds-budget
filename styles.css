@@ -428,6 +428,19 @@ button:focus {
   width: 8%;
 }
 
+.income-payments-table td:nth-child(1) {
+  overflow: hidden;
+}
+
+.income-payments-table td:nth-child(2),
+.income-payments-table td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.income-payments-table td:nth-child(3) {
+  text-align: right;
+}
+
 .truncate {
   display: block;
   overflow: hidden;
@@ -448,6 +461,11 @@ button:focus {
 
 .row-highlight {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+/* Make highlight visible in tables */
+tr.row-highlight td {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .data-table th,
