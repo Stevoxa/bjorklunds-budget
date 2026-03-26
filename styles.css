@@ -481,7 +481,7 @@ button:focus {
 
 .loan-list-table th:nth-child(3),
 .loan-list-table td:nth-child(3) {
-  width: 104px !important; /* aligned currency column */
+  width: 92px !important; /* aligned currency column */
 }
 
 .loan-list-table th:nth-child(4),
@@ -500,9 +500,8 @@ button:focus {
   border-bottom: 0 !important;
 }
 
-.loan-list-table thead th,
-.loan-list-table thead td {
-  border-bottom: 0 !important;
+.loan-list-table th.right {
+  text-align: right !important;
 }
 
 .loan-list-table td:nth-child(1) {
@@ -545,7 +544,7 @@ button:focus {
   display: flex;
   justify-content: flex-end;
   align-items: baseline;
-  gap: 6px;
+  gap: 0;
   white-space: nowrap;
 }
 
