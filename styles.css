@@ -623,6 +623,19 @@ tr.month-break td {
   margin: 0 auto;
 }
 
+.overlay-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
 .form-row {
   margin-bottom: 12px;
 }

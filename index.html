@@ -227,32 +227,104 @@
             </div>
           </section>
 
-          <!-- LOANS (placeholder + grunddata) -->
+          <!-- LOANS -->
           <section class="exp-view exp-overlay" data-expview="loans" hidden>
             <div class="table-card">
-              <div class="table-title">Lån</div>
-              <div class="note">Grundläggande stöd (förbättras senare).</div>
-              <div class="form-grid">
-                <label class="field">
-                  Lånebelopp (kr)
-                  <input id="loanPrincipal" type="number" inputmode="decimal" min="0" step="1000" />
-                </label>
-                <label class="field">
-                  Ränta (% per år)
-                  <input id="loanRate" type="number" inputmode="decimal" min="0" step="0.1" />
-                </label>
-                <label class="field">
-                  Amortering (kr/mån)
-                  <input id="loanAmortization" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-              </div>
-              <div class="actions-row">
+              <div class="overlay-head">
+                <div class="table-title">Lån</div>
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="loanSaveBtn" type="button">Spara låneuppgifter</button>
               </div>
-              <div class="note" id="loanNote"></div>
+
+              <section id="loanEditorSection" hidden>
+                <div class="form-grid">
+                  <label class="field">
+                    Namn på lån
+                    <input id="loanNameInput" type="text" />
+                  </label>
+                  <label class="field">
+                    Bank
+                    <input id="loanBankInput" type="text" />
+                  </label>
+                  <label class="field">
+                    Skuld (kr)
+                    <input id="loanPrincipal" type="number" inputmode="decimal" min="0" step="1" />
+                  </label>
+                  <label class="field">
+                    Räntesats (%)
+                    <input id="loanRate" type="number" inputmode="decimal" min="0" step="0.001" />
+                  </label>
+                  <label class="field">
+                    Amortering (kr/mån)
+                    <input id="loanAmortization" type="number" inputmode="decimal" min="0" step="1" />
+                  </label>
+                  <label class="field">
+                    Förfallodatum (dag)
+                    <input id="loanDueDay" type="number" inputmode="numeric" min="1" max="28" step="1" />
+                  </label>
+                  <label class="field">
+                    Räntebelopp (kr)
+                    <input id="loanInterestAmount" type="text" readonly />
+                  </label>
+                  <label class="field">
+                    Summa betalning (kr)
+                    <input id="loanTotalPayment" type="text" readonly />
+                  </label>
+                </div>
+                <div class="actions-row">
+                  <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="secondary" id="loanEditorCancelBtn" type="button">Avbryt</button>
+                  <button class="primary" id="loanSaveBtn" type="button">Spara</button>
+                </div>
+              </section>
+
+              <hr class="section-divider" />
+
+              <section>
+                <div class="table-wrap">
+                  <table class="data-table income-payments-table" aria-label="Lån">
+                    <thead>
+                      <tr>
+                        <th>Namn på lån</th>
+                        <th>Bank</th>
+                        <th class="right">Skuld</th>
+                        <th class="right">Summa</th>
+                        <th class="right">Redigera</th>
+                      </tr>
+                    </thead>
+                    <tbody id="loansTableBody"></tbody>
+                  </table>
+                </div>
+                <div class="actions-row" style="justify-content: space-between;">
+                  <button class="secondary" id="loanAddNewBtn" type="button">Lägg till nytt lån</button>
+                  <button class="secondary" type="button" data-exp-close>Avbryt</button>
+                </div>
+                <div class="note" id="loanNote"></div>
+              </section>
             </div>
           </section>
+
+          <!-- CONFIRM DELETE LOAN -->
+          <div class="modal-backdrop" id="confirmDeleteLoanBackdrop" hidden></div>
+          <div
+            class="modal"
+            id="confirmDeleteLoanModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirmDeleteLoanTitle"
+            hidden
+          >
+            <div class="modal-header">
+              <div id="confirmDeleteLoanTitle">Ta bort lån?</div>
+              <button class="icon-btn" id="closeDeleteLoanModalBtn" type="button" aria-label="Stäng">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="note">Är du säker? Detta kan inte ångras.</div>
+            </div>
+            <div class="modal-actions">
+              <button class="secondary" id="cancelDeleteLoanBtn" type="button">Avbryt</button>
+              <button class="danger" id="confirmDeleteLoanBtn" type="button">Ja, ta bort</button>
+            </div>
+          </div>
 
           <!-- CAR -->
           <section class="exp-view exp-overlay" data-expview="car" hidden>

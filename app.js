@@ -420,7 +420,9 @@ const ui = {
   incomeMonthFilter: "all",
   // Utgifter
   expenseYearFilter: null,
-  expenseMonthFilter: "all"
+  expenseMonthFilter: "all",
+  loanEditorOpen: false,
+  editLoanId: null
 };
 
 function loadState() {
@@ -601,6 +603,62 @@ function computeSpecialChildrenMonthly(year) {
   return { total, items };
 }
 
+function getLoansForYear(year) {
+  const raw = state.special?.loans?.[String(year)];
+  if (Array.isArray(raw)) {
+    return raw.map((l) => ({
+      id: l?.id || uid(),
+      name: String(l?.name || "").trim() || "Lån",
+      bank: String(l?.bank || "").trim(),
+      principal: asNumber(l?.principal),
+      rate: asNumber(l?.rate),
+      amortization: asNumber(l?.amortization),
+      dueDay: Math.max(1, Math.min(28, Math.floor(asNumber(l?.dueDay) || 25)))
+    }));
+  }
+  if (raw && typeof raw === "object") {
+    // Legacy single-loan format
+    return [{
+      id: uid(),
+      name: "Lån",
+      bank: "",
+      principal: asNumber(raw.principal),
+      rate: asNumber(raw.rate),
+      amortization: asNumber(raw.amortization),
+      dueDay: 25
+    }];
+  }
+  return [];
+}
+
+function getLoanInterestAmount(loan) {
+  return (asNumber(loan.principal) * (asNumber(loan.rate) / 100)) / 12;
+}
+
+function getLoanTotalPayment(loan) {
+  return getLoanInterestAmount(loan) + asNumber(loan.amortization);
+}
+
+function saveLoansForYear(year, loans) {
+  if (!state.special.loans) state.special.loans = {};
+  state.special.loans[String(year)] = loans.map((l) => ({
+    id: l.id || uid(),
+    name: String(l.name || "").trim() || "Lån",
+    bank: String(l.bank || "").trim(),
+    principal: asNumber(l.principal),
+    rate: asNumber(l.rate),
+    amortization: asNumber(l.amortization),
+    dueDay: Math.max(1, Math.min(28, Math.floor(asNumber(l.dueDay) || 25)))
+  }));
+}
+
+function computeSpecialLoansMonthly(year) {
+  const loans = getLoansForYear(year);
+  const items = loans.map((loan) => ({ label: `${loan.name}${loan.bank ? ` (${loan.bank})` : ""}`, amount: getLoanTotalPayment(loan) }));
+  const total = items.reduce((sum, it) => sum + asNumber(it.amount), 0);
+  return { total, items };
+}
+
 function computeRecurringMonthlyItems(items) {
   return (items || []).map((it) => ({ id: it.id, label: it.name, amount: asNumber(it.amount) }));
 }
@@ -611,6 +669,7 @@ function computeMonthOverview(year, month) {
 
   const car = computeSpecialCarMonthly(year);
   const housing = computeSpecialHousingMonthly(year);
+  const loans = computeSpecialLoansMonthly(year);
   const food = computeSpecialFoodMonthly(year, month);
   const children = computeSpecialChildrenMonthly(year);
 
@@ -659,7 +718,7 @@ function computeMonthOverview(year, month) {
     );
   }, 0);
 
-  const specialsAmount = car.total + housing.total + food.total + children.total;
+  const specialsAmount = car.total + housing.total + loans.total + food.total + children.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
   const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
@@ -671,6 +730,7 @@ function computeMonthOverview(year, month) {
     { key: "recurringExpenses", label: "Utgifter", amount: expensePaymentsAmount, color: "#8b5cf6" },
     { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
     { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
+    { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
     { key: "food", label: "Mat", amount: food.total, color: "#f59e0b" },
     { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
@@ -691,6 +751,7 @@ function computeMonthOverview(year, month) {
   }
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
   for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
+  for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
   for (const it of food.items) expensesRows.push({ group: "Mat", label: it.label, amount: it.amount });
   for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
   for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
@@ -1085,6 +1146,9 @@ function incomeYearsForFilter() {
       if (Number.isNaN(dt.getTime())) continue;
       years.add(String(dt.getFullYear()));
     }
+  }
+  for (const y of Object.keys(state.special?.loans || {})) {
+    years.add(String(y));
   }
   // Include +/- 1 year around current to make it easy to filter
   const cur = currentYearMonth().year;
@@ -1783,6 +1847,32 @@ function buildExpensePaymentRowsForList(yearFilter) {
       rows.push({ expenseId: exp.id, paymentId: p.id, name, isoDate: iso, date: dt, amount: amt });
     }
   }
+  const yearsToRender = yearFilter === "all"
+    ? getAvailableYears()
+    : [Number(yearFilter)].filter((n) => Number.isFinite(n));
+  for (const year of yearsToRender) {
+    const loans = getLoansForYear(year);
+    for (const loan of loans) {
+      const total = getLoanTotalPayment(loan);
+      if (total <= 0) continue;
+      for (let m = 1; m <= 12; m++) {
+        if (monthFilter !== "all" && Number(monthFilter) !== m) continue;
+        const iso = `${year}-${pad2(m)}-${pad2(Math.max(1, Math.min(28, loan.dueDay || 25)))}`;
+        const dt = new Date(iso);
+        if (Number.isNaN(dt.getTime())) continue;
+        rows.push({
+          expenseId: `loan:${loan.id}`,
+          paymentId: `loan:${loan.id}:${year}-${pad2(m)}`,
+          name: `Lån - ${loan.name || "Lån"}`,
+          isoDate: iso,
+          date: dt,
+          amount: total,
+          isLoanPayment: true,
+          loanId: loan.id
+        });
+      }
+    }
+  }
   rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
 }
@@ -1879,13 +1969,13 @@ function renderExpensesList() {
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
       r.name
     )}</button></td>
-      <td><button class="linklike truncate" type="button" data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td><button class="linklike truncate" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
-    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}" title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
+    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
       <td class="right">${formatKr(r.amount)}</td>
-      <td class="right"><button class="secondary btn-icon" type="button" data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
-    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}" aria-label="Redigera">✎</button></td>
+    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} aria-label="Redigera">✎</button></td>
     `;
     body.appendChild(tr);
   }
@@ -1902,6 +1992,13 @@ function renderExpensesList() {
       const paymentId = btn.getAttribute("data-edit-expense-payment");
       const iso = btn.getAttribute("data-edit-expense-iso");
       openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
+    };
+  });
+  document.querySelectorAll("[data-edit-loan]").forEach((btn) => {
+    btn.onclick = () => {
+      openExpenseCategoryOverlay("loans");
+      const loanId = btn.getAttribute("data-edit-loan");
+      openLoanEditor(loanId);
     };
   });
 }
@@ -2199,16 +2296,104 @@ function openExpenseCategoryOverlay(key) {
 
 function closeExpenseCategoryOverlay() {
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
+  closeLoanEditor();
+  hideConfirmDeleteLoanModal();
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }
 
 function renderLoansPage() {
   const year = ui.expensesYear;
-  const config = state.special.loans[String(year)] || {};
-  document.getElementById("loanPrincipal").value = asNumber(config.principal);
-  document.getElementById("loanRate").value = asNumber(config.rate);
-  document.getElementById("loanAmortization").value = asNumber(config.amortization);
+  const body = document.getElementById("loansTableBody");
+  if (!body) return;
+  const loans = getLoansForYear(year).slice().sort((a, b) => {
+    const byName = (a.name || "").localeCompare(b.name || "", "sv");
+    if (byName !== 0) return byName;
+    const byBank = (a.bank || "").localeCompare(b.bank || "", "sv");
+    if (byBank !== 0) return byBank;
+    return asNumber(b.principal) - asNumber(a.principal);
+  });
+  body.innerHTML = "";
+  if (loans.length === 0) {
+    body.innerHTML = `<tr><td colspan="5" style="color: var(--muted);">Inga lån ännu.</td></tr>`;
+  } else {
+    for (const loan of loans) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escapeHtml(loan.name || "Lån")}</td>
+        <td>${escapeHtml(loan.bank || "")}</td>
+        <td class="right">${formatKr(loan.principal)}</td>
+        <td class="right">${formatKr(getLoanTotalPayment(loan))}</td>
+        <td class="right"><button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button></td>
+      `;
+      body.appendChild(tr);
+    }
+  }
+  body.querySelectorAll("[data-loan-edit]").forEach((btn) => {
+    btn.onclick = () => openLoanEditor(btn.getAttribute("data-loan-edit"));
+  });
+
+  const editor = document.getElementById("loanEditorSection");
+  if (editor) editor.hidden = !ui.loanEditorOpen;
+  updateLoanDerivedFields();
+}
+
+function updateLoanDerivedFields() {
+  const draft = {
+    principal: asNumber(document.getElementById("loanPrincipal")?.value),
+    rate: asNumber(document.getElementById("loanRate")?.value),
+    amortization: asNumber(document.getElementById("loanAmortization")?.value)
+  };
+  const interest = getLoanInterestAmount(draft);
+  const total = interest + asNumber(draft.amortization);
+  const interestEl = document.getElementById("loanInterestAmount");
+  const totalEl = document.getElementById("loanTotalPayment");
+  if (interestEl) interestEl.value = formatKr(interest);
+  if (totalEl) totalEl.value = formatKr(total);
+}
+
+function openLoanEditor(loanId = null) {
+  const year = ui.expensesYear || currentYearMonth().year;
+  const existing = loanId ? getLoansForYear(year).find((x) => x.id === loanId) : null;
+  ui.editLoanId = existing?.id || null;
+  ui.loanEditorOpen = true;
+  const editor = document.getElementById("loanEditorSection");
+  if (editor) editor.hidden = false;
+  document.getElementById("loanNameInput").value = existing?.name || "";
+  document.getElementById("loanBankInput").value = existing?.bank || "";
+  document.getElementById("loanPrincipal").value = asNumber(existing?.principal);
+  document.getElementById("loanRate").value = asNumber(existing?.rate).toFixed(3);
+  document.getElementById("loanAmortization").value = asNumber(existing?.amortization);
+  document.getElementById("loanDueDay").value = Math.max(1, Math.min(28, asNumber(existing?.dueDay) || 25));
+  const deleteBtn = document.getElementById("loanDeleteBtn");
+  if (deleteBtn) deleteBtn.hidden = !existing;
+  updateLoanDerivedFields();
+}
+
+function closeLoanEditor() {
+  ui.loanEditorOpen = false;
+  ui.editLoanId = null;
+  const editor = document.getElementById("loanEditorSection");
+  if (editor) editor.hidden = true;
+  document.getElementById("loanNameInput").value = "";
+  document.getElementById("loanBankInput").value = "";
+  document.getElementById("loanPrincipal").value = "";
+  document.getElementById("loanRate").value = "";
+  document.getElementById("loanAmortization").value = "";
+  document.getElementById("loanDueDay").value = "25";
+  const deleteBtn = document.getElementById("loanDeleteBtn");
+  if (deleteBtn) deleteBtn.hidden = true;
+  updateLoanDerivedFields();
+}
+
+function showConfirmDeleteLoanModal() {
+  requireEl("confirmDeleteLoanBackdrop").hidden = false;
+  requireEl("confirmDeleteLoanModal").hidden = false;
+}
+
+function hideConfirmDeleteLoanModal() {
+  requireEl("confirmDeleteLoanBackdrop").hidden = true;
+  requireEl("confirmDeleteLoanModal").hidden = true;
 }
 
 function initActions() {
@@ -2293,18 +2478,56 @@ function initActions() {
   });
 
   // LOANS
+  document.getElementById("loanAddNewBtn").addEventListener("click", () => openLoanEditor(null));
+  document.getElementById("loanDeleteBtn").addEventListener("click", () => {
+    if (!ui.editLoanId) return;
+    showConfirmDeleteLoanModal();
+  });
+  document.getElementById("loanEditorCancelBtn").addEventListener("click", () => closeLoanEditor());
+  requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;
+  requireEl("cancelDeleteLoanBtn").onclick = hideConfirmDeleteLoanModal;
+  requireEl("confirmDeleteLoanBtn").onclick = () => {
+    if (!ui.editLoanId) return hideConfirmDeleteLoanModal();
+    const year = ui.expensesYear || currentYearMonth().year;
+    const loans = getLoansForYear(year).filter((x) => x.id !== ui.editLoanId);
+    saveLoansForYear(year, loans);
+    saveState();
+    hideConfirmDeleteLoanModal();
+    closeLoanEditor();
+    document.getElementById("loanNote").textContent = "Lån borttaget.";
+    renderLoansPage();
+    renderExpensesList();
+    renderOverviewIfOnOverview();
+  };
+  ["loanPrincipal", "loanRate", "loanAmortization"].forEach((id) => {
+    document.getElementById(id).addEventListener("input", updateLoanDerivedFields);
+  });
   document.getElementById("loanSaveBtn").addEventListener("click", () => {
     const year = ui.expensesYear || currentYearMonth().year;
-    state.special.loans[String(year)] = {
+    const loans = getLoansForYear(year);
+    const draft = {
+      id: ui.editLoanId || uid(),
+      name: String(document.getElementById("loanNameInput").value || "").trim(),
+      bank: String(document.getElementById("loanBankInput").value || "").trim(),
       principal: asNumber(document.getElementById("loanPrincipal").value),
       rate: asNumber(document.getElementById("loanRate").value),
-      amortization: asNumber(document.getElementById("loanAmortization").value)
+      amortization: asNumber(document.getElementById("loanAmortization").value),
+      dueDay: Math.max(1, Math.min(28, Math.floor(asNumber(document.getElementById("loanDueDay").value) || 25)))
     };
+    if (!draft.name) {
+      document.getElementById("loanNote").textContent = "Ange namn på lån.";
+      return;
+    }
+    const idx = loans.findIndex((x) => x.id === draft.id);
+    if (idx >= 0) loans[idx] = draft;
+    else loans.push(draft);
+    saveLoansForYear(year, loans);
     saveState();
-    document.getElementById("loanNote").textContent = "Låneuppgifter sparade.";
-    renderOverviewIfOnOverview();
+    document.getElementById("loanNote").textContent = "Lån sparat.";
+    closeLoanEditor();
     renderLoansPage();
-    closeExpenseCategoryOverlay();
+    renderExpensesList();
+    renderOverviewIfOnOverview();
   });
 
   // Inkomster hanteras nu via overlay i Intäkter-vyn.
