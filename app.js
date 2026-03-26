@@ -1145,6 +1145,7 @@ function renderIncomesPage() {
 function openIncomeOverlay(incomeId, opts = {}) {
   ui.editIncomeId = incomeId;
   ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
+  if (ui.scrollToPaymentId) ui.focusPaymentId = ui.scrollToPaymentId;
   const modal = requireEl("incomeModal");
   const backdrop = requireEl("incomeModalBackdrop");
 
@@ -1198,11 +1199,20 @@ function openIncomeOverlay(incomeId, opts = {}) {
   modal.hidden = false;
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
+
+  // Scroll after modal is visible/rendered.
+  if (ui.scrollToPaymentId) {
+    requestAnimationFrame(() => {
+      scrollToIncomePaymentRow(ui.scrollToPaymentId);
+      ui.scrollToPaymentId = null;
+    });
+  }
 }
 
 function closeIncomeOverlay() {
   ui.editIncomeId = null;
   ui.incomeEditorPayments = null;
+  ui.focusPaymentId = null;
   requireEl("incomeModalBackdrop").hidden = true;
   requireEl("incomeModal").hidden = true;
   document.documentElement.classList.remove("modal-open");
@@ -1346,6 +1356,9 @@ function renderIncomePaymentsEditorRows() {
     const tr = document.createElement("tr");
     tr.setAttribute("data-inc-editor-row", String(idx));
     tr.setAttribute("data-inc-payment-id", String(p.id || ""));
+    if (ui.focusPaymentId && String(p.id) === String(ui.focusPaymentId)) {
+      tr.classList.add("row-focused");
+    }
     tr.innerHTML = `
       <td>
         <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-year="${idx}" placeholder="2026" value="${escapeHtml(
@@ -1421,32 +1434,31 @@ function renderIncomePaymentsEditorRows() {
       updateRowValidationUI(idx);
     };
   });
+}
 
-  // If requested, scroll to a specific payment row.
-  if (ui.scrollToPaymentId) {
-    const pid = String(ui.scrollToPaymentId);
-    // Avoid CSS.escape dependency issues by scanning.
-    const targetRow = Array.from(body.querySelectorAll("[data-inc-payment-id]")).find(
-      (el) => el.getAttribute("data-inc-payment-id") === pid
-    );
-    if (targetRow) {
-      targetRow.classList.add("row-highlight");
-      const container = document.querySelector("#incomeModal .modal-body");
-      if (container) {
-        const cRect = container.getBoundingClientRect();
-        const rRect = targetRow.getBoundingClientRect();
-        const delta = rRect.top - cRect.top;
-        const top = container.scrollTop + delta - 80;
-        container.scrollTo({ top, behavior: "smooth" });
-      } else {
-        targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
-      }
-      const firstInput = targetRow.querySelector("input");
-      if (firstInput) firstInput.focus({ preventScroll: true });
-      setTimeout(() => targetRow.classList.remove("row-highlight"), 1600);
-    }
-    ui.scrollToPaymentId = null;
+function scrollToIncomePaymentRow(paymentId) {
+  const body = document.getElementById("incomePaymentsEditorBody");
+  if (!body) return;
+  const pid = String(paymentId);
+  const targetRow = Array.from(body.querySelectorAll("[data-inc-payment-id]")).find(
+    (el) => el.getAttribute("data-inc-payment-id") === pid
+  );
+  if (!targetRow) return;
+
+  targetRow.classList.add("row-highlight");
+  const container = document.querySelector("#incomeModal .modal-body");
+  if (container) {
+    const cRect = container.getBoundingClientRect();
+    const rRect = targetRow.getBoundingClientRect();
+    const delta = rRect.top - cRect.top;
+    const top = container.scrollTop + delta - 80;
+    container.scrollTo({ top, behavior: "smooth" });
+  } else {
+    targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
   }
+  const firstInput = targetRow.querySelector("input");
+  if (firstInput) firstInput.focus({ preventScroll: true });
+  setTimeout(() => targetRow.classList.remove("row-highlight"), 1600);
 }
 
 function saveIncomeFromOverlay() {
@@ -1520,9 +1532,14 @@ function renderIncomesList() {
     return;
   }
 
+  let prevMonthKey = null;
   for (const r of rows) {
     const tr = document.createElement("tr");
     const fullName = r.name;
+    const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
+    if (prevMonthKey && monthKey !== prevMonthKey) tr.classList.add("month-break");
+    prevMonthKey = monthKey;
+
     tr.innerHTML = `
       <td>
         <button class="linklike truncate" type="button" data-show-income-name="${escapeHtml(fullName)}" title="${escapeHtml(
@@ -1547,9 +1564,10 @@ function renderIncomesList() {
 
   document.querySelectorAll("[data-show-income-name]").forEach((btn) => {
     btn.onclick = () => {
-      const name = btn.getAttribute("data-show-income-name") || "";
-      // Mobile-friendly: show full text on tap
-      alert(name);
+      // Mobile-friendly "hover/peek": temporary inline expand
+      document.querySelectorAll("[data-show-income-name].peek").forEach((open) => open.classList.remove("peek"));
+      btn.classList.add("peek");
+      setTimeout(() => btn.classList.remove("peek"), 1800);
     };
   });
 

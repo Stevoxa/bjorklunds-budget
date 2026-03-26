@@ -468,6 +468,16 @@ button:focus {
   cursor: pointer;
 }
 
+.linklike.peek {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
 .row-highlight {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
@@ -475,6 +485,15 @@ button:focus {
 /* Make highlight visible in tables */
 tr.row-highlight td {
   background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+tr.row-focused td {
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
+/* Visual separator when month changes in income list */
+tr.month-break td {
+  border-top: 2px solid color-mix(in srgb, var(--primary) 35%, var(--border));
 }
 
 .data-table th,
