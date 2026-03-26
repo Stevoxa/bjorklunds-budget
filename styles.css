@@ -493,6 +493,8 @@ tr.row-highlight td {
 
 tr.row-focused td {
   background: color-mix(in srgb, var(--primary) 16%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--primary) 35%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 /* Visual separator when month changes in income list */
@@ -620,6 +622,31 @@ tr.month-break td {
   gap: 12px;
   justify-content: flex-end;
   border-top: 1px solid var(--border);
+}
+
+/* Income editor action layout:
+   Row 1: Delete + Save
+   Row 2: Cancel (full width) */
+#incomeModal .modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+#incomeModal #incomeDeleteBtn {
+  grid-column: 1;
+  width: 100%;
+}
+
+#incomeModal #incomeSaveBtn {
+  grid-column: 2;
+  width: 100%;
+}
+
+#incomeModal #incomeCancelBtn {
+  grid-column: 1 / span 2;
+  width: 100%;
 }
 
 html.modal-open,
@@ -763,6 +790,13 @@ body.modal-open {
   .modal-actions {
     flex-direction: column-reverse;
     align-items: stretch;
+  }
+
+  /* Keep specific grid layout in income modal on mobile too */
+  #incomeModal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 
   .defaults-row {

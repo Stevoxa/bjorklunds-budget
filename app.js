@@ -1145,7 +1145,9 @@ function renderIncomesPage() {
 function openIncomeOverlay(incomeId, opts = {}) {
   ui.editIncomeId = incomeId;
   ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
+  ui.scrollToPaymentDateISO = opts?.scrollToPaymentDateISO || null;
   if (ui.scrollToPaymentId) ui.focusPaymentId = ui.scrollToPaymentId;
+  if (!ui.focusPaymentId && ui.scrollToPaymentDateISO) ui.focusPaymentDateISO = ui.scrollToPaymentDateISO;
   const modal = requireEl("incomeModal");
   const backdrop = requireEl("incomeModalBackdrop");
 
@@ -1204,8 +1206,9 @@ function openIncomeOverlay(incomeId, opts = {}) {
   // Scroll after modal is visible/rendered.
   if (ui.scrollToPaymentId) {
     requestAnimationFrame(() => {
-      scrollToIncomePaymentRow(ui.scrollToPaymentId);
+      scrollToIncomePaymentRow({ paymentId: ui.scrollToPaymentId, dateISO: ui.scrollToPaymentDateISO });
       ui.scrollToPaymentId = null;
+      ui.scrollToPaymentDateISO = null;
     });
   }
 }
@@ -1214,6 +1217,7 @@ function closeIncomeOverlay() {
   ui.editIncomeId = null;
   ui.incomeEditorPayments = null;
   ui.focusPaymentId = null;
+  ui.focusPaymentDateISO = null;
   requireEl("incomeModalBackdrop").hidden = true;
   requireEl("incomeModal").hidden = true;
   document.documentElement.classList.remove("modal-open");
@@ -1367,7 +1371,11 @@ function renderIncomePaymentsEditorRows() {
     const tr = document.createElement("tr");
     tr.setAttribute("data-inc-editor-row", String(idx));
     tr.setAttribute("data-inc-payment-id", String(p.id || ""));
+    tr.setAttribute("data-inc-payment-date", String(p.date || ""));
     if (ui.focusPaymentId && String(p.id) === String(ui.focusPaymentId)) {
+      tr.classList.add("row-focused");
+    }
+    if (!ui.focusPaymentId && ui.focusPaymentDateISO && String(p.date || "") === String(ui.focusPaymentDateISO)) {
       tr.classList.add("row-focused");
     }
     tr.innerHTML = `
@@ -1447,13 +1455,23 @@ function renderIncomePaymentsEditorRows() {
   });
 }
 
-function scrollToIncomePaymentRow(paymentId) {
+function scrollToIncomePaymentRow({ paymentId, dateISO }) {
   const body = document.getElementById("incomePaymentsEditorBody");
   if (!body) return;
-  const pid = String(paymentId);
-  const targetRow = Array.from(body.querySelectorAll("[data-inc-payment-id]")).find(
-    (el) => el.getAttribute("data-inc-payment-id") === pid
-  );
+  const pid = paymentId ? String(paymentId) : "";
+  const iso = dateISO ? String(dateISO) : "";
+
+  let targetRow = null;
+  if (pid) {
+    targetRow = Array.from(body.querySelectorAll("[data-inc-payment-id]")).find(
+      (el) => el.getAttribute("data-inc-payment-id") === pid
+    );
+  }
+  if (!targetRow && iso) {
+    targetRow = Array.from(body.querySelectorAll("[data-inc-payment-date]")).find(
+      (el) => el.getAttribute("data-inc-payment-date") === iso
+    );
+  }
   if (!targetRow) return;
 
   targetRow.classList.add("row-highlight");
@@ -1467,8 +1485,9 @@ function scrollToIncomePaymentRow(paymentId) {
   } else {
     targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
   }
-  const firstInput = targetRow.querySelector("input");
-  if (firstInput) firstInput.focus({ preventScroll: true });
+  // Focus amount field on target row
+  const amountInput = targetRow.querySelector("[data-inc-pay-amt]");
+  if (amountInput) amountInput.focus({ preventScroll: true });
   setTimeout(() => targetRow.classList.remove("row-highlight"), 1600);
 }
 
@@ -1561,6 +1580,7 @@ function renderIncomesList() {
         <button class="linklike truncate" type="button"
           data-edit-income-date="${escapeHtml(r.incomeId)}"
           data-edit-income-payment="${escapeHtml(r.paymentId || "")}"
+          data-edit-income-iso="${escapeHtml(r.isoDate || "")}"
           title="${escapeHtml(r.isoDate || "")}">
           ${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}
         </button>
@@ -1590,7 +1610,8 @@ function renderIncomesList() {
     btn.onclick = () => {
       const incomeId = btn.getAttribute("data-edit-income-date");
       const paymentId = btn.getAttribute("data-edit-income-payment");
-      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId });
+      const iso = btn.getAttribute("data-edit-income-iso");
+      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
     };
   });
 }
