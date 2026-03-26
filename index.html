@@ -507,14 +507,31 @@
             </select>
           </label>
 
+          <div class="defaults-row">
+            <label class="field">
+              År
+              <select id="incomeDefaultYear"></select>
+            </label>
+            <label class="field">
+              Utbetalningsdag
+              <select id="incomeDefaultDay"></select>
+            </label>
+            <label class="field">
+              Belopp (kr)
+              <input id="incomeDefaultAmount" type="number" inputmode="decimal" min="0" step="1" />
+            </label>
+          </div>
+
           <div class="table-card compact" style="box-shadow: none">
             <div class="table-title small">Inbetalningar</div>
-            <div class="note" style="margin-top: 0">Datum + belopp netto per rad.</div>
+            <div class="note" style="margin-top: 0">Välj år + månad per rad. Dag väljs med datepicker (låst till år/månad).</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Inbetalningar">
                 <thead>
                   <tr>
-                    <th>Datum</th>
+                    <th>År</th>
+                    <th>Månad</th>
+                    <th>Dag</th>
                     <th class="right">Belopp</th>
                   </tr>
                 </thead>

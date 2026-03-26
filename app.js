@@ -56,6 +56,61 @@ function uid() {
   return `id_${Math.random().toString(16).slice(2)}_${Date.now()}`;
 }
 
+function daysInMonth(year, month1to12) {
+  const y = Number(year);
+  const m = Number(month1to12);
+  return new Date(y, m, 0).getDate();
+}
+
+function clampDay(year, month1to12, day) {
+  const d = Math.max(1, Math.floor(asNumber(day)));
+  return Math.min(d, daysInMonth(year, month1to12));
+}
+
+function isoDateFromParts(year, month1to12, day) {
+  const y = Number(year);
+  const m = Number(month1to12);
+  const dd = clampDay(y, m, day);
+  return `${y}-${pad2(m)}-${pad2(dd)}`;
+}
+
+function datePartsFromIso(iso) {
+  if (!iso || typeof iso !== "string") return null;
+  // Expect YYYY-MM-DD
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
+  if (mo < 1 || mo > 12) return null;
+  return { y, m: mo, d: clampDay(y, mo, d) };
+}
+
+function setYear3Options(selectEl, selectedYear) {
+  const cur = currentYearMonth().year;
+  const years = [cur - 1, cur, cur + 1];
+  selectEl.innerHTML = "";
+  for (const y of years) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    if (Number(selectedYear) === y) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function setDayOptions(selectEl, selectedDay) {
+  selectEl.innerHTML = "";
+  for (let d = 1; d <= 31; d++) {
+    const opt = document.createElement("option");
+    opt.value = String(d);
+    opt.textContent = String(d);
+    if (Number(selectedDay) === d) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
 function safeParseJson(text) {
   try {
     return JSON.parse(text);
@@ -974,7 +1029,33 @@ function renderIncomesPage() {
   });
 
   document.getElementById("incomeIntervalSelect").onchange = () => {
-    renderIncomePaymentsEditorRows();
+    applyIncomeDefaultsToEditorRows(true);
+  };
+
+  // Defaults (used to prefill rows)
+  const defYear = document.getElementById("incomeDefaultYear");
+  const defDay = document.getElementById("incomeDefaultDay");
+  const defAmt = document.getElementById("incomeDefaultAmount");
+
+  if (!ui.incomeDefaults) {
+    ui.incomeDefaults = { year: currentYearMonth().year, day: 25, amount: 0 };
+  }
+
+  setYear3Options(defYear, ui.incomeDefaults.year);
+  setDayOptions(defDay, ui.incomeDefaults.day);
+  defAmt.value = asNumber(ui.incomeDefaults.amount);
+
+  defYear.onchange = () => {
+    ui.incomeDefaults.year = Number(defYear.value);
+    applyIncomeDefaultsToEditorRows(true);
+  };
+  defDay.onchange = () => {
+    ui.incomeDefaults.day = Number(defDay.value);
+    applyIncomeDefaultsToEditorRows(true);
+  };
+  defAmt.oninput = () => {
+    ui.incomeDefaults.amount = asNumber(defAmt.value);
+    applyIncomeDefaultsToEditorRows(true);
   };
 
   document.getElementById("closeIncomeModalBtn").onclick = closeIncomeOverlay;
@@ -998,10 +1079,29 @@ function openIncomeOverlay(incomeId) {
   document.getElementById("incomeIntervalSelect").value = inc?.interval || "once";
 
   ui.incomeEditorPayments = Array.isArray(inc?.payments) ? inc.payments.map((p) => ({ ...p })) : [];
-  renderIncomePaymentsEditorRows();
+  // Initialize defaults from existing data (if editing)
+  const curY = currentYearMonth().year;
+  const firstPayment = (ui.incomeEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.date);
+  const parts = firstPayment ? datePartsFromIso(firstPayment.date) : null;
+  ui.incomeDefaults = ui.incomeDefaults || { year: curY, day: 25, amount: 0 };
+  ui.incomeDefaults.year = parts?.y || ui.incomeDefaults.year || curY;
+  ui.incomeDefaults.day = parts?.d || ui.incomeDefaults.day || 25;
+  ui.incomeDefaults.amount = firstPayment ? asNumber(firstPayment.amount) : ui.incomeDefaults.amount;
+
+  // Apply to controls
+  const defYear = document.getElementById("incomeDefaultYear");
+  const defDay = document.getElementById("incomeDefaultDay");
+  const defAmt = document.getElementById("incomeDefaultAmount");
+  setYear3Options(defYear, ui.incomeDefaults.year);
+  setDayOptions(defDay, ui.incomeDefaults.day);
+  defAmt.value = asNumber(ui.incomeDefaults.amount);
+
+  applyIncomeDefaultsToEditorRows(!editing);
 
   backdrop.hidden = false;
   modal.hidden = false;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
 }
 
 function closeIncomeOverlay() {
@@ -1009,6 +1109,8 @@ function closeIncomeOverlay() {
   ui.incomeEditorPayments = null;
   document.getElementById("incomeModalBackdrop").hidden = true;
   document.getElementById("incomeModal").hidden = true;
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
 }
 
 function paymentsCountForInterval(interval) {
@@ -1016,6 +1118,44 @@ function paymentsCountForInterval(interval) {
   if (interval === "quarterly") return 3;
   if (interval === "yearly") return 1;
   return 1; // once
+}
+
+function monthsForInterval(interval) {
+  if (interval === "monthly") return Array.from({ length: 12 }).map((_, i) => i + 1);
+  if (interval === "quarterly") return [3, 6, 9]; // kvartal: 3 utbetalningar (ex mars/juni/sep) - kan justeras senare
+  if (interval === "yearly") return [1];
+  // once
+  return [new Date().getMonth() + 1];
+}
+
+function applyIncomeDefaultsToEditorRows(overwriteExisting) {
+  const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
+  const count = paymentsCountForInterval(interval);
+  const months = monthsForInterval(interval);
+
+  const defYear = asNumber(document.getElementById("incomeDefaultYear")?.value || ui.incomeDefaults?.year);
+  const defDay = asNumber(document.getElementById("incomeDefaultDay")?.value || ui.incomeDefaults?.day);
+  const defAmt = asNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
+
+  if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
+
+  // Ensure length
+  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ id: uid(), date: "", amount: 0 });
+  if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
+
+  // Overwrite dates/amounts based on defaults + interval
+  ui.incomeEditorPayments = ui.incomeEditorPayments.map((p, idx) => {
+    const existingParts = datePartsFromIso(p.date);
+    const shouldOverwrite = overwriteExisting || !p.date;
+    if (!shouldOverwrite && existingParts) return p;
+
+    const month = months[Math.min(idx, months.length - 1)] || 1;
+    const iso = isoDateFromParts(defYear || currentYearMonth().year, month, defDay || 25);
+    const amount = overwriteExisting ? defAmt : asNumber(p.amount);
+    return { ...p, date: iso, amount };
+  });
+
+  renderIncomePaymentsEditorRows();
 }
 
 function renderIncomePaymentsEditorRows() {
@@ -1030,21 +1170,69 @@ function renderIncomePaymentsEditorRows() {
   body.innerHTML = "";
 
   ui.incomeEditorPayments.forEach((p, idx) => {
+    const parts = datePartsFromIso(p.date) || {
+      y: currentYearMonth().year,
+      m: idx + 1,
+      d: 25
+    };
+
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input type="date" class="tight" data-inc-pay-date="${idx}" value="${escapeHtml(p.date || "")}" /></td>
+      <td>
+        <select class="tight" data-inc-pay-year="${idx}"></select>
+      </td>
+      <td>
+        <select class="tight" data-inc-pay-month="${idx}"></select>
+      </td>
+      <td>
+        <input type="date" class="tight" data-inc-pay-day="${idx}" value="${escapeHtml(
+          isoDateFromParts(parts.y, parts.m, parts.d)
+        )}" />
+      </td>
       <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-inc-pay-amt="${idx}" value="${escapeHtml(asNumber(p.amount))}" /></td>
     `;
     body.appendChild(tr);
   });
 
-  // Bind inputs
-  document.querySelectorAll("[data-inc-pay-date]").forEach((el) => {
+  // Populate + bind year/month/day + amount
+  document.querySelectorAll("[data-inc-pay-year]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-inc-pay-year"));
+    const p = ui.incomeEditorPayments[idx];
+    const parts = datePartsFromIso(p.date) || { y: currentYearMonth().year, m: 1, d: 25 };
+    setYear3Options(el, parts.y);
     el.onchange = () => {
-      const idx = Number(el.getAttribute("data-inc-pay-date"));
-      ui.incomeEditorPayments[idx].date = el.value || "";
+      const newY = Number(el.value);
+      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || parts;
+      ui.incomeEditorPayments[idx].date = isoDateFromParts(newY, cur.m, cur.d);
+      renderIncomePaymentsEditorRows();
     };
   });
+
+  document.querySelectorAll("[data-inc-pay-month]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-inc-pay-month"));
+    const p = ui.incomeEditorPayments[idx];
+    const parts = datePartsFromIso(p.date) || { y: currentYearMonth().year, m: 1, d: 25 };
+    setMonthOptions(el, parts.m);
+    el.onchange = () => {
+      const newM = Number(el.value);
+      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || parts;
+      ui.incomeEditorPayments[idx].date = isoDateFromParts(cur.y, newM, cur.d);
+      renderIncomePaymentsEditorRows();
+    };
+  });
+
+  document.querySelectorAll("[data-inc-pay-day]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-inc-pay-day"));
+    el.onchange = () => {
+      const picked = datePartsFromIso(el.value);
+      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || { y: currentYearMonth().year, m: 1, d: 25 };
+      // Ignorera år/månad från datepicker: använd bara dag
+      const newDay = picked?.d || cur.d;
+      ui.incomeEditorPayments[idx].date = isoDateFromParts(cur.y, cur.m, newDay);
+      renderIncomePaymentsEditorRows();
+    };
+  });
+
   document.querySelectorAll("[data-inc-pay-amt]").forEach((el) => {
     el.oninput = () => {
       const idx = Number(el.getAttribute("data-inc-pay-amt"));
@@ -1295,10 +1483,14 @@ function initActions() {
     modalText.textContent = text;
     backdrop.hidden = false;
     modal.hidden = false;
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
   }
   function hideModal() {
     backdrop.hidden = true;
     modal.hidden = true;
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
   }
   closeBtn.addEventListener("click", hideModal);
   laterBtn.addEventListener("click", () => {
