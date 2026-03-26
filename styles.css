@@ -658,6 +658,36 @@ tr.month-break td {
   grid-row: 1;
 }
 
+#expenseModal .modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: stretch;
+}
+
+#expenseModal #expenseDeleteBtn {
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+}
+
+#expenseModal #expenseSaveBtn {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+}
+
+#expenseModal #expenseCancelBtn {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  width: 100%;
+}
+
+#expenseModal[data-mode="create"] #expenseSaveBtn {
+  grid-column: 1 / span 2;
+  grid-row: 1;
+}
+
 html.modal-open,
 body.modal-open {
   overflow: hidden;

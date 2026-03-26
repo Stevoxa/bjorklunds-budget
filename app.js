@@ -179,6 +179,7 @@ function getDefaultState() {
       expenses: { [String(currentYear)]: [] }
     },
     incomes: [],
+    expenses: [],
     oneOff: {
       incomes: {},
       expenses: {}
@@ -227,6 +228,7 @@ function normalizeStateShape(state) {
   normalized.recurring.expenses = normalized.recurring.expenses || base.recurring.expenses;
 
   normalized.incomes = Array.isArray(normalized.incomes) ? normalized.incomes : [];
+  normalized.expenses = Array.isArray(normalized.expenses) ? normalized.expenses : [];
 
   normalized.oneOff = normalized.oneOff || base.oneOff;
   normalized.oneOff.incomes = normalized.oneOff.incomes || {};
@@ -244,6 +246,9 @@ function normalizeStateShape(state) {
   migrateLegacyIncomes(normalized);
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
+  migrateLegacyExpenses(normalized);
+  ensureExpenseIds(normalized);
+  cleanupExpenseGarbage(normalized);
 
   return normalized;
 }
@@ -269,6 +274,19 @@ function cleanupIncomeGarbage(root) {
   });
 }
 
+function cleanupExpenseGarbage(root) {
+  if (!Array.isArray(root.expenses)) return;
+  const hasMeaningfulPayments = (exp) => {
+    const payments = Array.isArray(exp?.payments) ? exp.payments : [];
+    return payments.some((p) => asNumber(p?.amount) > 0 && Boolean(p?.date));
+  };
+  root.expenses = root.expenses.filter((exp) => {
+    const name = String(exp?.name || "").trim();
+    if (!name && !hasMeaningfulPayments(exp)) return false;
+    return true;
+  });
+}
+
 function ensureIncomeIds(root) {
   if (!Array.isArray(root.incomes)) root.incomes = [];
   root.incomes = root.incomes.map((inc) => {
@@ -283,6 +301,25 @@ function ensureIncomeIds(root) {
       id: incomeId,
       name: String(inc?.name || "").trim(),
       interval: inc?.interval || "once",
+      payments: normalizedPayments
+    };
+  });
+}
+
+function ensureExpenseIds(root) {
+  if (!Array.isArray(root.expenses)) root.expenses = [];
+  root.expenses = root.expenses.map((exp) => {
+    const expenseId = exp?.id || uid();
+    const payments = Array.isArray(exp?.payments) ? exp.payments : [];
+    const normalizedPayments = payments.map((p) => ({
+      id: p?.id || uid(),
+      date: p?.date || "",
+      amount: asNumber(p?.amount)
+    }));
+    return {
+      id: expenseId,
+      name: String(exp?.name || "").trim(),
+      interval: exp?.interval || "once",
       payments: normalizedPayments
     };
   });
@@ -341,6 +378,34 @@ function migrateLegacyIncomes(root) {
   delete root.recurring.incomes;
 }
 
+function migrateLegacyExpenses(root) {
+  const legacy = root?.recurring?.expenses;
+  if (!legacy || typeof legacy !== "object") return;
+  const legacyYears = Object.keys(legacy);
+  if (legacyYears.length === 0) return;
+  if (!Array.isArray(root.expenses)) root.expenses = [];
+
+  const DEFAULT_PAYDAY = 25;
+  const makeMonthlyPayments = (year, monthlyAmount) =>
+    Array.from({ length: 12 }).map((_, i) => ({ id: uid(), date: `${year}-${pad2(i + 1)}-${pad2(DEFAULT_PAYDAY)}`, amount: asNumber(monthlyAmount) }));
+  const makeYearlyPayment = (year, yearlyAmount) => [{ id: uid(), date: `${year}-01-01`, amount: asNumber(yearlyAmount) }];
+
+  for (const y of legacyYears) {
+    const year = Number(y);
+    if (!Number.isFinite(year)) continue;
+    const items = Array.isArray(legacy[y]) ? legacy[y] : [];
+    for (const it of items) {
+      const name = String(it?.name || "").trim() || "Utgift";
+      const frequency = it?.frequency || "monthly";
+      const amount = asNumber(it?.amount);
+      const payments = frequency === "yearly" ? makeYearlyPayment(year, amount) : makeMonthlyPayments(year, amount);
+      root.expenses.push({ id: uid(), name, interval: frequency === "yearly" ? "yearly" : "monthly", payments });
+    }
+  }
+  if (!root.recurring) root.recurring = {};
+  delete root.recurring.expenses;
+}
+
 let state = null;
 const ui = {
   activeRoute: "overview",
@@ -352,7 +417,10 @@ const ui = {
   expensesTab: "summary",
   // Intäkter
   incomeYearFilter: null,
-  incomeMonthFilter: "all"
+  incomeMonthFilter: "all",
+  // Utgifter
+  expenseYearFilter: null,
+  expenseMonthFilter: "all"
 };
 
 function loadState() {
@@ -424,13 +492,24 @@ function getAvailableYears() {
     if (!obj) return;
     Object.keys(obj).forEach((k) => years.add(k));
   };
-  addFrom(state.recurring?.incomes);
-  addFrom(state.recurring?.expenses);
   addFrom(state.special?.car);
   addFrom(state.special?.home);
   addFrom(state.special?.loans);
   addFrom(state.special?.children);
   addFrom(state.special?.food);
+
+  for (const inc of state.incomes || []) {
+    for (const p of inc.payments || []) {
+      const dt = p?.date ? new Date(p.date) : null;
+      if (dt && !Number.isNaN(dt.getTime())) years.add(String(dt.getFullYear()));
+    }
+  }
+  for (const exp of state.expenses || []) {
+    for (const p of exp.payments || []) {
+      const dt = p?.date ? new Date(p.date) : null;
+      if (dt && !Number.isNaN(dt.getTime())) years.add(String(dt.getFullYear()));
+    }
+  }
   return Array.from(years)
     .map((s) => Number(s))
     .filter((n) => Number.isFinite(n))
@@ -530,8 +609,6 @@ function computeMonthOverview(year, month) {
   const y = String(year);
   const m = monthKey(month);
 
-  const recurringExpenses = state.recurring?.expenses?.[y] || [];
-
   const car = computeSpecialCarMonthly(year);
   const housing = computeSpecialHousingMonthly(year);
   const food = computeSpecialFoodMonthly(year, month);
@@ -548,7 +625,22 @@ function computeMonthOverview(year, month) {
     amount: asNumber(it.amount)
   }));
 
-  const recurringExpensesAmount = recurringExpenses.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
+  const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
+    const payments = Array.isArray(exp.payments) ? exp.payments : [];
+    return (
+      sum +
+      payments.reduce((s, p) => {
+        const amt = asNumber(p.amount);
+        if (amt <= 0) return s;
+        const dt = p.date ? new Date(p.date) : null;
+        if (!dt || Number.isNaN(dt.getTime())) return s;
+        const py = dt.getFullYear();
+        const pm = dt.getMonth() + 1;
+        if (py === year && pm === month) return s + amt;
+        return s;
+      }, 0)
+    );
+  }, 0);
 
   const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
     const payments = Array.isArray(inc.payments) ? inc.payments : [];
@@ -571,12 +663,12 @@ function computeMonthOverview(year, month) {
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
   const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
-  const plannedExpensesAmount = recurringExpensesAmount + specialsAmount + oneOffExpensesAmount;
+  const plannedExpensesAmount = expensePaymentsAmount + specialsAmount + oneOffExpensesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
   // Diagramsegment: återkommande + special + enstaka
   const segments = [
-    { key: "recurringExpenses", label: "Återkommande utgifter", amount: recurringExpensesAmount, color: "#8b5cf6" },
+    { key: "recurringExpenses", label: "Utgifter", amount: expensePaymentsAmount, color: "#8b5cf6" },
     { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
     { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
     { key: "food", label: "Mat", amount: food.total, color: "#f59e0b" },
@@ -586,8 +678,16 @@ function computeMonthOverview(year, month) {
 
   // Tabellen: bryt ner utgifter och intäkter
   const expensesRows = [];
-  for (const it of recurringExpenses) {
-    expensesRows.push({ group: "Återkommande utgifter", label: `${it.name} (${freqLabel(it.frequency)})`, amount: recurringMonthlyAmount(it) });
+  for (const exp of state.expenses || []) {
+    const payments = Array.isArray(exp.payments) ? exp.payments : [];
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
+      expensesRows.push({ group: "Utgifter", label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
+    }
   }
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
   for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
@@ -946,27 +1046,9 @@ function renderRoute(route) {
       break;
     }
     case "expenses": {
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("expensesYear");
-      const baseYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
-      ui.expensesYear = baseYear;
-      setSelectOptions(yearSel, years, baseYear);
-      yearSel.onchange = () => {
-        ui.expensesYear = Number(yearSel.value);
-        renderRecurringTables();
-        renderExpensesSubViews();
-        renderOverviewIfOnOverview();
-      };
       const monthSel = document.getElementById("expensesFoodMonth");
-      if (monthSel) {
-        setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
-        monthSel.onchange = () => {
-          if (ui.expensesTab === "food") renderFoodPage();
-          renderOverviewIfOnOverview();
-        };
-      }
+      if (monthSel) setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
       bindExpensesSubnav();
-      renderRecurringTables();
       renderExpensesSubViews();
       break;
     }
@@ -1647,6 +1729,413 @@ function renderIncomesList() {
   });
 }
 
+function expenseYearsForFilter() {
+  const years = new Set();
+  years.add("all");
+  for (const exp of state.expenses || []) {
+    for (const p of exp.payments || []) {
+      if (!p?.date) continue;
+      const dt = new Date(p.date);
+      if (Number.isNaN(dt.getTime())) continue;
+      years.add(String(dt.getFullYear()));
+    }
+  }
+  const cur = currentYearMonth().year;
+  years.add(String(cur - 1));
+  years.add(String(cur));
+  years.add(String(cur + 1));
+  const arr = Array.from(years);
+  const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
+  return ["all", ...nums.map(String)];
+}
+
+function setExpenseYearFilterOptions(selectEl, selected) {
+  selectEl.innerHTML = "";
+  for (const y of expenseYearsForFilter()) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y === "all" ? "Alla" : y;
+    if (String(selected) === y) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function buildExpensePaymentRowsForList(yearFilter) {
+  const rows = [];
+  const monthFilter = ui.expenseMonthFilter || "all";
+  for (const exp of state.expenses || []) {
+    const name = exp.name || "Utgift";
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = p.date || "";
+      const dt = iso ? new Date(iso) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (yearFilter !== "all" && String(dt.getFullYear()) !== String(yearFilter)) continue;
+      if (monthFilter !== "all" && Number(monthFilter) !== dt.getMonth() + 1) continue;
+      rows.push({ expenseId: exp.id, paymentId: p.id, name, isoDate: iso, date: dt, amount: amt });
+    }
+  }
+  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return rows;
+}
+
+function renderExpensesSummaryPage() {
+  const yearEl = requireEl("expenseYearFilter");
+  if (!ui.expenseYearFilter) ui.expenseYearFilter = String(currentYearMonth().year);
+  setExpenseYearFilterOptions(yearEl, ui.expenseYearFilter);
+  yearEl.onchange = () => {
+    ui.expenseYearFilter = yearEl.value;
+    renderExpensesList();
+  };
+
+  const monthEl = requireEl("expenseMonthFilter");
+  if (!ui.expenseMonthFilter) ui.expenseMonthFilter = "all";
+  setMonthFilterOptions(monthEl, ui.expenseMonthFilter);
+  monthEl.onchange = () => {
+    ui.expenseMonthFilter = monthEl.value;
+    renderExpensesList();
+  };
+
+  requireEl("openExpenseOverlayBtn").onclick = () => openExpenseOverlay(null);
+  requireEl("expenseIntervalSelect").onchange = () => resetExpenseEditorRowsForInterval();
+
+  const defYear = requireEl("expenseDefaultYear");
+  const defDay = requireEl("expenseDefaultDay");
+  const defAmt = requireEl("expenseDefaultAmount");
+  if (!ui.expenseDefaults) ui.expenseDefaults = { year: currentYearMonth().year, day: 25, amount: 0 };
+  setYear3Options(defYear, ui.expenseDefaults.year);
+  setDayOptions(defDay, ui.expenseDefaults.day);
+  defAmt.value = asNumber(ui.expenseDefaults.amount);
+  defYear.onchange = () => {
+    ui.expenseDefaults.year = Number(defYear.value);
+    applyExpenseDefaultFieldToEditorRows("year");
+  };
+  defDay.onchange = () => {
+    ui.expenseDefaults.day = Number(defDay.value);
+    applyExpenseDefaultFieldToEditorRows("day");
+  };
+  defAmt.oninput = () => {
+    ui.expenseDefaults.amount = asNumber(defAmt.value);
+    applyExpenseDefaultFieldToEditorRows("amount");
+  };
+
+  requireEl("closeExpenseModalBtn").onclick = closeExpenseOverlay;
+  requireEl("expenseCancelBtn").onclick = closeExpenseOverlay;
+  requireEl("expenseSaveBtn").onclick = saveExpenseFromOverlay;
+  requireEl("expenseDeleteBtn").onclick = () => {
+    if (!ui.editExpenseId) return;
+    showConfirmDeleteExpenseModal();
+  };
+  requireEl("closeDeleteExpenseModalBtn").onclick = hideConfirmDeleteExpenseModal;
+  requireEl("cancelDeleteExpenseBtn").onclick = hideConfirmDeleteExpenseModal;
+  requireEl("confirmDeleteExpenseBtn").onclick = () => {
+    if (!ui.editExpenseId) return hideConfirmDeleteExpenseModal();
+    state.expenses = (state.expenses || []).filter((x) => x.id !== ui.editExpenseId);
+    saveState();
+    hideConfirmDeleteExpenseModal();
+    closeExpenseOverlay();
+    renderExpensesList();
+    renderOverviewIfOnOverview();
+  };
+
+  renderExpensesList();
+}
+
+function renderExpensesList() {
+  const rows = buildExpensePaymentRowsForList(ui.expenseYearFilter || "all");
+  const body = requireEl("expensePaymentsTableBody");
+  body.innerHTML = "";
+  requireEl("expenseListNote").textContent = "";
+  if (rows.length === 0) {
+    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga utgifter för valt filter.</td></tr>`;
+    return;
+  }
+  let prevMonthKey = null;
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
+    if (prevMonthKey && monthKey !== prevMonthKey) tr.classList.add("month-break");
+    prevMonthKey = monthKey;
+    tr.innerHTML = `
+      <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
+      r.name
+    )}</button></td>
+      <td><button class="linklike truncate" type="button" data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      r.paymentId || ""
+    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}" title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
+      <td class="right">${formatKr(r.amount)}</td>
+      <td class="right"><button class="secondary btn-icon" type="button" data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      r.paymentId || ""
+    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}" aria-label="Redigera">✎</button></td>
+    `;
+    body.appendChild(tr);
+  }
+  document.querySelectorAll("[data-show-expense-name]").forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll("[data-show-expense-name].peek").forEach((open) => open.classList.remove("peek"));
+      btn.classList.add("peek");
+      setTimeout(() => btn.classList.remove("peek"), 1800);
+    };
+  });
+  document.querySelectorAll("[data-edit-expense],[data-edit-expense-date]").forEach((btn) => {
+    btn.onclick = () => {
+      const expenseId = btn.getAttribute("data-edit-expense") || btn.getAttribute("data-edit-expense-date");
+      const paymentId = btn.getAttribute("data-edit-expense-payment");
+      const iso = btn.getAttribute("data-edit-expense-iso");
+      openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
+    };
+  });
+}
+
+function getExpenseDefaultsFromUI() {
+  const defYear = asNumber(document.getElementById("expenseDefaultYear")?.value || ui.expenseDefaults?.year);
+  const defDay = asNumber(document.getElementById("expenseDefaultDay")?.value || ui.expenseDefaults?.day);
+  const defAmt = asNumber(document.getElementById("expenseDefaultAmount")?.value || ui.expenseDefaults?.amount);
+  return { year: String(defYear || currentYearMonth().year), day: String(defDay || 25), amount: defAmt };
+}
+
+function resetExpenseEditorRowsForInterval() {
+  const interval = document.getElementById("expenseIntervalSelect")?.value || "once";
+  const count = paymentsCountForInterval(interval);
+  const months = monthsForInterval(interval);
+  const defaults = getExpenseDefaultsFromUI();
+  ui.expenseEditorPayments = [];
+  for (let i = 0; i < count; i++) {
+    const m = months[Math.min(i, months.length - 1)] || 1;
+    ui.expenseEditorPayments.push({ id: uid(), year: defaults.year, month: pad2(m), day: defaults.day, amount: defaults.amount, date: `${defaults.year}-${pad2(m)}-${pad2(Number(defaults.day))}` });
+  }
+  renderExpensePaymentsEditorRows();
+}
+
+function applyExpenseDefaultFieldToEditorRows(field) {
+  if (!Array.isArray(ui.expenseEditorPayments)) ui.expenseEditorPayments = [];
+  const defaults = getExpenseDefaultsFromUI();
+  ui.expenseEditorPayments = ui.expenseEditorPayments.map((p) => {
+    if (field === "year") return { ...p, year: defaults.year };
+    if (field === "day") return { ...p, day: defaults.day };
+    if (field === "amount") return { ...p, amount: defaults.amount };
+    return p;
+  });
+  renderExpensePaymentsEditorRows();
+}
+
+function openExpenseOverlay(expenseId, opts = {}) {
+  ui.editExpenseId = expenseId;
+  ui.expenseScrollToPaymentId = opts?.scrollToPaymentId || null;
+  ui.expenseScrollToPaymentDateISO = opts?.scrollToPaymentDateISO || null;
+  ui.expenseFocusPaymentId = null;
+  ui.expenseFocusPaymentDateISO = null;
+  const modal = requireEl("expenseModal");
+  const backdrop = requireEl("expenseModalBackdrop");
+  const editing = Boolean(expenseId);
+  modal.dataset.mode = editing ? "edit" : "create";
+  requireEl("expenseModalTitle").textContent = editing ? "Redigera utgift" : "Ny utgift";
+  requireEl("expenseEditorNote").textContent = "";
+  requireEl("expenseDeleteBtn").hidden = !editing;
+  const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
+  requireEl("expenseNameInput").value = exp?.name || "";
+  requireEl("expenseIntervalSelect").value = exp?.interval || "once";
+  ui.expenseEditorPayments = Array.isArray(exp?.payments)
+    ? exp.payments.map((p) => {
+        const parts = datePartsFromIso(p.date) || null;
+        return { id: p.id || uid(), date: p.date || "", year: parts ? String(parts.y) : "", month: parts ? pad2(parts.m) : "", day: parts ? String(parts.d) : "", amount: asNumber(p.amount) };
+      })
+    : [];
+  if (ui.expenseScrollToPaymentId) {
+    const pid = String(ui.expenseScrollToPaymentId);
+    if (ui.expenseEditorPayments.some((p) => String(p.id || "") === pid)) ui.expenseFocusPaymentId = pid;
+  }
+  if (!ui.expenseFocusPaymentId && ui.expenseScrollToPaymentDateISO) ui.expenseFocusPaymentDateISO = String(ui.expenseScrollToPaymentDateISO);
+
+  const firstPayment = (ui.expenseEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.year && p.month && p.day);
+  const parts = firstPayment ? { y: Number(firstPayment.year), d: Number(firstPayment.day) } : null;
+  ui.expenseDefaults = ui.expenseDefaults || { year: currentYearMonth().year, day: 25, amount: 0 };
+  ui.expenseDefaults.year = parts?.y || ui.expenseDefaults.year;
+  ui.expenseDefaults.day = parts?.d || ui.expenseDefaults.day;
+  ui.expenseDefaults.amount = firstPayment ? asNumber(firstPayment.amount) : ui.expenseDefaults.amount;
+  setYear3Options(requireEl("expenseDefaultYear"), ui.expenseDefaults.year);
+  setDayOptions(requireEl("expenseDefaultDay"), ui.expenseDefaults.day);
+  requireEl("expenseDefaultAmount").value = asNumber(ui.expenseDefaults.amount);
+
+  if (!editing) resetExpenseEditorRowsForInterval();
+  else renderExpensePaymentsEditorRows();
+
+  backdrop.hidden = false;
+  modal.hidden = false;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  if (ui.expenseScrollToPaymentId || ui.expenseScrollToPaymentDateISO) {
+    requestAnimationFrame(() => {
+      scrollToExpensePaymentRow({
+        paymentId: ui.expenseFocusPaymentId || ui.expenseScrollToPaymentId,
+        dateISO: ui.expenseFocusPaymentDateISO || ui.expenseScrollToPaymentDateISO
+      });
+      ui.expenseScrollToPaymentId = null;
+      ui.expenseScrollToPaymentDateISO = null;
+    });
+  }
+}
+
+function closeExpenseOverlay() {
+  ui.editExpenseId = null;
+  ui.expenseEditorPayments = null;
+  ui.expenseFocusPaymentId = null;
+  ui.expenseFocusPaymentDateISO = null;
+  requireEl("expenseModalBackdrop").hidden = true;
+  requireEl("expenseModal").hidden = true;
+  delete requireEl("expenseModal").dataset.mode;
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
+}
+
+function showConfirmDeleteExpenseModal() {
+  requireEl("confirmDeleteExpenseBackdrop").hidden = false;
+  requireEl("confirmDeleteExpenseModal").hidden = false;
+}
+function hideConfirmDeleteExpenseModal() {
+  requireEl("confirmDeleteExpenseBackdrop").hidden = true;
+  requireEl("confirmDeleteExpenseModal").hidden = true;
+}
+
+function renderExpensePaymentsEditorRows() {
+  const interval = requireEl("expenseIntervalSelect").value || "once";
+  const count = paymentsCountForInterval(interval);
+  if (!Array.isArray(ui.expenseEditorPayments)) ui.expenseEditorPayments = [];
+  while (ui.expenseEditorPayments.length < count) ui.expenseEditorPayments.push({ id: uid(), year: "", month: "", day: "", amount: 0, date: "" });
+  if (ui.expenseEditorPayments.length > count) ui.expenseEditorPayments = ui.expenseEditorPayments.slice(0, count);
+  const body = requireEl("expensePaymentsEditorBody");
+  body.innerHTML = "";
+  ui.expenseEditorPayments.forEach((p, idx) => {
+    const y = parseIntOrNull(p.year);
+    const m = parseIntOrNull(p.month);
+    const d = parseIntOrNull(p.day);
+    const rowISO = y !== null && m !== null && d !== null ? `${y}-${pad2(m)}-${pad2(d)}` : "";
+    const tr = document.createElement("tr");
+    tr.setAttribute("data-exp-editor-row", String(idx));
+    tr.setAttribute("data-exp-payment-id", String(p.id || ""));
+    tr.setAttribute("data-exp-payment-date", rowISO);
+    const idMatch = ui.expenseFocusPaymentId && String(p.id || "") === String(ui.expenseFocusPaymentId);
+    const dateMatch = ui.expenseFocusPaymentDateISO && rowISO === String(ui.expenseFocusPaymentDateISO);
+    if (idMatch || (!ui.expenseFocusPaymentId && dateMatch)) tr.classList.add("row-focused");
+    tr.innerHTML = `
+      <td><input class="tight" inputmode="numeric" type="number" step="1" data-exp-pay-year="${idx}" placeholder="2026" value="${escapeHtml(p.year ?? "")}" /></td>
+      <td><input class="tight" inputmode="numeric" type="text" maxlength="2" data-exp-pay-month="${idx}" placeholder="01-12" value="${escapeHtml(p.month ?? "")}" /></td>
+      <td><input class="tight" inputmode="numeric" type="number" step="1" data-exp-pay-day="${idx}" placeholder="1-31" value="${escapeHtml(p.day ?? "")}" /></td>
+      <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-exp-pay-amt="${idx}" placeholder="0" value="${escapeHtml(
+        asNumber(p.amount)
+      )}" /></td>
+    `;
+    body.appendChild(tr);
+    const errTr = document.createElement("tr");
+    errTr.innerHTML = `<td colspan="4"><div class="field-error" data-exp-pay-err="${idx}"></div></td>`;
+    body.appendChild(errTr);
+  });
+  const update = (idx) => {
+    const row = ui.expenseEditorPayments[idx];
+    const res = validateIncomePaymentParts(row);
+    const err = document.querySelector(`[data-exp-pay-err="${idx}"]`);
+    const show = asNumber(row.amount) > 0;
+    if (err) err.textContent = show && !res.ok ? res.message : "";
+    ["year", "month", "day"].forEach((k) => {
+      const el = document.querySelector(`[data-exp-pay-${k}="${idx}"]`);
+      if (!el) return;
+      const invalid = show && !res.ok;
+      el.classList.toggle("input-invalid", invalid);
+      el.setAttribute("aria-invalid", invalid ? "true" : "false");
+    });
+  };
+  document.querySelectorAll("[data-exp-pay-year]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-exp-pay-year"));
+    el.oninput = () => {
+      ui.expenseEditorPayments[idx].year = el.value;
+      update(idx);
+    };
+    update(idx);
+  });
+  document.querySelectorAll("[data-exp-pay-month]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-exp-pay-month"));
+    el.oninput = () => {
+      ui.expenseEditorPayments[idx].month = el.value;
+      update(idx);
+    };
+  });
+  document.querySelectorAll("[data-exp-pay-day]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-exp-pay-day"));
+    el.oninput = () => {
+      ui.expenseEditorPayments[idx].day = el.value;
+      update(idx);
+    };
+  });
+  document.querySelectorAll("[data-exp-pay-amt]").forEach((el) => {
+    const idx = Number(el.getAttribute("data-exp-pay-amt"));
+    el.oninput = () => {
+      ui.expenseEditorPayments[idx].amount = asNumber(el.value);
+      update(idx);
+    };
+  });
+}
+
+function scrollToExpensePaymentRow({ paymentId, dateISO }) {
+  const body = requireEl("expensePaymentsEditorBody");
+  let target = null;
+  if (paymentId) {
+    target = Array.from(body.querySelectorAll("[data-exp-payment-id]")).find((el) => el.getAttribute("data-exp-payment-id") === String(paymentId));
+  }
+  if (!target && dateISO) {
+    target = Array.from(body.querySelectorAll("[data-exp-payment-date]")).find((el) => el.getAttribute("data-exp-payment-date") === String(dateISO));
+  }
+  if (!target) return;
+  target.classList.add("row-highlight");
+  const container = document.querySelector("#expenseModal .modal-body");
+  if (container) {
+    const cRect = container.getBoundingClientRect();
+    const rRect = target.getBoundingClientRect();
+    const top = container.scrollTop + (rRect.top - cRect.top) - 80;
+    container.scrollTo({ top, behavior: "smooth" });
+  }
+  const amountInput = target.querySelector("[data-exp-pay-amt]");
+  if (amountInput) amountInput.focus({ preventScroll: true });
+  setTimeout(() => target.classList.remove("row-highlight"), 1600);
+}
+
+function saveExpenseFromOverlay() {
+  const name = (requireEl("expenseNameInput").value || "").trim();
+  const interval = requireEl("expenseIntervalSelect").value || "once";
+  const note = requireEl("expenseEditorNote");
+  if (!name) {
+    note.textContent = "Ange namn på utgift.";
+    return;
+  }
+  const payments = (ui.expenseEditorPayments || []).map((p) => ({ id: p.id || uid(), year: p.year, month: p.month, day: p.day, amount: asNumber(p.amount) }));
+  for (const p of payments) {
+    if (asNumber(p.amount) <= 0) continue;
+    const res = validateIncomePaymentParts(p);
+    if (!res.ok) {
+      note.textContent = res.message;
+      return;
+    }
+  }
+  const stored = payments.map((p) => {
+    const y = parseIntOrNull(p.year);
+    const m = parseIntOrNull(p.month);
+    const d = parseIntOrNull(p.day);
+    const amt = asNumber(p.amount);
+    const valid = y !== null && m !== null && d !== null && isAllowedYear(y) && m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m);
+    return { id: p.id, date: valid ? `${y}-${pad2(m)}-${pad2(d)}` : "", amount: amt };
+  });
+  if (ui.editExpenseId) {
+    const idx = (state.expenses || []).findIndex((x) => x.id === ui.editExpenseId);
+    if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], name, interval, payments: stored };
+  } else {
+    state.expenses.push({ id: uid(), name, interval, payments: stored });
+  }
+  saveState();
+  closeExpenseOverlay();
+  renderExpensesList();
+  renderOverviewIfOnOverview();
+}
+
 function bindExpensesSubnav() {
   document.querySelectorAll("[data-exp-tab]").forEach((btn) => {
     btn.onclick = () => {
@@ -1671,6 +2160,7 @@ function renderExpensesSubViews() {
   });
 
   // Render specific subviews when active (pre-fill)
+  if (ui.expensesTab === "summary") renderExpensesSummaryPage();
   if (ui.expensesTab === "home") renderHomePage();
   if (ui.expensesTab === "car") renderCarPage();
   if (ui.expensesTab === "food") renderFoodPage();
@@ -1775,27 +2265,6 @@ function initActions() {
     document.getElementById("loanNote").textContent = "Låneuppgifter sparade.";
     renderOverviewIfOnOverview();
     renderLoansPage();
-  });
-
-  // SETTINGS - add recurring expense
-  document.getElementById("addRecurringExpenseBtn").addEventListener("click", () => {
-    const name = (document.getElementById("recurringExpenseName").value || "").trim();
-    const amount = asNumber(document.getElementById("recurringExpenseAmount").value);
-    const note = document.getElementById("recurringExpensesNote");
-    if (!name || amount <= 0) {
-      note.textContent = "Ange ett namn och ett belopp > 0.";
-      return;
-    }
-    const year = ui.expensesYear || currentYearMonth().year;
-    const frequency = document.getElementById("recurringExpenseFrequency")?.value || "monthly";
-    const list = ensureYearArray(state.recurring.expenses, year);
-    list.push({ id: uid(), name, amount, frequency });
-    saveState();
-    document.getElementById("recurringExpenseName").value = "";
-    document.getElementById("recurringExpenseAmount").value = "";
-    note.textContent = "Återkommande utgift tillagd.";
-    renderRecurringTables();
-    renderOverviewIfOnOverview();
   });
 
   // Inkomster hanteras nu via overlay i Intäkter-vyn.
