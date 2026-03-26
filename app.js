@@ -1072,7 +1072,8 @@ function renderIncomesPage() {
   });
 
   requireEl("incomeIntervalSelect").onchange = () => {
-    applyIncomeDefaultsToEditorRows(true);
+    // Only interval change resets rows
+    resetIncomeEditorRowsForInterval();
   };
 
   // Defaults (used to prefill rows)
@@ -1090,15 +1091,15 @@ function renderIncomesPage() {
 
   defYear.onchange = () => {
     ui.incomeDefaults.year = Number(defYear.value);
-    applyIncomeDefaultsToEditorRows(true);
+    applyIncomeDefaultFieldToEditorRows("year");
   };
   defDay.onchange = () => {
     ui.incomeDefaults.day = Number(defDay.value);
-    applyIncomeDefaultsToEditorRows(true);
+    applyIncomeDefaultFieldToEditorRows("day");
   };
   defAmt.oninput = () => {
     ui.incomeDefaults.amount = asNumber(defAmt.value);
-    applyIncomeDefaultsToEditorRows(true);
+    applyIncomeDefaultFieldToEditorRows("amount");
   };
 
   requireEl("closeIncomeModalBtn").onclick = closeIncomeOverlay;
@@ -1127,7 +1128,7 @@ function openIncomeOverlay(incomeId) {
         return {
           id: p.id || uid(),
           year: parts ? String(parts.y) : "",
-          month: parts ? String(parts.m) : "",
+          month: parts ? pad2(parts.m) : "",
           day: parts ? String(parts.d) : "",
           amount: asNumber(p.amount)
         };
@@ -1153,7 +1154,11 @@ function openIncomeOverlay(incomeId) {
   setDayOptions(defDay, ui.incomeDefaults.day);
   defAmt.value = asNumber(ui.incomeDefaults.amount);
 
-  applyIncomeDefaultsToEditorRows(!editing);
+  if (!editing) {
+    resetIncomeEditorRowsForInterval();
+  } else {
+    renderIncomePaymentsEditorRows();
+  }
 
   backdrop.hidden = false;
   modal.hidden = false;
@@ -1213,6 +1218,51 @@ function validateIncomePaymentParts({ year, month, day, amount }) {
   return { ok: true, message: "" };
 }
 
+function getIncomeDefaultsFromUI() {
+  const defYear = asNumber(document.getElementById("incomeDefaultYear")?.value || ui.incomeDefaults?.year);
+  const defDay = asNumber(document.getElementById("incomeDefaultDay")?.value || ui.incomeDefaults?.day);
+  const defAmt = asNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
+  return {
+    year: String(defYear || currentYearMonth().year),
+    day: String(defDay || 25),
+    amount: defAmt
+  };
+}
+
+function resetIncomeEditorRowsForInterval() {
+  const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
+  const count = paymentsCountForInterval(interval);
+  const months = monthsForInterval(interval);
+  const defaults = getIncomeDefaultsFromUI();
+
+  ui.incomeEditorPayments = [];
+  for (let i = 0; i < count; i++) {
+    const m = months[Math.min(i, months.length - 1)] || 1;
+    ui.incomeEditorPayments.push({
+      id: uid(),
+      year: defaults.year,
+      month: pad2(m),
+      day: defaults.day,
+      amount: defaults.amount
+    });
+  }
+  renderIncomePaymentsEditorRows();
+}
+
+function applyIncomeDefaultFieldToEditorRows(field) {
+  if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
+  const defaults = getIncomeDefaultsFromUI();
+
+  ui.incomeEditorPayments = ui.incomeEditorPayments.map((p) => {
+    if (field === "year") return { ...p, year: defaults.year };
+    if (field === "day") return { ...p, day: defaults.day };
+    if (field === "amount") return { ...p, amount: defaults.amount };
+    return p;
+  });
+
+  renderIncomePaymentsEditorRows();
+}
+
 function applyIncomeDefaultsToEditorRows(overwriteExisting) {
   const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
   const count = paymentsCountForInterval(interval);
@@ -1237,7 +1287,7 @@ function applyIncomeDefaultsToEditorRows(overwriteExisting) {
     return {
       ...p,
       year: String(defYear || currentYearMonth().year),
-      month: String(month),
+      month: pad2(month),
       day: String(defDay || 25),
       amount: overwriteExisting ? defAmt : asNumber(p.amount)
     };
@@ -1267,7 +1317,7 @@ function renderIncomePaymentsEditorRows() {
         )}" />
       </td>
       <td>
-        <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-month="${idx}" placeholder="1-12" value="${escapeHtml(
+        <input class="tight" inputmode="numeric" type="text" maxlength="2" data-inc-pay-month="${idx}" placeholder="01-12" value="${escapeHtml(
           p.month ?? ""
         )}" />
       </td>
