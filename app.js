@@ -83,7 +83,6 @@ function getDefaultState() {
       lastBackupPromptAt: 0
     },
     recurring: {
-      incomes: { [String(currentYear)]: [] },
       expenses: { [String(currentYear)]: [] }
     },
     incomes: [],
@@ -132,7 +131,6 @@ function normalizeStateShape(state) {
       : base.settings.backupFilenamePattern;
 
   normalized.recurring = normalized.recurring || base.recurring;
-  normalized.recurring.incomes = normalized.recurring.incomes || base.recurring.incomes;
   normalized.recurring.expenses = normalized.recurring.expenses || base.recurring.expenses;
 
   normalized.incomes = Array.isArray(normalized.incomes) ? normalized.incomes : [];
@@ -150,7 +148,104 @@ function normalizeStateShape(state) {
   normalized.special.food = normalized.special.food || {};
   normalized.special.children = normalized.special.children || {};
 
+  migrateLegacyIncomes(normalized);
+  ensureIncomeIds(normalized);
+  cleanupIncomeGarbage(normalized);
+
   return normalized;
+}
+
+function cleanupIncomeGarbage(root) {
+  if (!Array.isArray(root.incomes)) return;
+
+  const hasMeaningfulPayments = (inc) => {
+    const payments = Array.isArray(inc?.payments) ? inc.payments : [];
+    return payments.some((p) => {
+      const amt = asNumber(p?.amount);
+      const hasDate = Boolean(p?.date);
+      // "Meningsfull" om belopp > 0 och datum finns
+      return amt > 0 && hasDate;
+    });
+  };
+
+  root.incomes = root.incomes.filter((inc) => {
+    const name = String(inc?.name || "").trim();
+    // Rensa bara om det är helt tomt + inga meningsfulla inbetalningar
+    if (!name && !hasMeaningfulPayments(inc)) return false;
+    return true;
+  });
+}
+
+function ensureIncomeIds(root) {
+  if (!Array.isArray(root.incomes)) root.incomes = [];
+  root.incomes = root.incomes.map((inc) => {
+    const incomeId = inc?.id || uid();
+    const payments = Array.isArray(inc?.payments) ? inc.payments : [];
+    const normalizedPayments = payments.map((p) => ({
+      id: p?.id || uid(),
+      date: p?.date || "",
+      amount: asNumber(p?.amount)
+    }));
+    return {
+      id: incomeId,
+      name: String(inc?.name || "").trim(),
+      interval: inc?.interval || "once",
+      payments: normalizedPayments
+    };
+  });
+}
+
+function migrateLegacyIncomes(root) {
+  // Legacy: state.recurring.incomes[year] = [{id,name,amount,frequency(monthly|yearly)}]
+  const legacy = root?.recurring?.incomes;
+  if (!legacy || typeof legacy !== "object") return;
+
+  const legacyYears = Object.keys(legacy);
+  if (legacyYears.length === 0) return;
+
+  if (!Array.isArray(root.incomes)) root.incomes = [];
+
+  const DEFAULT_PAYDAY = 25; // används endast för legacy-migrering
+
+  const makeMonthlyPayments = (year, monthlyAmount) =>
+    Array.from({ length: 12 }).map((_, i) => ({
+      id: uid(),
+      date: `${year}-${pad2(i + 1)}-${pad2(DEFAULT_PAYDAY)}`,
+      amount: asNumber(monthlyAmount)
+    }));
+
+  const makeYearlyPayment = (year, yearlyAmount) => [
+    {
+      id: uid(),
+      date: `${year}-01-01`,
+      amount: asNumber(yearlyAmount)
+    }
+  ];
+
+  for (const y of legacyYears) {
+    const year = Number(y);
+    if (!Number.isFinite(year)) continue;
+    const items = Array.isArray(legacy[y]) ? legacy[y] : [];
+    for (const it of items) {
+      const name = String(it?.name || "").trim() || "Intäkt";
+      const frequency = it?.frequency || "monthly";
+      const amount = asNumber(it?.amount);
+
+      const payments =
+        frequency === "yearly" ? makeYearlyPayment(year, amount) : makeMonthlyPayments(year, amount);
+
+      root.incomes.push({
+        id: uid(),
+        name,
+        interval: frequency === "yearly" ? "yearly" : "monthly",
+        payments
+      });
+    }
+  }
+
+  // Remove legacy store to avoid double counting
+  if (!root.recurring) root.recurring = {};
+  delete root.recurring.incomes;
 }
 
 let state = null;
@@ -337,7 +432,6 @@ function computeMonthOverview(year, month) {
   const m = monthKey(month);
 
   const recurringExpenses = state.recurring?.expenses?.[y] || [];
-  const recurringIncomes = state.recurring?.incomes?.[y] || [];
 
   const car = computeSpecialCarMonthly(year);
   const housing = computeSpecialHousingMonthly(year);
@@ -356,7 +450,6 @@ function computeMonthOverview(year, month) {
   }));
 
   const recurringExpensesAmount = recurringExpenses.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
-  const legacyRecurringIncomesAmount = recurringIncomes.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
 
   const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
     const payments = Array.isArray(inc.payments) ? inc.payments : [];
@@ -378,7 +471,7 @@ function computeMonthOverview(year, month) {
   const specialsAmount = car.total + housing.total + food.total + children.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
-  const incomeAmount = incomePaymentsAmount + legacyRecurringIncomesAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
+  const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
   const plannedExpensesAmount = recurringExpensesAmount + specialsAmount + oneOffExpensesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
@@ -421,12 +514,6 @@ function computeMonthOverview(year, month) {
       });
     }
   }
-  for (const it of recurringIncomes)
-    incomesRows.push({
-      group: "Återkommande intäkter (legacy)",
-      label: `${it.name} (${freqLabel(it.frequency)})`,
-      amount: recurringMonthlyAmount(it)
-    });
   for (const it of oneOffIncomes) incomesRows.push({ group: "Enstaka intäkter", label: it.label, amount: it.amount });
 
   return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
@@ -936,7 +1023,7 @@ function renderIncomePaymentsEditorRows() {
   const count = paymentsCountForInterval(interval);
 
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
-  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ date: "", amount: 0 });
+  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ id: uid(), date: "", amount: 0 });
   if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
 
   const body = document.getElementById("incomePaymentsEditorBody");
@@ -976,7 +1063,7 @@ function saveIncomeFromOverlay() {
     return;
   }
 
-  const payments = (ui.incomeEditorPayments || []).map((p) => ({ date: p.date || "", amount: asNumber(p.amount) }));
+  const payments = (ui.incomeEditorPayments || []).map((p) => ({ id: p.id || uid(), date: p.date || "", amount: asNumber(p.amount) }));
   // Validera: om belopp > 0 måste datum finnas
   for (const p of payments) {
     if (asNumber(p.amount) > 0 && !p.date) {
