@@ -6,6 +6,7 @@ const STORAGE_KEY = "bjorklunds_budget_v1";
 const WEEKS_PER_MONTH = 4.33;
 const nowMs = () => Date.now();
 const pad2 = (n) => String(n).padStart(2, "0");
+const DEBUG = true;
 
 const MONTH_NAMES = [
   "Januari",
@@ -140,6 +141,20 @@ function safeParseJson(text) {
   } catch {
     return null;
   }
+}
+
+function showDebugToast(message) {
+  if (!DEBUG) return;
+  const el = document.getElementById("debugToast");
+  if (!el) return;
+  el.hidden = false;
+  el.textContent = String(message || "Okänt fel");
+}
+
+function requireEl(id) {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`Saknar element #${id} i DOM`);
+  return el;
 }
 
 function getSystemTheme() {
@@ -382,7 +397,12 @@ function initRouting() {
     let route = routeFromHash();
     if (!allowed.has(route)) route = "overview";
     view(route);
-    renderRoute(route);
+    try {
+      renderRoute(route);
+    } catch (e) {
+      showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
+      throw e;
+    }
   };
 
   window.addEventListener("hashchange", onChange);
@@ -1032,9 +1052,9 @@ function buildIncomePaymentRowsForList(yearFilter) {
 }
 
 function renderIncomesPage() {
-  document.getElementById("headerSubtitle").textContent = "Intäkter";
+  requireEl("headerSubtitle").textContent = "Intäkter";
 
-  const filterEl = document.getElementById("incomeYearFilter");
+  const filterEl = requireEl("incomeYearFilter");
   if (!ui.incomeYearFilter) ui.incomeYearFilter = String(currentYearMonth().year);
   setYearFilterOptions(filterEl, ui.incomeYearFilter);
   filterEl.onchange = () => {
@@ -1042,7 +1062,7 @@ function renderIncomesPage() {
     renderIncomesList();
   };
 
-  document.getElementById("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
+  requireEl("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
 
   // Suggestions
   document.querySelectorAll("[data-income-suggest]").forEach((btn) => {
@@ -1051,14 +1071,14 @@ function renderIncomesPage() {
     };
   });
 
-  document.getElementById("incomeIntervalSelect").onchange = () => {
+  requireEl("incomeIntervalSelect").onchange = () => {
     applyIncomeDefaultsToEditorRows(true);
   };
 
   // Defaults (used to prefill rows)
-  const defYear = document.getElementById("incomeDefaultYear");
-  const defDay = document.getElementById("incomeDefaultDay");
-  const defAmt = document.getElementById("incomeDefaultAmount");
+  const defYear = requireEl("incomeDefaultYear");
+  const defDay = requireEl("incomeDefaultDay");
+  const defAmt = requireEl("incomeDefaultAmount");
 
   if (!ui.incomeDefaults) {
     ui.incomeDefaults = { year: currentYearMonth().year, day: 25, amount: 0 };
@@ -1081,25 +1101,25 @@ function renderIncomesPage() {
     applyIncomeDefaultsToEditorRows(true);
   };
 
-  document.getElementById("closeIncomeModalBtn").onclick = closeIncomeOverlay;
-  document.getElementById("incomeCancelBtn").onclick = closeIncomeOverlay;
-  document.getElementById("incomeSaveBtn").onclick = saveIncomeFromOverlay;
+  requireEl("closeIncomeModalBtn").onclick = closeIncomeOverlay;
+  requireEl("incomeCancelBtn").onclick = closeIncomeOverlay;
+  requireEl("incomeSaveBtn").onclick = saveIncomeFromOverlay;
 
   renderIncomesList();
 }
 
 function openIncomeOverlay(incomeId) {
   ui.editIncomeId = incomeId;
-  const modal = document.getElementById("incomeModal");
-  const backdrop = document.getElementById("incomeModalBackdrop");
+  const modal = requireEl("incomeModal");
+  const backdrop = requireEl("incomeModalBackdrop");
 
   const editing = Boolean(incomeId);
-  document.getElementById("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
-  document.getElementById("incomeEditorNote").textContent = "";
+  requireEl("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
+  requireEl("incomeEditorNote").textContent = "";
 
   const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
-  document.getElementById("incomeNameInput").value = inc?.name || "";
-  document.getElementById("incomeIntervalSelect").value = inc?.interval || "once";
+  requireEl("incomeNameInput").value = inc?.name || "";
+  requireEl("incomeIntervalSelect").value = inc?.interval || "once";
 
   ui.incomeEditorPayments = Array.isArray(inc?.payments)
     ? inc.payments.map((p) => {
@@ -1126,9 +1146,9 @@ function openIncomeOverlay(incomeId) {
   ui.incomeDefaults.amount = firstPayment ? asNumber(firstPayment.amount) : ui.incomeDefaults.amount;
 
   // Apply to controls
-  const defYear = document.getElementById("incomeDefaultYear");
-  const defDay = document.getElementById("incomeDefaultDay");
-  const defAmt = document.getElementById("incomeDefaultAmount");
+  const defYear = requireEl("incomeDefaultYear");
+  const defDay = requireEl("incomeDefaultDay");
+  const defAmt = requireEl("incomeDefaultAmount");
   setYear3Options(defYear, ui.incomeDefaults.year);
   setDayOptions(defDay, ui.incomeDefaults.day);
   defAmt.value = asNumber(ui.incomeDefaults.amount);
@@ -1144,8 +1164,8 @@ function openIncomeOverlay(incomeId) {
 function closeIncomeOverlay() {
   ui.editIncomeId = null;
   ui.incomeEditorPayments = null;
-  document.getElementById("incomeModalBackdrop").hidden = true;
-  document.getElementById("incomeModal").hidden = true;
+  requireEl("incomeModalBackdrop").hidden = true;
+  requireEl("incomeModal").hidden = true;
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }
@@ -1687,11 +1707,23 @@ async function registerServiceWorker() {
 }
 
 function initRoot() {
-  state = loadState();
-  applyTheme();
-  initRouting();
-  initActions();
-  registerServiceWorker();
+  window.addEventListener("error", (ev) => {
+    showDebugToast(`JS-fel: ${ev?.message || ev}`);
+  });
+  window.addEventListener("unhandledrejection", (ev) => {
+    showDebugToast(`Promise-fel: ${ev?.reason?.message || ev?.reason || ev}`);
+  });
+
+  try {
+    state = loadState();
+    applyTheme();
+    initRouting();
+    initActions();
+    registerServiceWorker();
+  } catch (e) {
+    showDebugToast(`Init-fel: ${e?.message || e}`);
+    throw e;
+  }
 }
 
 // Start app
