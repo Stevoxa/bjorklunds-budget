@@ -1664,12 +1664,22 @@ function renderIncomesList() {
   }
 
   let prevMonthKey = null;
+  let prevDataRow = null;
   for (const r of rows) {
+    const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
+    if (!prevMonthKey || monthKey !== prevMonthKey) {
+      if (prevDataRow) prevDataRow.classList.add("before-month-break");
+      const monthRow = document.createElement("tr");
+      monthRow.className = "month-label-row";
+      monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
+        r.date.getMonth() + 1
+      ))}</span></div></td>`;
+      body.appendChild(monthRow);
+    }
     const tr = document.createElement("tr");
     const fullName = r.name;
-    const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
-    if (prevMonthKey && monthKey !== prevMonthKey) tr.classList.add("month-break");
     prevMonthKey = monthKey;
+    prevDataRow = tr;
 
     tr.innerHTML = `
       <td>
