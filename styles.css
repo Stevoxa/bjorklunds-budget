@@ -41,6 +41,7 @@ body {
     sans-serif;
   background: var(--bg);
   color: var(--text);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .app-header {
@@ -84,6 +85,7 @@ body {
   text-decoration: none;
   color: var(--text);
   border: 1px solid transparent;
+  touch-action: manipulation;
 }
 
 .app-nav a:hover {
@@ -209,6 +211,8 @@ button:focus {
   border-radius: 12px;
   cursor: pointer;
   font-weight: 650;
+  min-height: 44px;
+  touch-action: manipulation;
 }
 
 .primary {
@@ -449,6 +453,110 @@ button:focus {
   }
   .form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile-first ergonomi (telefon) */
+@media (max-width: 720px) {
+  .app-header {
+    gap: 10px;
+    padding: 12px 12px 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .brand-subtitle {
+    text-align: right;
+    margin-top: 0;
+    font-size: 0.85rem;
+  }
+
+  /* Thumb-friendly bottom navigation */
+  .app-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(12px);
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+  }
+
+  .app-nav a {
+    flex: 0 0 auto;
+    padding: 12px 14px;
+    border-radius: 999px;
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+    font-size: 0.95rem;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+
+  .app-nav a[aria-current="page"] {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-ink);
+  }
+
+  .app-main {
+    padding: 12px;
+    /* leave space for bottom nav */
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .chart-card,
+  .summary-card,
+  .table-card {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .view-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .picker-row {
+    justify-content: flex-start;
+  }
+
+  select,
+  input[type="text"],
+  input[type="number"] {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .form-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions-row {
+    justify-content: stretch;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
   }
 }
 
