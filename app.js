@@ -1855,8 +1855,8 @@ function renderExpensesList() {
   let prevDataRow = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
-    // Add month divider only on month change after first month
-    if (prevMonthKey && monthKey !== prevMonthKey) {
+    // Add month divider on first month and each month change
+    if (!prevMonthKey || monthKey !== prevMonthKey) {
       if (prevDataRow) prevDataRow.classList.add("before-month-break");
       const monthRow = document.createElement("tr");
       monthRow.className = "month-label-row";
