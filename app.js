@@ -32,8 +32,10 @@ function monthKey(monthIndex1to12) {
 }
 
 function formatKr(value) {
-  const n = Number(value) || 0;
-  return new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK", maximumFractionDigits: 0 }).format(n);
+  // Whole kr only, with space as thousands separator.
+  // Example: 99000 -> "99 000kr" (no space before "kr").
+  const n = Math.round(Number(value) || 0);
+  return `${n.toLocaleString("sv-SE")}kr`;
 }
 
 function asNumber(value) {
