@@ -1046,10 +1046,7 @@ function renderRoute(route) {
       break;
     }
     case "expenses": {
-      const monthSel = document.getElementById("expensesFoodMonth");
-      if (monthSel) setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
-      bindExpensesSubnav();
-      renderExpensesSubViews();
+      renderExpensesPage();
       break;
     }
     case "add": {
@@ -2157,36 +2154,53 @@ function saveExpenseFromOverlay() {
   renderOverviewIfOnOverview();
 }
 
-function bindExpensesSubnav() {
-  document.querySelectorAll("[data-exp-tab]").forEach((btn) => {
+function renderExpensesPage() {
+  document.getElementById("headerSubtitle").textContent = "Utgifter";
+  ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
+
+  const monthSel = document.getElementById("expensesFoodMonth");
+  if (monthSel) {
+    setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
+    monthSel.onchange = () => {
+      ui.expensesFoodMonth = Number(monthSel.value);
+      renderFoodPage();
+      renderOverviewIfOnOverview();
+    };
+  }
+
+  // Ensure overlays start hidden
+  document.querySelectorAll(".exp-overlay").forEach((el) => {
+    if (el.hidden !== true) el.hidden = true;
+  });
+
+  document.querySelectorAll("[data-exp-overlay]").forEach((btn) => {
     btn.onclick = () => {
-      ui.expensesTab = btn.getAttribute("data-exp-tab") || "summary";
-      renderExpensesSubViews();
+      const key = btn.getAttribute("data-exp-overlay");
+      openExpenseCategoryOverlay(key);
     };
   });
+
+  document.querySelectorAll("[data-exp-close]").forEach((btn) => {
+    btn.onclick = () => closeExpenseCategoryOverlay();
+  });
+
+  renderExpensesSummaryPage();
 }
 
-function renderExpensesSubViews() {
-  // Toggle tab button selected state
-  document.querySelectorAll("[data-exp-tab]").forEach((btn) => {
-    const k = btn.getAttribute("data-exp-tab");
-    btn.setAttribute("aria-selected", k === ui.expensesTab ? "true" : "false");
-  });
+function openExpenseCategoryOverlay(key) {
+  const map = { home: renderHomePage, loans: renderLoansPage, car: renderCarPage, food: renderFoodPage, children: renderChildrenPage, savings: null };
+  if (map[key]) map[key]();
+  const target = document.querySelector(`[data-expview="${key}"]`);
+  if (!target) return;
+  target.hidden = false;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+}
 
-  // Toggle content
-  document.querySelectorAll("[data-expview]").forEach((el) => {
-    const k = el.getAttribute("data-expview");
-    const active = k === ui.expensesTab;
-    el.hidden = !active;
-  });
-
-  // Render specific subviews when active (pre-fill)
-  if (ui.expensesTab === "summary") renderExpensesSummaryPage();
-  if (ui.expensesTab === "home") renderHomePage();
-  if (ui.expensesTab === "car") renderCarPage();
-  if (ui.expensesTab === "food") renderFoodPage();
-  if (ui.expensesTab === "children") renderChildrenPage();
-  if (ui.expensesTab === "loans") renderLoansPage();
+function closeExpenseCategoryOverlay() {
+  document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
 }
 
 function renderLoansPage() {
@@ -2219,6 +2233,7 @@ function initActions() {
     note.textContent = "Bil-kostnader sparade.";
     renderOverviewIfOnOverview();
     renderCarPage();
+    closeExpenseCategoryOverlay();
   });
 
   // HOME
@@ -2236,6 +2251,7 @@ function initActions() {
     document.getElementById("homeNote").textContent = "Hemkostnader sparade.";
     renderOverviewIfOnOverview();
     renderHomePage();
+    closeExpenseCategoryOverlay();
   });
 
   // FOOD
@@ -2256,6 +2272,7 @@ function initActions() {
     document.getElementById("foodNote").textContent = `Matkostnader sparade för ${monthName(Number(month))} ${year}.`;
     renderOverviewIfOnOverview();
     renderFoodPage();
+    closeExpenseCategoryOverlay();
   });
 
   // CHILDREN
@@ -2272,6 +2289,7 @@ function initActions() {
     document.getElementById("kidsNote").textContent = "Barnkostnader sparade.";
     renderOverviewIfOnOverview();
     renderChildrenPage();
+    closeExpenseCategoryOverlay();
   });
 
   // LOANS
@@ -2286,6 +2304,7 @@ function initActions() {
     document.getElementById("loanNote").textContent = "Låneuppgifter sparade.";
     renderOverviewIfOnOverview();
     renderLoansPage();
+    closeExpenseCategoryOverlay();
   });
 
   // Inkomster hanteras nu via overlay i Intäkter-vyn.

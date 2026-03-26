@@ -609,6 +609,20 @@ tr.month-break td {
   color: var(--primary-ink);
 }
 
+.exp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--bg);
+  padding: calc(12px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+
+.exp-overlay > .table-card {
+  max-width: 780px;
+  margin: 0 auto;
+}
+
 .form-row {
   margin-bottom: 12px;
 }

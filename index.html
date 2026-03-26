@@ -144,57 +144,53 @@
           </div>
 
           <div class="subnav" role="tablist" aria-label="Utgiftsområden">
-            <button class="subnav-btn" type="button" data-exp-tab="summary" aria-selected="true">Översikt</button>
-            <button class="subnav-btn" type="button" data-exp-tab="home" aria-selected="false">Hem</button>
-            <button class="subnav-btn" type="button" data-exp-tab="loans" aria-selected="false">Lån</button>
-            <button class="subnav-btn" type="button" data-exp-tab="car" aria-selected="false">Bil</button>
-            <button class="subnav-btn" type="button" data-exp-tab="food" aria-selected="false">Mat</button>
-            <button class="subnav-btn" type="button" data-exp-tab="children" aria-selected="false">Barn</button>
-            <button class="subnav-btn" type="button" data-exp-tab="other" aria-selected="false">Övrigt</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="home">Hem</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="loans">Lån</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="car">Bil</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="food">Mat</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="children">Barn</button>
+            <button class="subnav-btn" type="button" data-exp-overlay="savings">Spar</button>
           </div>
 
-          <!-- EXPENSES SUMMARY -->
-          <section class="exp-view" data-expview="summary">
-            <div class="table-card">
-              <div class="actions-row" style="margin-top: 0">
-                <button class="primary" id="openExpenseOverlayBtn" type="button">Lägg till</button>
-              </div>
+          <div class="table-card">
+            <div class="actions-row" style="margin-top: 0">
+              <button class="primary" id="openExpenseOverlayBtn" type="button">Lägg till</button>
             </div>
+          </div>
 
-            <div class="table-card">
-              <div class="table-title">Utgifter</div>
-              <div class="picker-row" style="justify-content: space-between">
-                <div class="note" style="margin: 0">En rad per utbetalning (0 kr visas inte).</div>
-                <div class="picker-row" style="justify-content: flex-end">
-                  <label>
-                    År (filter)
-                    <select id="expenseYearFilter"></select>
-                  </label>
-                  <label>
-                    Månad (filter)
-                    <select id="expenseMonthFilter"></select>
-                  </label>
-                </div>
+          <div class="table-card">
+            <div class="table-title">Utgifter</div>
+            <div class="picker-row" style="justify-content: space-between">
+              <div class="note" style="margin: 0">En rad per utbetalning (0 kr visas inte).</div>
+              <div class="picker-row" style="justify-content: flex-end">
+                <label>
+                  År (filter)
+                  <select id="expenseYearFilter"></select>
+                </label>
+                <label>
+                  Månad (filter)
+                  <select id="expenseMonthFilter"></select>
+                </label>
               </div>
-              <div class="table-wrap">
-                <table class="data-table income-payments-table" aria-label="Utgifter">
-                  <thead>
-                    <tr>
-                      <th>Utgift</th>
-                      <th>Datum</th>
-                      <th class="right">Belopp</th>
-                      <th class="right"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="expensePaymentsTableBody"></tbody>
-                </table>
-              </div>
-              <div class="note" id="expenseListNote"></div>
             </div>
-          </section>
+            <div class="table-wrap">
+              <table class="data-table income-payments-table" aria-label="Utgifter">
+                <thead>
+                  <tr>
+                    <th>Utgift</th>
+                    <th>Datum</th>
+                    <th class="right">Belopp</th>
+                    <th class="right"></th>
+                  </tr>
+                </thead>
+                <tbody id="expensePaymentsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="note" id="expenseListNote"></div>
+          </div>
 
           <!-- HOME -->
-          <section class="exp-view" data-expview="home" hidden>
+          <section class="exp-view exp-overlay" data-expview="home" hidden>
             <div class="table-card">
               <div class="table-title">Hem</div>
               <div class="form-grid">
@@ -224,6 +220,7 @@
                 </label>
               </div>
               <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="homeSaveBtn" type="button">Spara hemkostnader</button>
               </div>
               <div class="note" id="homeNote"></div>
@@ -231,7 +228,7 @@
           </section>
 
           <!-- LOANS (placeholder + grunddata) -->
-          <section class="exp-view" data-expview="loans" hidden>
+          <section class="exp-view exp-overlay" data-expview="loans" hidden>
             <div class="table-card">
               <div class="table-title">Lån</div>
               <div class="note">Grundläggande stöd (förbättras senare).</div>
@@ -250,6 +247,7 @@
                 </label>
               </div>
               <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="loanSaveBtn" type="button">Spara låneuppgifter</button>
               </div>
               <div class="note" id="loanNote"></div>
@@ -257,7 +255,7 @@
           </section>
 
           <!-- CAR -->
-          <section class="exp-view" data-expview="car" hidden>
+          <section class="exp-view exp-overlay" data-expview="car" hidden>
             <div class="table-card">
               <div class="table-title">Bil</div>
               <div class="form-grid">
@@ -286,6 +284,7 @@
                 </label>
               </div>
               <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="carSaveBtn" type="button">Spara bilkostnader</button>
               </div>
               <div class="note" id="carNote"></div>
@@ -293,7 +292,7 @@
           </section>
 
           <!-- FOOD -->
-          <section class="exp-view" data-expview="food" hidden>
+          <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
               <div class="table-title">Mat</div>
               <div class="note">Här kan vi senare optimera modellen ytterligare. Just nu räknas per månad.</div>
@@ -326,6 +325,7 @@
                 </label>
               </div>
               <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="foodSaveBtn" type="button">Spara matkostnader</button>
               </div>
               <div class="note" id="foodNote"></div>
@@ -333,7 +333,7 @@
           </section>
 
           <!-- CHILDREN -->
-          <section class="exp-view" data-expview="children" hidden>
+          <section class="exp-view exp-overlay" data-expview="children" hidden>
             <div class="table-card">
               <div class="table-title">Barn</div>
               <div class="form-grid">
@@ -359,18 +359,22 @@
                 </label>
               </div>
               <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="kidsSaveBtn" type="button">Spara barnkostnader</button>
               </div>
               <div class="note" id="kidsNote"></div>
             </div>
           </section>
 
-          <!-- OTHER -->
-          <section class="exp-view" data-expview="other" hidden>
+          <!-- SAVINGS -->
+          <section class="exp-view exp-overlay" data-expview="savings" hidden>
             <div class="table-card">
-              <div class="table-title">Övrigt</div>
-              <div class="note">Här kommer även “snabbtillagda” poster via + att hamna (placeholder nu).</div>
-              <div class="note">Innehållet för denna vy finjusteras senare.</div>
+              <div class="table-title">Spar</div>
+              <div class="note">Placeholder tills vi bygger spar-funktionen.</div>
+              <div class="actions-row">
+                <button class="secondary" type="button" data-exp-close>Avbryt</button>
+                <button class="primary" type="button" data-exp-close>Spara</button>
+              </div>
             </div>
           </section>
         </section>
