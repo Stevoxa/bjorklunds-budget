@@ -1146,8 +1146,8 @@ function openIncomeOverlay(incomeId, opts = {}) {
   ui.editIncomeId = incomeId;
   ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
   ui.scrollToPaymentDateISO = opts?.scrollToPaymentDateISO || null;
-  if (ui.scrollToPaymentId) ui.focusPaymentId = ui.scrollToPaymentId;
-  if (!ui.focusPaymentId && ui.scrollToPaymentDateISO) ui.focusPaymentDateISO = ui.scrollToPaymentDateISO;
+  ui.focusPaymentId = null;
+  ui.focusPaymentDateISO = null;
   const modal = requireEl("incomeModal");
   const backdrop = requireEl("incomeModalBackdrop");
 
@@ -1172,6 +1172,16 @@ function openIncomeOverlay(incomeId, opts = {}) {
         };
       })
     : [];
+
+  // Resolve focus target robustly: prefer payment ID if it exists, otherwise fallback to ISO date.
+  if (ui.scrollToPaymentId) {
+    const pid = String(ui.scrollToPaymentId);
+    const hasIdMatch = ui.incomeEditorPayments.some((p) => String(p.id || "") === pid);
+    if (hasIdMatch) ui.focusPaymentId = pid;
+  }
+  if (!ui.focusPaymentId && ui.scrollToPaymentDateISO) {
+    ui.focusPaymentDateISO = String(ui.scrollToPaymentDateISO);
+  }
   // Initialize defaults from existing data (if editing)
   const curY = currentYearMonth().year;
   const firstPayment = (ui.incomeEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.year && p.month && p.day);
@@ -1206,7 +1216,10 @@ function openIncomeOverlay(incomeId, opts = {}) {
   // Scroll after modal is visible/rendered.
   if (ui.scrollToPaymentId) {
     requestAnimationFrame(() => {
-      scrollToIncomePaymentRow({ paymentId: ui.scrollToPaymentId, dateISO: ui.scrollToPaymentDateISO });
+      scrollToIncomePaymentRow({
+        paymentId: ui.focusPaymentId || ui.scrollToPaymentId,
+        dateISO: ui.focusPaymentDateISO || ui.scrollToPaymentDateISO
+      });
       ui.scrollToPaymentId = null;
       ui.scrollToPaymentDateISO = null;
     });
@@ -1377,10 +1390,9 @@ function renderIncomePaymentsEditorRows() {
     tr.setAttribute("data-inc-editor-row", String(idx));
     tr.setAttribute("data-inc-payment-id", String(p.id || ""));
     tr.setAttribute("data-inc-payment-date", rowISO);
-    if (ui.focusPaymentId && String(p.id) === String(ui.focusPaymentId)) {
-      tr.classList.add("row-focused");
-    }
-    if (!ui.focusPaymentId && ui.focusPaymentDateISO && rowISO === String(ui.focusPaymentDateISO)) {
+    const idMatch = ui.focusPaymentId && String(p.id || "") === String(ui.focusPaymentId);
+    const dateMatch = ui.focusPaymentDateISO && rowISO === String(ui.focusPaymentDateISO);
+    if (idMatch || (!ui.focusPaymentId && dateMatch)) {
       tr.classList.add("row-focused");
     }
     tr.innerHTML = `
@@ -1592,7 +1604,14 @@ function renderIncomesList() {
       </td>
       <td class="right">${formatKr(r.amount)}</td>
       <td class="right">
-        <button class="secondary btn-icon" type="button" data-edit-income="${escapeHtml(r.incomeId)}" aria-label="Redigera">✎</button>
+        <button
+          class="secondary btn-icon"
+          type="button"
+          data-edit-income="${escapeHtml(r.incomeId)}"
+          data-edit-income-payment="${escapeHtml(r.paymentId || "")}"
+          data-edit-income-iso="${escapeHtml(r.isoDate || "")}"
+          aria-label="Redigera"
+        >✎</button>
       </td>
     `;
     body.appendChild(tr);
@@ -1608,7 +1627,12 @@ function renderIncomesList() {
   });
 
   document.querySelectorAll("[data-edit-income]").forEach((btn) => {
-    btn.onclick = () => openIncomeOverlay(btn.getAttribute("data-edit-income"));
+    btn.onclick = () => {
+      const incomeId = btn.getAttribute("data-edit-income");
+      const paymentId = btn.getAttribute("data-edit-income-payment");
+      const iso = btn.getAttribute("data-edit-income-iso");
+      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
+    };
   });
 
   document.querySelectorAll("[data-edit-income-date]").forEach((btn) => {
