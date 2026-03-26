@@ -1152,6 +1152,7 @@ function openIncomeOverlay(incomeId, opts = {}) {
   const editing = Boolean(incomeId);
   requireEl("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
   requireEl("incomeEditorNote").textContent = "";
+  requireEl("incomeDeleteBtn").hidden = !editing;
 
   const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
   requireEl("incomeNameInput").value = inc?.name || "";
@@ -1217,6 +1218,16 @@ function closeIncomeOverlay() {
   requireEl("incomeModal").hidden = true;
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
+}
+
+function showConfirmDeleteIncomeModal() {
+  requireEl("confirmDeleteIncomeBackdrop").hidden = false;
+  requireEl("confirmDeleteIncomeModal").hidden = false;
+}
+
+function hideConfirmDeleteIncomeModal() {
+  requireEl("confirmDeleteIncomeBackdrop").hidden = true;
+  requireEl("confirmDeleteIncomeModal").hidden = true;
 }
 
 function paymentsCountForInterval(interval) {
@@ -1736,6 +1747,25 @@ function initActions() {
   });
 
   // Inkomster hanteras nu via overlay i Intäkter-vyn.
+  requireEl("incomeDeleteBtn").onclick = () => {
+    if (!ui.editIncomeId) return;
+    showConfirmDeleteIncomeModal();
+  };
+
+  requireEl("closeDeleteIncomeModalBtn").onclick = hideConfirmDeleteIncomeModal;
+  requireEl("cancelDeleteIncomeBtn").onclick = hideConfirmDeleteIncomeModal;
+  requireEl("confirmDeleteIncomeBtn").onclick = () => {
+    if (!ui.editIncomeId) {
+      hideConfirmDeleteIncomeModal();
+      return;
+    }
+    state.incomes = (state.incomes || []).filter((x) => x.id !== ui.editIncomeId);
+    saveState();
+    hideConfirmDeleteIncomeModal();
+    closeIncomeOverlay();
+    renderIncomesList();
+    renderOverviewIfOnOverview();
+  };
 
   document.getElementById("saveSettingsBtn").addEventListener("click", () => {
     state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));

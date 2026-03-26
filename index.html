@@ -549,8 +549,32 @@
         </div>
       </div>
       <div class="modal-actions">
+        <button class="danger" id="incomeDeleteBtn" type="button">Ta bort</button>
         <button class="secondary" id="incomeCancelBtn" type="button">Avbryt</button>
         <button class="primary" id="incomeSaveBtn" type="button">Spara</button>
+      </div>
+    </div>
+
+    <!-- CONFIRM DELETE INCOME -->
+    <div class="modal-backdrop" id="confirmDeleteIncomeBackdrop" hidden></div>
+    <div
+      class="modal"
+      id="confirmDeleteIncomeModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmDeleteIncomeTitle"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="confirmDeleteIncomeTitle">Ta bort intäkt?</div>
+        <button class="icon-btn" id="closeDeleteIncomeModalBtn" type="button" aria-label="Stäng">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="note" id="confirmDeleteIncomeText">Är du säker? Detta kan inte ångras.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="cancelDeleteIncomeBtn" type="button">Avbryt</button>
+        <button class="danger" id="confirmDeleteIncomeBtn" type="button">Ja, ta bort</button>
       </div>
     </div>
 

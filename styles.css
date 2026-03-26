@@ -450,6 +450,10 @@ button:focus {
   padding-left: 4px;
 }
 
+.income-payments-table thead th {
+  border-bottom: 2px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
 .truncate {
   display: block;
   overflow: hidden;
