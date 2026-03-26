@@ -507,6 +507,11 @@ tr.month-label-row td {
   border-bottom: none;
 }
 
+/* Remove normal row border before month divider */
+tr.before-month-break td {
+  border-bottom: none !important;
+}
+
 .month-divider {
   display: flex;
   align-items: center;

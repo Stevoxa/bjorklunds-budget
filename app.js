@@ -1852,9 +1852,12 @@ function renderExpensesList() {
     return;
   }
   let prevMonthKey = null;
+  let prevDataRow = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
-    if (monthKey !== prevMonthKey) {
+    // Add month divider only on month change after first month
+    if (prevMonthKey && monthKey !== prevMonthKey) {
+      if (prevDataRow) prevDataRow.classList.add("before-month-break");
       const monthRow = document.createElement("tr");
       monthRow.className = "month-label-row";
       monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
@@ -1864,6 +1867,7 @@ function renderExpensesList() {
     }
     const tr = document.createElement("tr");
     prevMonthKey = monthKey;
+    prevDataRow = tr;
     tr.innerHTML = `
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
       r.name
