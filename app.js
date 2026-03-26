@@ -1857,7 +1857,9 @@ function renderExpensesList() {
     if (monthKey !== prevMonthKey) {
       const monthRow = document.createElement("tr");
       monthRow.className = "month-label-row";
-      monthRow.innerHTML = `<td colspan="4">------ ${escapeHtml(monthName(r.date.getMonth() + 1))} ${r.date.getFullYear()} ------</td>`;
+      monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
+        r.date.getMonth() + 1
+      ))}</span></div></td>`;
       body.appendChild(monthRow);
     }
     const tr = document.createElement("tr");
