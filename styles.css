@@ -451,7 +451,7 @@ button:focus {
 }
 
 .income-payments-table thead th {
-  border-bottom: 2px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  border-bottom: 1px solid transparent;
 }
 
 .truncate {
