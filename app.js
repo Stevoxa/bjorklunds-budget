@@ -351,7 +351,8 @@ const ui = {
   expensesYear: null,
   expensesTab: "summary",
   // Intäkter
-  incomeYearFilter: null
+  incomeYearFilter: null,
+  incomeMonthFilter: "all"
 };
 
 function loadState() {
@@ -1028,20 +1029,43 @@ function setYearFilterOptions(selectEl, selected) {
   }
 }
 
+function setMonthFilterOptions(selectEl, selected) {
+  selectEl.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "Alla";
+  if (String(selected) === "all") allOpt.selected = true;
+  selectEl.appendChild(allOpt);
+
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement("option");
+    opt.value = String(m);
+    opt.textContent = monthName(m);
+    if (Number(selected) === m) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
 function buildIncomePaymentRowsForList(yearFilter) {
   const rows = [];
+  const monthFilter = ui.incomeMonthFilter || "all";
   for (const inc of state.incomes || []) {
     const name = inc.name || "Intäkt";
     for (const p of inc.payments || []) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
+      const iso = p.date || "";
+      const dt = iso ? new Date(iso) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       const y = dt.getFullYear();
       if (yearFilter !== "all" && String(y) !== String(yearFilter)) continue;
+      const mo = dt.getMonth() + 1;
+      if (monthFilter !== "all" && Number(monthFilter) !== mo) continue;
       rows.push({
         incomeId: inc.id,
+        paymentId: p.id,
         name,
+        isoDate: iso,
         date: dt,
         amount: amt
       });
@@ -1059,6 +1083,14 @@ function renderIncomesPage() {
   setYearFilterOptions(filterEl, ui.incomeYearFilter);
   filterEl.onchange = () => {
     ui.incomeYearFilter = filterEl.value;
+    renderIncomesList();
+  };
+
+  const monthFilterEl = requireEl("incomeMonthFilter");
+  if (!ui.incomeMonthFilter) ui.incomeMonthFilter = "all";
+  setMonthFilterOptions(monthFilterEl, ui.incomeMonthFilter);
+  monthFilterEl.onchange = () => {
+    ui.incomeMonthFilter = monthFilterEl.value;
     renderIncomesList();
   };
 
@@ -1109,8 +1141,9 @@ function renderIncomesPage() {
   renderIncomesList();
 }
 
-function openIncomeOverlay(incomeId) {
+function openIncomeOverlay(incomeId, opts = {}) {
   ui.editIncomeId = incomeId;
+  ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
   const modal = requireEl("incomeModal");
   const backdrop = requireEl("incomeModalBackdrop");
 
@@ -1310,6 +1343,8 @@ function renderIncomePaymentsEditorRows() {
 
   ui.incomeEditorPayments.forEach((p, idx) => {
     const tr = document.createElement("tr");
+    tr.setAttribute("data-inc-editor-row", String(idx));
+    tr.setAttribute("data-inc-payment-id", String(p.id || ""));
     tr.innerHTML = `
       <td>
         <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-year="${idx}" placeholder="2026" value="${escapeHtml(
@@ -1385,6 +1420,20 @@ function renderIncomePaymentsEditorRows() {
       updateRowValidationUI(idx);
     };
   });
+
+  // If requested, scroll to a specific payment row.
+  if (ui.scrollToPaymentId) {
+    const targetRow = body.querySelector(`[data-inc-payment-id="${CSS.escape(String(ui.scrollToPaymentId))}"]`);
+    if (targetRow) {
+      // Ensure it is visible in modal-body scroll container
+      targetRow.classList.add("row-highlight");
+      targetRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      const firstInput = targetRow.querySelector("input");
+      if (firstInput) firstInput.focus({ preventScroll: true });
+      setTimeout(() => targetRow.classList.remove("row-highlight"), 1600);
+    }
+    ui.scrollToPaymentId = null;
+  }
 }
 
 function saveIncomeFromOverlay() {
@@ -1460,9 +1509,21 @@ function renderIncomesList() {
 
   for (const r of rows) {
     const tr = document.createElement("tr");
+    const fullName = r.name;
     tr.innerHTML = `
-      <td>${escapeHtml(r.name)}</td>
-      <td>${escapeHtml(r.date.toLocaleDateString("sv-SE"))}</td>
+      <td>
+        <button class="linklike truncate" type="button" data-show-income-name="${escapeHtml(fullName)}" title="${escapeHtml(
+          fullName
+        )}">${escapeHtml(fullName)}</button>
+      </td>
+      <td>
+        <button class="linklike truncate" type="button"
+          data-edit-income-date="${escapeHtml(r.incomeId)}"
+          data-edit-income-payment="${escapeHtml(r.paymentId || "")}"
+          title="${escapeHtml(r.isoDate || "")}">
+          ${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}
+        </button>
+      </td>
       <td class="right">${formatKr(r.amount)}</td>
       <td class="right">
         <button class="secondary btn-icon" type="button" data-edit-income="${escapeHtml(r.incomeId)}" aria-label="Redigera">✎</button>
@@ -1471,8 +1532,24 @@ function renderIncomesList() {
     body.appendChild(tr);
   }
 
+  document.querySelectorAll("[data-show-income-name]").forEach((btn) => {
+    btn.onclick = () => {
+      const name = btn.getAttribute("data-show-income-name") || "";
+      // Mobile-friendly: show full text on tap
+      alert(name);
+    };
+  });
+
   document.querySelectorAll("[data-edit-income]").forEach((btn) => {
     btn.onclick = () => openIncomeOverlay(btn.getAttribute("data-edit-income"));
+  });
+
+  document.querySelectorAll("[data-edit-income-date]").forEach((btn) => {
+    btn.onclick = () => {
+      const incomeId = btn.getAttribute("data-edit-income-date");
+      const paymentId = btn.getAttribute("data-edit-income-payment");
+      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId });
+    };
   });
 }
 

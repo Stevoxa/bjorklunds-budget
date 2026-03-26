@@ -406,6 +406,50 @@ button:focus {
   min-width: 0;
 }
 
+/* Keep list stable with long income names */
+.income-payments-table {
+  table-layout: fixed;
+}
+
+.income-payments-table th:nth-child(1),
+.income-payments-table td:nth-child(1) {
+  width: 44%;
+}
+.income-payments-table th:nth-child(2),
+.income-payments-table td:nth-child(2) {
+  width: 26%;
+}
+.income-payments-table th:nth-child(3),
+.income-payments-table td:nth-child(3) {
+  width: 22%;
+}
+.income-payments-table th:nth-child(4),
+.income-payments-table td:nth-child(4) {
+  width: 8%;
+}
+
+.truncate {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linklike {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-highlight {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
 .data-table th,
 .data-table td {
   padding: 10px 8px;

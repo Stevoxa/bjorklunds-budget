@@ -105,17 +105,23 @@
           </div>
 
           <div class="table-card">
-            <div class="table-title">Utbetalningar</div>
+            <div class="table-title">Intäkter</div>
             <div class="picker-row" style="justify-content: space-between">
               <div class="note" style="margin: 0">En rad per inbetalning (0 kr visas inte).</div>
-              <label>
-                År (filter)
-                <select id="incomeYearFilter"></select>
-              </label>
+              <div class="picker-row" style="justify-content: flex-end">
+                <label>
+                  År (filter)
+                  <select id="incomeYearFilter"></select>
+                </label>
+                <label>
+                  Månad (filter)
+                  <select id="incomeMonthFilter"></select>
+                </label>
+              </div>
             </div>
 
             <div class="table-wrap">
-              <table class="data-table" aria-label="Utbetalningar">
+              <table class="data-table income-payments-table" aria-label="Utbetalningar">
                 <thead>
                   <tr>
                     <th>Intäkt</th>
