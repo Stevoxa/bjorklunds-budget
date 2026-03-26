@@ -40,6 +40,17 @@ function asNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function recurringMonthlyAmount(item) {
+  const amount = asNumber(item?.amount);
+  const freq = item?.frequency || "monthly";
+  if (freq === "yearly") return amount / 12;
+  return amount;
+}
+
+function freqLabel(freq) {
+  return freq === "yearly" ? "kr/år" : "kr/mån";
+}
+
 function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `id_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -81,7 +92,8 @@ function getDefaultState() {
     },
     special: {
       car: {},
-      housing: {},
+      home: {},
+      loans: {},
       food: {},
       children: {}
     }
@@ -128,7 +140,10 @@ function normalizeStateShape(state) {
 
   normalized.special = normalized.special || base.special;
   normalized.special.car = normalized.special.car || {};
-  normalized.special.housing = normalized.special.housing || {};
+  // Migration: gamla "housing" -> nya "home"
+  if (normalized.special.housing && !normalized.special.home) normalized.special.home = normalized.special.housing;
+  normalized.special.home = normalized.special.home || {};
+  normalized.special.loans = normalized.special.loans || {};
   normalized.special.food = normalized.special.food || {};
   normalized.special.children = normalized.special.children || {};
 
@@ -141,9 +156,11 @@ const ui = {
   // Översikt
   overviewYear: null,
   overviewMonth: null,
-  // Poster
-  postsYear: null,
-  postsMonth: null
+  // Utgifter
+  expensesYear: null,
+  expensesTab: "summary",
+  // Intäkter
+  incomesYear: null
 };
 
 function loadState() {
@@ -179,13 +196,13 @@ function initRouting() {
     document.querySelectorAll("[data-view]").forEach((v) => {
       if (v.getAttribute("data-view") === name) v.classList.add("active");
     });
-    document.querySelectorAll(".app-nav a").forEach((a) => {
+    document.querySelectorAll(".bottom-nav a").forEach((a) => {
       a.setAttribute("aria-current", a.getAttribute("data-navlink") === name ? "page" : "false");
     });
   };
 
   const onChange = () => {
-    const allowed = new Set(["overview", "car", "housing", "food", "children", "posts", "settings"]);
+    const allowed = new Set(["overview", "incomes", "expenses", "add", "settings"]);
     let route = routeFromHash();
     if (!allowed.has(route)) route = "overview";
     view(route);
@@ -213,7 +230,8 @@ function getAvailableYears() {
   addFrom(state.recurring?.incomes);
   addFrom(state.recurring?.expenses);
   addFrom(state.special?.car);
-  addFrom(state.special?.housing);
+  addFrom(state.special?.home);
+  addFrom(state.special?.loans);
   addFrom(state.special?.children);
   addFrom(state.special?.food);
   return Array.from(years)
@@ -263,35 +281,29 @@ function computeSpecialCarMonthly(year) {
 }
 
 function computeSpecialHousingMonthly(year) {
-  const config = state.special.housing[String(year)] || {};
+  const config = state.special.home[String(year)] || {};
   const items = [
     { label: "Hyra", amount: asNumber(config.rent) },
-    { label: "El/värme", amount: asNumber(config.energy) },
-    { label: "Hemförsäkring", amount: asNumber(config.insurance) },
-    { label: "Internet/TV", amount: asNumber(config.internet) },
-    { label: "Övrigt boende", amount: asNumber(config.other) }
+    { label: "El", amount: asNumber(config.electricity) },
+    { label: "Vatten", amount: asNumber(config.water) },
+    { label: "Sophämtning", amount: asNumber(config.garbage) },
+    { label: "Internet", amount: asNumber(config.internet) },
+    { label: "Parkering", amount: asNumber(config.parking) }
   ];
   const total = items.reduce((s, it) => s + it.amount, 0);
   return { total, items };
 }
 
 function computeSpecialFoodMonthly(year, month) {
-  const foodYear = state.special.food[String(year)] || {};
-  const config = foodYear[monthKey(month)] || {};
-
-  const dinners = weeksToMonthlyCount(config.dinnersPerWeek);
-  const breakfasts = weeksToMonthlyCount(config.breakfastsPerWeek);
-  const lunchHome = weeksToMonthlyCount(config.lunchHomePerWeek);
-  const lunchWork = weeksToMonthlyCount(config.lunchWorkPerWeek);
-
   const items = [
-    { label: `Middagar hemma (${dinners} st)`, amount: dinners * asNumber(config.dinnerUnitCost) },
-    { label: `Frukostar hemma (${breakfasts} st)`, amount: breakfasts * asNumber(config.breakfastUnitCost) },
-    { label: `Lunch hemma (${lunchHome} st)`, amount: lunchHome * asNumber(config.lunchHomeUnitCost) },
-    { label: `Köpta luncher (${lunchWork} st)`, amount: lunchWork * asNumber(config.lunchWorkUnitCost) }
+    { label: "Frukost hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.breakfastMonthly) },
+    { label: "Lunch hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.lunchHomeMonthly) },
+    { label: "Middag hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.dinnerMonthly) },
+    { label: "Lunch på jobbet", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.lunchWorkMonthly) },
+    { label: "Snabbmat", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.fastFoodMonthly) }
   ];
   const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items, counts: { dinners, breakfasts, lunchHome, lunchWork } };
+  return { total, items };
 }
 
 function computeSpecialChildrenMonthly(year) {
@@ -301,14 +313,12 @@ function computeSpecialChildrenMonthly(year) {
   const partiesMonthly = parties / 12;
 
   const items = [
-    { label: "Andra barns kalas", amount: partiesMonthly },
+    { label: "Kläder", amount: asNumber(config.kidsClothesPerMonth) },
+    { label: "Busskort", amount: asNumber(config.kidsBusCardPerMonth) },
+    { label: "Telefonabonnemang", amount: asNumber(config.kidsPhonePerMonth) },
     { label: "Aktiviteter", amount: asNumber(config.kidsActivitiesPerMonth) },
     { label: "Månadspeng", amount: asNumber(config.kidsPocketMoneyPerMonth) },
-    { label: "Telefonabonnemang", amount: asNumber(config.kidsPhonePerMonth) },
-    { label: "Försäkring", amount: asNumber(config.kidsInsurancePerMonth) },
-    { label: "Busskort", amount: asNumber(config.kidsBusCardPerMonth) },
-    { label: "Julklappar", amount: asNumber(config.kidsChristmasPerYear) / 12 },
-    { label: "Födelsedagspresenter", amount: asNumber(config.kidsBirthdaysPerYear) / 12 }
+    { label: "Andra barns kalas", amount: partiesMonthly }
   ];
 
   const total = items.reduce((s, it) => s + it.amount, 0);
@@ -342,8 +352,8 @@ function computeMonthOverview(year, month) {
     amount: asNumber(it.amount)
   }));
 
-  const recurringExpensesAmount = recurringExpenses.reduce((s, it) => s + asNumber(it.amount), 0);
-  const recurringIncomesAmount = recurringIncomes.reduce((s, it) => s + asNumber(it.amount), 0);
+  const recurringExpensesAmount = recurringExpenses.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
+  const recurringIncomesAmount = recurringIncomes.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
 
   const specialsAmount = car.total + housing.total + food.total + children.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
@@ -356,7 +366,7 @@ function computeMonthOverview(year, month) {
   const segments = [
     { key: "recurringExpenses", label: "Återkommande utgifter", amount: recurringExpensesAmount, color: "#8b5cf6" },
     { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
-    { key: "housing", label: "Boende", amount: housing.total, color: "#06b6d4" },
+    { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
     { key: "food", label: "Mat", amount: food.total, color: "#f59e0b" },
     { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
@@ -365,16 +375,17 @@ function computeMonthOverview(year, month) {
   // Tabellen: bryt ner utgifter och intäkter
   const expensesRows = [];
   for (const it of recurringExpenses) {
-    expensesRows.push({ group: "Återkommande utgifter", label: it.name, amount: asNumber(it.amount) });
+    expensesRows.push({ group: "Återkommande utgifter", label: `${it.name} (${freqLabel(it.frequency)})`, amount: recurringMonthlyAmount(it) });
   }
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
-  for (const it of housing.items) expensesRows.push({ group: "Boende", label: it.label, amount: it.amount });
+  for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
   for (const it of food.items) expensesRows.push({ group: "Mat", label: it.label, amount: it.amount });
   for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
   for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
 
   const incomesRows = [];
-  for (const it of recurringIncomes) incomesRows.push({ group: "Återkommande intäkter", label: it.name, amount: asNumber(it.amount) });
+  for (const it of recurringIncomes)
+    incomesRows.push({ group: "Återkommande intäkter", label: `${it.name} (${freqLabel(it.frequency)})`, amount: recurringMonthlyAmount(it) });
   for (const it of oneOffIncomes) incomesRows.push({ group: "Enstaka intäkter", label: it.label, amount: it.amount });
 
   return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
@@ -591,182 +602,74 @@ function escapeHtml(text) {
 }
 
 function renderCarPage() {
-  const year = Number(document.getElementById("carYear").value);
-  ui.carYear = year;
-
+  const year = ui.expensesYear;
   const config = state.special.car[String(year)] || {};
+  document.getElementById("carOwnership").value = config.ownership || "owned";
   document.getElementById("carInsurance").value = asNumber(config.insurance);
   document.getElementById("carFuel").value = asNumber(config.fuel);
   document.getElementById("carParking").value = asNumber(config.parking);
   document.getElementById("carLeasing").value = asNumber(config.leasing);
+
+  const leased = (config.ownership || "owned") === "leased";
+  const leasingField = document.getElementById("carLeasingField");
+  if (leasingField) leasingField.hidden = !leased;
 }
 
-function renderHousingPage() {
-  const year = Number(document.getElementById("housingYear").value);
-  ui.housingYear = year;
-
-  const config = state.special.housing[String(year)] || {};
-  document.getElementById("housingRent").value = asNumber(config.rent);
-  document.getElementById("housingEnergy").value = asNumber(config.energy);
-  document.getElementById("housingInsurance").value = asNumber(config.insurance);
-  document.getElementById("housingInternet").value = asNumber(config.internet);
-  document.getElementById("housingOther").value = asNumber(config.other);
+function renderHomePage() {
+  const year = ui.expensesYear;
+  const config = state.special.home[String(year)] || {};
+  document.getElementById("homeRent").value = asNumber(config.rent);
+  document.getElementById("homeElectricity").value = asNumber(config.electricity);
+  document.getElementById("homeWater").value = asNumber(config.water);
+  document.getElementById("homeGarbage").value = asNumber(config.garbage);
+  document.getElementById("homeInternet").value = asNumber(config.internet);
+  document.getElementById("homeParking").value = asNumber(config.parking);
 }
 
 function renderFoodPage() {
-  const year = Number(document.getElementById("foodYear").value);
-  const month = Number(document.getElementById("foodMonth").value);
-  ui.foodYear = year;
-  ui.foodMonth = month;
-
+  const year = ui.expensesYear || ui.overviewYear;
+  const monthSel = document.getElementById("expensesFoodMonth");
+  const month = Number(monthSel?.value || ui.overviewMonth || currentYearMonth().month);
+  ui.expensesFoodMonth = month;
   const foodYear = state.special.food[String(year)] || {};
   const config = foodYear[monthKey(month)] || {};
-
-  document.getElementById("foodDinnersPerWeek").value = asNumber(config.dinnersPerWeek);
-  document.getElementById("foodBreakfastsPerWeek").value = asNumber(config.breakfastsPerWeek);
-  document.getElementById("foodLunchHomePerWeek").value = asNumber(config.lunchHomePerWeek);
-  document.getElementById("foodLunchWorkPerWeek").value = asNumber(config.lunchWorkPerWeek);
-
-  document.getElementById("foodDinnerUnitCost").value = asNumber(config.dinnerUnitCost);
-  document.getElementById("foodBreakfastUnitCost").value = asNumber(config.breakfastUnitCost);
-  document.getElementById("foodLunchHomeUnitCost").value = asNumber(config.lunchHomeUnitCost);
-  document.getElementById("foodLunchWorkUnitCost").value = asNumber(config.lunchWorkUnitCost);
-
-  updateFoodHelpText();
-}
-
-function updateFoodHelpText() {
-  const dinners = weeksToMonthlyCount(document.getElementById("foodDinnersPerWeek").value);
-  const breakfasts = weeksToMonthlyCount(document.getElementById("foodBreakfastsPerWeek").value);
-  const lunchHome = weeksToMonthlyCount(document.getElementById("foodLunchHomePerWeek").value);
-  const lunchWork = weeksToMonthlyCount(document.getElementById("foodLunchWorkPerWeek").value);
-
-  document.getElementById("foodDinnersPerMonthHelp").textContent = `Månad: ${dinners} st`;
-  document.getElementById("foodBreakfastsPerMonthHelp").textContent = `Månad: ${breakfasts} st`;
-  document.getElementById("foodLunchHomePerMonthHelp").textContent = `Månad: ${lunchHome} st`;
-  document.getElementById("foodLunchWorkPerMonthHelp").textContent = `Månad: ${lunchWork} st`;
+  document.getElementById("foodBreakfastMonthly").value = asNumber(config.breakfastMonthly);
+  document.getElementById("foodLunchHomeMonthly").value = asNumber(config.lunchHomeMonthly);
+  document.getElementById("foodDinnerMonthly").value = asNumber(config.dinnerMonthly);
+  document.getElementById("foodLunchWorkMonthly").value = asNumber(config.lunchWorkMonthly);
+  document.getElementById("foodFastFoodMonthly").value = asNumber(config.fastFoodMonthly);
 }
 
 function renderChildrenPage() {
-  const year = Number(document.getElementById("childrenYear").value);
-  ui.childrenYear = year;
+  const year = ui.expensesYear;
   const config = state.special.children[String(year)] || {};
-
-  document.getElementById("kidsPartiesPerYear").value = asNumber(config.kidsPartiesPerYear);
-  document.getElementById("kidsPartyUnitCost").value = asNumber(config.kidsPartyUnitCost);
+  document.getElementById("kidsClothesPerMonth").value = asNumber(config.kidsClothesPerMonth);
   document.getElementById("kidsActivitiesPerMonth").value = asNumber(config.kidsActivitiesPerMonth);
   document.getElementById("kidsPocketMoneyPerMonth").value = asNumber(config.kidsPocketMoneyPerMonth);
   document.getElementById("kidsPhonePerMonth").value = asNumber(config.kidsPhonePerMonth);
-  document.getElementById("kidsInsurancePerMonth").value = asNumber(config.kidsInsurancePerMonth);
   document.getElementById("kidsBusCardPerMonth").value = asNumber(config.kidsBusCardPerMonth);
-  document.getElementById("kidsChristmasPerYear").value = asNumber(config.kidsChristmasPerYear);
-  document.getElementById("kidsBirthdaysPerYear").value = asNumber(config.kidsBirthdaysPerYear);
-}
-
-function renderPostsPage() {
-  const year = Number(document.getElementById("postsYear").value);
-  const month = Number(document.getElementById("postsMonth").value);
-  ui.postsYear = year;
-  ui.postsMonth = month;
-
-  const y = String(year);
-  const m = monthKey(month);
-
-  const expenseList = (state.oneOff.expenses?.[y]?.[m] || []).slice();
-  const incomeList = (state.oneOff.incomes?.[y]?.[m] || []).slice();
-
-  const expBody = document.getElementById("expensePostsTableBody");
-  expBody.innerHTML = "";
-  if (expenseList.length === 0) {
-    expBody.innerHTML = `<tr><td colspan="3" style="color: var(--muted);">Inga enstaka utgifter för vald månad.</td></tr>`;
-  } else {
-    for (const it of expenseList) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-exp-post="${it.id}" type="button">Ta bort</button></td>`;
-      expBody.appendChild(tr);
-    }
-  }
-
-  const incBody = document.getElementById("incomePostsTableBody");
-  incBody.innerHTML = "";
-  if (incomeList.length === 0) {
-    incBody.innerHTML = `<tr><td colspan="3" style="color: var(--muted);">Inga enstaka intäkter för vald månad.</td></tr>`;
-  } else {
-    for (const it of incomeList) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-income-post="${it.id}" type="button">Ta bort</button></td>`;
-      incBody.appendChild(tr);
-    }
-  }
-
-  bindPostsDeleteHandlers();
-}
-
-function bindPostsDeleteHandlers() {
-  document.querySelectorAll("[data-delete-exp-post]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-delete-exp-post");
-      const year = ui.postsYear;
-      const month = ui.postsMonth;
-      const list = ensureOneOffList(state.oneOff.expenses, year, month);
-      const idx = list.findIndex((x) => x.id === id);
-      if (idx >= 0) list.splice(idx, 1);
-      saveState();
-      renderPostsPage();
-      renderOverviewIfOnOverview();
-    });
-  });
-
-  document.querySelectorAll("[data-delete-income-post]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-delete-income-post");
-      const year = ui.postsYear;
-      const month = ui.postsMonth;
-      const list = ensureOneOffList(state.oneOff.incomes, year, month);
-      const idx = list.findIndex((x) => x.id === id);
-      if (idx >= 0) list.splice(idx, 1);
-      saveState();
-      renderPostsPage();
-      renderOverviewIfOnOverview();
-    });
-  });
 }
 
 function renderSettingsPage() {
-  const years = getAvailableYears();
-  const curYear = currentYearMonth().year;
-  const expensesYearSel = document.getElementById("settingsExpensesYear");
-  const incomesYearSel = document.getElementById("settingsIncomesYear");
-  setSelectOptions(expensesYearSel, years, curYear);
-  setSelectOptions(incomesYearSel, years, curYear);
-
-  // If there were already selected values (from prior render), keep them
-  // (we don't store persistent selection, but this reduces jank)
-  // eslint-disable-next-line no-unused-vars
-  const selectedExp = Number(expensesYearSel.value);
-  const selectedInc = Number(incomesYearSel.value);
-
-  renderRecurringTables();
-}
-
-function renderRecurringTables() {
-  const expYear = Number(document.getElementById("settingsExpensesYear").value);
-  const incYear = Number(document.getElementById("settingsIncomesYear").value);
-
   // Settings inputs
   document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
   document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
+}
+
+function renderRecurringTables() {
+  const expYear = ui.expensesYear;
+  const incYear = ui.incomesYear;
 
   // recurring expenses
   const expBody = document.getElementById("recurringExpensesTableBody");
   expBody.innerHTML = "";
   const expList = state.recurring?.expenses?.[String(expYear)] || [];
   if (expList.length === 0) {
-    expBody.innerHTML = `<tr><td colspan="3" style="color: var(--muted);">Inga återkommande utgifter för valt år.</td></tr>`;
+    expBody.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga återkommande utgifter för valt år.</td></tr>`;
   } else {
     for (const it of expList) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-exp="${it.id}" type="button">Ta bort</button></td>`;
+      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td>${escapeHtml(freqLabel(it.frequency))}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-exp="${it.id}" type="button">Ta bort</button></td>`;
       expBody.appendChild(tr);
     }
   }
@@ -776,11 +679,11 @@ function renderRecurringTables() {
   incBody.innerHTML = "";
   const incList = state.recurring?.incomes?.[String(incYear)] || [];
   if (incList.length === 0) {
-    incBody.innerHTML = `<tr><td colspan="3" style="color: var(--muted);">Inga återkommande intäkter för valt år.</td></tr>`;
+    incBody.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga återkommande intäkter för valt år.</td></tr>`;
   } else {
     for (const it of incList) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-inc="${it.id}" type="button">Ta bort</button></td>`;
+      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td>${escapeHtml(freqLabel(it.frequency))}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-inc="${it.id}" type="button">Ta bort</button></td>`;
       incBody.appendChild(tr);
     }
   }
@@ -837,60 +740,46 @@ function renderRoute(route) {
       renderOverview();
       break;
     }
-    case "car": {
+    case "incomes": {
       const years = getAvailableYears();
-      const yearSel = document.getElementById("carYear");
-      const baseYear = years.includes(ui.overviewYear) ? ui.overviewYear : currentYearMonth().year;
+      const yearSel = document.getElementById("incomesYear");
+      const baseYear = ui.incomesYear || ui.overviewYear || currentYearMonth().year;
+      ui.incomesYear = baseYear;
       setSelectOptions(yearSel, years, baseYear);
-      yearSel.onchange = renderCarPage;
-      renderCarPage();
+      yearSel.onchange = () => {
+        ui.incomesYear = Number(yearSel.value);
+        renderRecurringTables();
+      };
+      renderRecurringTables();
       break;
     }
-    case "housing": {
+    case "expenses": {
       const years = getAvailableYears();
-      const yearSel = document.getElementById("housingYear");
-      const baseYear = years.includes(ui.overviewYear) ? ui.overviewYear : currentYearMonth().year;
+      const yearSel = document.getElementById("expensesYear");
+      const baseYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
+      ui.expensesYear = baseYear;
       setSelectOptions(yearSel, years, baseYear);
-      yearSel.onchange = renderHousingPage;
-      renderHousingPage();
+      yearSel.onchange = () => {
+        ui.expensesYear = Number(yearSel.value);
+        renderRecurringTables();
+        renderExpensesSubViews();
+        renderOverviewIfOnOverview();
+      };
+      const monthSel = document.getElementById("expensesFoodMonth");
+      if (monthSel) {
+        setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
+        monthSel.onchange = () => {
+          if (ui.expensesTab === "food") renderFoodPage();
+          renderOverviewIfOnOverview();
+        };
+      }
+      bindExpensesSubnav();
+      renderRecurringTables();
+      renderExpensesSubViews();
       break;
     }
-    case "food": {
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("foodYear");
-      const monthSel = document.getElementById("foodMonth");
-      const baseYear = years.includes(ui.overviewYear) ? ui.overviewYear : currentYearMonth().year;
-      setSelectOptions(yearSel, years, baseYear);
-      setMonthOptions(monthSel, ui.overviewMonth || currentYearMonth().month);
-      yearSel.onchange = renderFoodPage;
-      monthSel.onchange = renderFoodPage;
-      // Live-uppdatering av "hjälptext"
-      ["foodDinnersPerWeek", "foodBreakfastsPerWeek", "foodLunchHomePerWeek", "foodLunchWorkPerWeek"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.oninput = updateFoodHelpText;
-      });
-      renderFoodPage();
-      break;
-    }
-    case "children": {
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("childrenYear");
-      const baseYear = years.includes(ui.overviewYear) ? ui.overviewYear : currentYearMonth().year;
-      setSelectOptions(yearSel, years, baseYear);
-      yearSel.onchange = renderChildrenPage;
-      renderChildrenPage();
-      break;
-    }
-    case "posts": {
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("postsYear");
-      const monthSel = document.getElementById("postsMonth");
-      const baseYear = years.includes(ui.overviewYear) ? ui.overviewYear : currentYearMonth().year;
-      setSelectOptions(yearSel, years, baseYear);
-      setMonthOptions(monthSel, ui.overviewMonth || currentYearMonth().month);
-      yearSel.onchange = renderPostsPage;
-      monthSel.onchange = renderPostsPage;
-      renderPostsPage();
+    case "add": {
+      document.getElementById("headerSubtitle").textContent = "Snabbtillägg";
       break;
     }
     case "settings": {
@@ -904,7 +793,6 @@ function renderRoute(route) {
       });
 
       renderSettingsPage();
-      renderRecurringTables();
       break;
     }
     default:
@@ -916,11 +804,57 @@ function renderOverviewIfOnOverview() {
   if (ui.activeRoute === "overview") renderOverview();
 }
 
+function bindExpensesSubnav() {
+  document.querySelectorAll("[data-exp-tab]").forEach((btn) => {
+    btn.onclick = () => {
+      ui.expensesTab = btn.getAttribute("data-exp-tab") || "summary";
+      renderExpensesSubViews();
+    };
+  });
+}
+
+function renderExpensesSubViews() {
+  // Toggle tab button selected state
+  document.querySelectorAll("[data-exp-tab]").forEach((btn) => {
+    const k = btn.getAttribute("data-exp-tab");
+    btn.setAttribute("aria-selected", k === ui.expensesTab ? "true" : "false");
+  });
+
+  // Toggle content
+  document.querySelectorAll("[data-expview]").forEach((el) => {
+    const k = el.getAttribute("data-expview");
+    const active = k === ui.expensesTab;
+    el.hidden = !active;
+  });
+
+  // Render specific subviews when active (pre-fill)
+  if (ui.expensesTab === "home") renderHomePage();
+  if (ui.expensesTab === "car") renderCarPage();
+  if (ui.expensesTab === "food") renderFoodPage();
+  if (ui.expensesTab === "children") renderChildrenPage();
+  if (ui.expensesTab === "loans") renderLoansPage();
+}
+
+function renderLoansPage() {
+  const year = ui.expensesYear;
+  const config = state.special.loans[String(year)] || {};
+  document.getElementById("loanPrincipal").value = asNumber(config.principal);
+  document.getElementById("loanRate").value = asNumber(config.rate);
+  document.getElementById("loanAmortization").value = asNumber(config.amortization);
+}
+
 function initActions() {
   // CAR
+  document.getElementById("carOwnership").onchange = () => {
+    const leased = document.getElementById("carOwnership").value === "leased";
+    const leasingField = document.getElementById("carLeasingField");
+    if (leasingField) leasingField.hidden = !leased;
+  };
+
   document.getElementById("carSaveBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("carYear").value);
+    const year = ui.expensesYear || currentYearMonth().year;
     state.special.car[String(year)] = {
+      ownership: document.getElementById("carOwnership").value || "owned",
       insurance: asNumber(document.getElementById("carInsurance").value),
       fuel: asNumber(document.getElementById("carFuel").value),
       parking: asNumber(document.getElementById("carParking").value),
@@ -928,116 +862,80 @@ function initActions() {
     };
     saveState();
     const note = document.getElementById("carNote");
-    note.textContent = "Bil-kostnader uppdaterade och räknade in i din budget för detta år.";
+    note.textContent = "Bil-kostnader sparade.";
     renderOverviewIfOnOverview();
-    // eslint-disable-next-line no-unused-vars
     renderCarPage();
   });
 
-  // HOUSING
-  document.getElementById("housingSaveBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("housingYear").value);
-    state.special.housing[String(year)] = {
-      rent: asNumber(document.getElementById("housingRent").value),
-      energy: asNumber(document.getElementById("housingEnergy").value),
-      insurance: asNumber(document.getElementById("housingInsurance").value),
-      internet: asNumber(document.getElementById("housingInternet").value),
-      other: asNumber(document.getElementById("housingOther").value)
+  // HOME
+  document.getElementById("homeSaveBtn").addEventListener("click", () => {
+    const year = ui.expensesYear || currentYearMonth().year;
+    state.special.home[String(year)] = {
+      rent: asNumber(document.getElementById("homeRent").value),
+      electricity: asNumber(document.getElementById("homeElectricity").value),
+      water: asNumber(document.getElementById("homeWater").value),
+      garbage: asNumber(document.getElementById("homeGarbage").value),
+      internet: asNumber(document.getElementById("homeInternet").value),
+      parking: asNumber(document.getElementById("homeParking").value)
     };
     saveState();
-    document.getElementById("housingNote").textContent = "Boende-kostnader uppdaterade och räknade in i din budget för detta år.";
+    document.getElementById("homeNote").textContent = "Hemkostnader sparade.";
     renderOverviewIfOnOverview();
-    renderHousingPage();
+    renderHomePage();
   });
 
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("foodYear").value);
-    const month = Number(document.getElementById("foodMonth").value);
-    const mK = monthKey(month);
+    const year = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
+    const month = ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month;
+    const mK = monthKey(Number(month));
     if (!state.special.food[String(year)]) state.special.food[String(year)] = {};
     state.special.food[String(year)][mK] = {
-      dinnersPerWeek: asNumber(document.getElementById("foodDinnersPerWeek").value),
-      breakfastsPerWeek: asNumber(document.getElementById("foodBreakfastsPerWeek").value),
-      lunchHomePerWeek: asNumber(document.getElementById("foodLunchHomePerWeek").value),
-      lunchWorkPerWeek: asNumber(document.getElementById("foodLunchWorkPerWeek").value),
-      dinnerUnitCost: asNumber(document.getElementById("foodDinnerUnitCost").value),
-      breakfastUnitCost: asNumber(document.getElementById("foodBreakfastUnitCost").value),
-      lunchHomeUnitCost: asNumber(document.getElementById("foodLunchHomeUnitCost").value),
-      lunchWorkUnitCost: asNumber(document.getElementById("foodLunchWorkUnitCost").value)
+      breakfastMonthly: asNumber(document.getElementById("foodBreakfastMonthly").value),
+      lunchHomeMonthly: asNumber(document.getElementById("foodLunchHomeMonthly").value),
+      dinnerMonthly: asNumber(document.getElementById("foodDinnerMonthly").value),
+      lunchWorkMonthly: asNumber(document.getElementById("foodLunchWorkMonthly").value),
+      fastFoodMonthly: asNumber(document.getElementById("foodFastFoodMonthly").value)
     };
 
     saveState();
-    document.getElementById("foodNote").textContent = `Mat-budget uppdaterad för ${monthName(month)} ${year}.`;
+    document.getElementById("foodNote").textContent = `Matkostnader sparade för ${monthName(Number(month))} ${year}.`;
     renderOverviewIfOnOverview();
     renderFoodPage();
   });
 
   // CHILDREN
   document.getElementById("kidsSaveBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("childrenYear").value);
+    const year = ui.expensesYear || currentYearMonth().year;
     state.special.children[String(year)] = {
-      kidsPartiesPerYear: asNumber(document.getElementById("kidsPartiesPerYear").value),
-      kidsPartyUnitCost: asNumber(document.getElementById("kidsPartyUnitCost").value),
+      kidsClothesPerMonth: asNumber(document.getElementById("kidsClothesPerMonth").value),
       kidsActivitiesPerMonth: asNumber(document.getElementById("kidsActivitiesPerMonth").value),
       kidsPocketMoneyPerMonth: asNumber(document.getElementById("kidsPocketMoneyPerMonth").value),
       kidsPhonePerMonth: asNumber(document.getElementById("kidsPhonePerMonth").value),
-      kidsInsurancePerMonth: asNumber(document.getElementById("kidsInsurancePerMonth").value),
-      kidsBusCardPerMonth: asNumber(document.getElementById("kidsBusCardPerMonth").value),
-      kidsChristmasPerYear: asNumber(document.getElementById("kidsChristmasPerYear").value),
-      kidsBirthdaysPerYear: asNumber(document.getElementById("kidsBirthdaysPerYear").value)
+      kidsBusCardPerMonth: asNumber(document.getElementById("kidsBusCardPerMonth").value)
     };
     saveState();
-    document.getElementById("kidsNote").textContent = "Barnkostnader uppdaterade och räknade in i din budget för detta år.";
+    document.getElementById("kidsNote").textContent = "Barnkostnader sparade.";
     renderOverviewIfOnOverview();
     renderChildrenPage();
   });
 
-  // POSTS - add expense
-  document.getElementById("addExpensePostBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("postsYear").value);
-    const month = Number(document.getElementById("postsMonth").value);
-    const name = (document.getElementById("postExpenseName").value || "").trim();
-    const amount = asNumber(document.getElementById("postExpenseAmount").value);
-    const note = document.getElementById("expensePostsNote");
-    if (!name || amount <= 0) {
-      note.textContent = "Ange ett namn och ett belopp > 0.";
-      return;
-    }
-    const list = ensureOneOffList(state.oneOff.expenses, year, month);
-    list.push({ id: uid(), name, amount });
+  // LOANS
+  document.getElementById("loanSaveBtn").addEventListener("click", () => {
+    const year = ui.expensesYear || currentYearMonth().year;
+    state.special.loans[String(year)] = {
+      principal: asNumber(document.getElementById("loanPrincipal").value),
+      rate: asNumber(document.getElementById("loanRate").value),
+      amortization: asNumber(document.getElementById("loanAmortization").value)
+    };
     saveState();
-    document.getElementById("postExpenseName").value = "";
-    document.getElementById("postExpenseAmount").value = "";
-    note.textContent = "Utgift tillagd.";
-    renderPostsPage();
+    document.getElementById("loanNote").textContent = "Låneuppgifter sparade.";
     renderOverviewIfOnOverview();
-  });
-
-  // POSTS - add income
-  document.getElementById("addIncomePostBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("postsYear").value);
-    const month = Number(document.getElementById("postsMonth").value);
-    const name = (document.getElementById("postIncomeName").value || "").trim();
-    const amount = asNumber(document.getElementById("postIncomeAmount").value);
-    const note = document.getElementById("incomePostsNote");
-    if (!name || amount <= 0) {
-      note.textContent = "Ange ett namn och ett belopp > 0.";
-      return;
-    }
-    const list = ensureOneOffList(state.oneOff.incomes, year, month);
-    list.push({ id: uid(), name, amount });
-    saveState();
-    document.getElementById("postIncomeName").value = "";
-    document.getElementById("postIncomeAmount").value = "";
-    note.textContent = "Intäkt tillagd.";
-    renderPostsPage();
-    renderOverviewIfOnOverview();
+    renderLoansPage();
   });
 
   // SETTINGS - add recurring expense
   document.getElementById("addRecurringExpenseBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("settingsExpensesYear").value);
     const name = (document.getElementById("recurringExpenseName").value || "").trim();
     const amount = asNumber(document.getElementById("recurringExpenseAmount").value);
     const note = document.getElementById("recurringExpensesNote");
@@ -1045,8 +943,10 @@ function initActions() {
       note.textContent = "Ange ett namn och ett belopp > 0.";
       return;
     }
+    const year = ui.expensesYear || currentYearMonth().year;
+    const frequency = document.getElementById("recurringExpenseFrequency")?.value || "monthly";
     const list = ensureYearArray(state.recurring.expenses, year);
-    list.push({ id: uid(), name, amount });
+    list.push({ id: uid(), name, amount, frequency });
     saveState();
     document.getElementById("recurringExpenseName").value = "";
     document.getElementById("recurringExpenseAmount").value = "";
@@ -1057,7 +957,6 @@ function initActions() {
 
   // SETTINGS - add recurring income
   document.getElementById("addRecurringIncomeBtn").addEventListener("click", () => {
-    const year = Number(document.getElementById("settingsIncomesYear").value);
     const name = (document.getElementById("recurringIncomeName").value || "").trim();
     const amount = asNumber(document.getElementById("recurringIncomeAmount").value);
     const note = document.getElementById("recurringIncomesNote");
@@ -1065,8 +964,10 @@ function initActions() {
       note.textContent = "Ange ett namn och ett belopp > 0.";
       return;
     }
+    const year = ui.incomesYear || currentYearMonth().year;
+    const frequency = document.getElementById("recurringIncomeFrequency")?.value || "monthly";
     const list = ensureYearArray(state.recurring.incomes, year);
-    list.push({ id: uid(), name, amount });
+    list.push({ id: uid(), name, amount, frequency });
     saveState();
     document.getElementById("recurringIncomeName").value = "";
     document.getElementById("recurringIncomeAmount").value = "";
@@ -1075,16 +976,12 @@ function initActions() {
     renderOverviewIfOnOverview();
   });
 
-  document.getElementById("settingsExpensesYear").addEventListener("change", renderRecurringTables);
-  document.getElementById("settingsIncomesYear").addEventListener("change", renderRecurringTables);
-
   document.getElementById("saveSettingsBtn").addEventListener("click", () => {
     state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));
     const pat = document.getElementById("backupFilenamePattern").value || "";
     state.settings.backupFilenamePattern = pat.trim();
     saveState();
-    renderRecurringTables();
-    document.getElementById("recurringExpensesNote").textContent = "Inställningar sparade.";
+    document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
   });
 
   // Backup modal

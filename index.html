@@ -14,15 +14,6 @@
         <div class="brand-title">Björklunds - Budget</div>
         <div class="brand-subtitle" id="headerSubtitle">Budget</div>
       </div>
-      <nav class="app-nav" aria-label="Huvudnavigation">
-        <a href="#/overview" data-navlink="overview">Översikt</a>
-        <a href="#/car" data-navlink="car">Bil</a>
-        <a href="#/housing" data-navlink="housing">Boende</a>
-        <a href="#/food" data-navlink="food">Mat</a>
-        <a href="#/children" data-navlink="children">Barn</a>
-        <a href="#/posts" data-navlink="posts">Poster</a>
-        <a href="#/settings" data-navlink="settings">Inställningar</a>
-      </nav>
     </header>
 
     <main class="app-main">
@@ -30,7 +21,7 @@
         <!-- OVERVIEW -->
         <section class="view" data-view="overview">
           <div class="view-header">
-            <h2>Översikt för vald månad</h2>
+            <h2>Översikt</h2>
             <div class="picker-row">
               <label>
                 År
@@ -103,265 +94,289 @@
           </div>
         </section>
 
-        <!-- CAR -->
-        <section class="view" data-view="car">
+        <!-- INCOMES -->
+        <section class="view" data-view="incomes">
           <div class="view-header">
-            <h2>Bil-kostnader</h2>
+            <h2>Intäkter</h2>
             <div class="picker-row">
               <label>
                 År
-                <select id="carYear"></select>
+                <select id="incomesYear"></select>
               </label>
             </div>
           </div>
 
-          <div class="form-grid">
-            <label class="field">
-              Försäkring (kr/mån)
-              <input id="carInsurance" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Drivmedel (kr/mån)
-              <input id="carFuel" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Parkering (kr/mån)
-              <input id="carParking" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Leasing/kontrakt (kr/mån)
-              <input id="carLeasing" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-          </div>
+          <div class="table-card">
+            <div class="table-title">Lägg till intäkt</div>
+            <div class="form-inline">
+              <input id="recurringIncomeName" type="text" placeholder="T.ex. lön" maxlength="80" />
+              <input id="recurringIncomeAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp" />
+              <select id="recurringIncomeFrequency" aria-label="Period">
+                <option value="monthly">kr/mån</option>
+                <option value="yearly">kr/år</option>
+              </select>
+              <button class="primary" id="addRecurringIncomeBtn" type="button">Lägg till</button>
+            </div>
 
-          <div class="actions-row">
-            <button class="primary" id="carSaveBtn" type="button">Uppdatera och räkna in i utgifter</button>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="Intäkter">
+                <thead>
+                  <tr>
+                    <th>Post</th>
+                    <th>Period</th>
+                    <th class="right">Belopp</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="recurringIncomesTableBody"></tbody>
+              </table>
+            </div>
+            <div class="note" id="recurringIncomesNote"></div>
           </div>
-          <div class="note" id="carNote"></div>
         </section>
 
-        <!-- HOUSING -->
-        <section class="view" data-view="housing">
+        <!-- EXPENSES -->
+        <section class="view" data-view="expenses">
           <div class="view-header">
-            <h2>Boende-kostnader</h2>
+            <h2>Utgifter</h2>
             <div class="picker-row">
               <label>
                 År
-                <select id="housingYear"></select>
+                <select id="expensesYear"></select>
               </label>
             </div>
           </div>
 
-          <div class="form-grid">
-            <label class="field">
-              Hyra (kr/mån)
-              <input id="housingRent" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              El/värme (kr/mån)
-              <input id="housingEnergy" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Hemförsäkring (kr/mån)
-              <input id="housingInsurance" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Internet/TV (kr/mån)
-              <input id="housingInternet" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Övrigt boende (kr/mån)
-              <input id="housingOther" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
+          <div class="subnav" role="tablist" aria-label="Utgiftsområden">
+            <button class="subnav-btn" type="button" data-exp-tab="summary" aria-selected="true">Översikt</button>
+            <button class="subnav-btn" type="button" data-exp-tab="home" aria-selected="false">Hem</button>
+            <button class="subnav-btn" type="button" data-exp-tab="loans" aria-selected="false">Lån</button>
+            <button class="subnav-btn" type="button" data-exp-tab="car" aria-selected="false">Bil</button>
+            <button class="subnav-btn" type="button" data-exp-tab="food" aria-selected="false">Mat</button>
+            <button class="subnav-btn" type="button" data-exp-tab="children" aria-selected="false">Barn</button>
+            <button class="subnav-btn" type="button" data-exp-tab="other" aria-selected="false">Övrigt</button>
           </div>
 
-          <div class="actions-row">
-            <button class="primary" id="housingSaveBtn" type="button">Uppdatera och räkna in i utgifter</button>
-          </div>
-          <div class="note" id="housingNote"></div>
-        </section>
-
-        <!-- FOOD -->
-        <section class="view" data-view="food">
-          <div class="view-header">
-            <h2>Mat-planering (månadsvis)</h2>
-            <div class="picker-row">
-              <label>
-                År
-                <select id="foodYear"></select>
-              </label>
-              <label>
-                Månad
-                <select id="foodMonth"></select>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <label class="field">
-              Middagar hemma (st/vecka)
-              <input id="foodDinnersPerWeek" type="number" inputmode="decimal" min="0" step="1" />
-              <span class="field-help" id="foodDinnersPerMonthHelp"></span>
-            </label>
-            <label class="field">
-              Frukostar hemma (st/vecka)
-              <input id="foodBreakfastsPerWeek" type="number" inputmode="decimal" min="0" step="1" />
-              <span class="field-help" id="foodBreakfastsPerMonthHelp"></span>
-            </label>
-            <label class="field">
-              Lunch hemma (st/vecka)
-              <input id="foodLunchHomePerWeek" type="number" inputmode="decimal" min="0" step="1" />
-              <span class="field-help" id="foodLunchHomePerMonthHelp"></span>
-            </label>
-            <label class="field">
-              Köpta luncher (st/vecka)
-              <input id="foodLunchWorkPerWeek" type="number" inputmode="decimal" min="0" step="1" />
-              <span class="field-help" id="foodLunchWorkPerMonthHelp"></span>
-            </label>
-
-            <label class="field">
-              Kostnad middag (kr/st)
-              <input id="foodDinnerUnitCost" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Kostnad frukost (kr/st)
-              <input id="foodBreakfastUnitCost" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Kostnad lunch hemma (kr/st)
-              <input id="foodLunchHomeUnitCost" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Kostnad köpt lunch (kr/st)
-              <input id="foodLunchWorkUnitCost" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-          </div>
-
-          <div class="actions-row">
-            <button class="primary" id="foodSaveBtn" type="button">Uppdatera mat-budget</button>
-          </div>
-          <div class="note" id="foodNote"></div>
-        </section>
-
-        <!-- CHILDREN -->
-        <section class="view" data-view="children">
-          <div class="view-header">
-            <h2>Återkommande kostnader för barn</h2>
-            <div class="picker-row">
-              <label>
-                År
-                <select id="childrenYear"></select>
-              </label>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <label class="field">
-              Andra barns kalas (antal/år)
-              <input id="kidsPartiesPerYear" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Standardkostnad kalas (kr/st)
-              <input id="kidsPartyUnitCost" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Aktiviteter (kr/mån)
-              <input id="kidsActivitiesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Månadspeng (kr/mån)
-              <input id="kidsPocketMoneyPerMonth" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Telefonabonnemang (kr/mån)
-              <input id="kidsPhonePerMonth" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Försäkring (kr/mån)
-              <input id="kidsInsurancePerMonth" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Busskort (kr/mån)
-              <input id="kidsBusCardPerMonth" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Julklappar (kr/år)
-              <input id="kidsChristmasPerYear" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-            <label class="field">
-              Födelsedagspresenter (kr/år)
-              <input id="kidsBirthdaysPerYear" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
-          </div>
-
-          <div class="actions-row">
-            <button class="primary" id="kidsSaveBtn" type="button">Uppdatera barnkostnader</button>
-          </div>
-          <div class="note" id="kidsNote"></div>
-        </section>
-
-        <!-- POSTS -->
-        <section class="view" data-view="posts">
-          <div class="view-header">
-            <h2>Enstaka poster per månad</h2>
-            <div class="picker-row">
-              <label>
-                År
-                <select id="postsYear"></select>
-              </label>
-              <label>
-                Månad
-                <select id="postsMonth"></select>
-              </label>
-            </div>
-          </div>
-
-          <div class="two-col">
-            <div>
-              <div class="table-title">Lägg till utgift</div>
+          <!-- EXPENSES SUMMARY -->
+          <section class="exp-view" data-expview="summary">
+            <div class="table-card">
+              <div class="table-title">Återkommande utgifter</div>
               <div class="form-inline">
-                <input id="postExpenseName" type="text" placeholder="T.ex. tandläkare" maxlength="80" />
-                <input id="postExpenseAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp (kr)" />
-                <button class="primary" id="addExpensePostBtn" type="button">Lägg till</button>
+                <input id="recurringExpenseName" type="text" placeholder="T.ex. försäkring" maxlength="80" />
+                <input id="recurringExpenseAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp" />
+                <select id="recurringExpenseFrequency" aria-label="Period">
+                  <option value="monthly">kr/mån</option>
+                  <option value="yearly">kr/år</option>
+                </select>
+                <button class="primary" id="addRecurringExpenseBtn" type="button">Lägg till</button>
               </div>
-              <div class="note" id="expensePostsNote"></div>
-              <div class="table-card compact">
-                <div class="table-title small">Utgifter</div>
-                <table class="data-table" aria-label="Utgifter enstaka poster">
+
+              <div class="table-wrap">
+                <table class="data-table" aria-label="Återkommande utgifter">
                   <thead>
                     <tr>
                       <th>Post</th>
+                      <th>Period</th>
                       <th class="right">Belopp</th>
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody id="expensePostsTableBody"></tbody>
+                  <tbody id="recurringExpensesTableBody"></tbody>
                 </table>
               </div>
+              <div class="note" id="recurringExpensesNote"></div>
             </div>
+          </section>
 
-            <div>
-              <div class="table-title">Lägg till intäkt</div>
-              <div class="form-inline">
-                <input id="postIncomeName" type="text" placeholder="T.ex. lön" maxlength="80" />
-                <input id="postIncomeAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp (kr)" />
-                <button class="primary" id="addIncomePostBtn" type="button">Lägg till</button>
+          <!-- HOME -->
+          <section class="exp-view" data-expview="home" hidden>
+            <div class="table-card">
+              <div class="table-title">Hem</div>
+              <div class="form-grid">
+                <label class="field">
+                  Hyra (kr/mån)
+                  <input id="homeRent" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  El (kr/mån)
+                  <input id="homeElectricity" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Vatten (kr/mån)
+                  <input id="homeWater" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Sophämtning (kr/mån)
+                  <input id="homeGarbage" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Internet (kr/mån)
+                  <input id="homeInternet" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Parkering (kr/mån)
+                  <input id="homeParking" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
               </div>
-              <div class="note" id="incomePostsNote"></div>
-              <div class="table-card compact">
-                <div class="table-title small">Intäkter</div>
-                <table class="data-table" aria-label="Intäkter enstaka poster">
-                  <thead>
-                    <tr>
-                      <th>Post</th>
-                      <th class="right">Belopp</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="incomePostsTableBody"></tbody>
-                </table>
+              <div class="actions-row">
+                <button class="primary" id="homeSaveBtn" type="button">Spara hemkostnader</button>
               </div>
+              <div class="note" id="homeNote"></div>
             </div>
+          </section>
+
+          <!-- LOANS (placeholder + grunddata) -->
+          <section class="exp-view" data-expview="loans" hidden>
+            <div class="table-card">
+              <div class="table-title">Lån</div>
+              <div class="note">Grundläggande stöd (förbättras senare).</div>
+              <div class="form-grid">
+                <label class="field">
+                  Lånebelopp (kr)
+                  <input id="loanPrincipal" type="number" inputmode="decimal" min="0" step="1000" />
+                </label>
+                <label class="field">
+                  Ränta (% per år)
+                  <input id="loanRate" type="number" inputmode="decimal" min="0" step="0.1" />
+                </label>
+                <label class="field">
+                  Amortering (kr/mån)
+                  <input id="loanAmortization" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row">
+                <button class="primary" id="loanSaveBtn" type="button">Spara låneuppgifter</button>
+              </div>
+              <div class="note" id="loanNote"></div>
+            </div>
+          </section>
+
+          <!-- CAR -->
+          <section class="exp-view" data-expview="car" hidden>
+            <div class="table-card">
+              <div class="table-title">Bil</div>
+              <div class="form-grid">
+                <label class="field">
+                  Ägandeform
+                  <select id="carOwnership">
+                    <option value="owned">Ägd</option>
+                    <option value="leased">Leasing</option>
+                  </select>
+                </label>
+                <label class="field">
+                  Försäkring (kr/mån)
+                  <input id="carInsurance" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Drivmedel (kr/mån)
+                  <input id="carFuel" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Parkering (kr/mån)
+                  <input id="carParking" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field" id="carLeasingField">
+                  Leasing/kontrakt (kr/mån)
+                  <input id="carLeasing" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row">
+                <button class="primary" id="carSaveBtn" type="button">Spara bilkostnader</button>
+              </div>
+              <div class="note" id="carNote"></div>
+            </div>
+          </section>
+
+          <!-- FOOD -->
+          <section class="exp-view" data-expview="food" hidden>
+            <div class="table-card">
+              <div class="table-title">Mat</div>
+              <div class="note">Här kan vi senare optimera modellen ytterligare. Just nu räknas per månad.</div>
+              <div class="picker-row">
+                <label>
+                  Månad
+                  <select id="expensesFoodMonth"></select>
+                </label>
+              </div>
+              <div class="form-grid">
+                <label class="field">
+                  Lagad frukost hemma (kr/mån)
+                  <input id="foodBreakfastMonthly" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Lagad lunch hemma (kr/mån)
+                  <input id="foodLunchHomeMonthly" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Lagad middag hemma (kr/mån)
+                  <input id="foodDinnerMonthly" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Lunch på jobbet (kr/mån)
+                  <input id="foodLunchWorkMonthly" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Snabbmat (kr/mån)
+                  <input id="foodFastFoodMonthly" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row">
+                <button class="primary" id="foodSaveBtn" type="button">Spara matkostnader</button>
+              </div>
+              <div class="note" id="foodNote"></div>
+            </div>
+          </section>
+
+          <!-- CHILDREN -->
+          <section class="exp-view" data-expview="children" hidden>
+            <div class="table-card">
+              <div class="table-title">Barn</div>
+              <div class="form-grid">
+                <label class="field">
+                  Kläder (kr/mån)
+                  <input id="kidsClothesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Busskort (kr/mån)
+                  <input id="kidsBusCardPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Telefonabonnemang (kr/mån)
+                  <input id="kidsPhonePerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Aktiviteter (kr/mån)
+                  <input id="kidsActivitiesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+                <label class="field">
+                  Månadspeng (kr/mån)
+                  <input id="kidsPocketMoneyPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row">
+                <button class="primary" id="kidsSaveBtn" type="button">Spara barnkostnader</button>
+              </div>
+              <div class="note" id="kidsNote"></div>
+            </div>
+          </section>
+
+          <!-- OTHER -->
+          <section class="exp-view" data-expview="other" hidden>
+            <div class="table-card">
+              <div class="table-title">Övrigt</div>
+              <div class="note">Här kommer även “snabbtillagda” poster via + att hamna (placeholder nu).</div>
+              <div class="note">Innehållet för denna vy finjusteras senare.</div>
+            </div>
+          </section>
+        </section>
+
+        <!-- ADD (placeholder) -->
+        <section class="view" data-view="add">
+          <div class="view-header">
+            <h2>Snabbtillägg</h2>
+          </div>
+          <div class="table-card">
+            <div class="note">Placeholder: här bygger vi senare en snabbfunktion för att lägga till en utgiftspost.</div>
           </div>
         </section>
 
@@ -380,64 +395,6 @@
                   </select>
                 </label>
               </div>
-            </div>
-          </div>
-
-          <div class="settings-grid">
-            <div class="table-card">
-              <div class="table-title">Återkommande utgifter (förvalt förvalt år)</div>
-              <div class="form-row">
-                <label>
-                  År
-                  <select id="settingsExpensesYear"></select>
-                </label>
-              </div>
-              <div class="form-inline">
-                <input id="recurringExpenseName" type="text" placeholder="T.ex. hyra" maxlength="80" />
-                <input id="recurringExpenseAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp (kr/mån)" />
-                <button class="primary" id="addRecurringExpenseBtn" type="button">Lägg till</button>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table" aria-label="Återkommande utgifter">
-                  <thead>
-                    <tr>
-                      <th>Post</th>
-                      <th class="right">Belopp</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="recurringExpensesTableBody"></tbody>
-                </table>
-              </div>
-              <div class="note" id="recurringExpensesNote"></div>
-            </div>
-
-            <div class="table-card">
-              <div class="table-title">Återkommande intäkter (förvalt förvalt år)</div>
-              <div class="form-row">
-                <label>
-                  År
-                  <select id="settingsIncomesYear"></select>
-                </label>
-              </div>
-              <div class="form-inline">
-                <input id="recurringIncomeName" type="text" placeholder="T.ex. lön" maxlength="80" />
-                <input id="recurringIncomeAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp (kr/mån)" />
-                <button class="primary" id="addRecurringIncomeBtn" type="button">Lägg till</button>
-              </div>
-              <div class="table-wrap">
-                <table class="data-table" aria-label="Återkommande intäkter">
-                  <thead>
-                    <tr>
-                      <th>Post</th>
-                      <th class="right">Belopp</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody id="recurringIncomesTableBody"></tbody>
-                </table>
-              </div>
-              <div class="note" id="recurringIncomesNote"></div>
             </div>
           </div>
 
@@ -483,6 +440,29 @@
         </section>
       </div>
     </main>
+
+    <nav class="bottom-nav" aria-label="Huvudmeny">
+      <a href="#/overview" data-navlink="overview" aria-label="Översikt">
+        <span class="nav-icon" aria-hidden="true">⌂</span>
+        <span class="nav-label">Översikt</span>
+      </a>
+      <a href="#/incomes" data-navlink="incomes" aria-label="Intäkter">
+        <span class="nav-icon" aria-hidden="true">＋</span>
+        <span class="nav-label">Intäkter</span>
+      </a>
+      <a href="#/expenses" data-navlink="expenses" aria-label="Utgifter">
+        <span class="nav-icon" aria-hidden="true">−</span>
+        <span class="nav-label">Utgifter</span>
+      </a>
+      <a href="#/add" data-navlink="add" class="nav-add" aria-label="Lägg till">
+        <span class="nav-icon" aria-hidden="true">＋</span>
+        <span class="nav-label">Lägg till</span>
+      </a>
+      <a href="#/settings" data-navlink="settings" aria-label="Inställningar">
+        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <span class="nav-label">Inställn.</span>
+      </a>
+    </nav>
 
     <!-- BACKUP MODAL -->
     <div class="modal-backdrop" id="backupModalBackdrop" hidden></div>
