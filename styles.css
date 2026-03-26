@@ -497,7 +497,12 @@ button:focus {
 .loan-header-subrow td {
   height: 6px;
   padding: 0;
-  border-bottom: 0;
+  border-bottom: 0 !important;
+}
+
+.loan-list-table thead th,
+.loan-list-table thead td {
+  border-bottom: 0 !important;
 }
 
 .loan-list-table td:nth-child(1) {
