@@ -2315,13 +2315,19 @@ function renderLoansPage() {
   });
   body.innerHTML = "";
   if (loans.length === 0) {
-    body.innerHTML = `<tr><td colspan="5" style="color: var(--muted);">Inga lån ännu.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga lån ännu.</td></tr>`;
   } else {
     for (const loan of loans) {
+      const displayName = loan.name || "Lån";
+      const displayBank = loan.bank || "";
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${escapeHtml(loan.name || "Lån")}</td>
-        <td>${escapeHtml(loan.bank || "")}</td>
+        <td>
+          <div class="loan-name-cell">
+            <div class="loan-name-main truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+            <div class="loan-name-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
+          </div>
+        </td>
         <td class="right">${formatKr(loan.principal)}</td>
         <td class="right">${formatKr(getLoanTotalPayment(loan))}</td>
         <td class="right"><button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button></td>
@@ -2348,8 +2354,8 @@ function updateLoanDerivedFields() {
   const total = interest + asNumber(draft.amortization);
   const interestEl = document.getElementById("loanInterestAmount");
   const totalEl = document.getElementById("loanTotalPayment");
-  if (interestEl) interestEl.value = formatKr(interest);
-  if (totalEl) totalEl.value = formatKr(total);
+  if (interestEl) interestEl.textContent = formatKr(interest);
+  if (totalEl) totalEl.textContent = formatKr(total);
 }
 
 function openLoanEditor(loanId = null) {

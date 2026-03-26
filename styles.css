@@ -454,6 +454,44 @@ button:focus {
   border-bottom: 1px solid transparent;
 }
 
+.loan-list-table th:nth-child(4),
+.loan-list-table td:nth-child(4) {
+  width: 52px;
+}
+
+.loan-list-table th:nth-child(3),
+.loan-list-table td:nth-child(3) {
+  width: 92px;
+}
+
+.loan-list-table th:nth-child(2),
+.loan-list-table td:nth-child(2) {
+  width: 92px;
+}
+
+.loan-list-table td:nth-child(1) {
+  overflow: hidden;
+}
+
+.loan-list-table td:nth-child(2),
+.loan-list-table td:nth-child(3) {
+  white-space: nowrap;
+}
+
+.loan-name-cell {
+  min-width: 0;
+}
+
+.loan-name-main {
+  font-weight: 600;
+}
+
+.loan-name-bank {
+  margin-top: 2px;
+  font-size: 0.86em;
+  color: var(--muted);
+}
+
 .truncate {
   display: block;
   overflow: hidden;
@@ -634,6 +672,26 @@ tr.month-break td {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 16px 0;
+}
+
+.derived-value {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--text);
+  font-weight: 650;
+}
+
+#confirmDeleteLoanBackdrop {
+  z-index: 90;
+}
+
+#confirmDeleteLoanModal {
+  z-index: 91;
 }
 
 .form-row {

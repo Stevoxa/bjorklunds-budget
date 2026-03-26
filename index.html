@@ -232,7 +232,7 @@
             <div class="table-card">
               <div class="overlay-head">
                 <div class="table-title">Lån</div>
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
+                <button class="icon-btn" type="button" data-exp-close aria-label="Stäng">✕</button>
               </div>
 
               <section id="loanEditorSection" hidden>
@@ -261,17 +261,19 @@
                     Förfallodatum (dag)
                     <input id="loanDueDay" type="number" inputmode="numeric" min="1" max="28" step="1" />
                   </label>
-                  <label class="field">
-                    Räntebelopp (kr)
-                    <input id="loanInterestAmount" type="text" readonly />
-                  </label>
-                  <label class="field">
-                    Summa betalning (kr)
-                    <input id="loanTotalPayment" type="text" readonly />
-                  </label>
+                  <div class="field">
+                    <span>Räntebelopp (kr)</span>
+                    <div class="derived-value" id="loanInterestAmount">0 kr</div>
+                  </div>
+                  <div class="field">
+                    <span>Summa betalning (kr)</span>
+                    <div class="derived-value" id="loanTotalPayment">0 kr</div>
+                  </div>
+                </div>
+                <div class="actions-row" style="justify-content: flex-start;">
+                  <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
                 </div>
                 <div class="actions-row">
-                  <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
                   <button class="secondary" id="loanEditorCancelBtn" type="button">Avbryt</button>
                   <button class="primary" id="loanSaveBtn" type="button">Spara</button>
                 </div>
@@ -281,14 +283,13 @@
 
               <section>
                 <div class="table-wrap">
-                  <table class="data-table income-payments-table" aria-label="Lån">
+                  <table class="data-table income-payments-table loan-list-table" aria-label="Lån">
                     <thead>
                       <tr>
-                        <th>Namn på lån</th>
-                        <th>Bank</th>
+                        <th>Lån</th>
                         <th class="right">Skuld</th>
                         <th class="right">Summa</th>
-                        <th class="right">Redigera</th>
+                        <th class="right"></th>
                       </tr>
                     </thead>
                     <tbody id="loansTableBody"></tbody>
