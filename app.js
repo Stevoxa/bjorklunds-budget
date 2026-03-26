@@ -111,6 +111,29 @@ function setDayOptions(selectEl, selectedDay) {
   }
 }
 
+function setDayOptionsForMonth(selectEl, year, month1to12, selectedDay) {
+  const max = daysInMonth(year, month1to12);
+  selectEl.innerHTML = "";
+  for (let d = 1; d <= max; d++) {
+    const opt = document.createElement("option");
+    opt.value = String(d);
+    opt.textContent = String(d);
+    if (Number(selectedDay) === d) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function setMonthNumberOptions(selectEl, selectedMonth) {
+  selectEl.innerHTML = "";
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement("option");
+    opt.value = String(m);
+    opt.textContent = String(m);
+    if (Number(selectedMonth) === m) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
 function safeParseJson(text) {
   try {
     return JSON.parse(text);
@@ -1185,9 +1208,7 @@ function renderIncomePaymentsEditorRows() {
         <select class="tight" data-inc-pay-month="${idx}"></select>
       </td>
       <td>
-        <input type="date" class="tight" data-inc-pay-day="${idx}" value="${escapeHtml(
-          isoDateFromParts(parts.y, parts.m, parts.d)
-        )}" />
+        <select class="tight" data-inc-pay-day="${idx}"></select>
       </td>
       <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-inc-pay-amt="${idx}" value="${escapeHtml(asNumber(p.amount))}" /></td>
     `;
@@ -1212,7 +1233,7 @@ function renderIncomePaymentsEditorRows() {
     const idx = Number(el.getAttribute("data-inc-pay-month"));
     const p = ui.incomeEditorPayments[idx];
     const parts = datePartsFromIso(p.date) || { y: currentYearMonth().year, m: 1, d: 25 };
-    setMonthOptions(el, parts.m);
+    setMonthNumberOptions(el, parts.m);
     el.onchange = () => {
       const newM = Number(el.value);
       const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || parts;
@@ -1223,12 +1244,12 @@ function renderIncomePaymentsEditorRows() {
 
   document.querySelectorAll("[data-inc-pay-day]").forEach((el) => {
     const idx = Number(el.getAttribute("data-inc-pay-day"));
+    const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || { y: currentYearMonth().year, m: 1, d: 25 };
+    setDayOptionsForMonth(el, cur.y, cur.m, cur.d);
     el.onchange = () => {
-      const picked = datePartsFromIso(el.value);
-      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || { y: currentYearMonth().year, m: 1, d: 25 };
-      // Ignorera år/månad från datepicker: använd bara dag
-      const newDay = picked?.d || cur.d;
-      ui.incomeEditorPayments[idx].date = isoDateFromParts(cur.y, cur.m, newDay);
+      const day = Number(el.value);
+      const parts = datePartsFromIso(ui.incomeEditorPayments[idx].date) || cur;
+      ui.incomeEditorPayments[idx].date = isoDateFromParts(parts.y, parts.m, day);
       renderIncomePaymentsEditorRows();
     };
   });
