@@ -35,6 +35,12 @@ html[data-theme="dark"] {
   box-sizing: border-box;
 }
 
+/* Defensive: enforce HTML hidden attribute in all webviews */
+[hidden],
+[aria-hidden="true"] {
+  display: none !important;
+}
+
 html,
 body {
   width: 100%;
