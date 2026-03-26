@@ -1853,8 +1853,14 @@ function renderExpensesList() {
   }
   let prevMonthKey = null;
   for (const r of rows) {
-    const tr = document.createElement("tr");
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
+    if (monthKey !== prevMonthKey) {
+      const monthRow = document.createElement("tr");
+      monthRow.className = "month-label-row";
+      monthRow.innerHTML = `<td colspan="4">------ ${escapeHtml(monthName(r.date.getMonth() + 1))} ${r.date.getFullYear()} ------</td>`;
+      body.appendChild(monthRow);
+    }
+    const tr = document.createElement("tr");
     if (prevMonthKey && monthKey !== prevMonthKey) tr.classList.add("month-break");
     prevMonthKey = monthKey;
     tr.innerHTML = `
