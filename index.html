@@ -283,20 +283,23 @@
 
               <section>
                 <div class="table-wrap">
-                  <table class="data-table income-payments-table loan-list-table" aria-label="Lån">
+                  <table class="data-table loan-list-table" aria-label="Lån">
                     <thead>
                       <tr>
                         <th>Lån</th>
                         <th class="right">Skuld</th>
-                        <th class="right">Summa</th>
+                        <th class="right">Kostnad</th>
                         <th class="right"></th>
+                      </tr>
+                      <tr class="loan-header-subrow">
+                        <td colspan="4"></td>
                       </tr>
                     </thead>
                     <tbody id="loansTableBody"></tbody>
                   </table>
                 </div>
                 <div class="actions-row" style="justify-content: space-between;">
-                  <button class="secondary" id="loanAddNewBtn" type="button">Lägg till nytt lån</button>
+                  <button class="primary" id="loanAddNewBtn" type="button">Lägg till nytt lån</button>
                   <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 </div>
                 <div class="note" id="loanNote"></div>

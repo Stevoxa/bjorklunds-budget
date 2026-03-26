@@ -469,6 +469,37 @@ button:focus {
   width: 92px;
 }
 
+.loan-list-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.loan-list-table th:nth-child(2),
+.loan-list-table td:nth-child(2) {
+  width: 104px !important; /* aligned currency column */
+}
+
+.loan-list-table th:nth-child(3),
+.loan-list-table td:nth-child(3) {
+  width: 116px !important; /* aligned currency column */
+}
+
+.loan-list-table th:nth-child(4),
+.loan-list-table td:nth-child(4) {
+  width: 52px !important;
+}
+
+.loan-list-table thead th {
+  padding-top: 12px;
+  padding-bottom: 10px;
+}
+
+.loan-header-subrow td {
+  height: 6px;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .loan-list-table td:nth-child(1) {
   overflow: hidden;
 }
@@ -480,16 +511,46 @@ button:focus {
 
 .loan-name-cell {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 46px; /* keeps row height stable when bank line is empty */
 }
 
 .loan-name-main {
   font-weight: 600;
+  line-height: 1.1;
 }
 
 .loan-name-bank {
-  margin-top: 2px;
-  font-size: 0.86em;
+  margin-top: 0;
+  font-size: 0.8em;
   color: var(--muted);
+  line-height: 1.1;
+  min-height: 1.1em; /* ensures bank line doesn't collapse */
+}
+
+.loan-list-table tbody td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.kr-cell {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.kr-num,
+.kr-currency {
+  white-space: nowrap;
+}
+
+.loan-list-table td.right {
+  text-align: right;
 }
 
 .truncate {

@@ -2306,6 +2306,15 @@ function renderLoansPage() {
   const year = ui.expensesYear;
   const body = document.getElementById("loansTableBody");
   if (!body) return;
+
+  const splitKr = (amount) => {
+    const formatted = formatKr(amount);
+    // Intl SEK returns something like: "200 000 kr" (with potential NBSPs)
+    const m = String(formatted).match(/^(.*?)[\s\u00A0]*kr$/i);
+    const num = (m && m[1] ? m[1] : formatted).trim();
+    return { num, currency: "kr" };
+  };
+
   const loans = getLoansForYear(year).slice().sort((a, b) => {
     const byName = (a.name || "").localeCompare(b.name || "", "sv");
     if (byName !== 0) return byName;
@@ -2320,6 +2329,8 @@ function renderLoansPage() {
     for (const loan of loans) {
       const displayName = loan.name || "Lån";
       const displayBank = loan.bank || "";
+      const principal = splitKr(loan.principal);
+      const total = splitKr(getLoanTotalPayment(loan));
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>
@@ -2328,8 +2339,18 @@ function renderLoansPage() {
             <div class="loan-name-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
           </div>
         </td>
-        <td class="right">${formatKr(loan.principal)}</td>
-        <td class="right">${formatKr(getLoanTotalPayment(loan))}</td>
+        <td class="right">
+          <span class="kr-cell">
+            <span class="kr-num">${escapeHtml(principal.num)}</span>
+            <span class="kr-currency">${escapeHtml(principal.currency)}</span>
+          </span>
+        </td>
+        <td class="right">
+          <span class="kr-cell">
+            <span class="kr-num">${escapeHtml(total.num)}</span>
+            <span class="kr-currency">${escapeHtml(total.currency)}</span>
+          </span>
+        </td>
         <td class="right"><button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button></td>
       `;
       body.appendChild(tr);
