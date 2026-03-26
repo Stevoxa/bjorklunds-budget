@@ -1101,11 +1101,25 @@ function openIncomeOverlay(incomeId) {
   document.getElementById("incomeNameInput").value = inc?.name || "";
   document.getElementById("incomeIntervalSelect").value = inc?.interval || "once";
 
-  ui.incomeEditorPayments = Array.isArray(inc?.payments) ? inc.payments.map((p) => ({ ...p })) : [];
+  ui.incomeEditorPayments = Array.isArray(inc?.payments)
+    ? inc.payments.map((p) => {
+        const parts = datePartsFromIso(p.date) || null;
+        return {
+          id: p.id || uid(),
+          year: parts ? String(parts.y) : "",
+          month: parts ? String(parts.m) : "",
+          day: parts ? String(parts.d) : "",
+          amount: asNumber(p.amount)
+        };
+      })
+    : [];
   // Initialize defaults from existing data (if editing)
   const curY = currentYearMonth().year;
-  const firstPayment = (ui.incomeEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.date);
-  const parts = firstPayment ? datePartsFromIso(firstPayment.date) : null;
+  const firstPayment = (ui.incomeEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.year && p.month && p.day);
+  const parts =
+    firstPayment && parseIntOrNull(firstPayment.year) && parseIntOrNull(firstPayment.month) && parseIntOrNull(firstPayment.day)
+      ? { y: Number(firstPayment.year), m: Number(firstPayment.month), d: Number(firstPayment.day) }
+      : null;
   ui.incomeDefaults = ui.incomeDefaults || { year: curY, day: 25, amount: 0 };
   ui.incomeDefaults.year = parts?.y || ui.incomeDefaults.year || curY;
   ui.incomeDefaults.day = parts?.d || ui.incomeDefaults.day || 25;
@@ -1151,6 +1165,34 @@ function monthsForInterval(interval) {
   return [new Date().getMonth() + 1];
 }
 
+function parseIntOrNull(v) {
+  const n = Number.parseInt(String(v), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function isAllowedYear(y) {
+  const cur = currentYearMonth().year;
+  return y === cur - 1 || y === cur || y === cur + 1;
+}
+
+function validateIncomePaymentParts({ year, month, day, amount }) {
+  const y = parseIntOrNull(year);
+  const m = parseIntOrNull(month);
+  const d = parseIntOrNull(day);
+  const amt = asNumber(amount);
+
+  if (y === null || !isAllowedYear(y)) return { ok: false, message: "År måste vara föregående, innevarande eller nästa år." };
+  if (m === null || m < 1 || m > 12) return { ok: false, message: "Månad måste vara 1–12." };
+  if (d === null || d < 1 || d > 31) return { ok: false, message: "Dag måste vara 1–31." };
+
+  const max = daysInMonth(y, m);
+  if (d > max) return { ok: false, message: `Ogiltig dag för vald månad (max ${max}).` };
+
+  // Belopp får vara 0; datumkrav hanteras vid Spara för rader med belopp > 0.
+  if (amt < 0) return { ok: false, message: "Belopp kan inte vara negativt." };
+  return { ok: true, message: "" };
+}
+
 function applyIncomeDefaultsToEditorRows(overwriteExisting) {
   const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
   const count = paymentsCountForInterval(interval);
@@ -1163,19 +1205,22 @@ function applyIncomeDefaultsToEditorRows(overwriteExisting) {
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
 
   // Ensure length
-  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ id: uid(), date: "", amount: 0 });
+  while (ui.incomeEditorPayments.length < count)
+    ui.incomeEditorPayments.push({ id: uid(), year: "", month: "", day: "", amount: 0 });
   if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
 
-  // Overwrite dates/amounts based on defaults + interval
+  // Overwrite values based on defaults + interval
   ui.incomeEditorPayments = ui.incomeEditorPayments.map((p, idx) => {
-    const existingParts = datePartsFromIso(p.date);
-    const shouldOverwrite = overwriteExisting || !p.date;
-    if (!shouldOverwrite && existingParts) return p;
-
     const month = months[Math.min(idx, months.length - 1)] || 1;
-    const iso = isoDateFromParts(defYear || currentYearMonth().year, month, defDay || 25);
-    const amount = overwriteExisting ? defAmt : asNumber(p.amount);
-    return { ...p, date: iso, amount };
+    const shouldOverwrite = overwriteExisting || !p.year || !p.month || !p.day;
+    if (!shouldOverwrite) return p;
+    return {
+      ...p,
+      year: String(defYear || currentYearMonth().year),
+      month: String(month),
+      day: String(defDay || 25),
+      amount: overwriteExisting ? defAmt : asNumber(p.amount)
+    };
   });
 
   renderIncomePaymentsEditorRows();
@@ -1186,71 +1231,80 @@ function renderIncomePaymentsEditorRows() {
   const count = paymentsCountForInterval(interval);
 
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
-  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ id: uid(), date: "", amount: 0 });
+  while (ui.incomeEditorPayments.length < count)
+    ui.incomeEditorPayments.push({ id: uid(), year: "", month: "", day: "", amount: 0 });
   if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
 
   const body = document.getElementById("incomePaymentsEditorBody");
   body.innerHTML = "";
 
   ui.incomeEditorPayments.forEach((p, idx) => {
-    const parts = datePartsFromIso(p.date) || {
-      y: currentYearMonth().year,
-      m: idx + 1,
-      d: 25
-    };
-
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>
-        <select class="tight" data-inc-pay-year="${idx}"></select>
+        <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-year="${idx}" placeholder="2026" value="${escapeHtml(
+          p.year ?? ""
+        )}" />
       </td>
       <td>
-        <select class="tight" data-inc-pay-month="${idx}"></select>
+        <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-month="${idx}" placeholder="1-12" value="${escapeHtml(
+          p.month ?? ""
+        )}" />
       </td>
       <td>
-        <select class="tight" data-inc-pay-day="${idx}"></select>
+        <input class="tight" inputmode="numeric" type="number" step="1" data-inc-pay-day="${idx}" placeholder="1-31" value="${escapeHtml(
+          p.day ?? ""
+        )}" />
       </td>
-      <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-inc-pay-amt="${idx}" value="${escapeHtml(asNumber(p.amount))}" /></td>
+      <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-inc-pay-amt="${idx}" placeholder="0" value="${escapeHtml(
+        asNumber(p.amount)
+      )}" /></td>
     `;
     body.appendChild(tr);
+
+    const errTr = document.createElement("tr");
+    errTr.innerHTML = `<td colspan="4"><div class="field-error" data-inc-pay-err="${idx}"></div></td>`;
+    body.appendChild(errTr);
   });
 
-  // Populate + bind year/month/day + amount
+  const updateRowValidationUI = (idx) => {
+    const row = ui.incomeEditorPayments[idx];
+    const res = validateIncomePaymentParts(row);
+    const err = document.querySelector(`[data-inc-pay-err="${idx}"]`);
+    const show = asNumber(row.amount) > 0;
+    if (err) err.textContent = show && !res.ok ? res.message : "";
+
+    ["year", "month", "day"].forEach((k) => {
+      const el = document.querySelector(`[data-inc-pay-${k}="${idx}"]`);
+      if (!el) return;
+      const isInvalid = show && !res.ok;
+      el.classList.toggle("input-invalid", isInvalid);
+      el.setAttribute("aria-invalid", isInvalid ? "true" : "false");
+    });
+  };
+
   document.querySelectorAll("[data-inc-pay-year]").forEach((el) => {
     const idx = Number(el.getAttribute("data-inc-pay-year"));
-    const p = ui.incomeEditorPayments[idx];
-    const parts = datePartsFromIso(p.date) || { y: currentYearMonth().year, m: 1, d: 25 };
-    setYear3Options(el, parts.y);
-    el.onchange = () => {
-      const newY = Number(el.value);
-      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || parts;
-      ui.incomeEditorPayments[idx].date = isoDateFromParts(newY, cur.m, cur.d);
-      renderIncomePaymentsEditorRows();
+    el.oninput = () => {
+      ui.incomeEditorPayments[idx].year = el.value;
+      updateRowValidationUI(idx);
     };
+    updateRowValidationUI(idx);
   });
 
   document.querySelectorAll("[data-inc-pay-month]").forEach((el) => {
     const idx = Number(el.getAttribute("data-inc-pay-month"));
-    const p = ui.incomeEditorPayments[idx];
-    const parts = datePartsFromIso(p.date) || { y: currentYearMonth().year, m: 1, d: 25 };
-    setMonthNumberOptions(el, parts.m);
-    el.onchange = () => {
-      const newM = Number(el.value);
-      const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || parts;
-      ui.incomeEditorPayments[idx].date = isoDateFromParts(cur.y, newM, cur.d);
-      renderIncomePaymentsEditorRows();
+    el.oninput = () => {
+      ui.incomeEditorPayments[idx].month = el.value;
+      updateRowValidationUI(idx);
     };
   });
 
   document.querySelectorAll("[data-inc-pay-day]").forEach((el) => {
     const idx = Number(el.getAttribute("data-inc-pay-day"));
-    const cur = datePartsFromIso(ui.incomeEditorPayments[idx].date) || { y: currentYearMonth().year, m: 1, d: 25 };
-    setDayOptionsForMonth(el, cur.y, cur.m, cur.d);
-    el.onchange = () => {
-      const day = Number(el.value);
-      const parts = datePartsFromIso(ui.incomeEditorPayments[idx].date) || cur;
-      ui.incomeEditorPayments[idx].date = isoDateFromParts(parts.y, parts.m, day);
-      renderIncomePaymentsEditorRows();
+    el.oninput = () => {
+      ui.incomeEditorPayments[idx].day = el.value;
+      updateRowValidationUI(idx);
     };
   });
 
@@ -1258,6 +1312,7 @@ function renderIncomePaymentsEditorRows() {
     el.oninput = () => {
       const idx = Number(el.getAttribute("data-inc-pay-amt"));
       ui.incomeEditorPayments[idx].amount = asNumber(el.value);
+      updateRowValidationUI(idx);
     };
   });
 }
@@ -1272,23 +1327,45 @@ function saveIncomeFromOverlay() {
     return;
   }
 
-  const payments = (ui.incomeEditorPayments || []).map((p) => ({ id: p.id || uid(), date: p.date || "", amount: asNumber(p.amount) }));
-  // Validera: om belopp > 0 måste datum finnas
+  const payments = (ui.incomeEditorPayments || []).map((p) => ({
+    id: p.id || uid(),
+    year: p.year,
+    month: p.month,
+    day: p.day,
+    amount: asNumber(p.amount)
+  }));
+
+  // Validera: för rader med belopp > 0 måste år/månad/dag vara giltiga (ingen auto-korrigering)
   for (const p of payments) {
-    if (asNumber(p.amount) > 0 && !p.date) {
-      note.textContent = "Datum krävs på alla rader där beloppet är > 0.";
+    if (asNumber(p.amount) <= 0) continue;
+    const res = validateIncomePaymentParts(p);
+    if (!res.ok) {
+      note.textContent = res.message;
       return;
     }
   }
+
+  const storedPayments = payments.map((p) => {
+    const y = parseIntOrNull(p.year);
+    const m = parseIntOrNull(p.month);
+    const d = parseIntOrNull(p.day);
+    const amt = asNumber(p.amount);
+    const valid = y !== null && m !== null && d !== null && isAllowedYear(y) && m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m);
+    return {
+      id: p.id,
+      date: valid ? `${y}-${pad2(m)}-${pad2(d)}` : "",
+      amount: amt
+    };
+  });
 
   const editing = Boolean(ui.editIncomeId);
   if (editing) {
     const idx = (state.incomes || []).findIndex((x) => x.id === ui.editIncomeId);
     if (idx >= 0) {
-      state.incomes[idx] = { ...state.incomes[idx], name, interval, payments };
+      state.incomes[idx] = { ...state.incomes[idx], name, interval, payments: storedPayments };
     }
   } else {
-    state.incomes.push({ id: uid(), name, interval, payments });
+    state.incomes.push({ id: uid(), name, interval, payments: storedPayments });
   }
 
   saveState();
