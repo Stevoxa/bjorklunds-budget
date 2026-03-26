@@ -86,6 +86,7 @@ function getDefaultState() {
       incomes: { [String(currentYear)]: [] },
       expenses: { [String(currentYear)]: [] }
     },
+    incomes: [],
     oneOff: {
       incomes: {},
       expenses: {}
@@ -134,6 +135,8 @@ function normalizeStateShape(state) {
   normalized.recurring.incomes = normalized.recurring.incomes || base.recurring.incomes;
   normalized.recurring.expenses = normalized.recurring.expenses || base.recurring.expenses;
 
+  normalized.incomes = Array.isArray(normalized.incomes) ? normalized.incomes : [];
+
   normalized.oneOff = normalized.oneOff || base.oneOff;
   normalized.oneOff.incomes = normalized.oneOff.incomes || {};
   normalized.oneOff.expenses = normalized.oneOff.expenses || {};
@@ -160,7 +163,7 @@ const ui = {
   expensesYear: null,
   expensesTab: "summary",
   // Intäkter
-  incomesYear: null
+  incomeYearFilter: null
 };
 
 function loadState() {
@@ -353,12 +356,29 @@ function computeMonthOverview(year, month) {
   }));
 
   const recurringExpensesAmount = recurringExpenses.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
-  const recurringIncomesAmount = recurringIncomes.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
+  const legacyRecurringIncomesAmount = recurringIncomes.reduce((s, it) => s + recurringMonthlyAmount(it), 0);
+
+  const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
+    const payments = Array.isArray(inc.payments) ? inc.payments : [];
+    return (
+      sum +
+      payments.reduce((s, p) => {
+        const amt = asNumber(p.amount);
+        if (amt <= 0) return s;
+        const dt = p.date ? new Date(p.date) : null;
+        if (!dt || Number.isNaN(dt.getTime())) return s;
+        const py = dt.getFullYear();
+        const pm = dt.getMonth() + 1;
+        if (py === year && pm === month) return s + amt;
+        return s;
+      }, 0)
+    );
+  }, 0);
 
   const specialsAmount = car.total + housing.total + food.total + children.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
-  const incomeAmount = recurringIncomesAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
+  const incomeAmount = incomePaymentsAmount + legacyRecurringIncomesAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
   const plannedExpensesAmount = recurringExpensesAmount + specialsAmount + oneOffExpensesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
@@ -384,8 +404,29 @@ function computeMonthOverview(year, month) {
   for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
 
   const incomesRows = [];
+  for (const inc of state.incomes || []) {
+    const payments = Array.isArray(inc.payments) ? inc.payments : [];
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      const py = dt.getFullYear();
+      const pm = dt.getMonth() + 1;
+      if (py !== year || pm !== month) continue;
+      incomesRows.push({
+        group: "Utbetalningar",
+        label: `${inc.name || "Intäkt"} (${dt.toLocaleDateString("sv-SE")})`,
+        amount: amt
+      });
+    }
+  }
   for (const it of recurringIncomes)
-    incomesRows.push({ group: "Återkommande intäkter", label: `${it.name} (${freqLabel(it.frequency)})`, amount: recurringMonthlyAmount(it) });
+    incomesRows.push({
+      group: "Återkommande intäkter (legacy)",
+      label: `${it.name} (${freqLabel(it.frequency)})`,
+      amount: recurringMonthlyAmount(it)
+    });
   for (const it of oneOffIncomes) incomesRows.push({ group: "Enstaka intäkter", label: it.label, amount: it.amount });
 
   return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
@@ -658,10 +699,10 @@ function renderSettingsPage() {
 
 function renderRecurringTables() {
   const expYear = ui.expensesYear;
-  const incYear = ui.incomesYear;
 
   // recurring expenses
   const expBody = document.getElementById("recurringExpensesTableBody");
+  if (!expBody) return;
   expBody.innerHTML = "";
   const expList = state.recurring?.expenses?.[String(expYear)] || [];
   if (expList.length === 0) {
@@ -674,37 +715,11 @@ function renderRecurringTables() {
     }
   }
 
-  // recurring incomes
-  const incBody = document.getElementById("recurringIncomesTableBody");
-  incBody.innerHTML = "";
-  const incList = state.recurring?.incomes?.[String(incYear)] || [];
-  if (incList.length === 0) {
-    incBody.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga återkommande intäkter för valt år.</td></tr>`;
-  } else {
-    for (const it of incList) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td>${escapeHtml(freqLabel(it.frequency))}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-inc="${it.id}" type="button">Ta bort</button></td>`;
-      incBody.appendChild(tr);
-    }
-  }
-
   // Bind delete handlers
   document.querySelectorAll("[data-delete-rec-exp]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-delete-rec-exp");
       const list = ensureYearArray(state.recurring.expenses, expYear);
-      const idx = list.findIndex((x) => x.id === id);
-      if (idx >= 0) list.splice(idx, 1);
-      saveState();
-      renderRecurringTables();
-      renderOverviewIfOnOverview();
-    });
-  });
-
-  document.querySelectorAll("[data-delete-rec-inc]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-delete-rec-inc");
-      const list = ensureYearArray(state.recurring.incomes, incYear);
       const idx = list.findIndex((x) => x.id === id);
       if (idx >= 0) list.splice(idx, 1);
       saveState();
@@ -741,16 +756,7 @@ function renderRoute(route) {
       break;
     }
     case "incomes": {
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("incomesYear");
-      const baseYear = ui.incomesYear || ui.overviewYear || currentYearMonth().year;
-      ui.incomesYear = baseYear;
-      setSelectOptions(yearSel, years, baseYear);
-      yearSel.onchange = () => {
-        ui.incomesYear = Number(yearSel.value);
-        renderRecurringTables();
-      };
-      renderRecurringTables();
+      renderIncomesPage();
       break;
     }
     case "expenses": {
@@ -802,6 +808,229 @@ function renderRoute(route) {
 
 function renderOverviewIfOnOverview() {
   if (ui.activeRoute === "overview") renderOverview();
+}
+
+function incomeYearsForFilter() {
+  const years = new Set();
+  years.add("all");
+  for (const inc of state.incomes || []) {
+    for (const p of inc.payments || []) {
+      if (!p?.date) continue;
+      const dt = new Date(p.date);
+      if (Number.isNaN(dt.getTime())) continue;
+      years.add(String(dt.getFullYear()));
+    }
+  }
+  // Include +/- 1 year around current to make it easy to filter
+  const cur = currentYearMonth().year;
+  years.add(String(cur - 1));
+  years.add(String(cur));
+  years.add(String(cur + 1));
+  const arr = Array.from(years);
+  const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
+  return ["all", ...nums.map(String)];
+}
+
+function setYearFilterOptions(selectEl, selected) {
+  selectEl.innerHTML = "";
+  const years = incomeYearsForFilter();
+  for (const y of years) {
+    const opt = document.createElement("option");
+    opt.value = y;
+    opt.textContent = y === "all" ? "Alla" : y;
+    if (String(selected) === y) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function buildIncomePaymentRowsForList(yearFilter) {
+  const rows = [];
+  for (const inc of state.incomes || []) {
+    const name = inc.name || "Intäkt";
+    for (const p of inc.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      const y = dt.getFullYear();
+      if (yearFilter !== "all" && String(y) !== String(yearFilter)) continue;
+      rows.push({
+        incomeId: inc.id,
+        name,
+        date: dt,
+        amount: amt
+      });
+    }
+  }
+  rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+  return rows;
+}
+
+function renderIncomesPage() {
+  document.getElementById("headerSubtitle").textContent = "Intäkter";
+
+  const filterEl = document.getElementById("incomeYearFilter");
+  if (!ui.incomeYearFilter) ui.incomeYearFilter = String(currentYearMonth().year);
+  setYearFilterOptions(filterEl, ui.incomeYearFilter);
+  filterEl.onchange = () => {
+    ui.incomeYearFilter = filterEl.value;
+    renderIncomesList();
+  };
+
+  document.getElementById("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
+
+  // Suggestions
+  document.querySelectorAll("[data-income-suggest]").forEach((btn) => {
+    btn.onclick = () => {
+      document.getElementById("incomeNameInput").value = btn.getAttribute("data-income-suggest") || "";
+    };
+  });
+
+  document.getElementById("incomeIntervalSelect").onchange = () => {
+    renderIncomePaymentsEditorRows();
+  };
+
+  document.getElementById("closeIncomeModalBtn").onclick = closeIncomeOverlay;
+  document.getElementById("incomeCancelBtn").onclick = closeIncomeOverlay;
+  document.getElementById("incomeSaveBtn").onclick = saveIncomeFromOverlay;
+
+  renderIncomesList();
+}
+
+function openIncomeOverlay(incomeId) {
+  ui.editIncomeId = incomeId;
+  const modal = document.getElementById("incomeModal");
+  const backdrop = document.getElementById("incomeModalBackdrop");
+
+  const editing = Boolean(incomeId);
+  document.getElementById("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
+  document.getElementById("incomeEditorNote").textContent = "";
+
+  const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
+  document.getElementById("incomeNameInput").value = inc?.name || "";
+  document.getElementById("incomeIntervalSelect").value = inc?.interval || "once";
+
+  ui.incomeEditorPayments = Array.isArray(inc?.payments) ? inc.payments.map((p) => ({ ...p })) : [];
+  renderIncomePaymentsEditorRows();
+
+  backdrop.hidden = false;
+  modal.hidden = false;
+}
+
+function closeIncomeOverlay() {
+  ui.editIncomeId = null;
+  ui.incomeEditorPayments = null;
+  document.getElementById("incomeModalBackdrop").hidden = true;
+  document.getElementById("incomeModal").hidden = true;
+}
+
+function paymentsCountForInterval(interval) {
+  if (interval === "monthly") return 12;
+  if (interval === "quarterly") return 3;
+  if (interval === "yearly") return 1;
+  return 1; // once
+}
+
+function renderIncomePaymentsEditorRows() {
+  const interval = document.getElementById("incomeIntervalSelect").value || "once";
+  const count = paymentsCountForInterval(interval);
+
+  if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
+  while (ui.incomeEditorPayments.length < count) ui.incomeEditorPayments.push({ date: "", amount: 0 });
+  if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
+
+  const body = document.getElementById("incomePaymentsEditorBody");
+  body.innerHTML = "";
+
+  ui.incomeEditorPayments.forEach((p, idx) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="date" class="tight" data-inc-pay-date="${idx}" value="${escapeHtml(p.date || "")}" /></td>
+      <td class="right"><input type="number" inputmode="decimal" min="0" step="1" class="tight" data-inc-pay-amt="${idx}" value="${escapeHtml(asNumber(p.amount))}" /></td>
+    `;
+    body.appendChild(tr);
+  });
+
+  // Bind inputs
+  document.querySelectorAll("[data-inc-pay-date]").forEach((el) => {
+    el.onchange = () => {
+      const idx = Number(el.getAttribute("data-inc-pay-date"));
+      ui.incomeEditorPayments[idx].date = el.value || "";
+    };
+  });
+  document.querySelectorAll("[data-inc-pay-amt]").forEach((el) => {
+    el.oninput = () => {
+      const idx = Number(el.getAttribute("data-inc-pay-amt"));
+      ui.incomeEditorPayments[idx].amount = asNumber(el.value);
+    };
+  });
+}
+
+function saveIncomeFromOverlay() {
+  const name = (document.getElementById("incomeNameInput").value || "").trim();
+  const interval = document.getElementById("incomeIntervalSelect").value || "once";
+  const note = document.getElementById("incomeEditorNote");
+
+  if (!name) {
+    note.textContent = "Ange namn på intäkt.";
+    return;
+  }
+
+  const payments = (ui.incomeEditorPayments || []).map((p) => ({ date: p.date || "", amount: asNumber(p.amount) }));
+  // Validera: om belopp > 0 måste datum finnas
+  for (const p of payments) {
+    if (asNumber(p.amount) > 0 && !p.date) {
+      note.textContent = "Datum krävs på alla rader där beloppet är > 0.";
+      return;
+    }
+  }
+
+  const editing = Boolean(ui.editIncomeId);
+  if (editing) {
+    const idx = (state.incomes || []).findIndex((x) => x.id === ui.editIncomeId);
+    if (idx >= 0) {
+      state.incomes[idx] = { ...state.incomes[idx], name, interval, payments };
+    }
+  } else {
+    state.incomes.push({ id: uid(), name, interval, payments });
+  }
+
+  saveState();
+  closeIncomeOverlay();
+  renderIncomesList();
+  renderOverviewIfOnOverview();
+}
+
+function renderIncomesList() {
+  const yearFilter = ui.incomeYearFilter || "all";
+  const rows = buildIncomePaymentRowsForList(yearFilter);
+
+  const body = document.getElementById("incomePaymentsTableBody");
+  const note = document.getElementById("incomeListNote");
+  body.innerHTML = "";
+
+  if (rows.length === 0) {
+    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga utbetalningar för valt filter.</td></tr>`;
+    note.textContent = "";
+    return;
+  }
+
+  for (const r of rows) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.date.toLocaleDateString("sv-SE"))}</td>
+      <td class="right">${formatKr(r.amount)}</td>
+      <td class="right">
+        <button class="secondary btn-icon" type="button" data-edit-income="${escapeHtml(r.incomeId)}" aria-label="Redigera">✎</button>
+      </td>
+    `;
+    body.appendChild(tr);
+  }
+
+  document.querySelectorAll("[data-edit-income]").forEach((btn) => {
+    btn.onclick = () => openIncomeOverlay(btn.getAttribute("data-edit-income"));
+  });
 }
 
 function bindExpensesSubnav() {
@@ -955,26 +1184,7 @@ function initActions() {
     renderOverviewIfOnOverview();
   });
 
-  // SETTINGS - add recurring income
-  document.getElementById("addRecurringIncomeBtn").addEventListener("click", () => {
-    const name = (document.getElementById("recurringIncomeName").value || "").trim();
-    const amount = asNumber(document.getElementById("recurringIncomeAmount").value);
-    const note = document.getElementById("recurringIncomesNote");
-    if (!name || amount <= 0) {
-      note.textContent = "Ange ett namn och ett belopp > 0.";
-      return;
-    }
-    const year = ui.incomesYear || currentYearMonth().year;
-    const frequency = document.getElementById("recurringIncomeFrequency")?.value || "monthly";
-    const list = ensureYearArray(state.recurring.incomes, year);
-    list.push({ id: uid(), name, amount, frequency });
-    saveState();
-    document.getElementById("recurringIncomeName").value = "";
-    document.getElementById("recurringIncomeAmount").value = "";
-    note.textContent = "Återkommande intäkt tillagd.";
-    renderRecurringTables();
-    renderOverviewIfOnOverview();
-  });
+  // Inkomster hanteras nu via overlay i Intäkter-vyn.
 
   document.getElementById("saveSettingsBtn").addEventListener("click", () => {
     state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));

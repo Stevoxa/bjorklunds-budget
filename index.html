@@ -98,40 +98,35 @@
         <section class="view" data-view="incomes">
           <div class="view-header">
             <h2>Intäkter</h2>
-            <div class="picker-row">
-              <label>
-                År
-                <select id="incomesYear"></select>
-              </label>
+            <div class="actions-row" style="margin-top: 0">
+              <button class="primary" id="openIncomeOverlayBtn" type="button">Lägg till</button>
             </div>
           </div>
 
           <div class="table-card">
-            <div class="table-title">Lägg till intäkt</div>
-            <div class="form-inline">
-              <input id="recurringIncomeName" type="text" placeholder="T.ex. lön" maxlength="80" />
-              <input id="recurringIncomeAmount" type="number" inputmode="decimal" min="0" step="1" placeholder="Belopp" />
-              <select id="recurringIncomeFrequency" aria-label="Period">
-                <option value="monthly">kr/mån</option>
-                <option value="yearly">kr/år</option>
-              </select>
-              <button class="primary" id="addRecurringIncomeBtn" type="button">Lägg till</button>
+            <div class="table-title">Utbetalningar</div>
+            <div class="picker-row" style="justify-content: space-between">
+              <div class="note" style="margin: 0">En rad per inbetalning (0 kr visas inte).</div>
+              <label>
+                År (filter)
+                <select id="incomeYearFilter"></select>
+              </label>
             </div>
 
             <div class="table-wrap">
-              <table class="data-table" aria-label="Intäkter">
+              <table class="data-table" aria-label="Utbetalningar">
                 <thead>
                   <tr>
-                    <th>Post</th>
-                    <th>Period</th>
+                    <th>Intäkt</th>
+                    <th>Datum</th>
                     <th class="right">Belopp</th>
-                    <th></th>
+                    <th class="right"> </th>
                   </tr>
                 </thead>
-                <tbody id="recurringIncomesTableBody"></tbody>
+                <tbody id="incomePaymentsTableBody"></tbody>
               </table>
             </div>
-            <div class="note" id="recurringIncomesNote"></div>
+            <div class="note" id="incomeListNote"></div>
           </div>
         </section>
 
@@ -477,6 +472,62 @@
       <div class="modal-actions">
         <button class="secondary" id="backupLaterBtn" type="button">Inte nu</button>
         <button class="primary" id="backupExportModalBtn" type="button">Exportera JSON</button>
+      </div>
+    </div>
+
+    <!-- INCOME OVERLAY -->
+    <div class="modal-backdrop" id="incomeModalBackdrop" hidden></div>
+    <div class="modal" id="incomeModal" role="dialog" aria-modal="true" aria-labelledby="incomeModalTitle" hidden>
+      <div class="modal-header">
+        <div id="incomeModalTitle">Ny intäkt</div>
+        <button class="icon-btn" id="closeIncomeModalBtn" type="button" aria-label="Stäng">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid narrow">
+          <div class="field">
+            Snabbval
+            <div class="chip-row">
+              <button class="secondary chip" type="button" data-income-suggest="Lön">Lön</button>
+              <button class="secondary chip" type="button" data-income-suggest="Barnbidrag">Barnbidrag</button>
+            </div>
+          </div>
+
+          <label class="field">
+            Namn på intäkt
+            <input id="incomeNameInput" type="text" maxlength="80" placeholder="T.ex. Lön" />
+          </label>
+
+          <label class="field">
+            Typ av intäktsintervall
+            <select id="incomeIntervalSelect">
+              <option value="once">Engång</option>
+              <option value="monthly">Månad</option>
+              <option value="quarterly">Kvartal</option>
+              <option value="yearly">År</option>
+            </select>
+          </label>
+
+          <div class="table-card compact" style="box-shadow: none">
+            <div class="table-title small">Inbetalningar</div>
+            <div class="note" style="margin-top: 0">Datum + belopp netto per rad.</div>
+            <div class="table-wrap">
+              <table class="data-table" aria-label="Inbetalningar">
+                <thead>
+                  <tr>
+                    <th>Datum</th>
+                    <th class="right">Belopp</th>
+                  </tr>
+                </thead>
+                <tbody id="incomePaymentsEditorBody"></tbody>
+              </table>
+            </div>
+            <div class="note" id="incomeEditorNote"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="secondary" id="incomeCancelBtn" type="button">Avbryt</button>
+        <button class="primary" id="incomeSaveBtn" type="button">Spara</button>
       </div>
     </div>
 
