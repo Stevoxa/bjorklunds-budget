@@ -1,9 +1,9 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v2";
-// Cache-bust app shell so SW won't serve a mixed old/new UI.
-const ASSETS_TO_CACHE = ["./index.html?v=2", "./styles.css?v=2", "./app.js?v=2", "./manifest.webmanifest?v=2"];
+const CACHE_NAME = "bjorklunds-budget-v3";
+// Keep app shell URLs stable so file:// also works.
+const ASSETS_TO_CACHE = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -65,7 +65,7 @@ self.addEventListener("fetch", (event) => {
           })
           .catch(() => {
             // Fallback for SPA navigation
-            if (req.mode === "navigate") return caches.match("./index.html?v=2");
+            if (req.mode === "navigate") return caches.match("./index.html");
             return undefined;
           });
       });
