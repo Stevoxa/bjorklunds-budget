@@ -1368,14 +1368,19 @@ function renderIncomePaymentsEditorRows() {
   body.innerHTML = "";
 
   ui.incomeEditorPayments.forEach((p, idx) => {
+    const y = parseIntOrNull(p.year);
+    const m = parseIntOrNull(p.month);
+    const d = parseIntOrNull(p.day);
+    const rowISO = y !== null && m !== null && d !== null ? `${y}-${pad2(m)}-${pad2(d)}` : "";
+
     const tr = document.createElement("tr");
     tr.setAttribute("data-inc-editor-row", String(idx));
     tr.setAttribute("data-inc-payment-id", String(p.id || ""));
-    tr.setAttribute("data-inc-payment-date", String(p.date || ""));
+    tr.setAttribute("data-inc-payment-date", rowISO);
     if (ui.focusPaymentId && String(p.id) === String(ui.focusPaymentId)) {
       tr.classList.add("row-focused");
     }
-    if (!ui.focusPaymentId && ui.focusPaymentDateISO && String(p.date || "") === String(ui.focusPaymentDateISO)) {
+    if (!ui.focusPaymentId && ui.focusPaymentDateISO && rowISO === String(ui.focusPaymentDateISO)) {
       tr.classList.add("row-focused");
     }
     tr.innerHTML = `
