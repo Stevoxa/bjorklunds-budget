@@ -568,53 +568,74 @@ button:focus {
 }
 
 .loan-item-row td {
-  padding: 0;
-  border-bottom: none;
+  padding: 8px 6px;
+  border-bottom: 1px solid var(--border);
 }
 
-.loan-item-card {
-  margin: 8px 0;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 10px;
-  background: color-mix(in srgb, var(--card) 86%, transparent);
-}
-
-.loan-item-top {
+.loan-item-grid {
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto 44px;
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
   align-items: center;
-  gap: 10px;
 }
 
 .loan-item-name {
+  grid-column: 1;
+  grid-row: 1;
   font-weight: 700;
 }
 
 .loan-item-cost {
+  grid-column: 2;
+  grid-row: 1;
   white-space: nowrap;
   font-weight: 800;
   font-size: 1.04rem;
+  justify-self: end;
 }
 
-.loan-item-bottom {
-  margin-top: 4px;
+.loan-item-edit {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  justify-self: end;
+  align-self: stretch;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: center;
+  min-height: 0;
+  padding: 8px 10px;
+}
+
+.loan-item-edit.btn-icon {
+  height: 100%;
+  min-height: 0;
+  padding: 8px 10px;
 }
 
 .loan-item-bank {
+  grid-column: 1;
+  grid-row: 2;
   color: var(--muted);
   font-size: 0.9rem;
   min-width: 0;
 }
 
 .loan-item-last {
+  grid-column: 2;
+  grid-row: 2;
   white-space: nowrap;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 650;
+  color: var(--muted);
+  justify-self: end;
+}
+
+.loan-item-last-empty {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .truncate {

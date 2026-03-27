@@ -2414,16 +2414,13 @@ function renderLoansPage() {
       tr.className = "loan-item-row";
       tr.innerHTML = `
         <td colspan="4">
-          <div class="loan-item-card">
-            <div class="loan-item-top">
-              <div class="loan-item-name truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-              <div class="loan-item-cost">${escapeHtml(`${total.num}${total.currency}`)}</div>
-              <button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button>
-            </div>
-            <div class="loan-item-bottom">
-              <div class="loan-item-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
-              ${hasEnd ? `<div class="loan-item-last">Sista betalning: ${escapeHtml(lastPaymentDate)}</div>` : ""}
-            </div>
+          <div class="loan-item-grid">
+            <div class="loan-item-name truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+            <div class="loan-item-cost">${escapeHtml(`${total.num}${total.currency}`)}</div>
+            <button class="secondary btn-icon loan-item-edit" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button>
+
+            <div class="loan-item-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
+            ${hasEnd ? `<div class="loan-item-last">Sista betalning: ${escapeHtml(lastPaymentDate)}</div>` : `<div class="loan-item-last loan-item-last-empty"></div>`}
           </div>
         </td>
       `;
