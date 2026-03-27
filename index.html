@@ -281,22 +281,17 @@
                       <select id="loanEndMonth"></select>
                     </label>
                   </div>
-                  <div class="field">
-                    <span>Räntebelopp (kr)</span>
-                    <div class="derived-value" id="loanInterestAmount">0 kr</div>
-                  </div>
-                  <div class="field">
-                    <span>Summa betalning (kr)</span>
-                    <div class="derived-value" id="loanTotalPayment">0 kr</div>
+                  <div class="loan-metrics">
+                    <div class="loan-metric-line" id="loanInterestAmount">Räntebelopp: 0kr</div>
+                    <div class="loan-metric-line" id="loanTotalPayment">Månadskostnad: 0kr</div>
                   </div>
                 </div>
                 <div class="field-error" id="loanDateError" hidden></div>
-                <div class="actions-row" style="justify-content: flex-start;">
-                  <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
-                </div>
-                <div class="actions-row">
+                <div class="loan-editor-actions">
                   <button class="secondary" id="loanEditorCancelBtn" type="button">Avbryt</button>
                   <button class="primary" id="loanSaveBtn" type="button">Spara</button>
+                  <button class="secondary" id="loanCopyBtn" type="button" hidden>Kopiera lån</button>
+                  <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
                 </div>
               </section>
 

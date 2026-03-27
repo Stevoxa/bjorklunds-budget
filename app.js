@@ -2445,8 +2445,8 @@ function updateLoanDerivedFields() {
   const total = interest + asNumber(draft.amortization);
   const interestEl = document.getElementById("loanInterestAmount");
   const totalEl = document.getElementById("loanTotalPayment");
-  if (interestEl) interestEl.textContent = formatKr(interest);
-  if (totalEl) totalEl.textContent = formatKr(total);
+  if (interestEl) interestEl.textContent = `Räntebelopp: ${formatKr(interest)}`;
+  if (totalEl) totalEl.textContent = `Månadskostnad: ${formatKr(total)}`;
 }
 
 function setLoanMonthNumberOptions(selectEl, selectedMonth, includeEmpty = false) {
@@ -2503,6 +2503,16 @@ function getLoanDraftFromInputs() {
   };
 }
 
+function nextYearMonth(year, month) {
+  let y = Number(year);
+  let m = Number(month) + 1;
+  if (m > 12) {
+    y += 1;
+    m = 1;
+  }
+  return { year: y, month: m };
+}
+
 function renderLoanDateInlineError() {
   const el = document.getElementById("loanDateError");
   if (!el) return true;
@@ -2541,7 +2551,9 @@ function openLoanEditor(loanId = null) {
   }
   document.getElementById("loanEndMonth").disabled = !document.getElementById("loanEndYear").value;
   const deleteBtn = document.getElementById("loanDeleteBtn");
+  const copyBtn = document.getElementById("loanCopyBtn");
   if (deleteBtn) deleteBtn.hidden = !existing;
+  if (copyBtn) copyBtn.hidden = !existing;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
   renderLoanDateInlineError();
@@ -2565,7 +2577,9 @@ function closeLoanEditor() {
   setLoanMonthNumberOptions(document.getElementById("loanEndMonth"), "", true);
   document.getElementById("loanEndMonth").disabled = true;
   const deleteBtn = document.getElementById("loanDeleteBtn");
+  const copyBtn = document.getElementById("loanCopyBtn");
   if (deleteBtn) deleteBtn.hidden = true;
+  if (copyBtn) copyBtn.hidden = true;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
   updateLoanDerivedFields();
@@ -2667,6 +2681,40 @@ function initActions() {
   document.getElementById("loanDeleteBtn").addEventListener("click", () => {
     if (!ui.editLoanId) return;
     showConfirmDeleteLoanModal();
+  });
+  document.getElementById("loanCopyBtn").addEventListener("click", () => {
+    if (!ui.editLoanId) return;
+    const source = getAllLoans().find((x) => x.id === ui.editLoanId);
+    if (!source) return;
+    const draft = normalizeLoanItem(source);
+    draft.id = uid();
+    if (draft.endYear && draft.endMonth) {
+      const nm = nextYearMonth(draft.endYear, draft.endMonth);
+      draft.startYear = nm.year;
+      draft.startMonth = nm.month;
+      draft.endYear = null;
+      draft.endMonth = null;
+    }
+    ui.editLoanId = null;
+    document.getElementById("loanNameInput").value = draft.name;
+    document.getElementById("loanBankInput").value = draft.bank;
+    document.getElementById("loanPrincipal").value = asNumber(draft.principal);
+    document.getElementById("loanRate").value = asNumber(draft.rate).toFixed(3);
+    document.getElementById("loanAmortization").value = asNumber(draft.amortization);
+    document.getElementById("loanDueDay").value = Math.max(1, Math.min(28, asNumber(draft.dueDay) || 25));
+    setYear3Options(document.getElementById("loanStartYear"), draft.startYear);
+    setLoanMonthNumberOptions(document.getElementById("loanStartMonth"), draft.startMonth, false);
+    setLoanEndYearOptions(document.getElementById("loanEndYear"), draft.endYear || "");
+    setLoanMonthNumberOptions(document.getElementById("loanEndMonth"), draft.endMonth || "", true);
+    if (!draft.endYear || !draft.endMonth) {
+      document.getElementById("loanEndYear").value = "";
+      document.getElementById("loanEndMonth").value = "";
+    }
+    document.getElementById("loanEndMonth").disabled = !document.getElementById("loanEndYear").value;
+    document.getElementById("loanDeleteBtn").hidden = true;
+    document.getElementById("loanCopyBtn").hidden = true;
+    renderLoanDateInlineError();
+    updateLoanDerivedFields();
   });
   document.getElementById("loanEditorCancelBtn").addEventListener("click", () => closeLoanEditor());
   requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;

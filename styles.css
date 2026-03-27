@@ -750,6 +750,24 @@ tr.month-break td {
   gap: 12px;
 }
 
+.loan-metrics {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+}
+
+.loan-metric-line {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.loan-editor-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .section-divider {
   border: 0;
   border-top: 1px solid var(--border);
