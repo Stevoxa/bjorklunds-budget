@@ -704,36 +704,64 @@ function normalizeCustodySchedule(input) {
   const cs = input && typeof input === "object" ? input : {};
   const legacy = input && typeof input === "object" && ("membersWhenPresent" in input || "periodEnd" in input);
   if (legacy) {
-    // Legacy model cannot be mapped safely to absence → disable by default.
     return {
-      type: cs.enabled ? "same" : "off",
-      alternating: { startDate: "", periodDays: 7, absent: { children: 0, teens: 0 }, costRemainingPct: 0 },
+      type: "off",
+      alternating: {
+        startDate: "",
+        ratioKey: "7-7",
+        awayDays: 7,
+        withDays: 7,
+        absent: { children: 0, teens: 0 }
+      },
       custom: []
     };
   }
-  const type = ["off", "same", "alternating", "custom"].includes(cs.type) ? cs.type : "off";
+  let type = ["off", "alternating"].includes(cs.type) ? cs.type : "off";
+  if (cs.type === "same" || cs.type === "custom") type = "off";
   const alt = cs.alternating && typeof cs.alternating === "object" ? cs.alternating : {};
+  let ratioKey = CUSTODY_RATIO_KEYS.includes(alt.ratioKey) ? alt.ratioKey : null;
+  if (!ratioKey) {
+    const pd = Number(alt.periodDays);
+    if (pd === 14) ratioKey = "14-14";
+    else ratioKey = "7-7";
+  }
+  const { awayDays, withDays } = parseCustodyRatioKey(ratioKey);
   return {
     type,
     alternating: {
       startDate: String(alt.startDate || ""),
-      periodDays: [7, 14].includes(Number(alt.periodDays)) ? Number(alt.periodDays) : 7,
+      ratioKey,
+      awayDays,
+      withDays,
       absent: {
         children: Math.max(0, Math.floor(asNumber(alt.absent?.children ?? 0))),
         teens: Math.max(0, Math.floor(asNumber(alt.absent?.teens ?? 0)))
-      },
-      costRemainingPct: Math.max(0, Math.min(100, Math.floor(asNumber(alt.costRemainingPct ?? 0))))
+      }
     },
-    custom: Array.isArray(cs.custom) ? cs.custom.map((p) => ({
-      startDate: String(p?.startDate || ""),
-      endDate: String(p?.endDate || ""),
-      absent: {
-        children: Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0))),
-        teens: Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)))
-      },
-      costRemainingPct: Math.max(0, Math.min(100, Math.floor(asNumber(p?.costRemainingPct ?? 0))))
-    })) : []
+    custom: []
   };
+}
+
+function syncCustodyAbsentWithHousehold(draft) {
+  const cs = draft.custodySchedule;
+  if (!cs || cs.type !== "alternating") return;
+  const baseC = Math.max(0, Math.floor(asNumber(draft.household?.children)));
+  const baseT = Math.max(0, Math.floor(asNumber(draft.household?.teens)));
+  if (!draft._custodyHhSnap) {
+    draft._custodyHhSnap = { c: baseC, t: baseT };
+    return;
+  }
+  const snap = draft._custodyHhSnap;
+  if (baseC !== snap.c) {
+    if (baseC > snap.c) cs.alternating.absent.children = baseC;
+    else cs.alternating.absent.children = Math.min(cs.alternating.absent.children, baseC);
+    snap.c = baseC;
+  }
+  if (baseT !== snap.t) {
+    if (baseT > snap.t) cs.alternating.absent.teens = baseT;
+    else cs.alternating.absent.teens = Math.min(cs.alternating.absent.teens, baseT);
+    snap.t = baseT;
+  }
 }
 
 function setFoodYearModel(year, config, weeks) {
@@ -745,6 +773,13 @@ function setFoodYearModel(year, config, weeks) {
 const FOOD_LEVEL_FACTORS = { budget: 0.85, normal: 1.0, high: 1.2 };
 const FOOD_SCOPE_FACTORS = { groceries: 1.0, mixed: 1.2, all: 1.45 };
 const FOOD_BASE_COSTS = { adults: 850, teens: 950, children: 650 };
+
+const CUSTODY_RATIO_KEYS = ["3-3", "5-2", "2-5", "7-7", "14-14"];
+function parseCustodyRatioKey(key) {
+  const k = CUSTODY_RATIO_KEYS.includes(key) ? key : "7-7";
+  const [a, b] = k.split("-").map((x) => Math.max(1, Math.floor(asNumber(x))));
+  return { ratioKey: k, awayDays: a, withDays: b };
+}
 
 function getISOWeekInfo(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -810,7 +845,7 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   if (config.mode === "manual") labels.add("manuell");
 
   // custody/absence labels
-  if (config.mode !== "manual" && config.custodySchedule?.type && config.custodySchedule.type !== "off" && config.custodySchedule.type !== "same") {
+  if (config.mode !== "manual" && config.custodySchedule?.type === "alternating") {
     const custodyLabel = getCustodyLabelForWeek(config, weekStart);
     if (custodyLabel) labels.add(custodyLabel);
   }
@@ -909,34 +944,26 @@ function isDateInRange(date, start, end) {
 
 function getCustodyAbsenceForDate(config, date) {
   const cs = config.custodySchedule;
-  if (!cs || cs.type === "off" || cs.type === "same") {
-    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
+  if (!cs || cs.type === "off") {
+    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
   }
   if (cs.type === "alternating") {
     const start = parseDateISO(cs.alternating?.startDate);
-    const periodDays = [7, 14].includes(Number(cs.alternating?.periodDays)) ? Number(cs.alternating?.periodDays) : 7;
-    if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
-    const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
-    const mod = ((diffDays % (periodDays * 2)) + (periodDays * 2)) % (periodDays * 2);
-    const absent = mod >= 0 && mod < periodDays;
+    if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0 };
+    const awayDays = Math.max(1, Math.floor(asNumber(cs.alternating?.awayDays ?? 7)));
+    const withDays = Math.max(1, Math.floor(asNumber(cs.alternating?.withDays ?? 7)));
+    const cycle = awayDays + withDays;
     const aC = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0)));
     const aT = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0)));
-    const rem = Math.max(0, Math.min(100, Math.floor(asNumber(cs.alternating?.costRemainingPct ?? 0))));
-    return { valid: true, absent, absentChildren: aC, absentTeens: aT, costRemainingPct: rem };
+    if (date.getTime() < start.getTime()) {
+      return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+    }
+    const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
+    const mod = ((diffDays % cycle) + cycle) % cycle;
+    const absent = mod < awayDays;
+    return { valid: true, absent, absentChildren: aC, absentTeens: aT };
   }
-  const periods = Array.isArray(cs.custom) ? cs.custom : [];
-  for (let i = periods.length - 1; i >= 0; i--) {
-    const p = periods[i];
-    const s = parseDateISO(p?.startDate);
-    const e = parseDateISO(p?.endDate);
-    if (!s || !e) continue;
-    if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
-    const aC = Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0)));
-    const aT = Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)));
-    const rem = Math.max(0, Math.min(100, Math.floor(asNumber(p?.costRemainingPct ?? 0))));
-    return { valid: true, absent: true, absentChildren: aC, absentTeens: aT, costRemainingPct: rem };
-  }
-  return { valid: true, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
+  return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
 }
 
 function computeFoodDailyCost(config, date) {
@@ -962,20 +989,34 @@ function computeFoodDailyCost(config, date) {
     break;
   }
 
-  let base = adults * FOOD_BASE_COSTS.adults +
+  const base = adults * FOOD_BASE_COSTS.adults +
     teens * FOOD_BASE_COSTS.teens +
     children * FOOD_BASE_COSTS.children;
 
-  // Custody schedule: reduce baseline for absent children/teens
-  const abs = getCustodyAbsenceForDate(config, date);
-  if (abs.valid && abs.absent && (abs.absentChildren > 0 || abs.absentTeens > 0)) {
-    const aC = Math.min(Math.max(0, Math.floor(abs.absentChildren)), Math.max(0, Math.floor(children)));
-    const aT = Math.min(Math.max(0, Math.floor(abs.absentTeens)), Math.max(0, Math.floor(teens)));
-    const absentCost = aC * FOOD_BASE_COSTS.children + aT * FOOD_BASE_COSTS.teens;
-    const remainF = Math.max(0, Math.min(1, asNumber(abs.costRemainingPct) / 100));
-    base = base - absentCost + absentCost * remainF;
+  const cs = config.custodySchedule;
+  let daily;
+  if (config.mode !== "manual" && cs && cs.type === "alternating") {
+    const abs = getCustodyAbsenceForDate(config, date);
+    const aC = Math.min(
+      Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0))),
+      Math.max(0, Math.floor(children))
+    );
+    const aT = Math.min(
+      Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0))),
+      Math.max(0, Math.floor(teens))
+    );
+    const useReduced = abs.valid && abs.absent && (aC > 0 || aT > 0);
+    if (useReduced) {
+      const reducedBase = adults * FOOD_BASE_COSTS.adults +
+        Math.max(0, teens - aT) * FOOD_BASE_COSTS.teens +
+        Math.max(0, children - aC) * FOOD_BASE_COSTS.children;
+      daily = (reducedBase * levelF * scopeF) / 7;
+    } else {
+      daily = (base * levelF * scopeF) / 7;
+    }
+  } else {
+    daily = (base * levelF * scopeF) / 7;
   }
-  let daily = (base * levelF * scopeF) / 7;
 
   // Deviations: apply factor or weekly override (handled per-week in build)
   const devs = Array.isArray(config.deviations) ? config.deviations : [];
@@ -1540,6 +1581,11 @@ function renderFoodPage() {
     household: { ...cfg.household },
     custodySchedule: normalizeCustodySchedule(cfg.custodySchedule)
   };
+  if (ui.foodConfigDraft.custodySchedule.type === "alternating") {
+    const bc = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.children)));
+    const bt = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.teens)));
+    ui.foodConfigDraft._custodyHhSnap = { c: bc, t: bt };
+  }
 
   const els = {
     autoSection: document.getElementById("foodAutoSection"),
@@ -1556,15 +1602,14 @@ function renderFoodPage() {
     calcFinalWeek: document.getElementById("foodCalcFinalWeek"),
     saveContext: document.getElementById("foodSaveContext"),
     kidsAltSection: document.getElementById("foodKidsAltSection"),
-    kidsCustomSection: document.getElementById("foodKidsCustomSection"),
+    kidsRatio: document.getElementById("foodKidsRatio"),
     kidsAltStart: document.getElementById("foodKidsAltStartDate"),
-    kidsAltPeriodDays: document.getElementById("foodKidsAltPeriodDays"),
     kidsAltChildrenInput: document.getElementById("foodKidsAltChildrenInput"),
     kidsAltTeensInput: document.getElementById("foodKidsAltTeensInput"),
-    kidsAltCostRemainingPct: document.getElementById("foodKidsAltCostRemainingPct"),
-    kidsErr: document.getElementById("foodKidsError"),
-    kidsCustomErr: document.getElementById("foodKidsCustomError"),
-    kidsCustomList: document.getElementById("foodKidsCustomPeriodsList"),
+    kidsErrStart: document.getElementById("foodKidsErrStart"),
+    kidsErrRatio: document.getElementById("foodKidsErrRatio"),
+    kidsErrCounts: document.getElementById("foodKidsErrCounts"),
+    custodyPreviewWeek: document.getElementById("foodCustodyPreviewWeek"),
     kidsPreview: document.getElementById("foodKidsPreview"),
     foodLevelHelp: document.getElementById("foodLevelHelp"),
     foodScopeHelp: document.getElementById("foodScopeHelp"),
@@ -1583,8 +1628,19 @@ function renderFoodPage() {
     el.setAttribute("aria-pressed", active ? "true" : "false");
     el.classList.toggle("active", active);
   };
+  const setCustodyFieldErr = (el, msg) => {
+    if (!el) return;
+    if (msg) {
+      el.hidden = false;
+      el.textContent = msg;
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  };
   let draw = () => {
     const d = ui.foodConfigDraft;
+    syncCustodyAbsentWithHousehold(d);
     const auto = d.mode !== "manual";
     if (els.autoSection) els.autoSection.hidden = !auto;
     if (els.manualSection) els.manualSection.hidden = auto;
@@ -1607,27 +1663,32 @@ function renderFoodPage() {
     // Custody schedule UI (absence)
     const cs = normalizeCustodySchedule(d.custodySchedule);
     d.custodySchedule = cs;
-    setChipState("foodKidsOffBtn", cs.type === "off");
-    setChipState("foodKidsSameBtn", cs.type === "same");
-    setChipState("foodKidsAltBtn", cs.type === "alternating");
-    setChipState("foodKidsCustomBtn", cs.type === "custom");
+    setChipState("foodKidsNoBtn", cs.type === "off");
+    setChipState("foodKidsYesBtn", cs.type === "alternating");
     if (els.kidsAltSection) els.kidsAltSection.hidden = cs.type !== "alternating";
-    if (els.kidsCustomSection) els.kidsCustomSection.hidden = cs.type !== "custom";
     if (els.kidsAltStart) els.kidsAltStart.value = cs.alternating.startDate || "";
-    if (els.kidsAltPeriodDays) els.kidsAltPeriodDays.value = String(cs.alternating.periodDays || 7);
+    if (els.kidsRatio) els.kidsRatio.value = cs.alternating.ratioKey || "7-7";
     if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.value = asNumber(cs.alternating.absent?.children);
     if (els.kidsAltTeensInput) els.kidsAltTeensInput.value = asNumber(cs.alternating.absent?.teens);
-    if (els.kidsAltCostRemainingPct) els.kidsAltCostRemainingPct.value = asNumber(cs.alternating.costRemainingPct);
-    if (els.kidsErr) {
-      els.kidsErr.hidden = true;
-      els.kidsErr.textContent = "";
-    }
-    if (els.kidsCustomErr) {
-      els.kidsCustomErr.hidden = true;
-      els.kidsCustomErr.textContent = "";
-    }
+    if (els.kidsAltStart) els.kidsAltStart.classList.remove("input-invalid");
+    setCustodyFieldErr(els.kidsErrStart, "");
+    setCustodyFieldErr(els.kidsErrRatio, "");
+    setCustodyFieldErr(els.kidsErrCounts, "");
 
-    if (cs.type === "custom") renderCustodyCustomPeriods();
+    const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
+    const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
+    const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
+    const chMinBtn = document.getElementById("foodKidsAltChildrenMinusBtn");
+    const chPlusBtn = document.getElementById("foodKidsAltChildrenPlusBtn");
+    const teMinBtn = document.getElementById("foodKidsAltTeensMinusBtn");
+    const tePlusBtn = document.getElementById("foodKidsAltTeensPlusBtn");
+    if (chMinBtn) chMinBtn.disabled = baseChildren <= 0 || aC <= 0;
+    if (chPlusBtn) chPlusBtn.disabled = baseChildren <= 0 || aC >= baseChildren;
+    if (teMinBtn) teMinBtn.disabled = baseTeens <= 0 || aT <= 0;
+    if (tePlusBtn) tePlusBtn.disabled = baseTeens <= 0 || aT >= baseTeens;
+    if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.disabled = baseChildren <= 0;
+    if (els.kidsAltTeensInput) els.kidsAltTeensInput.disabled = baseTeens <= 0;
 
     // Helper texts (auto only)
     if (els.foodLevelHelp) {
@@ -1645,47 +1706,27 @@ function renderFoodPage() {
 
     // Inline validation for custody schedule
     let custodyOk = true;
-    const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
-    const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
     if (auto && cs.type === "alternating") {
       const s = parseDateISO(cs.alternating.startDate);
       if (!s) {
         custodyOk = false;
-        if (els.kidsErr) {
-          els.kidsErr.hidden = false;
-          els.kidsErr.textContent = "Ange startdatum för varannan vecka.";
-        }
+        setCustodyFieldErr(els.kidsErrStart, "Ange startdatum för första perioden utan barn.");
+        if (els.kidsAltStart) els.kidsAltStart.classList.add("input-invalid");
       }
-      const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
-      const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
       if (aC > baseChildren || aT > baseTeens) {
         custodyOk = false;
-        if (els.kidsErr) {
-          els.kidsErr.hidden = false;
-          els.kidsErr.textContent = `Du kan inte ange fler borta än i hushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
-        }
+        setCustodyFieldErr(els.kidsErrCounts, `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`);
       }
     }
-    if (auto && cs.type === "custom") {
-      const badRange = (p) => {
-        const s = parseDateISO(p?.startDate);
-        const e = parseDateISO(p?.endDate);
-        return !s || !e || e.getTime() < s.getTime();
-      };
-      if ((cs.custom || []).some(badRange)) {
-        custodyOk = false;
-        if (els.kidsCustomErr) {
-          els.kidsCustomErr.hidden = false;
-          els.kidsCustomErr.textContent = "Kontrollera att alla perioder har giltiga datum (till måste vara samma eller efter från).";
-        }
-      }
-      const overAbsent = (p) => (asNumber(p?.absent?.children) > baseChildren) || (asNumber(p?.absent?.teens) > baseTeens);
-      if ((cs.custom || []).some(overAbsent)) {
-        custodyOk = false;
-        if (els.kidsCustomErr) {
-          els.kidsCustomErr.hidden = false;
-          els.kidsCustomErr.textContent = `Du kan inte ange fler borta än i hushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
-        }
+
+    if (els.custodyPreviewWeek) {
+      if (auto && cs.type === "alternating") {
+        const ws = getIsoWeekMondayForIsoWeek(year, 1);
+        let sum = 0;
+        for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(d, addDays(ws, i));
+        els.custodyPreviewWeek.textContent = formatKr(Math.round(sum));
+      } else {
+        els.custodyPreviewWeek.textContent = "—";
       }
     }
 
@@ -1745,7 +1786,7 @@ function renderFoodPage() {
       els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
         const { week } = getISOWeekInfo(ws);
         let label = "normal";
-        if (auto && cs.type !== "off" && cs.type !== "same") {
+        if (auto && cs.type === "alternating") {
           const custodyLabel = getCustodyLabelForWeek(d, ws);
           if (custodyLabel) label = custodyLabel;
         }
@@ -1799,12 +1840,29 @@ function renderFoodPage() {
     ui.foodConfigDraft.custodySchedule.alternating.absent[key] = Math.min(maxAllowed, next);
     draw();
   };
-  document.getElementById("foodKidsOffBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "off"; draw(); };
-  document.getElementById("foodKidsSameBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "same"; draw(); };
-  document.getElementById("foodKidsAltBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "alternating"; draw(); };
-  document.getElementById("foodKidsCustomBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "custom"; draw(); };
+  document.getElementById("foodKidsNoBtn").onclick = () => {
+    ui.foodConfigDraft.custodySchedule.type = "off";
+    delete ui.foodConfigDraft._custodyHhSnap;
+    draw();
+  };
+  document.getElementById("foodKidsYesBtn").onclick = () => {
+    ui.foodConfigDraft.custodySchedule.type = "alternating";
+    const c = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const t = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    ui.foodConfigDraft.custodySchedule.alternating.absent.children = c;
+    ui.foodConfigDraft.custodySchedule.alternating.absent.teens = t;
+    ui.foodConfigDraft._custodyHhSnap = { c, t };
+    draw();
+  };
   document.getElementById("foodKidsAltStartDate").onchange = () => { ui.foodConfigDraft.custodySchedule.alternating.startDate = document.getElementById("foodKidsAltStartDate").value || ""; draw(); };
-  document.getElementById("foodKidsAltPeriodDays").onchange = () => { ui.foodConfigDraft.custodySchedule.alternating.periodDays = Number(document.getElementById("foodKidsAltPeriodDays").value || 7); draw(); };
+  document.getElementById("foodKidsRatio").onchange = () => {
+    const v = document.getElementById("foodKidsRatio").value;
+    const { ratioKey, awayDays, withDays } = parseCustodyRatioKey(v);
+    ui.foodConfigDraft.custodySchedule.alternating.ratioKey = ratioKey;
+    ui.foodConfigDraft.custodySchedule.alternating.awayDays = awayDays;
+    ui.foodConfigDraft.custodySchedule.alternating.withDays = withDays;
+    draw();
+  };
   document.getElementById("foodKidsAltChildrenMinusBtn").onclick = () => bumpCustodyAltAbsent("children", -1);
   document.getElementById("foodKidsAltChildrenPlusBtn").onclick = () => bumpCustodyAltAbsent("children", +1);
   document.getElementById("foodKidsAltTeensMinusBtn").onclick = () => bumpCustodyAltAbsent("teens", -1);
@@ -1819,68 +1877,6 @@ function renderFoodPage() {
     ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))));
     draw();
   };
-  document.getElementById("foodKidsAltCostRemainingPct").oninput = () => { ui.foodConfigDraft.custodySchedule.alternating.costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(document.getElementById("foodKidsAltCostRemainingPct").value)))); draw(); };
-
-  function renderCustodyCustomPeriods() {
-    const list = els.kidsCustomList;
-    if (!list) return;
-    const arr = ui.foodConfigDraft.custodySchedule.custom || [];
-    const maxChildren = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-    const maxTeens = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    list.innerHTML = arr.map((p, idx) => {
-      const title = `${escapeHtml(p.startDate || "")} – ${escapeHtml(p.endDate || "")}`;
-      return `
-        <div class="food-period-card" data-kc-idx="${idx}">
-          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
-          <div class="form-grid">
-            <label class="field">Från<input type="date" data-kc-start="${idx}" value="${escapeHtml(p.startDate || "")}"/></label>
-            <label class="field">Till<input type="date" data-kc-end="${idx}" value="${escapeHtml(p.endDate || "")}"/></label>
-            <label class="field">Barn<input type="number" inputmode="numeric" min="0" max="${maxChildren}" step="1" data-kc-children="${idx}" value="${escapeHtml(String(p.absent?.children ?? 0))}"/></label>
-            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" max="${maxTeens}" step="1" data-kc-teens="${idx}" value="${escapeHtml(String(p.absent?.teens ?? 0))}"/></label>
-            <label class="field">Kostnad kvar (%)<input type="number" inputmode="decimal" min="0" max="100" step="1" data-kc-rem="${idx}" value="${escapeHtml(String(p.costRemainingPct ?? 0))}"/></label>
-          </div>
-          <div class="food-period-actions">
-            <button class="danger" type="button" data-kc-del="${idx}">Ta bort</button>
-          </div>
-        </div>
-      `;
-    }).join("");
-    list.querySelectorAll("[data-kc-del]").forEach((btn) => btn.onclick = () => {
-      const i = Number(btn.getAttribute("data-kc-del"));
-      ui.foodConfigDraft.custodySchedule.custom.splice(i, 1);
-      renderCustodyCustomPeriods();
-      draw();
-    });
-    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
-    bind("[data-kc-start]", (e) => { const i = Number(e.target.getAttribute("data-kc-start")); ui.foodConfigDraft.custodySchedule.custom[i].startDate = e.target.value; draw(); });
-    bind("[data-kc-end]", (e) => { const i = Number(e.target.getAttribute("data-kc-end")); ui.foodConfigDraft.custodySchedule.custom[i].endDate = e.target.value; draw(); });
-    bind("[data-kc-children]", (e) => {
-      const i = Number(e.target.getAttribute("data-kc-children"));
-      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-      ui.foodConfigDraft.custodySchedule.custom[i].absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
-      draw();
-    });
-    bind("[data-kc-teens]", (e) => {
-      const i = Number(e.target.getAttribute("data-kc-teens"));
-      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-      ui.foodConfigDraft.custodySchedule.custom[i].absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
-      draw();
-    });
-    bind("[data-kc-rem]", (e) => { const i = Number(e.target.getAttribute("data-kc-rem")); ui.foodConfigDraft.custodySchedule.custom[i].costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(e.target.value)))); draw(); });
-  }
-
-  document.getElementById("foodKidsAddCustomPeriodBtn").onclick = () => {
-    ui.foodConfigDraft.custodySchedule.custom = ui.foodConfigDraft.custodySchedule.custom || [];
-    ui.foodConfigDraft.custodySchedule.custom.push({
-      startDate: "",
-      endDate: "",
-      absent: { children: 0, teens: 0 },
-      costRemainingPct: 0
-    });
-    renderCustodyCustomPeriods();
-    draw();
-  };
-
   // Household changes section
   const hhToggle = els.hhToggle;
   const hhSection = els.hhSection;
@@ -3779,7 +3775,10 @@ function initActions() {
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
     const year = Number(ui.expensesYear || ui.overviewYear || currentYearMonth().year);
     const month = Number(ui.expensesFoodMonth || currentYearMonth().month);
-    const cfg = ui.foodConfigDraft ? { ...ui.foodConfigDraft, household: { ...ui.foodConfigDraft.household }, custodySchedule: normalizeCustodySchedule(ui.foodConfigDraft.custodySchedule) } : getFoodConfigForYear(year);
+    const cfg = ui.foodConfigDraft ? (() => {
+      const { _custodyHhSnap: _snap, ...rest } = ui.foodConfigDraft;
+      return { ...rest, household: { ...rest.household }, custodySchedule: normalizeCustodySchedule(rest.custodySchedule) };
+    })() : getFoodConfigForYear(year);
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
       document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
@@ -3804,18 +3803,30 @@ function initActions() {
       if (cs.type === "alternating") {
         const s = parseDateISO(cs.alternating.startDate);
         if (!s) {
-          document.getElementById("foodNote").textContent = "Barnschema: ange startdatum för varannan vecka.";
+          const errEl = document.getElementById("foodKidsErrStart");
+          const inp = document.getElementById("foodKidsAltStartDate");
+          if (errEl) {
+            errEl.hidden = false;
+            errEl.textContent = "Ange startdatum för första perioden utan barn.";
+          }
+          if (inp) {
+            inp.classList.add("input-invalid");
+            inp.focus();
+          }
           return;
         }
-      }
-      if (cs.type === "custom") {
-        const badCustody = (p) => {
-          const s = parseDateISO(p?.startDate);
-          const e = parseDateISO(p?.endDate);
-          return !s || !e || e.getTime() < s.getTime();
-        };
-        if ((cs.custom || []).some(badCustody)) {
-          document.getElementById("foodNote").textContent = "Barnschema: kontrollera datum för perioder.";
+        const baseChildren = Math.max(0, Math.floor(asNumber(cfg.household?.children)));
+        const baseTeens = Math.max(0, Math.floor(asNumber(cfg.household?.teens)));
+        const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
+        const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
+        if (aC > baseChildren || aT > baseTeens) {
+          const errEl = document.getElementById("foodKidsErrCounts");
+          if (errEl) {
+            errEl.hidden = false;
+            errEl.textContent = `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
+          }
+          const focusEl = document.getElementById("foodKidsAltChildrenInput") || document.getElementById("foodKidsAltTeensInput");
+          if (focusEl) focusEl.focus();
           return;
         }
       }

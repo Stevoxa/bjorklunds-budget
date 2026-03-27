@@ -474,35 +474,38 @@
                   </div>
 
                   <div class="food-advanced">
-                  <div class="table-title small">Barnschema</div>
-                  <div class="note">
-                    Utgå från hushållet ovan. Här anger du när barn eller tonåringar inte är hos dig.
+                  <div>
+                    <div class="table-title small" style="margin: 0;">Barn med växelvis boende</div>
+                    <div class="note micro-note" style="margin-top: 4px;">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
                   </div>
                   <div class="field">
                     <div class="chip-row">
-                      <button class="chip" type="button" id="foodKidsOffBtn">Av</button>
-                      <button class="chip" type="button" id="foodKidsSameBtn">Samma varje vecka</button>
-                      <button class="chip" type="button" id="foodKidsAltBtn">Varannan vecka</button>
-                      <button class="chip" type="button" id="foodKidsCustomBtn">Eget schema</button>
+                      <button class="chip" type="button" id="foodKidsNoBtn">Nej</button>
+                      <button class="chip" type="button" id="foodKidsYesBtn">Ja</button>
                     </div>
                   </div>
 
                   <div id="foodKidsAltSection" hidden>
                     <div class="form-grid">
                       <label class="field">
-                        När börjar första veckan utan barn?
+                        När börjar första perioden utan barn?
                         <input id="foodKidsAltStartDate" type="date" />
+                        <div class="field-error" id="foodKidsErrStart" hidden></div>
                       </label>
                       <label class="field">
-                        Hur länge varar perioden?
-                        <select id="foodKidsAltPeriodDays">
-                          <option value="7">7 dagar</option>
-                          <option value="14">14 dagar</option>
+                        Hur länge är de borta/hur länge bor de hos dig?
+                        <select id="foodKidsRatio">
+                          <option value="3-3">3/3 (3 dagar borta, 3 dagar hos dig)</option>
+                          <option value="5-2">5/2 (5 dagar borta, 2 dagar hos dig)</option>
+                          <option value="2-5">2/5 (2 dagar borta, 5 dagar hos dig)</option>
+                          <option value="7-7">7/7 (7 dagar borta, 7 dagar hos dig)</option>
+                          <option value="14-14">14/14 (14 dagar borta, 14 dagar hos dig)</option>
                         </select>
+                        <div class="field-error" id="foodKidsErrRatio" hidden></div>
                       </label>
                     </div>
-                    <div class="note">Upprepas automatiskt varannan vecka.</div>
-                    <div class="table-title small" style="margin-top: 10px;">Vilka är inte hos dig?</div>
+                    <div class="note micro-note" style="margin-top: 4px;">Intervallet upprepas automatiskt hela året.</div>
+                    <div class="table-title small" style="margin-top: 10px;">Hur många barn/tonåringar har växelvis boende?</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
                         <span>Barn</span>
@@ -521,20 +524,8 @@
                         </div>
                       </div>
                     </div>
-                    <div class="table-title small" style="margin-top: 10px;">Hur mycket av kostnaden ska vara kvar?</div>
-                    <label class="field">
-                      Kostnad kvar (%)
-                      <input id="foodKidsAltCostRemainingPct" type="number" inputmode="decimal" min="0" max="100" step="1" />
-                    </label>
-                    <div class="field-error" id="foodKidsError" hidden></div>
-                  </div>
-
-                  <div id="foodKidsCustomSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
-                      <button class="secondary" type="button" id="foodKidsAddCustomPeriodBtn">Lägg till period</button>
-                    </div>
-                    <div id="foodKidsCustomPeriodsList" class="food-period-list"></div>
-                    <div class="field-error" id="foodKidsCustomError" hidden></div>
+                    <div class="field-error" id="foodKidsErrCounts" hidden></div>
+                    <div class="summary-row" style="margin-top: 10px;"><span>Beräknad veckokostnad:</span><strong id="foodCustodyPreviewWeek">0 kr</strong></div>
                   </div>
 
                   <div class="note" style="margin-top: 10px;">Preview (kommande veckor)</div>

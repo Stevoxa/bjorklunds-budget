@@ -1092,6 +1092,12 @@ body.modal-open {
   text-align: center;
 }
 
+.food-counter-actions button:disabled,
+.food-counter-actions input:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
 .food-manual-row {
   display: grid;
   grid-template-columns: 44px 1fr 44px;
