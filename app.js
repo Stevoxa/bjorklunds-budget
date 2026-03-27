@@ -924,10 +924,28 @@ function getIsoWeekMondayFromDate(date) {
 
 function parseDateISO(s) {
   if (!s || typeof s !== "string") return null;
+  const t = s.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const day = Number(m[3]);
+    const d = new Date(y, mo, day);
+    if (d.getFullYear() !== y || d.getMonth() !== mo || d.getDate() !== day) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/** Kalenderdagar mellan två datum (lokala datum), DST-säkert. */
+function diffCalendarDays(a, b) {
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((ub - ua) / 86400000);
 }
 
 function addDays(date, days) {
@@ -950,15 +968,16 @@ function getCustodyAbsenceForDate(config, date) {
   if (cs.type === "alternating") {
     const start = parseDateISO(cs.alternating?.startDate);
     if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0 };
-    const awayDays = Math.max(1, Math.floor(asNumber(cs.alternating?.awayDays ?? 7)));
-    const withDays = Math.max(1, Math.floor(asNumber(cs.alternating?.withDays ?? 7)));
+    const { awayDays: ad, withDays: wd } = parseCustodyRatioKey(cs.alternating?.ratioKey);
+    const awayDays = Math.max(1, Math.floor(asNumber(ad)));
+    const withDays = Math.max(1, Math.floor(asNumber(wd)));
     const cycle = awayDays + withDays;
     const aC = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0)));
     const aT = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0)));
-    if (date.getTime() < start.getTime()) {
+    if (diffCalendarDays(start, date) < 0) {
       return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
     }
-    const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
+    const diffDays = diffCalendarDays(start, date);
     const mod = ((diffDays % cycle) + cycle) % cycle;
     const absent = mod < awayDays;
     return { valid: true, absent, absentChildren: aC, absentTeens: aT };
