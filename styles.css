@@ -667,6 +667,26 @@ button:focus {
   cursor: pointer;
 }
 
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-weight: 750;
+  line-height: 1.4;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.badge-food {
+  background: color-mix(in srgb, #f97316 18%, transparent);
+  border-color: color-mix(in srgb, #f97316 40%, var(--border));
+  color: color-mix(in srgb, #f97316 85%, var(--text));
+}
+
 .linklike.peek {
   white-space: normal;
   overflow: visible;

@@ -175,7 +175,8 @@ function getDefaultState() {
     settings: {
       backupIntervalDays: 30,
       backupFilenamePattern: "bjorklunds_budget_{YYYY}-{MM}.json",
-      lastBackupPromptAt: 0
+      lastBackupPromptAt: 0,
+      foodPlanningWeekday: 1
     },
     recurring: {
       expenses: { [String(currentYear)]: [] }
@@ -225,6 +226,7 @@ function normalizeStateShape(state) {
     typeof normalized.settings.backupFilenamePattern === "string" && normalized.settings.backupFilenamePattern.trim()
       ? normalized.settings.backupFilenamePattern
       : base.settings.backupFilenamePattern;
+  normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
 
   normalized.recurring = normalized.recurring || base.recurring;
   normalized.recurring.expenses = normalized.recurring.expenses || base.recurring.expenses;
@@ -990,6 +992,22 @@ function computeMonthOverview(year, month) {
     );
   }, 0);
 
+  const foodGeneratedAmount = (state.expenses || []).reduce((sum, exp) => {
+    if (!exp?.foodGenerated) return sum;
+    const payments = Array.isArray(exp.payments) ? exp.payments : [];
+    return (
+      sum +
+      payments.reduce((s, p) => {
+        const amt = asNumber(p.amount);
+        if (amt <= 0) return s;
+        const dt = p.date ? new Date(p.date) : null;
+        if (!dt || Number.isNaN(dt.getTime())) return s;
+        if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
+        return s;
+      }, 0)
+    );
+  }, 0);
+
   const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
     const payments = Array.isArray(inc.payments) ? inc.payments : [];
     return (
@@ -1016,7 +1034,8 @@ function computeMonthOverview(year, month) {
 
   // Diagramsegment: återkommande + special + enstaka
   const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: expensePaymentsAmount, color: "#8b5cf6" },
+    { key: "recurringExpenses", label: "Utgifter", amount: expensePaymentsAmount - foodGeneratedAmount, color: "#8b5cf6" },
+    { key: "foodGenerated", label: "Mat", amount: foodGeneratedAmount, color: "#f97316" },
     { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
     { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
     { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
@@ -1035,7 +1054,8 @@ function computeMonthOverview(year, month) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      expensesRows.push({ group: "Utgifter", label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
+      const group = exp?.foodGenerated ? "Mat" : "Utgifter";
+      expensesRows.push({ group, label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
     }
   }
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
@@ -1606,6 +1626,8 @@ function renderSettingsPage() {
   // Settings inputs
   document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
   document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
+  const foodDay = document.getElementById("foodPlanningWeekday");
+  if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
 }
 
 function renderRecurringTables() {
@@ -2411,7 +2433,17 @@ function buildExpensePaymentRowsForList(yearFilter) {
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (yearFilter !== "all" && String(dt.getFullYear()) !== String(yearFilter)) continue;
       if (monthFilter !== "all" && Number(monthFilter) !== dt.getMonth() + 1) continue;
-      rows.push({ expenseId: exp.id, paymentId: p.id, name, isoDate: iso, date: dt, amount: amt });
+      rows.push({
+        expenseId: exp.id,
+        paymentId: p.id,
+        name,
+        isoDate: iso,
+        date: dt,
+        amount: amt,
+        isFoodPayment: Boolean(exp?.foodGenerated),
+        foodYear: exp?.foodYear,
+        foodMonth: exp?.foodMonth
+      });
     }
   }
   for (const loan of getAllLoans()) {
@@ -2438,6 +2470,22 @@ function buildExpensePaymentRowsForList(yearFilter) {
   }
   rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
+}
+
+function openFoodOverlayForExpenseRow(row) {
+  openExpenseCategoryOverlay("food");
+  // Ensure month select points at relevant month.
+  const month = Number(row?.foodMonth) || (row?.date ? row.date.getMonth() + 1 : null);
+  const sel = document.getElementById("expensesFoodMonth");
+  if (sel && month) {
+    sel.value = String(month);
+    ui.expensesFoodMonth = month;
+  }
+  renderFoodPage();
+  requestAnimationFrame(() => {
+    const overlay = document.querySelector('[data-expview="food"]');
+    if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function renderExpensesSummaryPage() {
@@ -2531,7 +2579,7 @@ function renderExpensesList() {
     tr.innerHTML = `
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
       r.name
-    )}</button></td>
+    )}${r.isFoodPayment ? ` <span class="badge badge-food" aria-label="Systemgenererad">Mat</span>` : ""}</button></td>
       <td><button class="linklike truncate" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
     )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
@@ -2554,6 +2602,8 @@ function renderExpensesList() {
       const expenseId = btn.getAttribute("data-edit-expense") || btn.getAttribute("data-edit-expense-date");
       const paymentId = btn.getAttribute("data-edit-expense-payment");
       const iso = btn.getAttribute("data-edit-expense-iso");
+      const row = rows.find((r) => String(r.expenseId) === String(expenseId) && (!paymentId || String(r.paymentId) === String(paymentId)));
+      if (row?.isFoodPayment) return openFoodOverlayForExpenseRow(row);
       openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
     };
   });
@@ -2612,6 +2662,12 @@ function openExpenseOverlay(expenseId, opts = {}) {
   requireEl("expenseEditorNote").textContent = "";
   requireEl("expenseDeleteBtn").hidden = !editing;
   const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
+  if (exp?.foodGenerated) {
+    // Food is system-generated; redirect to Mat.
+    closeExpenseOverlay();
+    openFoodOverlayForExpenseRow({ date: exp?.payments?.[0]?.date ? new Date(exp.payments[0].date) : null, foodMonth: exp.foodMonth, foodYear: exp.foodYear });
+    return;
+  }
   requireEl("expenseNameInput").value = exp?.name || "";
   requireEl("expenseIntervalSelect").value = exp?.interval || "once";
   ui.expenseEditorPayments = Array.isArray(exp?.payments)
@@ -3360,6 +3416,8 @@ function initActions() {
     state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));
     const pat = document.getElementById("backupFilenamePattern").value || "";
     state.settings.backupFilenamePattern = pat.trim();
+    const fd = document.getElementById("foodPlanningWeekday");
+    if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
     saveState();
     document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
   });
