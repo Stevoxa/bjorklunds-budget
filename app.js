@@ -2013,7 +2013,7 @@ function buildIncomePaymentRowsForList(yearFilter) {
     }
   }
   // Sort ascending so later dates are further down
-  rows.sort((a, b) => b.date.getTime() - a.date.getTime());
+  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
 }
 
