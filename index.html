@@ -379,8 +379,7 @@
             <div class="table-card">
               <div class="table-title">Mat</div>
               <div class="note" id="foodIntroText">
-                Här ställer du in din årsplan för mat. Systemet skapar en kostnad per vecka för hela året.
-                Månad används bara som filter för visning och summering.
+                Du planerar mat per vecka för hela året. Månaden visar bara vilka veckor som hamnar där.
               </div>
               <div class="picker-row" style="justify-content: flex-start;">
                 <label>
@@ -453,7 +452,7 @@
                     <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
                     <button class="secondary" type="button" id="foodManualPlus500Btn" aria-label="Öka 500">+</button>
                   </div>
-                  <div class="note">Justera med 500kr per tryck. I manuell läge ignoreras hushåll/nivå/vad ingår.</div>
+                  <div class="note">Justera med 500kr per tryck. Övriga inställningar påverkar inte beloppet.</div>
                 </div>
 
                 <div id="foodAutoOnlySection">
@@ -476,6 +475,11 @@
                     </div>
                     <div class="note" id="foodScopeHelp"></div>
                   </div>
+                  <div class="food-calc-box">
+                    <div class="summary-row"><span>Bas utifran hushall</span><strong id="foodCalcBaseWeek">0kr</strong></div>
+                    <div class="summary-row"><span>Efter installningar</span><strong id="foodCalcAdjustedWeek">0kr</strong></div>
+                    <div class="summary-row"><span><strong>Beraknad veckokostnad</strong></span><strong id="foodCalcFinalWeek">0kr</strong></div>
+                  </div>
 
                   <div class="food-advanced">
                   <div class="table-title small">Barnschema</div>
@@ -494,7 +498,7 @@
                   <div id="foodKidsAltSection" hidden>
                     <div class="form-grid">
                       <label class="field">
-                        När börjar första perioden då barnen inte är hos dig?
+                        När börjar första veckan utan barn?
                         <input id="foodKidsAltStartDate" type="date" />
                       </label>
                       <label class="field">
@@ -505,6 +509,7 @@
                         </select>
                       </label>
                     </div>
+                    <div class="note">Upprepas automatiskt varannan vecka.</div>
                     <div class="table-title small" style="margin-top: 10px;">Vilka är inte hos dig?</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
@@ -524,7 +529,7 @@
                         </div>
                       </div>
                     </div>
-                    <div class="table-title small" style="margin-top: 10px;">Hur mycket ska kostnaden minska?</div>
+                    <div class="table-title small" style="margin-top: 10px;">Hur mycket av kostnaden ska vara kvar?</div>
                     <label class="field">
                       Kostnad kvar (%)
                       <input id="foodKidsAltCostRemainingPct" type="number" inputmode="decimal" min="0" max="100" step="1" />
@@ -578,9 +583,10 @@
                 <div class="table-title small">Preview</div>
                 <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
                 <div class="summary-row"><span>Månadssumma</span><strong id="foodPreviewMonthSum">0kr</strong></div>
-                <div class="note" style="margin-top: 6px;">Veckor i vald månad</div>
+                <div class="note" style="margin-top: 6px;">Veckor i denna månad</div>
                 <div id="foodPreviewWeeks" class="food-preview-list"></div>
               </div>
+              <div class="note" id="foodSaveContext"></div>
               <div class="actions-row">
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 <button class="primary" id="foodSaveBtn" type="button">Spara matkostnader</button>

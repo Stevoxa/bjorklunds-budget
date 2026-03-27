@@ -1101,8 +1101,17 @@ body.modal-open {
   text-align: center;
 }
 
+.food-calc-box {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  display: grid;
+  gap: 6px;
+}
+
 .food-preview {
-  margin-top: 12px;
+  margin-top: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
@@ -1126,6 +1135,7 @@ body.modal-open {
   border-radius: 12px;
   padding: 10px 12px;
   background: color-mix(in srgb, var(--card) 88%, transparent);
+  margin-top: 6px;
 }
 
 .food-advanced-head {

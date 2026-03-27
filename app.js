@@ -758,14 +758,8 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
 
   // custody/absence labels
   if (config.mode !== "manual" && config.custodySchedule?.type && config.custodySchedule.type !== "off" && config.custodySchedule.type !== "same") {
-    let anyAbsent = false;
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(weekStart, i);
-      const abs = getCustodyAbsenceForDate(config, day);
-      if (!abs.valid) continue;
-      if (abs.absent && (abs.absentChildren > 0 || abs.absentTeens > 0)) anyAbsent = true;
-    }
-    if (anyAbsent) labels.add("utan barn");
+    const custodyLabel = getCustodyLabelForWeek(config, weekStart);
+    if (custodyLabel) labels.add(custodyLabel);
   }
 
   let sumDaily = 0;
@@ -788,6 +782,22 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   const amount = Math.round(weekOverride !== null ? weekOverride : sumDaily);
   if (weekOverride !== null) labels.add("avvikelse");
   return { amount, labels: Array.from(labels) };
+}
+
+function getCustodyLabelForWeek(config, weekStart) {
+  let anyChildAbsent = false;
+  let anyTeenAbsent = false;
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(weekStart, i);
+    const abs = getCustodyAbsenceForDate(config, day);
+    if (!abs.valid || !abs.absent) continue;
+    if (asNumber(abs.absentChildren) > 0) anyChildAbsent = true;
+    if (asNumber(abs.absentTeens) > 0) anyTeenAbsent = true;
+  }
+  if (anyChildAbsent && anyTeenAbsent) return "utan barn och tonåringar";
+  if (anyChildAbsent) return "utan barn";
+  if (anyTeenAbsent) return "utan tonåringar";
+  return "";
 }
 
 function isHouseholdOverrideActive(config, date) {
@@ -1493,6 +1503,10 @@ function renderFoodPage() {
     previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
     previewMonthSum: document.getElementById("foodPreviewMonthSum"),
     previewWeeks: document.getElementById("foodPreviewWeeks"),
+    calcBaseWeek: document.getElementById("foodCalcBaseWeek"),
+    calcAdjustedWeek: document.getElementById("foodCalcAdjustedWeek"),
+    calcFinalWeek: document.getElementById("foodCalcFinalWeek"),
+    saveContext: document.getElementById("foodSaveContext"),
     kidsAltSection: document.getElementById("foodKidsAltSection"),
     kidsCustomSection: document.getElementById("foodKidsCustomSection"),
     kidsAltStart: document.getElementById("foodKidsAltStartDate"),
@@ -1571,13 +1585,15 @@ function renderFoodPage() {
     // Helper texts (auto only)
     if (els.foodLevelHelp) {
       els.foodLevelHelp.textContent = d.costLevel === "budget"
-        ? "Budget: 0.85"
-        : (d.costLevel === "high" ? "Hög: 1.20" : "Normal: 1.00");
+        ? "Budgetnivå med lägre veckokostnad."
+        : (d.costLevel === "high" ? "Hög nivå med högre veckokostnad." : "Normal nivå för vardaglig matplanering.");
     }
     if (els.foodScopeHelp) {
       els.foodScopeHelp.textContent = d.foodScope === "groceries"
-        ? "Endast matvaror: 1.00"
-        : (d.foodScope === "mixed" ? "Matvaror + restaurang: 1.20" : "All mat: 1.45");
+        ? "Endast matvaror - Mat som köps hem och lagas hemma."
+        : (d.foodScope === "mixed"
+          ? "Matvaror + restaurang - Mat hemma plus enstaka lunch eller take-away."
+          : "All mat - All mat inklusive restaurang, take-away och spontanköp.");
     }
 
     // Inline validation for custody schedule
@@ -1643,6 +1659,19 @@ function renderFoodPage() {
 
     const normalWeekly = d.mode === "manual" ? Math.max(0, asNumber(d.manualWeeklyCost)) : computeFoodWeeklyCost(d);
     if (els.previewNormalWeek) els.previewNormalWeek.textContent = formatKr(normalWeekly);
+    const baseWeekly = Math.round(
+      asNumber(d.household?.adults) * FOOD_BASE_COSTS.adults +
+      asNumber(d.household?.teens) * FOOD_BASE_COSTS.teens +
+      asNumber(d.household?.children) * FOOD_BASE_COSTS.children +
+      asNumber(d.household?.toddlers) * FOOD_BASE_COSTS.toddlers
+    );
+    const levelF = FOOD_LEVEL_FACTORS[d.costLevel] || 1.0;
+    const scopeF = FOOD_SCOPE_FACTORS[d.foodScope] || 1.0;
+    const adjustedWeekly = Math.round(baseWeekly * levelF * scopeF);
+    if (els.calcBaseWeek) els.calcBaseWeek.textContent = formatKr(baseWeekly);
+    if (els.calcAdjustedWeek) els.calcAdjustedWeek.textContent = formatKr(adjustedWeekly);
+    if (els.calcFinalWeek) els.calcFinalWeek.textContent = formatKr(adjustedWeekly);
+    if (els.saveContext) els.saveContext.textContent = `Skapar ${getIsoWeeksForYear(year).length} veckor för ${year}.`;
     if (!els.previewWeeks) return;
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
     const weeks = getIsoWeeksForYear(year).map((w) => {
@@ -1657,7 +1686,7 @@ function renderFoodPage() {
       ${monthWeeks.map((w) => {
         const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
         const labelTxt = w.labels && w.labels.length ? ` (${escapeHtml(w.labels.join(", "))})` : "";
-        return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))}${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
+        return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))} (${escapeHtml(isoFromDate(w.planningDate))})${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
       }).join("")}
     `;
 
@@ -1668,19 +1697,13 @@ function renderFoodPage() {
       const startWeek = getIsoWeekMondayFromDate(today);
       const previewWeeks = Array.from({ length: 4 }).map((_, i) => addDays(startWeek, i * 7));
       els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
-        const we = addDays(ws, 6);
         const { week } = getISOWeekInfo(ws);
         let label = "normal";
         if (auto && cs.type !== "off" && cs.type !== "same") {
-          for (let j = 0; j < 7; j++) {
-            const abs = getCustodyAbsenceForDate(d, addDays(ws, j));
-            if (abs.valid && abs.absent && (abs.absentChildren > 0 || abs.absentTeens > 0)) {
-              label = "utan barn";
-              break;
-            }
-          }
+          const custodyLabel = getCustodyLabelForWeek(d, ws);
+          if (custodyLabel) label = custodyLabel;
         }
-        return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))}–${escapeHtml(isoFromDate(we))})</span><strong>${escapeHtml(label)}</strong></div>`;
+        return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(label)}</strong></div>`;
       }).join("");
     }
   };
@@ -1726,7 +1749,11 @@ function renderFoodPage() {
   };
 
   const bumpCustodyAltAbsent = (key, delta) => {
-    ui.foodConfigDraft.custodySchedule.alternating.absent[key] = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.custodySchedule.alternating.absent[key]) + delta));
+    const maxAllowed = key === "children"
+      ? Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)))
+      : Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    const next = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.custodySchedule.alternating.absent[key]) + delta));
+    ui.foodConfigDraft.custodySchedule.alternating.absent[key] = Math.min(maxAllowed, next);
     draw();
   };
   document.getElementById("foodKidsOffBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "off"; draw(); };
@@ -1739,14 +1766,24 @@ function renderFoodPage() {
   document.getElementById("foodKidsAltChildrenPlusBtn").onclick = () => bumpCustodyAltAbsent("children", +1);
   document.getElementById("foodKidsAltTeensMinusBtn").onclick = () => bumpCustodyAltAbsent("teens", -1);
   document.getElementById("foodKidsAltTeensPlusBtn").onclick = () => bumpCustodyAltAbsent("teens", +1);
-  document.getElementById("foodKidsAltChildrenInput").oninput = () => { ui.foodConfigDraft.custodySchedule.alternating.absent.children = Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltChildrenInput").value))); draw(); };
-  document.getElementById("foodKidsAltTeensInput").oninput = () => { ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))); draw(); };
+  document.getElementById("foodKidsAltChildrenInput").oninput = () => {
+    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    ui.foodConfigDraft.custodySchedule.alternating.absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltChildrenInput").value))));
+    draw();
+  };
+  document.getElementById("foodKidsAltTeensInput").oninput = () => {
+    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))));
+    draw();
+  };
   document.getElementById("foodKidsAltCostRemainingPct").oninput = () => { ui.foodConfigDraft.custodySchedule.alternating.costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(document.getElementById("foodKidsAltCostRemainingPct").value)))); draw(); };
 
   function renderCustodyCustomPeriods() {
     const list = els.kidsCustomList;
     if (!list) return;
     const arr = ui.foodConfigDraft.custodySchedule.custom || [];
+    const maxChildren = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const maxTeens = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
     list.innerHTML = arr.map((p, idx) => {
       const title = `${escapeHtml(p.startDate || "")} – ${escapeHtml(p.endDate || "")}`;
       return `
@@ -1755,8 +1792,8 @@ function renderFoodPage() {
           <div class="form-grid">
             <label class="field">Från<input type="date" data-kc-start="${idx}" value="${escapeHtml(p.startDate || "")}"/></label>
             <label class="field">Till<input type="date" data-kc-end="${idx}" value="${escapeHtml(p.endDate || "")}"/></label>
-            <label class="field">Barn<input type="number" inputmode="numeric" min="0" step="1" data-kc-children="${idx}" value="${escapeHtml(String(p.absent?.children ?? 0))}"/></label>
-            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" step="1" data-kc-teens="${idx}" value="${escapeHtml(String(p.absent?.teens ?? 0))}"/></label>
+            <label class="field">Barn<input type="number" inputmode="numeric" min="0" max="${maxChildren}" step="1" data-kc-children="${idx}" value="${escapeHtml(String(p.absent?.children ?? 0))}"/></label>
+            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" max="${maxTeens}" step="1" data-kc-teens="${idx}" value="${escapeHtml(String(p.absent?.teens ?? 0))}"/></label>
             <label class="field">Kostnad kvar (%)<input type="number" inputmode="decimal" min="0" max="100" step="1" data-kc-rem="${idx}" value="${escapeHtml(String(p.costRemainingPct ?? 0))}"/></label>
           </div>
           <div class="food-period-actions">
@@ -1774,8 +1811,18 @@ function renderFoodPage() {
     const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
     bind("[data-kc-start]", (e) => { const i = Number(e.target.getAttribute("data-kc-start")); ui.foodConfigDraft.custodySchedule.custom[i].startDate = e.target.value; draw(); });
     bind("[data-kc-end]", (e) => { const i = Number(e.target.getAttribute("data-kc-end")); ui.foodConfigDraft.custodySchedule.custom[i].endDate = e.target.value; draw(); });
-    bind("[data-kc-children]", (e) => { const i = Number(e.target.getAttribute("data-kc-children")); ui.foodConfigDraft.custodySchedule.custom[i].absent.children = Math.max(0, Math.floor(asNumber(e.target.value))); draw(); });
-    bind("[data-kc-teens]", (e) => { const i = Number(e.target.getAttribute("data-kc-teens")); ui.foodConfigDraft.custodySchedule.custom[i].absent.teens = Math.max(0, Math.floor(asNumber(e.target.value))); draw(); });
+    bind("[data-kc-children]", (e) => {
+      const i = Number(e.target.getAttribute("data-kc-children"));
+      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+      ui.foodConfigDraft.custodySchedule.custom[i].absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
+      draw();
+    });
+    bind("[data-kc-teens]", (e) => {
+      const i = Number(e.target.getAttribute("data-kc-teens"));
+      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+      ui.foodConfigDraft.custodySchedule.custom[i].absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
+      draw();
+    });
     bind("[data-kc-rem]", (e) => { const i = Number(e.target.getAttribute("data-kc-rem")); ui.foodConfigDraft.custodySchedule.custom[i].costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(e.target.value)))); draw(); });
   }
 
