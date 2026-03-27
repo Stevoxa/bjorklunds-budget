@@ -698,13 +698,11 @@ function validateLoanDateRange(loan) {
 function enumerateLoanMonths(loan) {
   const err = validateLoanDateRange(loan);
   if (err) return [];
-  const cur = currentYearMonth();
   const startY = Math.floor(asNumber(loan.startYear));
   const startM = Math.floor(asNumber(loan.startMonth));
   const hasEnd = loan.endYear !== null && loan.endYear !== undefined && loan.endYear !== "";
-  let from = ymValue(startY, startM);
-  let to = hasEnd ? ymValue(loan.endYear, loan.endMonth) : ymValue(cur.year + 1, 12);
-  if (!hasEnd) from = Math.max(from, ymValue(cur.year, cur.month));
+  const from = ymValue(startY, startM);
+  const to = hasEnd ? ymValue(loan.endYear, loan.endMonth) : ymValue(currentYearMonth().year + 1, 12);
   const months = [];
   for (let y = Math.floor(from / 100), m = from % 100; ymValue(y, m) <= to;) {
     months.push({ year: y, month: m });
