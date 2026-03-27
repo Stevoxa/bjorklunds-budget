@@ -378,34 +378,95 @@
           <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
               <div class="table-title">Mat</div>
-              <div class="note">Här kan vi senare optimera modellen ytterligare. Just nu räknas per månad.</div>
-              <div class="picker-row">
+              <div class="picker-row" style="justify-content: flex-start;">
                 <label>
                   Månad
                   <select id="expensesFoodMonth"></select>
                 </label>
               </div>
-              <div class="form-grid">
-                <label class="field">
-                  Lagad frukost hemma (kr/mån)
-                  <input id="foodBreakfastMonthly" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Lagad lunch hemma (kr/mån)
-                  <input id="foodLunchHomeMonthly" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Lagad middag hemma (kr/mån)
-                  <input id="foodDinnerMonthly" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Lunch på jobbet (kr/mån)
-                  <input id="foodLunchWorkMonthly" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Snabbmat (kr/mån)
-                  <input id="foodFastFoodMonthly" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
+
+              <div class="form-grid narrow">
+                <div class="field">
+                  <span>Beräkningssätt</span>
+                  <div class="chip-row">
+                    <button class="chip" type="button" id="foodModeAutoBtn">Beräkna automatiskt</button>
+                    <button class="chip" type="button" id="foodModeManualBtn">Ange själv</button>
+                  </div>
+                </div>
+
+                <div id="foodAutoSection">
+                  <div class="table-title small">Hushåll</div>
+                  <div class="food-counter-grid">
+                    <div class="food-counter-row">
+                      <span>Vuxna</span>
+                      <div class="food-counter-actions">
+                        <button class="secondary" type="button" id="foodAdultsMinusBtn">-</button>
+                        <input id="foodAdultsInput" type="number" inputmode="numeric" min="0" step="1" />
+                        <button class="secondary" type="button" id="foodAdultsPlusBtn">+</button>
+                      </div>
+                    </div>
+                    <div class="food-counter-row">
+                      <span>Tonåringar</span>
+                      <div class="food-counter-actions">
+                        <button class="secondary" type="button" id="foodTeensMinusBtn">-</button>
+                        <input id="foodTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                        <button class="secondary" type="button" id="foodTeensPlusBtn">+</button>
+                      </div>
+                    </div>
+                    <div class="food-counter-row">
+                      <span>Barn</span>
+                      <div class="food-counter-actions">
+                        <button class="secondary" type="button" id="foodChildrenMinusBtn">-</button>
+                        <input id="foodChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                        <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
+                      </div>
+                    </div>
+                    <div class="food-counter-row">
+                      <span>Småbarn</span>
+                      <div class="food-counter-actions">
+                        <button class="secondary" type="button" id="foodToddlersMinusBtn">-</button>
+                        <input id="foodToddlersInput" type="number" inputmode="numeric" min="0" step="1" />
+                        <button class="secondary" type="button" id="foodToddlersPlusBtn">+</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="foodManualSection" hidden>
+                  <label class="field">
+                    Veckokostnad
+                    <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
+                  </label>
+                  <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
+                    <button class="secondary" type="button" id="foodManualMinus500Btn">-500</button>
+                    <button class="secondary" type="button" id="foodManualPlus500Btn">+500</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span>Matnivå</span>
+                  <div class="chip-row">
+                    <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
+                    <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
+                    <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span>Vad ingår</span>
+                  <div class="chip-row">
+                    <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
+                    <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
+                    <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="food-preview">
+                <div class="table-title small">Preview</div>
+                <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
+                <div class="note" style="margin-top: 6px;">Denna månad</div>
+                <div id="foodPreviewWeeks" class="food-preview-list"></div>
               </div>
               <div class="actions-row">
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>

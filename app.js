@@ -576,15 +576,92 @@ function computeSpecialHousingMonthly(year) {
 }
 
 function computeSpecialFoodMonthly(year, month) {
-  const items = [
-    { label: "Frukost hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.breakfastMonthly) },
-    { label: "Lunch hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.lunchHomeMonthly) },
-    { label: "Middag hemma", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.dinnerMonthly) },
-    { label: "Lunch på jobbet", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.lunchWorkMonthly) },
-    { label: "Snabbmat", amount: asNumber(state.special.food?.[String(year)]?.[monthKey(month)]?.fastFoodMonthly) }
-  ];
+  const cfg = state.special.food?.[String(year)]?.[monthKey(month)] || {};
+  const legacySum = asNumber(cfg.breakfastMonthly) + asNumber(cfg.lunchHomeMonthly) + asNumber(cfg.dinnerMonthly) +
+    asNumber(cfg.lunchWorkMonthly) + asNumber(cfg.fastFoodMonthly);
+  const items = legacySum > 0 ? [{ label: "Mat (legacy)", amount: legacySum }] : [];
   const total = items.reduce((s, it) => s + it.amount, 0);
   return { total, items };
+}
+
+const FOOD_LEVEL_FACTORS = { budget: 0.85, normal: 1.0, high: 1.2 };
+const FOOD_SCOPE_FACTORS = { groceries: 1.0, mixed: 1.2, all: 1.45 };
+const FOOD_BASE_COSTS = { adults: 850, teens: 950, children: 650, toddlers: 450 };
+
+function getFoodConfigForMonth(year, month) {
+  const stored = state.special.food?.[String(year)]?.[monthKey(month)] || {};
+  return {
+    mode: stored.mode === "manual" ? "manual" : "auto",
+    household: {
+      adults: Math.max(0, Math.floor(asNumber(stored.household?.adults ?? 1))),
+      teens: Math.max(0, Math.floor(asNumber(stored.household?.teens ?? 0))),
+      children: Math.max(0, Math.floor(asNumber(stored.household?.children ?? 0))),
+      toddlers: Math.max(0, Math.floor(asNumber(stored.household?.toddlers ?? 0)))
+    },
+    costLevel: ["budget", "normal", "high"].includes(stored.costLevel) ? stored.costLevel : "normal",
+    foodScope: ["groceries", "mixed", "all"].includes(stored.foodScope) ? stored.foodScope : "groceries",
+    manualWeeklyCost: Math.max(0, asNumber(stored.manualWeeklyCost ?? 2800)),
+    generatedExpenseIds: Array.isArray(stored.generatedExpenseIds) ? stored.generatedExpenseIds : []
+  };
+}
+
+function setFoodConfigForMonth(year, month, config) {
+  if (!state.special.food[String(year)]) state.special.food[String(year)] = {};
+  state.special.food[String(year)][monthKey(month)] = { ...config };
+}
+
+function getISOWeekInfo(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return { isoYear: d.getUTCFullYear(), week };
+}
+
+function getIsoWeekMondayFromDate(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - (day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function buildFoodWeekRowsForMonth(year, month, weeklyCost) {
+  const first = new Date(year, month - 1, 1);
+  const last = new Date(year, month, 0);
+  const firstWeekMonday = getIsoWeekMondayFromDate(first);
+  const rows = [];
+  for (let weekStart = new Date(firstWeekMonday); weekStart <= last; weekStart.setDate(weekStart.getDate() + 7)) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const overlapStart = new Date(Math.max(weekStart.getTime(), first.getTime()));
+    const overlapEnd = new Date(Math.min(weekEnd.getTime(), last.getTime()));
+    if (overlapStart > overlapEnd) continue;
+    const overlapDays = Math.floor((overlapEnd - overlapStart) / 86400000) + 1;
+    const amount = Math.round((weeklyCost * overlapDays) / 7);
+    const { isoYear, week } = getISOWeekInfo(weekStart);
+    rows.push({
+      isoYear,
+      week,
+      label: `Mat v.${week}`,
+      date: `${weekStart.getFullYear()}-${pad2(weekStart.getMonth() + 1)}-${pad2(weekStart.getDate())}`,
+      amount,
+      note: overlapDays < 7 ? "del av månad" : ""
+    });
+  }
+  return rows;
+}
+
+function computeFoodWeeklyCost(config) {
+  if (config.mode === "manual") return Math.max(0, asNumber(config.manualWeeklyCost));
+  const hh = config.household || {};
+  const base = asNumber(hh.adults) * FOOD_BASE_COSTS.adults +
+    asNumber(hh.teens) * FOOD_BASE_COSTS.teens +
+    asNumber(hh.children) * FOOD_BASE_COSTS.children +
+    asNumber(hh.toddlers) * FOOD_BASE_COSTS.toddlers;
+  const levelF = FOOD_LEVEL_FACTORS[config.costLevel] || 1.0;
+  const scopeF = FOOD_SCOPE_FACTORS[config.foodScope] || 1.0;
+  return Math.round(base * levelF * scopeF);
 }
 
 function computeSpecialChildrenMonthly(year) {
@@ -1088,17 +1165,83 @@ function renderHomePage() {
 }
 
 function renderFoodPage() {
-  const year = ui.expensesYear || ui.overviewYear;
+  const year = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
   const monthSel = document.getElementById("expensesFoodMonth");
   const month = Number(monthSel?.value || ui.overviewMonth || currentYearMonth().month);
   ui.expensesFoodMonth = month;
-  const foodYear = state.special.food[String(year)] || {};
-  const config = foodYear[monthKey(month)] || {};
-  document.getElementById("foodBreakfastMonthly").value = asNumber(config.breakfastMonthly);
-  document.getElementById("foodLunchHomeMonthly").value = asNumber(config.lunchHomeMonthly);
-  document.getElementById("foodDinnerMonthly").value = asNumber(config.dinnerMonthly);
-  document.getElementById("foodLunchWorkMonthly").value = asNumber(config.lunchWorkMonthly);
-  document.getElementById("foodFastFoodMonthly").value = asNumber(config.fastFoodMonthly);
+  const cfg = getFoodConfigForMonth(year, month);
+  ui.foodConfigDraft = { ...cfg, household: { ...cfg.household } };
+
+  const setChipState = (id, active) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute("aria-pressed", active ? "true" : "false");
+    el.classList.toggle("active", active);
+  };
+  const draw = () => {
+    const d = ui.foodConfigDraft;
+    const auto = d.mode !== "manual";
+    document.getElementById("foodAutoSection").hidden = !auto;
+    document.getElementById("foodManualSection").hidden = auto;
+    document.getElementById("foodAdultsInput").value = d.household.adults;
+    document.getElementById("foodTeensInput").value = d.household.teens;
+    document.getElementById("foodChildrenInput").value = d.household.children;
+    document.getElementById("foodToddlersInput").value = d.household.toddlers;
+    document.getElementById("foodManualWeeklyInput").value = asNumber(d.manualWeeklyCost);
+
+    setChipState("foodModeAutoBtn", d.mode === "auto");
+    setChipState("foodModeManualBtn", d.mode === "manual");
+    setChipState("foodLevelBudgetBtn", d.costLevel === "budget");
+    setChipState("foodLevelNormalBtn", d.costLevel === "normal");
+    setChipState("foodLevelHighBtn", d.costLevel === "high");
+    setChipState("foodScopeGroceriesBtn", d.foodScope === "groceries");
+    setChipState("foodScopeMixedBtn", d.foodScope === "mixed");
+    setChipState("foodScopeAllBtn", d.foodScope === "all");
+
+    const weekly = computeFoodWeeklyCost(d);
+    const rows = buildFoodWeekRowsForMonth(year, month, weekly);
+    document.getElementById("foodPreviewNormalWeek").textContent = formatKr(weekly);
+    const preview = document.getElementById("foodPreviewWeeks");
+    preview.innerHTML = rows
+      .map((r) => `<div class="summary-row"><span>v.${escapeHtml(String(r.week))}${r.note ? ` (${escapeHtml(r.note)})` : ""}</span><strong>${escapeHtml(formatKr(r.amount))}</strong></div>`)
+      .join("");
+  };
+
+  const bump = (key, delta) => {
+    ui.foodConfigDraft.household[key] = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household[key]) + delta));
+    draw();
+  };
+  document.getElementById("foodModeAutoBtn").onclick = () => { ui.foodConfigDraft.mode = "auto"; draw(); };
+  document.getElementById("foodModeManualBtn").onclick = () => { ui.foodConfigDraft.mode = "manual"; draw(); };
+  document.getElementById("foodLevelBudgetBtn").onclick = () => { ui.foodConfigDraft.costLevel = "budget"; draw(); };
+  document.getElementById("foodLevelNormalBtn").onclick = () => { ui.foodConfigDraft.costLevel = "normal"; draw(); };
+  document.getElementById("foodLevelHighBtn").onclick = () => { ui.foodConfigDraft.costLevel = "high"; draw(); };
+  document.getElementById("foodScopeGroceriesBtn").onclick = () => { ui.foodConfigDraft.foodScope = "groceries"; draw(); };
+  document.getElementById("foodScopeMixedBtn").onclick = () => { ui.foodConfigDraft.foodScope = "mixed"; draw(); };
+  document.getElementById("foodScopeAllBtn").onclick = () => { ui.foodConfigDraft.foodScope = "all"; draw(); };
+
+  document.getElementById("foodAdultsMinusBtn").onclick = () => bump("adults", -1);
+  document.getElementById("foodAdultsPlusBtn").onclick = () => bump("adults", +1);
+  document.getElementById("foodTeensMinusBtn").onclick = () => bump("teens", -1);
+  document.getElementById("foodTeensPlusBtn").onclick = () => bump("teens", +1);
+  document.getElementById("foodChildrenMinusBtn").onclick = () => bump("children", -1);
+  document.getElementById("foodChildrenPlusBtn").onclick = () => bump("children", +1);
+  document.getElementById("foodToddlersMinusBtn").onclick = () => bump("toddlers", -1);
+  document.getElementById("foodToddlersPlusBtn").onclick = () => bump("toddlers", +1);
+  document.getElementById("foodAdultsInput").oninput = () => { ui.foodConfigDraft.household.adults = Math.max(0, Math.floor(asNumber(document.getElementById("foodAdultsInput").value))); draw(); };
+  document.getElementById("foodTeensInput").oninput = () => { ui.foodConfigDraft.household.teens = Math.max(0, Math.floor(asNumber(document.getElementById("foodTeensInput").value))); draw(); };
+  document.getElementById("foodChildrenInput").oninput = () => { ui.foodConfigDraft.household.children = Math.max(0, Math.floor(asNumber(document.getElementById("foodChildrenInput").value))); draw(); };
+  document.getElementById("foodToddlersInput").oninput = () => { ui.foodConfigDraft.household.toddlers = Math.max(0, Math.floor(asNumber(document.getElementById("foodToddlersInput").value))); draw(); };
+  document.getElementById("foodManualWeeklyInput").oninput = () => { ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(document.getElementById("foodManualWeeklyInput").value)); draw(); };
+  document.getElementById("foodManualMinus500Btn").onclick = () => {
+    ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(ui.foodConfigDraft.manualWeeklyCost) - 500);
+    draw();
+  };
+  document.getElementById("foodManualPlus500Btn").onclick = () => {
+    ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(ui.foodConfigDraft.manualWeeklyCost) + 500);
+    draw();
+  };
+  draw();
 }
 
 function renderChildrenPage() {
@@ -2668,19 +2811,40 @@ function initActions() {
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
     const year = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
     const month = ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month;
-    const mK = monthKey(Number(month));
-    if (!state.special.food[String(year)]) state.special.food[String(year)] = {};
-    state.special.food[String(year)][mK] = {
-      breakfastMonthly: asNumber(document.getElementById("foodBreakfastMonthly").value),
-      lunchHomeMonthly: asNumber(document.getElementById("foodLunchHomeMonthly").value),
-      dinnerMonthly: asNumber(document.getElementById("foodDinnerMonthly").value),
-      lunchWorkMonthly: asNumber(document.getElementById("foodLunchWorkMonthly").value),
-      fastFoodMonthly: asNumber(document.getElementById("foodFastFoodMonthly").value)
-    };
-
+    const cfg = ui.foodConfigDraft ? { ...ui.foodConfigDraft, household: { ...ui.foodConfigDraft.household } } : getFoodConfigForMonth(year, month);
+    const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children) + asNumber(cfg.household?.toddlers);
+    if (cfg.mode !== "manual" && totalPeople <= 0) {
+      document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
+      return;
+    }
+    const weekly = computeFoodWeeklyCost(cfg);
+    const weekRows = buildFoodWeekRowsForMonth(year, Number(month), weekly);
+    const oldIds = Array.isArray(getFoodConfigForMonth(year, month).generatedExpenseIds) ? getFoodConfigForMonth(year, month).generatedExpenseIds : [];
+    state.expenses = (state.expenses || []).filter((exp) => {
+      if (oldIds.includes(exp.id)) return false;
+      if (exp?.foodGenerated && Number(exp.foodYear) === Number(year) && Number(exp.foodMonth) === Number(month)) return false;
+      return true;
+    });
+    const createdIds = [];
+    for (const wk of weekRows) {
+      const id = uid();
+      createdIds.push(id);
+      state.expenses.push({
+        id,
+        name: wk.label,
+        interval: "once",
+        foodGenerated: true,
+        foodYear: Number(year),
+        foodMonth: Number(month),
+        payments: [{ id: uid(), date: wk.date, amount: wk.amount }]
+      });
+    }
+    cfg.generatedExpenseIds = createdIds;
+    setFoodConfigForMonth(year, month, cfg);
     saveState();
-    document.getElementById("foodNote").textContent = `Matkostnader sparade för ${monthName(Number(month))} ${year}.`;
+    document.getElementById("foodNote").textContent = `Matkostnader sparade (${weekRows.length} veckoposter) för ${monthName(Number(month))} ${year}.`;
     renderOverviewIfOnOverview();
+    renderExpensesList();
     renderFoodPage();
     closeExpenseCategoryOverlay();
   });

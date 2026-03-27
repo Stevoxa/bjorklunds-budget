@@ -1036,6 +1036,50 @@ body.modal-open {
   min-height: 40px;
 }
 
+.chip.active,
+.chip[aria-pressed="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-ink);
+}
+
+.food-counter-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.food-counter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.food-counter-actions {
+  display: grid;
+  grid-template-columns: 42px 72px 42px;
+  gap: 8px;
+  align-items: center;
+}
+
+.food-counter-actions input {
+  min-width: 0;
+  text-align: center;
+}
+
+.food-preview {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+}
+
+.food-preview-list {
+  display: grid;
+  gap: 6px;
+}
+
 .defaults-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
