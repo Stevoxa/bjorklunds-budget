@@ -567,6 +567,12 @@ button:focus {
   text-align: right;
 }
 
+.loan-list-title {
+  font-weight: 800;
+  margin: 6px 0 12px 0;
+  letter-spacing: -0.02em;
+}
+
 .loan-item-row td {
   padding-top: 10px;
   padding-bottom: 10px;
