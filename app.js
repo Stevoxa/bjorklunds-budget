@@ -1831,12 +1831,15 @@ function renderFoodPage() {
   const hhSection = els.hhSection;
   if (hhToggle && hhSection) hhToggle.onclick = () => { hhSection.hidden = !hhSection.hidden; hhToggle.textContent = hhSection.hidden ? "▾" : "▴"; };
   let editingHouseholdChangeIndex = -1;
+  let householdEditorDraft = null;
   const renderHouseholdChanges = () => {
     const list = els.hhList;
     const arr = ui.foodConfigDraft.householdChanges || [];
     const editor = document.getElementById("foodHouseholdEditor");
     const listYearEl = document.getElementById("foodHhListYear");
+    const listTitleEl = document.getElementById("foodHhListTitle");
     if (listYearEl) listYearEl.textContent = String(year);
+    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
     if (!list || !editor) return;
     const sorted = arr
       .map((ch, idx) => ({ ch, idx }))
@@ -1845,7 +1848,7 @@ function renderFoodPage() {
       const range = `${escapeHtml(ch.startDate || "-")} - ${escapeHtml(ch.endDate || "-")}`;
       return `<div class="summary-row">
         <span>${range}</span>
-        <strong><button class="secondary btn-icon" type="button" data-hh-edit="${idx}" aria-label="Redigera">Edit</button> <button class="danger btn-icon" type="button" data-hh-del="${idx}" aria-label="Ta bort">X</button></strong>
+        <strong><button class="icon-btn btn-icon" type="button" data-hh-edit="${idx}" aria-label="Redigera">✎</button> <button class="danger btn-icon" type="button" data-hh-del="${idx}" aria-label="Ta bort">X</button></strong>
       </div>`;
     }).join("");
     list.querySelectorAll("[data-hh-del]").forEach((btn) => btn.onclick = () => {
@@ -1864,17 +1867,14 @@ function renderFoodPage() {
   };
   const renderHouseholdEditor = () => {
     const editor = document.getElementById("foodHouseholdEditor");
-    const empty = document.getElementById("foodHouseholdEditorEmpty");
-    if (!editor || !empty) return;
+    if (!editor) return;
     const arr = ui.foodConfigDraft.householdChanges || [];
-    const ch = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : null;
+    const ch = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : householdEditorDraft;
     if (!ch) {
       editor.hidden = true;
-      empty.hidden = false;
       return;
     }
     editor.hidden = false;
-    empty.hidden = true;
     document.getElementById("foodHhEditStart").value = ch.startDate || "";
     document.getElementById("foodHhEditEnd").value = ch.endDate || "";
     document.getElementById("foodHhEditAdults").value = asNumber(ch.household?.adults);
@@ -1882,36 +1882,70 @@ function renderFoodPage() {
     document.getElementById("foodHhEditChildren").value = asNumber(ch.household?.children);
   };
   const readHouseholdEditor = () => {
-    if (editingHouseholdChangeIndex < 0) return;
     const arr = ui.foodConfigDraft.householdChanges || [];
-    const ch = arr[editingHouseholdChangeIndex];
-    if (!ch) return;
-    ch.startDate = document.getElementById("foodHhEditStart").value || "";
-    ch.endDate = document.getElementById("foodHhEditEnd").value || "";
-    ch.household = {
+    const target = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : householdEditorDraft;
+    if (!target) return null;
+    const startDate = document.getElementById("foodHhEditStart").value || "";
+    const endDate = document.getElementById("foodHhEditEnd").value || "";
+    target.startDate = startDate;
+    target.endDate = endDate;
+    target.household = {
       adults: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditAdults").value))),
       teens: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditTeens").value))),
       children: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditChildren").value)))
     };
+    return target;
   };
   document.getElementById("foodHhEditSaveBtn").onclick = () => {
-    readHouseholdEditor();
+    const hhErr = document.getElementById("foodHouseholdError");
+    if (hhErr) {
+      hhErr.hidden = true;
+      hhErr.textContent = "";
+    }
+    const next = readHouseholdEditor();
+    if (!next) return;
+    const s = parseDateISO(next.startDate);
+    const e = parseDateISO(next.endDate);
+    if (!s || !e) {
+      if (hhErr) {
+        hhErr.hidden = false;
+        hhErr.textContent = "Ange både Från och Till.";
+      }
+      return;
+    }
+    if (e.getTime() < s.getTime()) {
+      if (hhErr) {
+        hhErr.hidden = false;
+        hhErr.textContent = "Till måste vara samma eller efter Från.";
+      }
+      return;
+    }
+    if (editingHouseholdChangeIndex < 0) {
+      ui.foodConfigDraft.householdChanges.push({
+        startDate: next.startDate,
+        endDate: next.endDate,
+        household: { ...next.household }
+      });
+    }
+    editingHouseholdChangeIndex = -1;
+    householdEditorDraft = null;
     renderHouseholdChanges();
     renderHouseholdEditor();
     draw();
   };
   document.getElementById("foodHhEditCancelBtn").onclick = () => {
     editingHouseholdChangeIndex = -1;
+    householdEditorDraft = null;
     renderHouseholdEditor();
   };
   document.getElementById("foodAddHouseholdChangeBtn").onclick = () => {
     ui.foodConfigDraft.householdChanges = ui.foodConfigDraft.householdChanges || [];
-    ui.foodConfigDraft.householdChanges.push({
+    householdEditorDraft = {
       startDate: "",
       endDate: "",
       household: { adults: ui.foodConfigDraft.household.adults, teens: ui.foodConfigDraft.household.teens, children: ui.foodConfigDraft.household.children }
-    });
-    editingHouseholdChangeIndex = ui.foodConfigDraft.householdChanges.length - 1;
+    };
+    editingHouseholdChangeIndex = -1;
     if (hhSection.hidden) hhToggle.onclick();
     renderHouseholdChanges();
     renderHouseholdEditor();

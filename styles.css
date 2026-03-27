@@ -1110,6 +1110,13 @@ body.modal-open {
   gap: 6px;
 }
 
+.food-hh-editor-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  justify-content: stretch;
+}
+
 .food-preview {
   margin-top: 16px;
   border: 1px solid var(--border);
@@ -1287,6 +1294,12 @@ body.modal-open {
     justify-content: stretch;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .food-hh-editor-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 
   .modal-actions {
