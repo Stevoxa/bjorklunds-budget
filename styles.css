@@ -750,6 +750,12 @@ tr.month-break td {
   gap: 12px;
 }
 
+.loan-copy-notice {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
 .loan-metrics {
   grid-column: 1 / -1;
   display: grid;
@@ -757,8 +763,12 @@ tr.month-break td {
 }
 
 .loan-metric-line {
-  color: var(--text);
+  color: var(--primary);
   font-weight: 650;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .loan-editor-actions {

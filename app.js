@@ -424,7 +424,8 @@ const ui = {
   expenseYearFilter: null,
   expenseMonthFilter: "all",
   loanEditorOpen: false,
-  editLoanId: null
+  editLoanId: null,
+  loanCopySourceName: null
 };
 
 function loadState() {
@@ -2527,10 +2528,23 @@ function renderLoanDateInlineError() {
   return false;
 }
 
+function renderLoanCopyNotice() {
+  const el = document.getElementById("loanCopyNotice");
+  if (!el) return;
+  if (!ui.loanCopySourceName) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = `Kopia av befintligt lån - ${ui.loanCopySourceName} - Spara detta lån genom att klicka på Spara knappen`;
+}
+
 function openLoanEditor(loanId = null) {
   const cur = currentYearMonth();
   const existing = loanId ? getAllLoans().find((x) => x.id === loanId) : null;
   ui.editLoanId = existing?.id || null;
+  ui.loanCopySourceName = null;
   ui.loanEditorOpen = true;
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = false;
@@ -2556,6 +2570,7 @@ function openLoanEditor(loanId = null) {
   if (copyBtn) copyBtn.hidden = !existing;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
+  renderLoanCopyNotice();
   renderLoanDateInlineError();
   updateLoanDerivedFields();
 }
@@ -2582,6 +2597,8 @@ function closeLoanEditor() {
   if (copyBtn) copyBtn.hidden = true;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
+  ui.loanCopySourceName = null;
+  renderLoanCopyNotice();
   updateLoanDerivedFields();
 }
 
@@ -2696,6 +2713,7 @@ function initActions() {
       draft.endMonth = null;
     }
     ui.editLoanId = null;
+    ui.loanCopySourceName = source.name || "Lån";
     document.getElementById("loanNameInput").value = draft.name;
     document.getElementById("loanBankInput").value = draft.bank;
     document.getElementById("loanPrincipal").value = asNumber(draft.principal);
@@ -2713,6 +2731,7 @@ function initActions() {
     document.getElementById("loanEndMonth").disabled = !document.getElementById("loanEndYear").value;
     document.getElementById("loanDeleteBtn").hidden = true;
     document.getElementById("loanCopyBtn").hidden = true;
+    renderLoanCopyNotice();
     renderLoanDateInlineError();
     updateLoanDerivedFields();
   });
@@ -2758,6 +2777,7 @@ function initActions() {
     else loans.push(draft);
     persistAllLoans(loans);
     saveState();
+    ui.loanCopySourceName = null;
     document.getElementById("loanNote").textContent = "Lån sparat.";
     closeLoanEditor();
     renderLoansPage();
