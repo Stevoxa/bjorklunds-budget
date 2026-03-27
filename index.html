@@ -474,10 +474,14 @@
                   </div>
 
                   <div class="food-advanced">
-                  <div>
-                    <div class="table-title small" style="margin: 0;">Barn med växelvis boende</div>
-                    <div class="note micro-note" style="margin-top: 4px;">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
+                  <div class="food-advanced-head">
+                    <div>
+                      <div class="table-title small" style="margin: 0;">Barn med växelvis boende</div>
+                      <div class="note micro-note" style="margin-top: 4px;">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
+                    </div>
+                    <button class="secondary btn-icon" type="button" id="foodKidsToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
+                  <div id="foodKidsSection" hidden>
                   <div class="field">
                     <div class="chip-row">
                       <button class="chip" type="button" id="foodKidsNoBtn">Nej</button>
@@ -492,6 +496,9 @@
                         <input id="foodKidsAltStartDate" type="date" />
                         <div class="field-error" id="foodKidsErrStart" hidden></div>
                       </label>
+                    </div>
+                    <div id="foodKidsAltDetailsSection" hidden>
+                    <div class="form-grid">
                       <label class="field">
                         Hur länge är de borta/hur länge bor de hos dig?
                         <select id="foodKidsRatio">
@@ -508,14 +515,6 @@
                     <div class="table-title small" style="margin-top: 10px;">Hur många barn/tonåringar har växelvis boende?</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
-                        <span>Barn</span>
-                        <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodKidsAltChildrenMinusBtn">-</button>
-                          <input id="foodKidsAltChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodKidsAltChildrenPlusBtn">+</button>
-                        </div>
-                      </div>
-                      <div class="food-counter-row">
                         <span>Tonåringar</span>
                         <div class="food-counter-actions">
                           <button class="secondary" type="button" id="foodKidsAltTeensMinusBtn">-</button>
@@ -523,13 +522,24 @@
                           <button class="secondary" type="button" id="foodKidsAltTeensPlusBtn">+</button>
                         </div>
                       </div>
+                      <div class="food-counter-row">
+                        <span>Barn</span>
+                        <div class="food-counter-actions">
+                          <button class="secondary" type="button" id="foodKidsAltChildrenMinusBtn">-</button>
+                          <input id="foodKidsAltChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodKidsAltChildrenPlusBtn">+</button>
+                        </div>
+                      </div>
                     </div>
                     <div class="field-error" id="foodKidsErrCounts" hidden></div>
                     <div class="summary-row" style="margin-top: 10px;"><span>Beräknad veckokostnad:</span><strong id="foodCustodyPreviewWeek">0 kr</strong></div>
+                    </div>
                   </div>
-
-                  <div class="note" style="margin-top: 10px;">Preview (kommande veckor)</div>
-                  <div id="foodKidsPreview" class="food-preview-list"></div>
+                  <div id="foodKidsKommandeBlock" hidden>
+                    <div class="note" style="margin-top: 10px;">kommande veckor</div>
+                    <div id="foodKidsPreview" class="food-preview-list"></div>
+                  </div>
+                  </div>
                 </div>
 
                 <div class="food-advanced">

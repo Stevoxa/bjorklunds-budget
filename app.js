@@ -1036,6 +1036,29 @@ function computeFoodDailyCost(config, date) {
   return daily; // daily
 }
 
+function computeFoodWeekTotalForWeekStart(config, weekStart) {
+  let sum = 0;
+  for (let i = 0; i < 7; i++) {
+    sum += computeFoodDailyCost(config, addDays(weekStart, i));
+  }
+  return Math.round(sum);
+}
+
+function computeWeekCustodyReductionKr(config, weekStart) {
+  if (config.mode === "manual" || !config.custodySchedule || config.custodySchedule.type !== "alternating") {
+    return 0;
+  }
+  const baseCfg = { ...config, custodySchedule: normalizeCustodySchedule({ type: "off" }) };
+  const baseTotal = computeFoodWeekTotalForWeekStart(baseCfg, weekStart);
+  const withTotal = computeFoodWeekTotalForWeekStart(config, weekStart);
+  return Math.max(0, baseTotal - withTotal);
+}
+
+function formatCustodyReductionKr(reduction) {
+  const n = Math.round(reduction);
+  if (n <= 0) return "0 kr";
+  return `-${n.toLocaleString("sv-SE")} kr`;
+}
 
 function computeFoodWeeklyCost(config) {
   if (config.mode === "manual") return Math.max(0, asNumber(config.manualWeeklyCost));
@@ -1611,6 +1634,10 @@ function renderFoodPage() {
     kidsErrCounts: document.getElementById("foodKidsErrCounts"),
     custodyPreviewWeek: document.getElementById("foodCustodyPreviewWeek"),
     kidsPreview: document.getElementById("foodKidsPreview"),
+    kidsAltDetailsSection: document.getElementById("foodKidsAltDetailsSection"),
+    kidsKommandeBlock: document.getElementById("foodKidsKommandeBlock"),
+    kidsToggle: document.getElementById("foodKidsToggleBtn"),
+    kidsSection: document.getElementById("foodKidsSection"),
     foodLevelHelp: document.getElementById("foodLevelHelp"),
     foodScopeHelp: document.getElementById("foodScopeHelp"),
     hhToggle: document.getElementById("foodHouseholdToggleBtn"),
@@ -1666,6 +1693,11 @@ function renderFoodPage() {
     setChipState("foodKidsNoBtn", cs.type === "off");
     setChipState("foodKidsYesBtn", cs.type === "alternating");
     if (els.kidsAltSection) els.kidsAltSection.hidden = cs.type !== "alternating";
+    const hasCustodyStart = cs.type === "alternating" && !!parseDateISO(cs.alternating.startDate);
+    if (els.kidsAltDetailsSection) els.kidsAltDetailsSection.hidden = !hasCustodyStart;
+    if (els.kidsKommandeBlock) {
+      els.kidsKommandeBlock.hidden = d.mode === "manual" || cs.type !== "alternating" || !hasCustodyStart;
+    }
     if (els.kidsAltStart) els.kidsAltStart.value = cs.alternating.startDate || "";
     if (els.kidsRatio) els.kidsRatio.value = cs.alternating.ratioKey || "7-7";
     if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.value = asNumber(cs.alternating.absent?.children);
@@ -1712,15 +1744,14 @@ function renderFoodPage() {
         custodyOk = false;
         setCustodyFieldErr(els.kidsErrStart, "Ange startdatum för första perioden utan barn.");
         if (els.kidsAltStart) els.kidsAltStart.classList.add("input-invalid");
-      }
-      if (aC > baseChildren || aT > baseTeens) {
+      } else if (aC > baseChildren || aT > baseTeens) {
         custodyOk = false;
         setCustodyFieldErr(els.kidsErrCounts, `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`);
       }
     }
 
     if (els.custodyPreviewWeek) {
-      if (auto && cs.type === "alternating") {
+      if (auto && cs.type === "alternating" && hasCustodyStart) {
         const ws = getIsoWeekMondayForIsoWeek(year, 1);
         let sum = 0;
         for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(d, addDays(ws, i));
@@ -1777,21 +1808,27 @@ function renderFoodPage() {
       }).join("")}
     `;
 
-    // Barnschema local preview (next 4 weeks from today)
+    // Växelvis: kommande veckor — minskning mot vecka utan växelvis (minst 4 veckor, minst 2 cykler)
     if (els.kidsPreview) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const startWeek = getIsoWeekMondayFromDate(today);
-      const previewWeeks = Array.from({ length: 4 }).map((_, i) => addDays(startWeek, i * 7));
-      els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
-        const { week } = getISOWeekInfo(ws);
-        let label = "normal";
-        if (auto && cs.type === "alternating") {
-          const custodyLabel = getCustodyLabelForWeek(d, ws);
-          if (custodyLabel) label = custodyLabel;
-        }
-        return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(label)}</strong></div>`;
-      }).join("");
+      if (!(auto && cs.type === "alternating" && hasCustodyStart)) {
+        els.kidsPreview.innerHTML = "";
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startWeek = getIsoWeekMondayFromDate(today);
+        let nWeeks = 4;
+        const away = Math.max(1, Math.floor(asNumber(cs.alternating?.awayDays ?? 7)));
+        const withD = Math.max(1, Math.floor(asNumber(cs.alternating?.withDays ?? 7)));
+        const cycleDays = away + withD;
+        nWeeks = Math.max(4, Math.ceil((2 * cycleDays) / 7));
+        const previewWeeks = Array.from({ length: nWeeks }).map((_, i) => addDays(startWeek, i * 7));
+        els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
+          const { week } = getISOWeekInfo(ws);
+          const reduction = computeWeekCustodyReductionKr(d, ws);
+          const right = formatCustodyReductionKr(reduction);
+          return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(right)}</strong></div>`;
+        }).join("");
+      }
     }
   };
 
@@ -1841,20 +1878,29 @@ function renderFoodPage() {
     draw();
   };
   document.getElementById("foodKidsNoBtn").onclick = () => {
-    ui.foodConfigDraft.custodySchedule.type = "off";
+    ui.foodConfigDraft.custodySchedule = normalizeCustodySchedule({ type: "off" });
     delete ui.foodConfigDraft._custodyHhSnap;
     draw();
   };
   document.getElementById("foodKidsYesBtn").onclick = () => {
-    ui.foodConfigDraft.custodySchedule.type = "alternating";
     const c = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
     const t = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    ui.foodConfigDraft.custodySchedule.alternating.absent.children = c;
-    ui.foodConfigDraft.custodySchedule.alternating.absent.teens = t;
+    ui.foodConfigDraft.custodySchedule = normalizeCustodySchedule({
+      type: "alternating",
+      alternating: {
+        startDate: "",
+        absent: { children: c, teens: t }
+      }
+    });
     ui.foodConfigDraft._custodyHhSnap = { c, t };
     draw();
   };
-  document.getElementById("foodKidsAltStartDate").onchange = () => { ui.foodConfigDraft.custodySchedule.alternating.startDate = document.getElementById("foodKidsAltStartDate").value || ""; draw(); };
+  const syncFoodKidsStartDate = () => {
+    ui.foodConfigDraft.custodySchedule.alternating.startDate = document.getElementById("foodKidsAltStartDate").value || "";
+    draw();
+  };
+  document.getElementById("foodKidsAltStartDate").onchange = syncFoodKidsStartDate;
+  document.getElementById("foodKidsAltStartDate").oninput = syncFoodKidsStartDate;
   document.getElementById("foodKidsRatio").onchange = () => {
     const v = document.getElementById("foodKidsRatio").value;
     const { ratioKey, awayDays, withDays } = parseCustodyRatioKey(v);
@@ -1877,6 +1923,14 @@ function renderFoodPage() {
     ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))));
     draw();
   };
+  const kidsToggle = els.kidsToggle;
+  const kidsSection = els.kidsSection;
+  if (kidsToggle && kidsSection) {
+    kidsToggle.onclick = () => {
+      kidsSection.hidden = !kidsSection.hidden;
+      kidsToggle.textContent = kidsSection.hidden ? "▾" : "▴";
+    };
+  }
   // Household changes section
   const hhToggle = els.hhToggle;
   const hhSection = els.hhSection;
@@ -3801,8 +3855,17 @@ function initActions() {
     if (cfg.mode !== "manual") {
       const cs = normalizeCustodySchedule(cfg.custodySchedule);
       if (cs.type === "alternating") {
+        const expandKidsSectionIfCollapsed = () => {
+          const ks = document.getElementById("foodKidsSection");
+          const kt = document.getElementById("foodKidsToggleBtn");
+          if (ks && ks.hidden) {
+            ks.hidden = false;
+            if (kt) kt.textContent = "▴";
+          }
+        };
         const s = parseDateISO(cs.alternating.startDate);
         if (!s) {
+          expandKidsSectionIfCollapsed();
           const errEl = document.getElementById("foodKidsErrStart");
           const inp = document.getElementById("foodKidsAltStartDate");
           if (errEl) {
@@ -3820,12 +3883,13 @@ function initActions() {
         const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
         const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
         if (aC > baseChildren || aT > baseTeens) {
+          expandKidsSectionIfCollapsed();
           const errEl = document.getElementById("foodKidsErrCounts");
           if (errEl) {
             errEl.hidden = false;
             errEl.textContent = `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
           }
-          const focusEl = document.getElementById("foodKidsAltChildrenInput") || document.getElementById("foodKidsAltTeensInput");
+          const focusEl = document.getElementById("foodKidsAltTeensInput") || document.getElementById("foodKidsAltChildrenInput");
           if (focusEl) focusEl.focus();
           return;
         }
