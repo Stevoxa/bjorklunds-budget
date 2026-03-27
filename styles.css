@@ -252,6 +252,11 @@ button:focus {
   color: var(--muted);
 }
 
+.micro-note {
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
 .primary,
 .secondary,
 .danger,
