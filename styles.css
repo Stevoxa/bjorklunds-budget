@@ -1163,6 +1163,47 @@ body.modal-open {
   gap: 10px;
 }
 
+.food-household-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 16px 14px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  margin-bottom: 16px;
+}
+
+.food-household-title {
+  margin: 0 0 4px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.food-household-mode-field {
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.food-household-mode-field .chip-row {
+  margin-top: 8px;
+}
+
+.food-manual-in-card {
+  margin-top: 16px;
+}
+
+.food-household-counters {
+  margin-top: 18px;
+}
+
+#foodAutoOnlySection {
+  margin-top: 18px;
+}
+
+.food-advanced--in-card {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+}
+
 .food-period-list {
   display: grid;
   gap: 10px;

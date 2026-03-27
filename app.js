@@ -1052,6 +1052,13 @@ function isoFromDate(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+function foodConfigHasManualWeekAdjustments(config) {
+  const hasCustody = Array.isArray(config.custodyPeriods) && config.custodyPeriods.some((p) => p.startDate && String(p.startDate).trim());
+  const hasHH = Array.isArray(config.householdChanges) && config.householdChanges.length > 0;
+  const hasFac = Array.isArray(config.deviations) && config.deviations.some((d) => d.adjustmentType === "factor");
+  return hasCustody || hasHH || hasFac;
+}
+
 function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   // weekly override deviation
   let weekOverride = null;
@@ -1071,15 +1078,33 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   const labels = new Set();
   if (config.mode === "manual") labels.add("manuell");
 
-  // custody/absence labels
-  if (config.mode !== "manual" && Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0) {
+  if (Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0) {
     const custodyLabel = getCustodyLabelForWeek(config, weekStart);
     if (custodyLabel) labels.add(custodyLabel);
   }
 
   let sumDaily = 0;
   if (config.mode === "manual") {
-    sumDaily = Math.max(0, asNumber(config.manualWeeklyCost));
+    const manualW = Math.max(0, asNumber(config.manualWeeklyCost));
+    if (!foodConfigHasManualWeekAdjustments(config)) {
+      sumDaily = manualW;
+    } else {
+      const cfgA = { ...config, mode: "auto" };
+      const cfgPlain = { ...config, mode: "auto", custodyPeriods: [], householdChanges: [], deviations: [] };
+      let autoWeek = 0;
+      let plainWeek = 0;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        autoWeek += computeFoodDailyCost(cfgA, day);
+        plainWeek += computeFoodDailyCost(cfgPlain, day);
+      }
+      sumDaily = plainWeek > 0 ? Math.round(manualW * (autoWeek / plainWeek)) : manualW;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        if (isHouseholdOverrideActive(config, day)) labels.add("ändrat hushåll");
+        if (isDeviationFactorActive(config, day)) labels.add("avvikelse");
+      }
+    }
   } else {
     let anyHhOverride = false;
     let anyDeviation = false;
@@ -1222,7 +1247,10 @@ function computeFoodDailyCost(config, date) {
     children * FOOD_BASE_COSTS.children;
 
   let daily;
-  const period = config.mode !== "manual" ? resolveCustodyPeriodForDate(config, date) : null;
+  const period =
+    Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0
+      ? resolveCustodyPeriodForDate(config, date)
+      : null;
   if (period) {
     const abs = getCustodyAbsenceForAlternatingPeriod(period, date, Number(config.foodBudgetYear) || new Date().getFullYear());
     const aC = Math.min(
@@ -1273,8 +1301,24 @@ function computeFoodWeekTotalForWeekStart(config, weekStart) {
 }
 
 function computeWeekCustodyReductionKr(config, weekStart) {
-  if (config.mode === "manual" || !Array.isArray(config.custodyPeriods) || config.custodyPeriods.length === 0) {
-    return 0;
+  if (!Array.isArray(config.custodyPeriods) || config.custodyPeriods.length === 0) return 0;
+  if (config.mode === "manual") {
+    const manualW = Math.max(0, asNumber(config.manualWeeklyCost));
+    if (!foodConfigHasManualWeekAdjustments(config)) return 0;
+    const cfgA = { ...config, mode: "auto" };
+    const cfgNoCustody = { ...config, mode: "auto", custodyPeriods: [] };
+    const cfgPlain = { ...config, mode: "auto", custodyPeriods: [], householdChanges: [], deviations: [] };
+    let withC = 0;
+    let noC = 0;
+    let plain = 0;
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      withC += computeFoodDailyCost(cfgA, day);
+      noC += computeFoodDailyCost(cfgNoCustody, day);
+      plain += computeFoodDailyCost(cfgPlain, day);
+    }
+    if (plain <= 0) return 0;
+    return Math.max(0, Math.round((manualW * (noC - withC)) / plain));
   }
   const baseCfg = { ...config, custodyPeriods: [] };
   const baseTotal = computeFoodWeekTotalForWeekStart(baseCfg, weekStart);
@@ -2015,7 +2059,6 @@ function renderFoodPage() {
       }
     }
     const auto = d.mode !== "manual";
-    if (els.autoSection) els.autoSection.hidden = !auto;
     if (els.manualSection) els.manualSection.hidden = auto;
     const autoOnly = document.getElementById("foodAutoOnlySection");
     if (autoOnly) autoOnly.hidden = !auto;
@@ -2092,7 +2135,7 @@ function renderFoodPage() {
 
     if (els.custodyEditorWeekCost) {
       const sEd = parseDateISO(edLive.startDate);
-      if (auto && editorOpen && sEd) {
+      if (editorOpen && sEd) {
         const previewCfg = foodConfigWithSingleCustodyPeriod(d, edLive);
         const ws = getIsoWeekMondayFromDate(sEd);
         let sum = 0;
@@ -2105,7 +2148,7 @@ function renderFoodPage() {
 
     if (els.custodyExampleBlock && els.custodyExampleWeeks) {
       const sEx = parseDateISO(edLive.startDate);
-      if (auto && editorOpen && sEx) {
+      if (editorOpen && sEx) {
         els.custodyExampleBlock.hidden = false;
         const previewCfg = foodConfigWithSingleCustodyPeriod(d, edLive);
         const startWeek = getIsoWeekMondayFromDate(sEx);
