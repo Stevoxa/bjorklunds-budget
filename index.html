@@ -261,6 +261,22 @@
                     Förfallodatum (dag)
                     <input id="loanDueDay" type="number" inputmode="numeric" min="1" max="28" step="1" />
                   </label>
+                  <label class="field">
+                    Startår
+                    <select id="loanStartYear"></select>
+                  </label>
+                  <label class="field">
+                    Startmånad
+                    <select id="loanStartMonth"></select>
+                  </label>
+                  <label class="field">
+                    Slutår
+                    <select id="loanEndYear"></select>
+                  </label>
+                  <label class="field">
+                    Slutmånad
+                    <select id="loanEndMonth"></select>
+                  </label>
                   <div class="field">
                     <span>Räntebelopp (kr)</span>
                     <div class="derived-value" id="loanInterestAmount">0 kr</div>
@@ -270,6 +286,7 @@
                     <div class="derived-value" id="loanTotalPayment">0 kr</div>
                   </div>
                 </div>
+                <div class="field-error" id="loanDateError" hidden></div>
                 <div class="actions-row" style="justify-content: flex-start;">
                   <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
                 </div>
@@ -287,7 +304,7 @@
                     <thead>
                       <tr>
                         <th>Lån</th>
-                        <th class="right">Skuld</th>
+                        <th>Slutdatum</th>
                         <th class="right">Kostnad</th>
                         <th class="right"></th>
                       </tr>
