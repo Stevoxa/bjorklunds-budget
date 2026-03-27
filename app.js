@@ -2537,7 +2537,7 @@ function renderLoanCopyNotice() {
     return;
   }
   el.hidden = false;
-  el.textContent = `Kopia av befintligt lån - ${ui.loanCopySourceName} - Spara detta lån genom att klicka på Spara knappen`;
+  el.textContent = `Kopia av befintligt lån - ${ui.loanCopySourceName} - Spara det nya lånet genom att klicka på Spara knappen`;
 }
 
 function openLoanEditor(loanId = null) {
@@ -2734,6 +2734,11 @@ function initActions() {
     renderLoanCopyNotice();
     renderLoanDateInlineError();
     updateLoanDerivedFields();
+    requestAnimationFrame(() => {
+      const overlay = document.querySelector('[data-expview="loans"]');
+      if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
+      else window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   });
   document.getElementById("loanEditorCancelBtn").addEventListener("click", () => closeLoanEditor());
   requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;
