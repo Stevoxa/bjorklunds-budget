@@ -380,6 +380,10 @@
               <div class="table-title">Mat</div>
               <div class="picker-row" style="justify-content: flex-start;">
                 <label>
+                  År
+                  <select id="expensesFoodYear"></select>
+                </label>
+                <label>
                   Månad
                   <select id="expensesFoodMonth"></select>
                 </label>
@@ -443,25 +447,26 @@
                   </div>
                 </div>
 
-                <div class="field">
-                  <span>Matnivå</span>
-                  <div class="chip-row">
-                    <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
-                    <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
-                    <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
+                <div id="foodAutoOnlySection">
+                  <div class="field">
+                    <span>Matnivå</span>
+                    <div class="chip-row">
+                      <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
+                      <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
+                      <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
+                    </div>
                   </div>
-                </div>
 
-                <div class="field">
-                  <span>Vad ingår</span>
-                  <div class="chip-row">
-                    <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
-                    <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
-                    <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
+                  <div class="field">
+                    <span>Vad ingår</span>
+                    <div class="chip-row">
+                      <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
+                      <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
+                      <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
+                    </div>
                   </div>
-                </div>
 
-                <div class="food-advanced">
+                  <div class="food-advanced">
                   <div class="table-title small">Barnschema</div>
                   <div class="field">
                     <div class="chip-row">
@@ -542,6 +547,7 @@
                     <div id="foodDeviationsList" class="food-period-list"></div>
                     <div class="field-error" id="foodDeviationsError" hidden></div>
                   </div>
+                </div>
                 </div>
               </div>
 

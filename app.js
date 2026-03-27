@@ -247,6 +247,46 @@ function normalizeStateShape(state) {
   normalized.special.food = normalized.special.food || {};
   normalized.special.children = normalized.special.children || {};
 
+  // Migration: legacy monthly food config -> yearly model { config, weeks }
+  for (const y of Object.keys(normalized.special.food || {})) {
+    const entry = normalized.special.food?.[y];
+    if (!entry || typeof entry !== "object") continue;
+    const alreadyYearModel = Boolean(entry.config || entry.weeks);
+    if (alreadyYearModel) continue;
+    const monthKeys = Object.keys(entry).filter((k) => /^\d{2}$/.test(k));
+    if (monthKeys.length === 0) continue;
+    const curMonthK = pad2(currentYearMonth().month);
+    const pickK = monthKeys.includes(curMonthK) ? curMonthK : monthKeys.sort().slice(-1)[0];
+    const mCfg = entry[pickK] || {};
+    const cfg = {
+      mode: mCfg.mode === "manual" ? "manual" : "auto",
+      household: {
+        adults: Math.max(0, Math.floor(asNumber(mCfg.household?.adults ?? 1))),
+        teens: Math.max(0, Math.floor(asNumber(mCfg.household?.teens ?? 0))),
+        children: Math.max(0, Math.floor(asNumber(mCfg.household?.children ?? 0))),
+        toddlers: Math.max(0, Math.floor(asNumber(mCfg.household?.toddlers ?? 0)))
+      },
+      costLevel: ["budget", "normal", "high"].includes(mCfg.costLevel) ? mCfg.costLevel : "normal",
+      foodScope: ["groceries", "mixed", "all"].includes(mCfg.foodScope) ? mCfg.foodScope : "groceries",
+      manualWeeklyCost: Math.max(0, asNumber(mCfg.manualWeeklyCost ?? 2800)),
+      kidsSchedule: {
+        enabled: Boolean(mCfg.kidsSchedule?.enabled),
+        type: mCfg.kidsSchedule?.type === "same" ? "same" : (mCfg.kidsSchedule?.type === "alternating" ? "alternating" : "alternating"),
+        periodStart: String(mCfg.kidsSchedule?.periodStart || ""),
+        periodEnd: String(mCfg.kidsSchedule?.periodEnd || ""),
+        membersWhenPresent: {
+          children: Math.max(0, Math.floor(asNumber(mCfg.kidsSchedule?.membersWhenPresent?.children ?? 0))),
+          teens: Math.max(0, Math.floor(asNumber(mCfg.kidsSchedule?.membersWhenPresent?.teens ?? 0)))
+        },
+        absenceMode: mCfg.kidsSchedule?.absenceMode === "reduced" ? "reduced" : "zero",
+        absenceFactor: Math.max(0, Math.min(1, asNumber(mCfg.kidsSchedule?.absenceFactor ?? 0.25)))
+      },
+      householdChanges: Array.isArray(mCfg.householdChanges) ? mCfg.householdChanges : [],
+      deviations: Array.isArray(mCfg.deviations) ? mCfg.deviations : []
+    };
+    normalized.special.food[y] = { config: cfg, weeks: [] };
+  }
+
   migrateLegacyIncomes(normalized);
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
@@ -427,7 +467,8 @@ const ui = {
   expenseMonthFilter: "all",
   loanEditorOpen: false,
   editLoanId: null,
-  loanCopySourceName: null
+  loanCopySourceName: null,
+  foodScrollWeekKey: null
 };
 
 function loadState() {
@@ -577,13 +618,69 @@ function computeSpecialHousingMonthly(year) {
   return { total, items };
 }
 
-function computeSpecialFoodMonthly(year, month) {
-  const cfg = state.special.food?.[String(year)]?.[monthKey(month)] || {};
-  const legacySum = asNumber(cfg.breakfastMonthly) + asNumber(cfg.lunchHomeMonthly) + asNumber(cfg.dinnerMonthly) +
-    asNumber(cfg.lunchWorkMonthly) + asNumber(cfg.fastFoodMonthly);
-  const items = legacySum > 0 ? [{ label: "Mat (legacy)", amount: legacySum }] : [];
-  const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items };
+function computeSpecialFoodMonthly() {
+  // Mat hanteras nu via systemgenererade utgifter (foodGenerated) med planningDate.
+  return { total: 0, items: [] };
+}
+
+function getFoodConfigForYear(year) {
+  const y = String(year);
+  const root = state.special?.food?.[y];
+  // New shape: { config, weeks }
+  if (root && typeof root === "object" && !Array.isArray(root) && (root.config || root.weeks)) {
+    const cfg = root.config || {};
+    return {
+      mode: cfg.mode === "manual" ? "manual" : "auto",
+      household: {
+        adults: Math.max(0, Math.floor(asNumber(cfg.household?.adults ?? 1))),
+        teens: Math.max(0, Math.floor(asNumber(cfg.household?.teens ?? 0))),
+        children: Math.max(0, Math.floor(asNumber(cfg.household?.children ?? 0))),
+        toddlers: Math.max(0, Math.floor(asNumber(cfg.household?.toddlers ?? 0)))
+      },
+      costLevel: ["budget", "normal", "high"].includes(cfg.costLevel) ? cfg.costLevel : "normal",
+      foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
+      manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
+      kidsSchedule: {
+        enabled: Boolean(cfg.kidsSchedule?.enabled),
+        type: cfg.kidsSchedule?.type === "same" ? "same" : (cfg.kidsSchedule?.type === "alternating" ? "alternating" : "alternating"),
+        periodStart: String(cfg.kidsSchedule?.periodStart || ""),
+        periodEnd: String(cfg.kidsSchedule?.periodEnd || ""),
+        membersWhenPresent: {
+          children: Math.max(0, Math.floor(asNumber(cfg.kidsSchedule?.membersWhenPresent?.children ?? 0))),
+          teens: Math.max(0, Math.floor(asNumber(cfg.kidsSchedule?.membersWhenPresent?.teens ?? 0)))
+        },
+        absenceMode: cfg.kidsSchedule?.absenceMode === "reduced" ? "reduced" : "zero",
+        absenceFactor: Math.max(0, Math.min(1, asNumber(cfg.kidsSchedule?.absenceFactor ?? 0.25)))
+      },
+      householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
+      deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
+    };
+  }
+  // Legacy monthly shapes live here; we keep month-level reads for UI but Step 3 saves to year config
+  return {
+    mode: "auto",
+    household: { adults: 1, teens: 0, children: 0, toddlers: 0 },
+    costLevel: "normal",
+    foodScope: "groceries",
+    manualWeeklyCost: 2800,
+    kidsSchedule: {
+      enabled: false,
+      type: "alternating",
+      periodStart: "",
+      periodEnd: "",
+      membersWhenPresent: { children: 0, teens: 0 },
+      absenceMode: "zero",
+      absenceFactor: 0.25
+    },
+    householdChanges: [],
+    deviations: []
+  };
+}
+
+function setFoodYearModel(year, config, weeks) {
+  const y = String(year);
+  if (!state.special.food) state.special.food = {};
+  state.special.food[y] = { config: { ...config }, weeks: Array.isArray(weeks) ? weeks : [] };
 }
 
 const FOOD_LEVEL_FACTORS = { budget: 0.85, normal: 1.0, high: 1.2 };
@@ -634,6 +731,88 @@ function getISOWeekInfo(date) {
   return { isoYear: d.getUTCFullYear(), week };
 }
 
+function getIsoWeekMondayForIsoWeek(isoYear, week) {
+  // ISO week 1 is the week with Jan 4th.
+  const jan4 = new Date(isoYear, 0, 4);
+  const monday = getIsoWeekMondayFromDate(jan4);
+  const d = new Date(monday);
+  d.setDate(d.getDate() + (Number(week) - 1) * 7);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getIsoWeeksForYear(year) {
+  // Determine last ISO week: week of Dec 28 is always in last ISO week.
+  const dec28 = new Date(year, 11, 28);
+  const { isoYear, week: lastWeek } = getISOWeekInfo(dec28);
+  const y = Number(year);
+  if (isoYear !== y) {
+    // rare edge, fallback to 52
+    return Array.from({ length: 52 }).map((_, i) => {
+      const w = i + 1;
+      const ws = getIsoWeekMondayForIsoWeek(y, w);
+      const we = addDays(ws, 6);
+      return { isoYear: y, week: w, weekStart: ws, weekEnd: we };
+    });
+  }
+  return Array.from({ length: lastWeek }).map((_, i) => {
+    const w = i + 1;
+    const ws = getIsoWeekMondayForIsoWeek(y, w);
+    const we = addDays(ws, 6);
+    return { isoYear: y, week: w, weekStart: ws, weekEnd: we };
+  });
+}
+
+function isoFromDate(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
+  // weekly override deviation
+  let weekOverride = null;
+  const devs = Array.isArray(config.deviations) ? config.deviations : [];
+  for (let i = devs.length - 1; i >= 0; i--) {
+    const dv = devs[i];
+    if (dv.adjustmentType !== "weekly") continue;
+    const s = parseDateISO(dv?.startDate);
+    const e = parseDateISO(dv?.endDate);
+    if (!s || !e) continue;
+    if (weekEnd.getTime() < s.getTime() || weekStart.getTime() > e.getTime()) continue;
+    const v = asNumber(dv.value);
+    if (Number.isFinite(v) && v >= 0) weekOverride = v;
+    break;
+  }
+
+  const labels = new Set();
+  if (config.mode === "manual") labels.add("manuell");
+
+  // kids labels
+  if (config.mode !== "manual" && config.kidsSchedule?.enabled) {
+    let anyPresent = false;
+    let anyAbsent = false;
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      const pres = getKidsPresenceForDate(config, day);
+      if (!pres.valid) continue;
+      if (pres.present) anyPresent = true;
+      else anyAbsent = true;
+    }
+    if (anyPresent) labels.add("barn hemma");
+    if (anyAbsent) labels.add("barn ej hemma");
+  }
+
+  let sumDaily = 0;
+  if (config.mode === "manual") {
+    sumDaily = Math.max(0, asNumber(config.manualWeeklyCost));
+  } else {
+    for (let i = 0; i < 7; i++) sumDaily += computeFoodDailyCost(config, addDays(weekStart, i));
+    sumDaily = Math.round(sumDaily);
+  }
+
+  const amount = Math.round(weekOverride !== null ? weekOverride : sumDaily);
+  if (weekOverride !== null) labels.add("avvikelse");
+  return { amount, labels: Array.from(labels) };
+}
 function getIsoWeekMondayFromDate(date) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const day = d.getDay() || 7;
@@ -961,7 +1140,7 @@ function computeMonthOverview(year, month) {
   const car = computeSpecialCarMonthly(year);
   const housing = computeSpecialHousingMonthly(year);
   const loans = computeSpecialLoansMonthly(year, month);
-  const food = computeSpecialFoodMonthly(year, month);
+  // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
   const children = computeSpecialChildrenMonthly(year);
 
   const oneOffExpenses = (state.oneOff?.expenses?.[y]?.[m] || []).map((it) => ({
@@ -1025,7 +1204,7 @@ function computeMonthOverview(year, month) {
     );
   }, 0);
 
-  const specialsAmount = car.total + housing.total + loans.total + food.total + children.total;
+  const specialsAmount = car.total + housing.total + loans.total + children.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
   const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
@@ -1034,12 +1213,11 @@ function computeMonthOverview(year, month) {
 
   // Diagramsegment: återkommande + special + enstaka
   const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: expensePaymentsAmount - foodGeneratedAmount, color: "#8b5cf6" },
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, expensePaymentsAmount - foodGeneratedAmount), color: "#8b5cf6" },
     { key: "foodGenerated", label: "Mat", amount: foodGeneratedAmount, color: "#f97316" },
     { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
     { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
     { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
-    { key: "food", label: "Mat", amount: food.total, color: "#f59e0b" },
     { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
   ].filter((s) => s.amount > 0);
@@ -1061,7 +1239,6 @@ function computeMonthOverview(year, month) {
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
   for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
   for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
-  for (const it of food.items) expensesRows.push({ group: "Mat", label: it.label, amount: it.amount });
   for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
   for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
 
@@ -1324,11 +1501,15 @@ function renderHomePage() {
 }
 
 function renderFoodPage() {
-  const year = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
+  const yearSel = document.getElementById("expensesFoodYear");
   const monthSel = document.getElementById("expensesFoodMonth");
-  const month = Number(monthSel?.value || ui.overviewMonth || currentYearMonth().month);
+  const year = Number(yearSel?.value || ui.expensesYear || ui.overviewYear || currentYearMonth().year);
+  const month = Number(monthSel?.value || ui.expensesFoodMonth || currentYearMonth().month);
+  ui.expensesYear = year;
   ui.expensesFoodMonth = month;
-  const cfg = getFoodConfigForMonth(year, month);
+  if (yearSel) setYear3Options(yearSel, year);
+  if (yearSel) yearSel.onchange = () => renderFoodPage();
+  const cfg = getFoodConfigForYear(year);
   ui.foodConfigDraft = { ...cfg, household: { ...cfg.household } };
 
   const els = {
@@ -1369,6 +1550,8 @@ function renderFoodPage() {
     const auto = d.mode !== "manual";
     if (els.autoSection) els.autoSection.hidden = !auto;
     if (els.manualSection) els.manualSection.hidden = auto;
+    const autoOnly = document.getElementById("foodAutoOnlySection");
+    if (autoOnly) autoOnly.hidden = !auto;
     if (els.adultsInput) els.adultsInput.value = d.household.adults;
     if (els.teensInput) els.teensInput.value = d.household.teens;
     if (els.childrenInput) els.childrenInput.value = d.household.children;
@@ -1414,15 +1597,44 @@ function renderFoodPage() {
       }
     }
 
-    const normalWeekly = computeFoodWeeklyCost(d);
-    const rows = d.mode === "manual"
-      ? buildFoodWeekRowsForMonthFromConfig(year, month, { ...d, kidsSchedule: { enabled: false } })
-      : buildFoodWeekRowsForMonthFromConfig(year, month, d);
+    // Disable save while errors exist (inline validation)
+    const saveBtn = document.getElementById("foodSaveBtn");
+    let canSave = true;
+    if (auto) {
+      if (kidsEnabled && ks.type === "alternating") {
+        const s = parseDateISO(ks.periodStart);
+        const e = parseDateISO(ks.periodEnd);
+        if (!s || !e || e.getTime() <= s.getTime()) canSave = false;
+      }
+      const badRange = (p) => {
+        const s = parseDateISO(p?.startDate);
+        const e = parseDateISO(p?.endDate);
+        return !s || !e || e.getTime() < s.getTime();
+      };
+      if ((d.householdChanges || []).some(badRange)) canSave = false;
+      if ((d.deviations || []).some(badRange)) canSave = false;
+    }
+    if (saveBtn) saveBtn.disabled = !canSave;
+
+    const normalWeekly = d.mode === "manual" ? Math.max(0, asNumber(d.manualWeeklyCost)) : computeFoodWeeklyCost(d);
     if (els.previewNormalWeek) els.previewNormalWeek.textContent = formatKr(normalWeekly);
     if (!els.previewWeeks) return;
-    els.previewWeeks.innerHTML = rows
-      .map((r) => `<div class="summary-row"><span>v.${escapeHtml(String(r.week))}${r.note ? ` (${escapeHtml(r.note)})` : ""}${r.isDeviation ? ` (avvikelse)` : ""}</span><strong>${escapeHtml(formatKr(r.amount))}</strong></div>`)
-      .join("");
+    const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
+    const weeks = getIsoWeeksForYear(year).map((w) => {
+      const planningDate = addDays(w.weekStart, planningDay - 1);
+      const { amount, labels } = computeFoodWeekAmountAndLabels(d, w.weekStart, w.weekEnd);
+      return { ...w, planningDate, amount, labels };
+    });
+    const monthWeeks = weeks.filter((w) => w.planningDate.getMonth() + 1 === Number(month));
+    const monthSum = monthWeeks.reduce((s, w) => s + asNumber(w.amount), 0);
+    els.previewWeeks.innerHTML = `
+      <div class="summary-row"><span><strong>${escapeHtml(monthName(Number(month)))} ${escapeHtml(String(year))}</strong></span><strong>${escapeHtml(formatKr(monthSum))}</strong></div>
+      ${monthWeeks.map((w) => {
+        const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
+        const labelTxt = w.labels && w.labels.length ? ` (${escapeHtml(w.labels.join(", "))})` : "";
+        return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))}${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
+      }).join("")}
+    `;
   };
 
   const setWarn = (msg) => {
@@ -1801,7 +2013,7 @@ function buildIncomePaymentRowsForList(yearFilter) {
     }
   }
   // Sort ascending so later dates are further down
-  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+  rows.sort((a, b) => b.date.getTime() - a.date.getTime());
   return rows;
 }
 
@@ -2442,7 +2654,7 @@ function buildExpensePaymentRowsForList(yearFilter) {
         amount: amt,
         isFoodPayment: Boolean(exp?.foodGenerated),
         foodYear: exp?.foodYear,
-        foodMonth: exp?.foodMonth
+        foodWeekKey: exp?.foodWeekKey
       });
     }
   }
@@ -2468,15 +2680,22 @@ function buildExpensePaymentRowsForList(yearFilter) {
       });
     }
   }
-  rows.sort((a, b) => a.date.getTime() - b.date.getTime());
+  rows.sort((a, b) => b.date.getTime() - a.date.getTime());
   return rows;
 }
 
 function openFoodOverlayForExpenseRow(row) {
   openExpenseCategoryOverlay("food");
-  // Ensure month select points at relevant month.
-  const month = Number(row?.foodMonth) || (row?.date ? row.date.getMonth() + 1 : null);
+  const year = Number(row?.foodYear) || (row?.date ? row.date.getFullYear() : ui.expensesYear || currentYearMonth().year);
+  const month = row?.date ? row.date.getMonth() + 1 : (ui.expensesFoodMonth || currentYearMonth().month);
+  ui.expensesYear = year;
+  ui.foodScrollWeekKey = row?.foodWeekKey || null;
   const sel = document.getElementById("expensesFoodMonth");
+  const yearSel = document.getElementById("expensesFoodYear");
+  if (yearSel) {
+    setYear3Options(yearSel, year);
+    yearSel.value = String(year);
+  }
   if (sel && month) {
     sel.value = String(month);
     ui.expensesFoodMonth = month;
@@ -2485,6 +2704,18 @@ function openFoodOverlayForExpenseRow(row) {
   requestAnimationFrame(() => {
     const overlay = document.querySelector('[data-expview="food"]');
     if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
+    if (ui.foodScrollWeekKey) {
+      // wait for preview rows to exist
+      requestAnimationFrame(() => {
+        const target = overlay?.querySelector?.(`[data-food-week="${CSS.escape(String(ui.foodScrollWeekKey))}"]`);
+        if (target) {
+          target.classList.add("food-week-highlight");
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+          setTimeout(() => target.classList.remove("food-week-highlight"), 2200);
+        }
+        ui.foodScrollWeekKey = null;
+      });
+    }
   });
 }
 
@@ -2554,11 +2785,14 @@ function renderExpensesList() {
   const rows = buildExpensePaymentRowsForList(ui.expenseYearFilter || "all");
   const body = requireEl("expensePaymentsTableBody");
   body.innerHTML = "";
-  requireEl("expenseListNote").textContent = "";
+  const noteEl = requireEl("expenseListNote");
+  noteEl.textContent = "";
   if (rows.length === 0) {
     body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga utgifter för valt filter.</td></tr>`;
     return;
   }
+  const total = rows.reduce((s, r) => s + asNumber(r.amount), 0);
+  noteEl.textContent = `Totalt: ${formatKr(total)}`;
   let prevMonthKey = null;
   let prevDataRow = null;
   for (const r of rows) {
@@ -2570,7 +2804,7 @@ function renderExpensesList() {
       monthRow.className = "month-label-row";
       monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
         r.date.getMonth() + 1
-      ))}</span></div></td>`;
+      ))} ${escapeHtml(String(r.date.getFullYear()))}</span></div></td>`;
       body.appendChild(monthRow);
     }
     const tr = document.createElement("tr");
@@ -3213,8 +3447,8 @@ function initActions() {
 
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
-    const month = ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month;
+    const year = Number(ui.expensesYear || ui.overviewYear || currentYearMonth().year);
+    const month = Number(ui.expensesFoodMonth || currentYearMonth().month);
     const cfg = ui.foodConfigDraft ? { ...ui.foodConfigDraft, household: { ...ui.foodConfigDraft.household } } : getFoodConfigForMonth(year, month);
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children) + asNumber(cfg.household?.toddlers);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
@@ -3244,33 +3478,43 @@ function initActions() {
       }
     }
 
-    const weekRows = cfg.mode === "manual"
-      ? buildFoodWeekRowsForMonthFromConfig(year, Number(month), { ...cfg, kidsSchedule: { enabled: false } })
-      : buildFoodWeekRowsForMonthFromConfig(year, Number(month), cfg);
-    const oldIds = Array.isArray(getFoodConfigForMonth(year, month).generatedExpenseIds) ? getFoodConfigForMonth(year, month).generatedExpenseIds : [];
-    state.expenses = (state.expenses || []).filter((exp) => {
-      if (oldIds.includes(exp.id)) return false;
-      if (exp?.foodGenerated && Number(exp.foodYear) === Number(year) && Number(exp.foodMonth) === Number(month)) return false;
-      return true;
+    const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
+    const weeks = getIsoWeeksForYear(year).map((w) => {
+      const planningDate = addDays(w.weekStart, planningDay - 1);
+      const { amount, labels } = computeFoodWeekAmountAndLabels(cfg, w.weekStart, w.weekEnd);
+      return {
+        isoYear: w.isoYear,
+        weekNumber: w.week,
+        weekStart: isoFromDate(w.weekStart),
+        weekEnd: isoFromDate(w.weekEnd),
+        planningDate: isoFromDate(planningDate),
+        amount,
+        labels
+      };
     });
-    const createdIds = [];
-    for (const wk of weekRows) {
+
+    // Remove prior generated food posts for that year (single source of truth)
+    state.expenses = (state.expenses || []).filter((exp) => !(exp?.foodGenerated && Number(exp.foodYear) === Number(year)));
+
+    // Create one expense per week, full amount at planningDate
+    for (const wk of weeks) {
       const id = uid();
-      createdIds.push(id);
       state.expenses.push({
         id,
-        name: wk.label,
+        name: `Mat v.${wk.weekNumber}`,
         interval: "once",
         foodGenerated: true,
         foodYear: Number(year),
-        foodMonth: Number(month),
-        payments: [{ id: uid(), date: wk.date, amount: wk.amount }]
+        foodWeekKey: `${wk.isoYear}-W${pad2(wk.weekNumber)}`,
+        foodPlanningDate: wk.planningDate,
+        foodLabels: wk.labels,
+        payments: [{ id: uid(), date: wk.planningDate, amount: wk.amount }]
       });
     }
-    cfg.generatedExpenseIds = createdIds;
-    setFoodConfigForMonth(year, month, cfg);
+
+    setFoodYearModel(year, cfg, weeks);
     saveState();
-    document.getElementById("foodNote").textContent = `Matkostnader sparade (${weekRows.length} veckoposter) för ${monthName(Number(month))} ${year}.`;
+    document.getElementById("foodNote").textContent = `Matkostnader sparade (${weeks.length} veckor) för ${year}.`;
     renderOverviewIfOnOverview();
     renderExpensesList();
     renderFoodPage();
