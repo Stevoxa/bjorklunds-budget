@@ -743,6 +743,13 @@ tr.month-break td {
   gap: 12px;
 }
 
+.loan-date-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .section-divider {
   border: 0;
   border-top: 1px solid var(--border);
