@@ -568,7 +568,10 @@ button:focus {
 }
 
 .loan-item-row td {
-  padding: 8px 6px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-left: 6px;
+  padding-right: 6px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -578,7 +581,7 @@ button:focus {
   grid-template-columns: minmax(0, 1fr) auto 44px;
   grid-template-rows: auto auto;
   column-gap: 10px;
-  row-gap: 6px;
+  row-gap: 1px;
   align-items: center;
 }
 
@@ -586,6 +589,8 @@ button:focus {
   grid-column: 1;
   grid-row: 1;
   font-weight: 700;
+  min-width: 0;
+  line-height: 1.1;
 }
 
 .loan-item-cost {
@@ -593,7 +598,7 @@ button:focus {
   grid-row: 1;
   white-space: nowrap;
   font-weight: 800;
-  font-size: 1.04rem;
+  font-size: 1rem;
   justify-self: end;
 }
 

@@ -2575,6 +2575,11 @@ function openLoanEditor(loanId = null) {
   renderLoanCopyNotice();
   renderLoanDateInlineError();
   updateLoanDerivedFields();
+  requestAnimationFrame(() => {
+    const overlay = document.querySelector('[data-expview="loans"]');
+    if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  });
 }
 
 function closeLoanEditor() {
