@@ -615,7 +615,7 @@ function normalizeLoanItem(rawLoan) {
     principal: asNumber(rawLoan?.principal),
     rate: asNumber(rawLoan?.rate),
     amortization: asNumber(rawLoan?.amortization),
-    dueDay: Math.max(1, Math.min(28, Math.floor(asNumber(rawLoan?.dueDay) || 25))),
+    dueDay: Math.max(1, Math.min(31, Math.floor(asNumber(rawLoan?.dueDay) || 25))),
     startYear: Math.floor(asNumber(rawLoan?.startYear) || cur.year),
     startMonth: Math.max(1, Math.min(12, Math.floor(asNumber(rawLoan?.startMonth) || 1))),
     endYear: rawLoan?.endYear === null || rawLoan?.endYear === undefined || rawLoan?.endYear === "" ? null : Math.floor(asNumber(rawLoan.endYear)),
@@ -1931,7 +1931,8 @@ function buildExpensePaymentRowsForList(yearFilter) {
     for (const ym of enumerateLoanMonths(loan)) {
       if (yearFilter !== "all" && String(ym.year) !== String(yearFilter)) continue;
       if (monthFilter !== "all" && Number(monthFilter) !== ym.month) continue;
-      const iso = `${ym.year}-${pad2(ym.month)}-${pad2(Math.max(1, Math.min(28, loan.dueDay || 25)))}`;
+      const dd = clampDay(ym.year, ym.month, Math.max(1, Math.min(31, asNumber(loan.dueDay) || 25)));
+      const iso = `${ym.year}-${pad2(ym.month)}-${pad2(dd)}`;
       const dt = new Date(iso);
       if (Number.isNaN(dt.getTime())) continue;
       rows.push({
@@ -2407,9 +2408,10 @@ function renderLoansPage() {
       const displayBank = loan.bank || "";
       const total = splitKr(getLoanTotalPayment(loan));
       const hasEnd = Boolean(loan.endYear && loan.endMonth);
-      const lastPaymentDate = hasEnd
-        ? `${loan.endYear}-${pad2(loan.endMonth)}-${pad2(Math.max(1, Math.min(28, asNumber(loan.dueDay) || 25)))}`
-        : "";
+      const lastDay = hasEnd
+        ? clampDay(loan.endYear, loan.endMonth, Math.max(1, Math.min(31, asNumber(loan.dueDay) || 25)))
+        : null;
+      const lastPaymentDate = hasEnd ? `${loan.endYear}-${pad2(loan.endMonth)}-${pad2(lastDay)}` : "";
       const tr = document.createElement("tr");
       tr.className = "loan-item-row";
       tr.innerHTML = `
@@ -2496,7 +2498,7 @@ function getLoanDraftFromInputs() {
     principal: asNumber(document.getElementById("loanPrincipal")?.value),
     rate: asNumber(document.getElementById("loanRate")?.value),
     amortization: asNumber(document.getElementById("loanAmortization")?.value),
-    dueDay: Math.max(1, Math.min(28, Math.floor(asNumber(document.getElementById("loanDueDay")?.value) || 25))),
+    dueDay: Math.max(1, Math.min(31, Math.floor(asNumber(document.getElementById("loanDueDay")?.value) || 25))),
     startYear: Number(document.getElementById("loanStartYear")?.value || 0),
     startMonth: Number(document.getElementById("loanStartMonth")?.value || 0),
     endYear: endYearRaw === "" ? null : Number(endYearRaw),
@@ -2555,7 +2557,7 @@ function openLoanEditor(loanId = null) {
   document.getElementById("loanPrincipal").value = asNumber(existing?.principal);
   document.getElementById("loanRate").value = asNumber(existing?.rate).toFixed(3);
   document.getElementById("loanAmortization").value = asNumber(existing?.amortization);
-  document.getElementById("loanDueDay").value = Math.max(1, Math.min(28, asNumber(existing?.dueDay) || 25));
+  document.getElementById("loanDueDay").value = Math.max(1, Math.min(31, asNumber(existing?.dueDay) || 25));
   setYear3Options(document.getElementById("loanStartYear"), existing?.startYear || cur.year);
   setLoanMonthNumberOptions(document.getElementById("loanStartMonth"), existing?.startMonth || 1, false);
   setLoanEndYearOptions(document.getElementById("loanEndYear"), existing?.endYear || "");
@@ -2728,7 +2730,7 @@ function initActions() {
     document.getElementById("loanPrincipal").value = asNumber(draft.principal);
     document.getElementById("loanRate").value = asNumber(draft.rate).toFixed(3);
     document.getElementById("loanAmortization").value = asNumber(draft.amortization);
-    document.getElementById("loanDueDay").value = Math.max(1, Math.min(28, asNumber(draft.dueDay) || 25));
+    document.getElementById("loanDueDay").value = Math.max(1, Math.min(31, asNumber(draft.dueDay) || 25));
     setYear3Options(document.getElementById("loanStartYear"), draft.startYear);
     setLoanMonthNumberOptions(document.getElementById("loanStartMonth"), draft.startMonth, false);
     setLoanEndYearOptions(document.getElementById("loanEndYear"), draft.endYear || "");
