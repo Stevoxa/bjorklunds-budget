@@ -1834,10 +1834,13 @@ function renderFoodPage() {
       } else {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const startWeek = getIsoWeekMondayFromDate(today);
+        const monToday = getIsoWeekMondayFromDate(today);
+        const custodyStart = parseDateISO(cs.alternating.startDate);
+        const monFromCustody = custodyStart ? getIsoWeekMondayFromDate(custodyStart) : monToday;
+        // Börja inte före veckan där schemat börjar — annars blir första veckor "blandade" (dagar före start) och minskningen varierar fel.
+        const startWeek = new Date(Math.max(monToday.getTime(), monFromCustody.getTime()));
         let nWeeks = 4;
-        const away = Math.max(1, Math.floor(asNumber(cs.alternating?.awayDays ?? 7)));
-        const withD = Math.max(1, Math.floor(asNumber(cs.alternating?.withDays ?? 7)));
+        const { awayDays: away, withDays: withD } = parseCustodyRatioKey(cs.alternating?.ratioKey);
         const cycleDays = away + withD;
         nWeeks = Math.max(4, Math.ceil((2 * cycleDays) / 7));
         const previewWeeks = Array.from({ length: nWeeks }).map((_, i) => addDays(startWeek, i * 7));
