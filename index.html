@@ -378,6 +378,10 @@
           <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
               <div class="table-title">Mat</div>
+              <div class="note" id="foodIntroText">
+                Här ställer du in din årsplan för mat. Systemet skapar en kostnad per vecka för hela året.
+                Månad används bara som filter för visning och summering.
+              </div>
               <div class="picker-row" style="justify-content: flex-start;">
                 <label>
                   År
@@ -388,18 +392,16 @@
                   <select id="expensesFoodMonth"></select>
                 </label>
               </div>
+              <div class="note" id="foodMonthHelp">
+                Månadssumma = summan av de veckor vars planeringsdag hamnar i månaden.
+              </div>
 
               <div class="form-grid narrow">
-                <div class="field">
-                  <span>Beräkningssätt</span>
-                  <div class="chip-row">
-                    <button class="chip" type="button" id="foodModeAutoBtn">Beräkna automatiskt</button>
-                    <button class="chip" type="button" id="foodModeManualBtn">Ange själv</button>
-                  </div>
-                </div>
-
                 <div id="foodAutoSection">
-                  <div class="table-title small">Hushåll</div>
+                  <div class="table-title small">Hushåll (grundinställning)</div>
+                  <div class="note">
+                    Gäller för hela året. Under “Ändrat hushåll” kan du lägga perioder som avviker.
+                  </div>
                   <div class="food-counter-grid">
                     <div class="food-counter-row">
                       <span>Vuxna</span>
@@ -436,15 +438,22 @@
                   </div>
                 </div>
 
-                <div id="foodManualSection" hidden>
-                  <label class="field">
-                    Veckokostnad
-                    <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
-                  </label>
-                  <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
-                    <button class="secondary" type="button" id="foodManualMinus500Btn">-500</button>
-                    <button class="secondary" type="button" id="foodManualPlus500Btn">+500</button>
+                <div class="field">
+                  <span>Hur vill du ange matkostnaden?</span>
+                  <div class="chip-row">
+                    <button class="chip" type="button" id="foodModeAutoBtn">Beräkna automatiskt</button>
+                    <button class="chip" type="button" id="foodModeManualBtn">Ange själv</button>
                   </div>
+                </div>
+
+                <div id="foodManualSection" hidden>
+                  <div class="table-title small">Belopp per vecka</div>
+                  <div class="food-manual-row">
+                    <button class="secondary" type="button" id="foodManualMinus500Btn" aria-label="Minska 500">-</button>
+                    <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
+                    <button class="secondary" type="button" id="foodManualPlus500Btn" aria-label="Öka 500">+</button>
+                  </div>
+                  <div class="note">Justera med 500kr per tryck. I manuell läge ignoreras hushåll/nivå/vad ingår.</div>
                 </div>
 
                 <div id="foodAutoOnlySection">
@@ -455,70 +464,84 @@
                       <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
                       <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
                     </div>
+                    <div class="note" id="foodLevelHelp"></div>
                   </div>
 
                   <div class="field">
-                    <span>Vad ingår</span>
+                    <span>Vad ska räknas med?</span>
                     <div class="chip-row">
                       <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
                       <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
                       <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
                     </div>
+                    <div class="note" id="foodScopeHelp"></div>
                   </div>
 
                   <div class="food-advanced">
                   <div class="table-title small">Barnschema</div>
+                  <div class="note">
+                    Utgå från hushållet ovan. Här anger du när barn eller tonåringar inte är hos dig.
+                  </div>
                   <div class="field">
                     <div class="chip-row">
                       <button class="chip" type="button" id="foodKidsOffBtn">Av</button>
                       <button class="chip" type="button" id="foodKidsSameBtn">Samma varje vecka</button>
-                      <button class="chip" type="button" id="foodKidsAltBtn">Varierar enligt schema</button>
+                      <button class="chip" type="button" id="foodKidsAltBtn">Varannan vecka</button>
+                      <button class="chip" type="button" id="foodKidsCustomBtn">Eget schema</button>
                     </div>
                   </div>
 
                   <div id="foodKidsAltSection" hidden>
                     <div class="form-grid">
                       <label class="field">
-                        Barn hos mig från
-                        <input id="foodKidsStartDate" type="date" />
+                        När börjar första perioden då barnen inte är hos dig?
+                        <input id="foodKidsAltStartDate" type="date" />
                       </label>
                       <label class="field">
-                        Till
-                        <input id="foodKidsEndDate" type="date" />
+                        Hur länge varar perioden?
+                        <select id="foodKidsAltPeriodDays">
+                          <option value="7">7 dagar</option>
+                          <option value="14">14 dagar</option>
+                        </select>
                       </label>
                     </div>
-
-                    <div class="table-title small" style="margin-top: 10px;">Hushåll under perioden</div>
+                    <div class="table-title small" style="margin-top: 10px;">Vilka är inte hos dig?</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
                         <span>Barn</span>
                         <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodKidsChildrenMinusBtn">-</button>
-                          <input id="foodKidsChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodKidsChildrenPlusBtn">+</button>
+                          <button class="secondary" type="button" id="foodKidsAltChildrenMinusBtn">-</button>
+                          <input id="foodKidsAltChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodKidsAltChildrenPlusBtn">+</button>
                         </div>
                       </div>
                       <div class="food-counter-row">
                         <span>Tonåringar</span>
                         <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodKidsTeensMinusBtn">-</button>
-                          <input id="foodKidsTeensInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodKidsTeensPlusBtn">+</button>
+                          <button class="secondary" type="button" id="foodKidsAltTeensMinusBtn">-</button>
+                          <input id="foodKidsAltTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodKidsAltTeensPlusBtn">+</button>
                         </div>
                       </div>
                     </div>
-
-                    <div class="table-title small" style="margin-top: 10px;">När barn ej är hos mig</div>
-                    <div class="chip-row">
-                      <button class="chip" type="button" id="foodKidsAbsenceZeroBtn">0 kostnad</button>
-                      <button class="chip" type="button" id="foodKidsAbsenceReducedBtn">Reducerad</button>
-                    </div>
-                    <label class="field" id="foodKidsAbsencePercentField" style="margin-top: 8px;" hidden>
-                      Reducering (%)
-                      <input id="foodKidsAbsencePercentInput" type="number" inputmode="decimal" min="0" max="100" step="1" />
+                    <div class="table-title small" style="margin-top: 10px;">Hur mycket ska kostnaden minska?</div>
+                    <label class="field">
+                      Kostnad kvar (%)
+                      <input id="foodKidsAltCostRemainingPct" type="number" inputmode="decimal" min="0" max="100" step="1" />
                     </label>
                     <div class="field-error" id="foodKidsError" hidden></div>
                   </div>
+
+                  <div id="foodKidsCustomSection" hidden>
+                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
+                      <button class="secondary" type="button" id="foodKidsAddCustomPeriodBtn">Lägg till period</button>
+                    </div>
+                    <div id="foodKidsCustomPeriodsList" class="food-period-list"></div>
+                    <div class="field-error" id="foodKidsCustomError" hidden></div>
+                  </div>
+
+                  <div class="note" style="margin-top: 10px;">Preview (kommande veckor)</div>
+                  <div id="foodKidsPreview" class="food-preview-list"></div>
                 </div>
 
                 <div class="food-advanced">
@@ -554,7 +577,8 @@
               <div class="food-preview">
                 <div class="table-title small">Preview</div>
                 <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
-                <div class="note" style="margin-top: 6px;">Denna månad</div>
+                <div class="summary-row"><span>Månadssumma</span><strong id="foodPreviewMonthSum">0kr</strong></div>
+                <div class="note" style="margin-top: 6px;">Veckor i vald månad</div>
                 <div id="foodPreviewWeeks" class="food-preview-list"></div>
               </div>
               <div class="actions-row">

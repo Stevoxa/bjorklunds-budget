@@ -1087,6 +1087,20 @@ body.modal-open {
   text-align: center;
 }
 
+.food-manual-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.food-manual-row input {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
 .food-preview {
   margin-top: 12px;
   border: 1px solid var(--border);
