@@ -574,14 +574,37 @@
 
                 <div class="food-advanced">
                   <div class="food-advanced-head">
-                    <div class="table-title small" style="margin: 0;">Avvikande veckor</div>
+                    <div>
+                      <div class="table-title small" style="margin: 0;">Perioder med annan kostnad</div>
+                      <div class="note micro-note" style="margin-top: 4px;">För veckor där matkostnaden är högre eller lägre än vanligt.</div>
+                    </div>
                     <button class="secondary btn-icon" type="button" id="foodDeviationsToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
                   <div id="foodDeviationsSection" hidden>
                     <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
                       <button class="secondary" type="button" id="foodAddDeviationBtn">Lägg till period</button>
                     </div>
-                    <div id="foodDeviationsList" class="food-period-list"></div>
+                    <div id="foodDeviationEditor" class="food-period-card" hidden>
+                      <div class="form-grid">
+                        <label class="field">Från<input id="foodDevEditStart" type="date" /></label>
+                        <label class="field">Till<input id="foodDevEditEnd" type="date" /></label>
+                        <label class="field">
+                          Kostnaden för perioden är
+                          <select id="foodDevEditPreset">
+                            <option value="0.8">Lite billigare (-20%)</option>
+                            <option value="0.6">Mycket billigare (-40%)</option>
+                            <option value="1.2">Lite dyrare (+20%)</option>
+                            <option value="1.4">Mycket dyrare (+40%)</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div class="actions-row food-hh-editor-actions">
+                        <button class="secondary" type="button" id="foodDevEditCancelBtn">Avbryt</button>
+                        <button class="primary" type="button" id="foodDevEditSaveBtn">Spara</button>
+                      </div>
+                    </div>
+                    <div class="table-title small" id="foodDevListTitle" style="margin-top: 10px;" hidden>Perioder med avvikande kostnad under <span id="foodDevListYear">-</span></div>
+                    <div id="foodDeviationsList" class="food-preview-list"></div>
                     <div class="field-error" id="foodDeviationsError" hidden></div>
                   </div>
                 </div>

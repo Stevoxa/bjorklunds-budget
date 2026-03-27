@@ -1955,59 +1955,131 @@ function renderFoodPage() {
   const devToggle = els.devToggle;
   const devSection = els.devSection;
   if (devToggle && devSection) devToggle.onclick = () => { devSection.hidden = !devSection.hidden; devToggle.textContent = devSection.hidden ? "▾" : "▴"; };
+  let editingDeviationIndex = -1;
+  let deviationEditorDraft = null;
+  const deviationPresetFromValue = (value) => {
+    const v = Number(value);
+    if (Math.abs(v - 0.8) < 0.0001) return "0.8";
+    if (Math.abs(v - 0.6) < 0.0001) return "0.6";
+    if (Math.abs(v - 1.2) < 0.0001) return "1.2";
+    if (Math.abs(v - 1.4) < 0.0001) return "1.4";
+    return "1.2";
+  };
+  const renderDeviationEditor = () => {
+    const editor = document.getElementById("foodDeviationEditor");
+    if (!editor) return;
+    const arr = ui.foodConfigDraft.deviations || [];
+    const dv = editingDeviationIndex >= 0 ? arr[editingDeviationIndex] : deviationEditorDraft;
+    if (!dv) {
+      editor.hidden = true;
+      return;
+    }
+    editor.hidden = false;
+    document.getElementById("foodDevEditStart").value = dv.startDate || "";
+    document.getElementById("foodDevEditEnd").value = dv.endDate || "";
+    document.getElementById("foodDevEditPreset").value = deviationPresetFromValue(dv.value);
+  };
+  const readDeviationEditor = () => {
+    const arr = ui.foodConfigDraft.deviations || [];
+    const target = editingDeviationIndex >= 0 ? arr[editingDeviationIndex] : deviationEditorDraft;
+    if (!target) return null;
+    const startDate = document.getElementById("foodDevEditStart").value || "";
+    const endDate = document.getElementById("foodDevEditEnd").value || "";
+    const preset = Number(document.getElementById("foodDevEditPreset").value || 1.2);
+    target.startDate = startDate;
+    target.endDate = endDate;
+    target.adjustmentType = "factor";
+    target.value = preset;
+    return target;
+  };
   const renderDeviations = () => {
     const list = els.devList;
     const arr = ui.foodConfigDraft.deviations || [];
+    const listTitleEl = document.getElementById("foodDevListTitle");
+    const listYearEl = document.getElementById("foodDevListYear");
+    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
+    if (listYearEl) listYearEl.textContent = String(year);
     if (!list) return;
-    list.innerHTML = arr.map((dv, idx) => {
-      const title = `${escapeHtml(dv.startDate || "")} – ${escapeHtml(dv.endDate || "")}`;
-      const type = dv.adjustmentType || "factor";
-      return `
-        <div class="food-period-card" data-dev-idx="${idx}">
-          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
-          <div class="form-grid">
-            <label class="field">Från<input type="date" data-dev-start="${idx}" value="${escapeHtml(dv.startDate || "")}"/></label>
-            <label class="field">Till<input type="date" data-dev-end="${idx}" value="${escapeHtml(dv.endDate || "")}"/></label>
-            <label class="field">
-              Justering
-              <select data-dev-type="${idx}">
-                <option value="factor" ${type==="factor"?"selected":""}>Faktor</option>
-                <option value="weekly" ${type==="weekly"?"selected":""}>Eget värde (kr/vecka)</option>
-              </select>
-            </label>
-            <label class="field">
-              Värde
-              <input type="number" inputmode="decimal" min="0" step="0.01" data-dev-value="${idx}" value="${escapeHtml(String(dv.value ?? ""))}"/>
-            </label>
-          </div>
-          <div class="food-period-actions">
-            <button class="danger" type="button" data-dev-del="${idx}">Ta bort</button>
-          </div>
-        </div>
-      `;
+    const sorted = arr
+      .map((dv, idx) => ({ dv, idx }))
+      .sort((a, b) => String(a.dv.startDate || "").localeCompare(String(b.dv.startDate || "")));
+    list.innerHTML = sorted.map(({ dv, idx }) => {
+      const range = `${escapeHtml(dv.startDate || "-")} - ${escapeHtml(dv.endDate || "-")}`;
+      return `<div class="summary-row">
+        <span>${range}</span>
+        <strong><button class="icon-btn btn-icon" type="button" data-dev-edit="${idx}" aria-label="Redigera">✎</button> <button class="danger btn-icon" type="button" data-dev-del="${idx}" aria-label="Ta bort">X</button></strong>
+      </div>`;
     }).join("");
     list.querySelectorAll("[data-dev-del]").forEach((btn) => btn.onclick = () => {
       const i = Number(btn.getAttribute("data-dev-del"));
       ui.foodConfigDraft.deviations.splice(i, 1);
+      if (editingDeviationIndex === i) editingDeviationIndex = -1;
+      if (editingDeviationIndex > i) editingDeviationIndex -= 1;
       renderDeviations();
+      renderDeviationEditor();
       draw();
     });
-    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
-    bind("[data-dev-start]", (e) => { const i = Number(e.target.getAttribute("data-dev-start")); ui.foodConfigDraft.deviations[i].startDate = e.target.value; draw(); });
-    bind("[data-dev-end]", (e) => { const i = Number(e.target.getAttribute("data-dev-end")); ui.foodConfigDraft.deviations[i].endDate = e.target.value; draw(); });
-    bind("[data-dev-type]", (e) => { const i = Number(e.target.getAttribute("data-dev-type")); ui.foodConfigDraft.deviations[i].adjustmentType = e.target.value; draw(); });
-    bind("[data-dev-value]", (e) => { const i = Number(e.target.getAttribute("data-dev-value")); ui.foodConfigDraft.deviations[i].value = asNumber(e.target.value); draw(); });
+    list.querySelectorAll("[data-dev-edit]").forEach((btn) => btn.onclick = () => {
+      editingDeviationIndex = Number(btn.getAttribute("data-dev-edit"));
+      renderDeviationEditor();
+    });
+  };
+  document.getElementById("foodDevEditSaveBtn").onclick = () => {
+    const devErr = document.getElementById("foodDeviationsError");
+    if (devErr) {
+      devErr.hidden = true;
+      devErr.textContent = "";
+    }
+    const next = readDeviationEditor();
+    if (!next) return;
+    const s = parseDateISO(next.startDate);
+    const e = parseDateISO(next.endDate);
+    if (!s || !e) {
+      if (devErr) {
+        devErr.hidden = false;
+        devErr.textContent = "Ange både Från och Till.";
+      }
+      return;
+    }
+    if (e.getTime() < s.getTime()) {
+      if (devErr) {
+        devErr.hidden = false;
+        devErr.textContent = "Till måste vara samma eller efter Från.";
+      }
+      return;
+    }
+    if (editingDeviationIndex < 0) {
+      ui.foodConfigDraft.deviations.push({
+        startDate: next.startDate,
+        endDate: next.endDate,
+        adjustmentType: "factor",
+        value: next.value
+      });
+    }
+    editingDeviationIndex = -1;
+    deviationEditorDraft = null;
+    renderDeviations();
+    renderDeviationEditor();
+    draw();
+  };
+  document.getElementById("foodDevEditCancelBtn").onclick = () => {
+    editingDeviationIndex = -1;
+    deviationEditorDraft = null;
+    renderDeviationEditor();
   };
   document.getElementById("foodAddDeviationBtn").onclick = () => {
     ui.foodConfigDraft.deviations = ui.foodConfigDraft.deviations || [];
-    ui.foodConfigDraft.deviations.push({ startDate: "", endDate: "", adjustmentType: "factor", value: 1.2 });
+    deviationEditorDraft = { startDate: "", endDate: "", adjustmentType: "factor", value: 1.2 };
+    editingDeviationIndex = -1;
     if (devSection.hidden) devToggle.onclick();
     renderDeviations();
+    renderDeviationEditor();
   };
 
   renderHouseholdChanges();
   renderHouseholdEditor();
   renderDeviations();
+  renderDeviationEditor();
 
   // Simple warnings (non-blocking)
   const weeklyWarn = () => {
