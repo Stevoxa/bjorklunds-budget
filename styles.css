@@ -1087,6 +1087,38 @@ body.modal-open {
   background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
+.food-advanced-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.food-period-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.food-period-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--card) 84%, transparent);
+}
+
+.food-period-title {
+  font-weight: 750;
+  margin-bottom: 8px;
+}
+
+.food-period-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
 .defaults-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

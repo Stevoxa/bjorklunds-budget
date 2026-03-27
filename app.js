@@ -613,6 +613,8 @@ function getFoodConfigForMonth(year, month) {
       absenceMode: stored.kidsSchedule?.absenceMode === "reduced" ? "reduced" : "zero",
       absenceFactor: Math.max(0, Math.min(1, asNumber(stored.kidsSchedule?.absenceFactor ?? 0.25)))
     },
+    householdChanges: Array.isArray(stored.householdChanges) ? stored.householdChanges : [],
+    deviations: Array.isArray(stored.deviations) ? stored.deviations : [],
     generatedExpenseIds: Array.isArray(stored.generatedExpenseIds) ? stored.generatedExpenseIds : []
   };
 }
@@ -681,6 +683,22 @@ function computeFoodDailyCost(config, date) {
   let children = asNumber(hh.children);
   let toddlers = asNumber(hh.toddlers);
 
+  // Temporary household overrides: last matching override wins
+  const changes = Array.isArray(config.householdChanges) ? config.householdChanges : [];
+  for (let i = changes.length - 1; i >= 0; i--) {
+    const ch = changes[i];
+    const s = parseDateISO(ch?.startDate);
+    const e = parseDateISO(ch?.endDate);
+    if (!s || !e) continue;
+    if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
+    const o = ch?.household || {};
+    adults = Math.max(0, asNumber(o.adults));
+    teens = Math.max(0, asNumber(o.teens));
+    children = Math.max(0, asNumber(o.children));
+    toddlers = Math.max(0, asNumber(o.toddlers));
+    break;
+  }
+
   const ks = config.kidsSchedule;
   if (ks?.enabled) {
     const pres = getKidsPresenceForDate(config, date);
@@ -702,7 +720,24 @@ function computeFoodDailyCost(config, date) {
     teens * FOOD_BASE_COSTS.teens +
     children * FOOD_BASE_COSTS.children +
     toddlers * FOOD_BASE_COSTS.toddlers;
-  return (base * levelF * scopeF) / 7; // daily
+  let daily = (base * levelF * scopeF) / 7;
+
+  // Deviations: apply factor or weekly override (handled per-week in build)
+  const devs = Array.isArray(config.deviations) ? config.deviations : [];
+  for (let i = devs.length - 1; i >= 0; i--) {
+    const dv = devs[i];
+    const s = parseDateISO(dv?.startDate);
+    const e = parseDateISO(dv?.endDate);
+    if (!s || !e) continue;
+    if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
+    if (dv.adjustmentType === "factor") {
+      const f = asNumber(dv.value);
+      if (Number.isFinite(f) && f > 0) daily = daily * f;
+    }
+    break;
+  }
+
+  return daily; // daily
 }
 
 function buildFoodWeekRowsForMonthFromConfig(year, month, config) {
@@ -718,19 +753,29 @@ function buildFoodWeekRowsForMonthFromConfig(year, month, config) {
     if (overlapStart > overlapEnd) continue;
     const overlapDays = Math.floor((overlapEnd - overlapStart) / 86400000) + 1;
 
-    // compute weekly average based on daily costs
+    // compute weekly based on daily costs; allow weekly override deviations
     let sumDaily = 0;
-    let hasKidsVariation = false;
+    let weekOverride = null;
     for (let i = 0; i < 7; i++) {
       const day = addDays(weekStart, i);
-      const pres = getKidsPresenceForDate(config, day);
-      if (config.kidsSchedule?.enabled && config.kidsSchedule.type !== "same" && pres.valid) {
-        if (i === 0) hasKidsVariation = false;
-        // variation marker will be set if week contains both present+absent days
-      }
       sumDaily += computeFoodDailyCost(config, day);
     }
-    const weeklyCost = Math.round(sumDaily);
+    // Check weekly override deviation (eget värde / vecka). Last matching wins.
+    const devs = Array.isArray(config.deviations) ? config.deviations : [];
+    for (let i = devs.length - 1; i >= 0; i--) {
+      const dv = devs[i];
+      if (dv.adjustmentType !== "weekly") continue;
+      const s = parseDateISO(dv?.startDate);
+      const e = parseDateISO(dv?.endDate);
+      if (!s || !e) continue;
+      // if any day in week overlaps deviation range, apply override
+      if (weekEnd.getTime() < s.getTime() || weekStart.getTime() > e.getTime()) continue;
+      const v = asNumber(dv.value);
+      if (Number.isFinite(v) && v >= 0) weekOverride = v;
+      break;
+    }
+
+    const weeklyCost = Math.round(weekOverride !== null ? weekOverride : sumDaily);
     const amount = Math.round((weeklyCost * overlapDays) / 7);
     const { isoYear, week } = getISOWeekInfo(weekStart);
     rows.push({
@@ -739,7 +784,8 @@ function buildFoodWeekRowsForMonthFromConfig(year, month, config) {
       label: `Mat v.${week}`,
       date: `${weekStart.getFullYear()}-${pad2(weekStart.getMonth() + 1)}-${pad2(weekStart.getDate())}`,
       amount,
-      note: overlapDays < 7 ? "del av månad" : ""
+      note: overlapDays < 7 ? "del av månad" : "",
+      isDeviation: weekOverride !== null
     });
   }
   return rows;
@@ -1265,22 +1311,49 @@ function renderFoodPage() {
   const cfg = getFoodConfigForMonth(year, month);
   ui.foodConfigDraft = { ...cfg, household: { ...cfg.household } };
 
+  const els = {
+    autoSection: document.getElementById("foodAutoSection"),
+    manualSection: document.getElementById("foodManualSection"),
+    adultsInput: document.getElementById("foodAdultsInput"),
+    teensInput: document.getElementById("foodTeensInput"),
+    childrenInput: document.getElementById("foodChildrenInput"),
+    toddlersInput: document.getElementById("foodToddlersInput"),
+    manualWeeklyInput: document.getElementById("foodManualWeeklyInput"),
+    previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
+    previewWeeks: document.getElementById("foodPreviewWeeks"),
+    kidsAltSection: document.getElementById("foodKidsAltSection"),
+    kidsStart: document.getElementById("foodKidsStartDate"),
+    kidsEnd: document.getElementById("foodKidsEndDate"),
+    kidsChildrenInput: document.getElementById("foodKidsChildrenInput"),
+    kidsTeensInput: document.getElementById("foodKidsTeensInput"),
+    kidsAbsencePctField: document.getElementById("foodKidsAbsencePercentField"),
+    kidsAbsencePctInput: document.getElementById("foodKidsAbsencePercentInput"),
+    kidsErr: document.getElementById("foodKidsError"),
+    hhToggle: document.getElementById("foodHouseholdToggleBtn"),
+    hhSection: document.getElementById("foodHouseholdChangesSection"),
+    hhList: document.getElementById("foodHouseholdChangesList"),
+    devToggle: document.getElementById("foodDeviationsToggleBtn"),
+    devSection: document.getElementById("foodDeviationsSection"),
+    devList: document.getElementById("foodDeviationsList"),
+    warnEl: document.getElementById("foodNote")
+  };
+
   const setChipState = (id, active) => {
     const el = document.getElementById(id);
     if (!el) return;
     el.setAttribute("aria-pressed", active ? "true" : "false");
     el.classList.toggle("active", active);
   };
-  const draw = () => {
+  let draw = () => {
     const d = ui.foodConfigDraft;
     const auto = d.mode !== "manual";
-    document.getElementById("foodAutoSection").hidden = !auto;
-    document.getElementById("foodManualSection").hidden = auto;
-    document.getElementById("foodAdultsInput").value = d.household.adults;
-    document.getElementById("foodTeensInput").value = d.household.teens;
-    document.getElementById("foodChildrenInput").value = d.household.children;
-    document.getElementById("foodToddlersInput").value = d.household.toddlers;
-    document.getElementById("foodManualWeeklyInput").value = asNumber(d.manualWeeklyCost);
+    if (els.autoSection) els.autoSection.hidden = !auto;
+    if (els.manualSection) els.manualSection.hidden = auto;
+    if (els.adultsInput) els.adultsInput.value = d.household.adults;
+    if (els.teensInput) els.teensInput.value = d.household.teens;
+    if (els.childrenInput) els.childrenInput.value = d.household.children;
+    if (els.toddlersInput) els.toddlersInput.value = d.household.toddlers;
+    if (els.manualWeeklyInput) els.manualWeeklyInput.value = asNumber(d.manualWeeklyCost);
 
     setChipState("foodModeAutoBtn", d.mode === "auto");
     setChipState("foodModeManualBtn", d.mode === "manual");
@@ -1297,26 +1370,27 @@ function renderFoodPage() {
     setChipState("foodKidsOffBtn", !kidsEnabled);
     setChipState("foodKidsSameBtn", kidsEnabled && ks.type === "same");
     setChipState("foodKidsAltBtn", kidsEnabled && ks.type === "alternating");
-    const kidsAltSection = document.getElementById("foodKidsAltSection");
-    kidsAltSection.hidden = !kidsEnabled || ks.type !== "alternating";
-    document.getElementById("foodKidsStartDate").value = ks.periodStart || "";
-    document.getElementById("foodKidsEndDate").value = ks.periodEnd || "";
-    document.getElementById("foodKidsChildrenInput").value = asNumber(ks.membersWhenPresent?.children);
-    document.getElementById("foodKidsTeensInput").value = asNumber(ks.membersWhenPresent?.teens);
+    if (els.kidsAltSection) els.kidsAltSection.hidden = !kidsEnabled || ks.type !== "alternating";
+    if (els.kidsStart) els.kidsStart.value = ks.periodStart || "";
+    if (els.kidsEnd) els.kidsEnd.value = ks.periodEnd || "";
+    if (els.kidsChildrenInput) els.kidsChildrenInput.value = asNumber(ks.membersWhenPresent?.children);
+    if (els.kidsTeensInput) els.kidsTeensInput.value = asNumber(ks.membersWhenPresent?.teens);
     setChipState("foodKidsAbsenceZeroBtn", (ks.absenceMode || "zero") === "zero");
     setChipState("foodKidsAbsenceReducedBtn", (ks.absenceMode || "zero") === "reduced");
-    const pctField = document.getElementById("foodKidsAbsencePercentField");
-    pctField.hidden = (ks.absenceMode || "zero") !== "reduced";
-    document.getElementById("foodKidsAbsencePercentInput").value = Math.round(100 * (asNumber(ks.absenceFactor) || 0));
-    const kidsErr = document.getElementById("foodKidsError");
-    kidsErr.hidden = true;
-    kidsErr.textContent = "";
+    if (els.kidsAbsencePctField) els.kidsAbsencePctField.hidden = (ks.absenceMode || "zero") !== "reduced";
+    if (els.kidsAbsencePctInput) els.kidsAbsencePctInput.value = Math.round(100 * (asNumber(ks.absenceFactor) || 0));
+    if (els.kidsErr) {
+      els.kidsErr.hidden = true;
+      els.kidsErr.textContent = "";
+    }
     if (kidsEnabled && ks.type === "alternating") {
       const s = parseDateISO(ks.periodStart);
       const e = parseDateISO(ks.periodEnd);
       if (!s || !e || e.getTime() <= s.getTime()) {
-        kidsErr.hidden = false;
-        kidsErr.textContent = "Ange giltig period (till måste vara efter från).";
+        if (els.kidsErr) {
+          els.kidsErr.hidden = false;
+          els.kidsErr.textContent = "Ange giltig period (till måste vara efter från).";
+        }
       }
     }
 
@@ -1324,11 +1398,16 @@ function renderFoodPage() {
     const rows = d.mode === "manual"
       ? buildFoodWeekRowsForMonthFromConfig(year, month, { ...d, kidsSchedule: { enabled: false } })
       : buildFoodWeekRowsForMonthFromConfig(year, month, d);
-    document.getElementById("foodPreviewNormalWeek").textContent = formatKr(normalWeekly);
-    const preview = document.getElementById("foodPreviewWeeks");
-    preview.innerHTML = rows
-      .map((r) => `<div class="summary-row"><span>v.${escapeHtml(String(r.week))}${r.note ? ` (${escapeHtml(r.note)})` : ""}</span><strong>${escapeHtml(formatKr(r.amount))}</strong></div>`)
+    if (els.previewNormalWeek) els.previewNormalWeek.textContent = formatKr(normalWeekly);
+    if (!els.previewWeeks) return;
+    els.previewWeeks.innerHTML = rows
+      .map((r) => `<div class="summary-row"><span>v.${escapeHtml(String(r.week))}${r.note ? ` (${escapeHtml(r.note)})` : ""}${r.isDeviation ? ` (avvikelse)` : ""}</span><strong>${escapeHtml(formatKr(r.amount))}</strong></div>`)
       .join("");
+  };
+
+  const setWarn = (msg) => {
+    if (!els.warnEl) return;
+    if (msg) els.warnEl.textContent = msg;
   };
 
   const bump = (key, delta) => {
@@ -1388,6 +1467,128 @@ function renderFoodPage() {
     ui.foodConfigDraft.kidsSchedule.absenceFactor = pct / 100;
     draw();
   };
+
+  // Household changes section
+  const hhToggle = els.hhToggle;
+  const hhSection = els.hhSection;
+  if (hhToggle && hhSection) hhToggle.onclick = () => { hhSection.hidden = !hhSection.hidden; hhToggle.textContent = hhSection.hidden ? "▾" : "▴"; };
+  const renderHouseholdChanges = () => {
+    const list = els.hhList;
+    const arr = ui.foodConfigDraft.householdChanges || [];
+    if (!list) return;
+    list.innerHTML = arr.map((ch, idx) => {
+      const title = `${escapeHtml(ch.startDate || "")} – ${escapeHtml(ch.endDate || "")}`;
+      return `
+        <div class="food-period-card" data-hh-idx="${idx}">
+          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
+          <div class="form-grid">
+            <label class="field">Från<input type="date" data-hh-start="${idx}" value="${escapeHtml(ch.startDate || "")}"/></label>
+            <label class="field">Till<input type="date" data-hh-end="${idx}" value="${escapeHtml(ch.endDate || "")}"/></label>
+            <label class="field">Vuxna<input type="number" inputmode="numeric" min="0" step="1" data-hh-adults="${idx}" value="${escapeHtml(String(ch.household?.adults ?? 0))}"/></label>
+            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" step="1" data-hh-teens="${idx}" value="${escapeHtml(String(ch.household?.teens ?? 0))}"/></label>
+            <label class="field">Barn<input type="number" inputmode="numeric" min="0" step="1" data-hh-children="${idx}" value="${escapeHtml(String(ch.household?.children ?? 0))}"/></label>
+            <label class="field">Småbarn<input type="number" inputmode="numeric" min="0" step="1" data-hh-toddlers="${idx}" value="${escapeHtml(String(ch.household?.toddlers ?? 0))}"/></label>
+          </div>
+          <div class="food-period-actions">
+            <button class="danger" type="button" data-hh-del="${idx}">Ta bort</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    list.querySelectorAll("[data-hh-del]").forEach((btn) => btn.onclick = () => {
+      const i = Number(btn.getAttribute("data-hh-del"));
+      ui.foodConfigDraft.householdChanges.splice(i, 1);
+      renderHouseholdChanges();
+      draw();
+    });
+    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
+    bind("[data-hh-start]", (e) => { const i = Number(e.target.getAttribute("data-hh-start")); ui.foodConfigDraft.householdChanges[i].startDate = e.target.value; draw(); });
+    bind("[data-hh-end]", (e) => { const i = Number(e.target.getAttribute("data-hh-end")); ui.foodConfigDraft.householdChanges[i].endDate = e.target.value; draw(); });
+    ["adults","teens","children","toddlers"].forEach((k) => {
+      bind(`[data-hh-${k}]`, (e) => {
+        const i = Number(e.target.getAttribute(`data-hh-${k}`));
+        ui.foodConfigDraft.householdChanges[i].household[k] = Math.max(0, Math.floor(asNumber(e.target.value)));
+        draw();
+      });
+    });
+  };
+  document.getElementById("foodAddHouseholdChangeBtn").onclick = () => {
+    ui.foodConfigDraft.householdChanges = ui.foodConfigDraft.householdChanges || [];
+    ui.foodConfigDraft.householdChanges.push({
+      startDate: "",
+      endDate: "",
+      household: { adults: ui.foodConfigDraft.household.adults, teens: ui.foodConfigDraft.household.teens, children: ui.foodConfigDraft.household.children, toddlers: ui.foodConfigDraft.household.toddlers }
+    });
+    if (hhSection.hidden) hhToggle.onclick();
+    renderHouseholdChanges();
+  };
+
+  // Deviations section
+  const devToggle = els.devToggle;
+  const devSection = els.devSection;
+  if (devToggle && devSection) devToggle.onclick = () => { devSection.hidden = !devSection.hidden; devToggle.textContent = devSection.hidden ? "▾" : "▴"; };
+  const renderDeviations = () => {
+    const list = els.devList;
+    const arr = ui.foodConfigDraft.deviations || [];
+    if (!list) return;
+    list.innerHTML = arr.map((dv, idx) => {
+      const title = `${escapeHtml(dv.startDate || "")} – ${escapeHtml(dv.endDate || "")}`;
+      const type = dv.adjustmentType || "factor";
+      return `
+        <div class="food-period-card" data-dev-idx="${idx}">
+          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
+          <div class="form-grid">
+            <label class="field">Från<input type="date" data-dev-start="${idx}" value="${escapeHtml(dv.startDate || "")}"/></label>
+            <label class="field">Till<input type="date" data-dev-end="${idx}" value="${escapeHtml(dv.endDate || "")}"/></label>
+            <label class="field">
+              Justering
+              <select data-dev-type="${idx}">
+                <option value="factor" ${type==="factor"?"selected":""}>Faktor</option>
+                <option value="weekly" ${type==="weekly"?"selected":""}>Eget värde (kr/vecka)</option>
+              </select>
+            </label>
+            <label class="field">
+              Värde
+              <input type="number" inputmode="decimal" min="0" step="0.01" data-dev-value="${idx}" value="${escapeHtml(String(dv.value ?? ""))}"/>
+            </label>
+          </div>
+          <div class="food-period-actions">
+            <button class="danger" type="button" data-dev-del="${idx}">Ta bort</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+    list.querySelectorAll("[data-dev-del]").forEach((btn) => btn.onclick = () => {
+      const i = Number(btn.getAttribute("data-dev-del"));
+      ui.foodConfigDraft.deviations.splice(i, 1);
+      renderDeviations();
+      draw();
+    });
+    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
+    bind("[data-dev-start]", (e) => { const i = Number(e.target.getAttribute("data-dev-start")); ui.foodConfigDraft.deviations[i].startDate = e.target.value; draw(); });
+    bind("[data-dev-end]", (e) => { const i = Number(e.target.getAttribute("data-dev-end")); ui.foodConfigDraft.deviations[i].endDate = e.target.value; draw(); });
+    bind("[data-dev-type]", (e) => { const i = Number(e.target.getAttribute("data-dev-type")); ui.foodConfigDraft.deviations[i].adjustmentType = e.target.value; draw(); });
+    bind("[data-dev-value]", (e) => { const i = Number(e.target.getAttribute("data-dev-value")); ui.foodConfigDraft.deviations[i].value = asNumber(e.target.value); draw(); });
+  };
+  document.getElementById("foodAddDeviationBtn").onclick = () => {
+    ui.foodConfigDraft.deviations = ui.foodConfigDraft.deviations || [];
+    ui.foodConfigDraft.deviations.push({ startDate: "", endDate: "", adjustmentType: "factor", value: 1.2 });
+    if (devSection.hidden) devToggle.onclick();
+    renderDeviations();
+  };
+
+  renderHouseholdChanges();
+  renderDeviations();
+
+  // Simple warnings (non-blocking)
+  const weeklyWarn = () => {
+    const w = computeFoodWeeklyCost(ui.foodConfigDraft);
+    if (w > 20000) setWarn("Varning: ovanligt hög veckokostnad.");
+  };
+  const originalDraw = draw;
+  const wrappedDraw = () => { originalDraw(); weeklyWarn(); };
+  // replace draw calls by wrappedDraw via function alias
+  draw = wrappedDraw;
   draw();
 }
 
@@ -2962,6 +3163,20 @@ function initActions() {
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children) + asNumber(cfg.household?.toddlers);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
       document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
+      return;
+    }
+    // basic date validation for household changes / deviations
+    const badRange = (p) => {
+      const s = parseDateISO(p?.startDate);
+      const e = parseDateISO(p?.endDate);
+      return !s || !e || e.getTime() < s.getTime();
+    };
+    if ((cfg.householdChanges || []).some(badRange)) {
+      document.getElementById("foodNote").textContent = "Ändrat hushåll: kontrollera datum (till måste vara efter från).";
+      return;
+    }
+    if ((cfg.deviations || []).some(badRange)) {
+      document.getElementById("foodNote").textContent = "Avvikande veckor: kontrollera datum (till måste vara efter från).";
       return;
     }
     if (cfg.mode !== "manual" && cfg.kidsSchedule?.enabled && cfg.kidsSchedule.type === "alternating") {
