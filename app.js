@@ -280,6 +280,7 @@ function normalizeStateShape(state) {
   cleanupIncomeGarbage(normalized);
   migrateLegacyExpenses(normalized);
   ensureExpenseIds(normalized);
+  normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
 
   return normalized;
@@ -348,13 +349,67 @@ function ensureExpenseIds(root) {
       date: p?.date || "",
       amount: asNumber(p?.amount)
     }));
-    return {
+    const out = {
       id: expenseId,
       name: String(exp?.name || "").trim(),
       interval: exp?.interval || "once",
       payments: normalizedPayments
     };
+    // Viktigt: systemgenererad mat måste behålla metadata annars kan inte gamla rader tas bort vid nytt spara → dubbletter.
+    if (exp?.foodGenerated) {
+      out.foodGenerated = true;
+      if (exp.foodYear != null && exp.foodYear !== "") out.foodYear = Number(exp.foodYear);
+      if (exp.foodWeekKey) out.foodWeekKey = String(exp.foodWeekKey);
+      if (exp.foodPlanningDate) out.foodPlanningDate = String(exp.foodPlanningDate);
+      if (Array.isArray(exp.foodLabels)) out.foodLabels = exp.foodLabels.map((x) => String(x));
+    }
+    return out;
   });
+}
+
+function dedupeGeneratedFoodExpenses(expenses) {
+  if (!Array.isArray(expenses)) return expenses;
+  const seenWeek = new Set();
+  const seenLegacyDate = new Set();
+  return expenses.filter((exp) => {
+    if (exp?.foodGenerated && exp.foodWeekKey) {
+      const y = Number(exp.foodYear);
+      if (!Number.isFinite(y)) return true;
+      const k = `${y}|${exp.foodWeekKey}`;
+      if (seenWeek.has(k)) return false;
+      seenWeek.add(k);
+      return true;
+    }
+    const name = String(exp?.name || "").trim();
+    if (!/^Mat v\.\d+$/i.test(name)) return true;
+    const pts = Array.isArray(exp.payments) ? exp.payments : [];
+    if (pts.length !== 1) return true;
+    const iso = pts[0]?.date;
+    if (!iso) return true;
+    const legacyKey = `${iso}|${name.toLowerCase()}`;
+    if (seenLegacyDate.has(legacyKey)) return false;
+    seenLegacyDate.add(legacyKey);
+    return true;
+  });
+}
+
+/** True om utgiften räknas som systemgenererad mat för ett visst kalenderår (inkl. äldre rader utan flaggor). */
+function isGeneratedMatExpenseForYear(exp, year) {
+  const y = Number(year);
+  if (!Number.isFinite(y)) return false;
+  if (exp?.foodGenerated) return Number(exp.foodYear) === y;
+  const name = String(exp?.name || "").trim();
+  if (!/^Mat v\.\d+$/i.test(name)) return false;
+  const iso = exp?.payments?.[0]?.date;
+  if (!iso || typeof iso !== "string" || iso.length < 4) return false;
+  const py = Number(iso.slice(0, 4));
+  return Number.isFinite(py) && py === y;
+}
+
+function isMatLikeExpense(exp) {
+  if (!exp) return false;
+  if (exp.foodGenerated) return true;
+  return /^Mat v\.\d+$/i.test(String(exp.name || "").trim());
 }
 
 function migrateLegacyIncomes(root) {
@@ -1140,7 +1195,7 @@ function computeMonthOverview(year, month) {
   }, 0);
 
   const foodGeneratedAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (!exp?.foodGenerated) return sum;
+    if (!isMatLikeExpense(exp)) return sum;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     return (
       sum +
@@ -2921,7 +2976,7 @@ function buildExpensePaymentRowsForList(yearFilter) {
         isoDate: iso,
         date: dt,
         amount: amt,
-        isFoodPayment: Boolean(exp?.foodGenerated),
+        isFoodPayment: isMatLikeExpense(exp),
         foodYear: exp?.foodYear,
         foodWeekKey: exp?.foodWeekKey
       });
@@ -3166,12 +3221,13 @@ function openExpenseOverlay(expenseId, opts = {}) {
   requireEl("expenseEditorNote").textContent = "";
   requireEl("expenseDeleteBtn").hidden = !editing;
   const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
-  if (exp?.foodGenerated) {
+  if (isMatLikeExpense(exp)) {
     // Food is system-generated; redirect to Mat.
     closeExpenseOverlay();
+    const p0 = exp?.payments?.[0];
     openFoodOverlayForExpenseRow({
-      date: exp?.payments?.[0]?.date ? new Date(exp.payments[0].date) : null,
-      foodYear: exp.foodYear,
+      date: p0?.date ? new Date(p0.date) : null,
+      foodYear: exp.foodYear != null && exp.foodYear !== "" ? Number(exp.foodYear) : undefined,
       foodWeekKey: exp.foodWeekKey
     });
     return;
@@ -3781,7 +3837,7 @@ function initActions() {
     });
 
     // Remove prior generated food posts for that year (single source of truth)
-    state.expenses = (state.expenses || []).filter((exp) => !(exp?.foodGenerated && Number(exp.foodYear) === Number(year)));
+    state.expenses = (state.expenses || []).filter((exp) => !isGeneratedMatExpenseForYear(exp, year));
 
     // Create one expense per week, full amount at planningDate
     for (const wk of weeks) {
