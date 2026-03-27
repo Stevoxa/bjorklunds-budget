@@ -2405,24 +2405,27 @@ function renderLoansPage() {
     for (const loan of loans) {
       const displayName = loan.name || "Lån";
       const displayBank = loan.bank || "";
-      const endDateText = loan.endYear && loan.endMonth ? `${loan.endYear}-${pad2(loan.endMonth)}` : "Tillsvidare";
       const total = splitKr(getLoanTotalPayment(loan));
+      const hasEnd = Boolean(loan.endYear && loan.endMonth);
+      const lastPaymentDate = hasEnd
+        ? `${loan.endYear}-${pad2(loan.endMonth)}-${pad2(Math.max(1, Math.min(28, asNumber(loan.dueDay) || 25)))}`
+        : "";
       const tr = document.createElement("tr");
+      tr.className = "loan-item-row";
       tr.innerHTML = `
-        <td>
-          <div class="loan-name-cell">
-            <div class="loan-name-main truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-            <div class="loan-name-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
+        <td colspan="4">
+          <div class="loan-item-card">
+            <div class="loan-item-top">
+              <div class="loan-item-name truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
+              <div class="loan-item-cost">${escapeHtml(`${total.num}${total.currency}`)}</div>
+              <button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button>
+            </div>
+            <div class="loan-item-bottom">
+              <div class="loan-item-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
+              ${hasEnd ? `<div class="loan-item-last">Sista betalning: ${escapeHtml(lastPaymentDate)}</div>` : ""}
+            </div>
           </div>
         </td>
-        <td>${escapeHtml(endDateText)}</td>
-        <td class="right">
-          <span class="kr-cell">
-            <span class="kr-num">${escapeHtml(total.num)}</span>
-            <span class="kr-currency">${escapeHtml(total.currency)}</span>
-          </span>
-        </td>
-        <td class="right"><button class="secondary btn-icon" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera">✎</button></td>
       `;
       body.appendChild(tr);
     }
@@ -2548,6 +2551,8 @@ function openLoanEditor(loanId = null) {
   ui.loanEditorOpen = true;
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = false;
+  const actions = document.querySelector(".loan-editor-actions");
+  if (actions) actions.dataset.mode = existing ? "edit" : "create";
   document.getElementById("loanNameInput").value = existing?.name || "";
   document.getElementById("loanBankInput").value = existing?.bank || "";
   document.getElementById("loanPrincipal").value = asNumber(existing?.principal);
@@ -2580,6 +2585,8 @@ function closeLoanEditor() {
   ui.editLoanId = null;
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = true;
+  const actions = document.querySelector(".loan-editor-actions");
+  if (actions) actions.dataset.mode = "create";
   document.getElementById("loanNameInput").value = "";
   document.getElementById("loanBankInput").value = "";
   document.getElementById("loanPrincipal").value = "";

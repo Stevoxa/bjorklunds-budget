@@ -567,6 +567,56 @@ button:focus {
   text-align: right;
 }
 
+.loan-item-row td {
+  padding: 0;
+  border-bottom: none;
+}
+
+.loan-item-card {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 10px;
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+}
+
+.loan-item-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.loan-item-name {
+  font-weight: 700;
+}
+
+.loan-item-cost {
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 1.04rem;
+}
+
+.loan-item-bottom {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.loan-item-bank {
+  color: var(--muted);
+  font-size: 0.9rem;
+  min-width: 0;
+}
+
+.loan-item-last {
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .truncate {
   display: block;
   overflow: hidden;
@@ -777,6 +827,18 @@ tr.month-break td {
   gap: 10px;
   margin-top: 14px;
 }
+
+/* Create mode: Avbryt first, then Spara */
+.loan-editor-actions[data-mode="create"] #loanEditorCancelBtn { order: 1; }
+.loan-editor-actions[data-mode="create"] #loanSaveBtn { order: 2; }
+.loan-editor-actions[data-mode="create"] #loanCopyBtn { order: 3; }
+.loan-editor-actions[data-mode="create"] #loanDeleteBtn { order: 4; }
+
+/* Edit mode: Ta bort/Spara then Kopiera/Avbryt */
+.loan-editor-actions[data-mode="edit"] #loanDeleteBtn { order: 1; }
+.loan-editor-actions[data-mode="edit"] #loanSaveBtn { order: 2; }
+.loan-editor-actions[data-mode="edit"] #loanCopyBtn { order: 3; }
+.loan-editor-actions[data-mode="edit"] #loanEditorCancelBtn { order: 4; }
 
 .section-divider {
   border: 0;
