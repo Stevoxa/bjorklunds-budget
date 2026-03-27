@@ -379,20 +379,7 @@
             <div class="table-card">
               <div class="table-title">Mat</div>
               <div class="note" id="foodIntroText">
-                Du planerar mat per vecka för hela året. Månaden visar bara vilka veckor som hamnar där.
-              </div>
-              <div class="picker-row" style="justify-content: flex-start;">
-                <label>
-                  År
-                  <select id="expensesFoodYear"></select>
-                </label>
-                <label>
-                  Månad
-                  <select id="expensesFoodMonth"></select>
-                </label>
-              </div>
-              <div class="note" id="foodMonthHelp">
-                Månadssumma = summan av de veckor vars planeringsdag hamnar i månaden.
+                Samma matinställning gäller för de tre år som appen använder (föregående, nuvarande och nästa år). När du sparas skapas en utgift per vecka för alla dessa år.
               </div>
 
               <div class="form-grid narrow">
@@ -539,7 +526,7 @@
                         <button class="primary" type="button" id="foodCustodyEditSaveBtn">Spara period</button>
                       </div>
                     </div>
-                    <div class="table-title small" id="foodCustodyListTitle" style="margin-top: 10px;" hidden>Perioder under <span id="foodCustodyListYear">-</span></div>
+                    <div class="table-title small" id="foodCustodyListTitle" style="margin-top: 10px;" hidden>Perioder (år <span id="foodCustodyListYear">-</span>)</div>
                     <div id="foodCustodyPeriodsList" class="food-preview-list"></div>
                     <div class="field-error" id="foodCustodyListError" hidden></div>
                     <div id="foodCustodyExampleBlock" hidden>
@@ -575,7 +562,7 @@
                         <button class="primary" type="button" id="foodHhEditSaveBtn">Spara</button>
                       </div>
                     </div>
-                    <div class="table-title small" id="foodHhListTitle" style="margin-top: 10px;" hidden>Perioder med ändringar under <span id="foodHhListYear">-</span></div>
+                    <div class="table-title small" id="foodHhListTitle" style="margin-top: 10px;" hidden>Perioder med ändringar (år <span id="foodHhListYear">-</span>)</div>
                     <div id="foodHouseholdChangesList" class="food-preview-list"></div>
                     <div class="field-error" id="foodHouseholdError" hidden></div>
                   </div>
@@ -622,9 +609,22 @@
 
               <div class="food-preview">
                 <div class="table-title small">Preview</div>
+                <div class="picker-row" style="justify-content: flex-start; margin-top: 8px;">
+                  <label>
+                    År
+                    <select id="foodPreviewYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="foodPreviewMonth"></select>
+                  </label>
+                </div>
+                <div class="note" id="foodMonthHelp">
+                  Filtrerar listan: veckor vars planeringsdag hamnar i vald månad och år.
+                </div>
                 <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
                 <div class="summary-row"><span>Månadssumma</span><strong id="foodPreviewMonthSum">0kr</strong></div>
-                <div class="note" style="margin-top: 6px;">Veckor i denna månad</div>
+                <div class="note" style="margin-top: 6px;">Veckor i vald månad</div>
                 <div id="foodPreviewWeeks" class="food-preview-list"></div>
               </div>
               <div class="note" id="foodSaveContext"></div>
