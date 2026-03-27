@@ -601,6 +601,18 @@ function getFoodConfigForMonth(year, month) {
     costLevel: ["budget", "normal", "high"].includes(stored.costLevel) ? stored.costLevel : "normal",
     foodScope: ["groceries", "mixed", "all"].includes(stored.foodScope) ? stored.foodScope : "groceries",
     manualWeeklyCost: Math.max(0, asNumber(stored.manualWeeklyCost ?? 2800)),
+    kidsSchedule: {
+      enabled: Boolean(stored.kidsSchedule?.enabled),
+      type: stored.kidsSchedule?.type === "same" ? "same" : (stored.kidsSchedule?.type === "alternating" ? "alternating" : "alternating"),
+      periodStart: String(stored.kidsSchedule?.periodStart || ""),
+      periodEnd: String(stored.kidsSchedule?.periodEnd || ""),
+      membersWhenPresent: {
+        children: Math.max(0, Math.floor(asNumber(stored.kidsSchedule?.membersWhenPresent?.children ?? 0))),
+        teens: Math.max(0, Math.floor(asNumber(stored.kidsSchedule?.membersWhenPresent?.teens ?? 0)))
+      },
+      absenceMode: stored.kidsSchedule?.absenceMode === "reduced" ? "reduced" : "zero",
+      absenceFactor: Math.max(0, Math.min(1, asNumber(stored.kidsSchedule?.absenceFactor ?? 0.25)))
+    },
     generatedExpenseIds: Array.isArray(stored.generatedExpenseIds) ? stored.generatedExpenseIds : []
   };
 }
@@ -626,7 +638,74 @@ function getIsoWeekMondayFromDate(date) {
   return d;
 }
 
-function buildFoodWeekRowsForMonth(year, month, weeklyCost) {
+function parseDateISO(s) {
+  if (!s || typeof s !== "string") return null;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function isDateInRange(date, start, end) {
+  if (!start || !end) return false;
+  return date.getTime() >= start.getTime() && date.getTime() <= end.getTime();
+}
+
+function getKidsPresenceForDate(config, date) {
+  const ks = config.kidsSchedule;
+  if (!ks?.enabled) return { present: false, valid: true };
+  if (ks.type === "same") return { present: true, valid: true };
+  const start = parseDateISO(ks.periodStart);
+  const end = parseDateISO(ks.periodEnd);
+  if (!start || !end || end.getTime() <= start.getTime()) return { present: false, valid: false };
+  const periodLen = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000));
+  const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
+  const mod = ((diffDays % (periodLen * 2)) + (periodLen * 2)) % (periodLen * 2);
+  const present = mod >= 0 && mod < periodLen;
+  return { present, valid: true };
+}
+
+function computeFoodDailyCost(config, date) {
+  const levelF = FOOD_LEVEL_FACTORS[config.costLevel] || 1.0;
+  const scopeF = FOOD_SCOPE_FACTORS[config.foodScope] || 1.0;
+  const hh = config.household || {};
+  let adults = asNumber(hh.adults);
+  let teens = asNumber(hh.teens);
+  let children = asNumber(hh.children);
+  let toddlers = asNumber(hh.toddlers);
+
+  const ks = config.kidsSchedule;
+  if (ks?.enabled) {
+    const pres = getKidsPresenceForDate(config, date);
+    const extraC = asNumber(ks.membersWhenPresent?.children);
+    const extraT = asNumber(ks.membersWhenPresent?.teens);
+    if (!pres.valid) {
+      // invalid schedule → ignore, handled by validation elsewhere
+    } else if (pres.present) {
+      children += extraC;
+      teens += extraT;
+    } else {
+      const factor = ks.absenceMode === "reduced" ? Math.max(0, Math.min(1, asNumber(ks.absenceFactor))) : 0;
+      children += extraC * factor;
+      teens += extraT * factor;
+    }
+  }
+
+  const base = adults * FOOD_BASE_COSTS.adults +
+    teens * FOOD_BASE_COSTS.teens +
+    children * FOOD_BASE_COSTS.children +
+    toddlers * FOOD_BASE_COSTS.toddlers;
+  return (base * levelF * scopeF) / 7; // daily
+}
+
+function buildFoodWeekRowsForMonthFromConfig(year, month, config) {
   const first = new Date(year, month - 1, 1);
   const last = new Date(year, month, 0);
   const firstWeekMonday = getIsoWeekMondayFromDate(first);
@@ -638,6 +717,20 @@ function buildFoodWeekRowsForMonth(year, month, weeklyCost) {
     const overlapEnd = new Date(Math.min(weekEnd.getTime(), last.getTime()));
     if (overlapStart > overlapEnd) continue;
     const overlapDays = Math.floor((overlapEnd - overlapStart) / 86400000) + 1;
+
+    // compute weekly average based on daily costs
+    let sumDaily = 0;
+    let hasKidsVariation = false;
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      const pres = getKidsPresenceForDate(config, day);
+      if (config.kidsSchedule?.enabled && config.kidsSchedule.type !== "same" && pres.valid) {
+        if (i === 0) hasKidsVariation = false;
+        // variation marker will be set if week contains both present+absent days
+      }
+      sumDaily += computeFoodDailyCost(config, day);
+    }
+    const weeklyCost = Math.round(sumDaily);
     const amount = Math.round((weeklyCost * overlapDays) / 7);
     const { isoYear, week } = getISOWeekInfo(weekStart);
     rows.push({
@@ -1198,9 +1291,40 @@ function renderFoodPage() {
     setChipState("foodScopeMixedBtn", d.foodScope === "mixed");
     setChipState("foodScopeAllBtn", d.foodScope === "all");
 
-    const weekly = computeFoodWeeklyCost(d);
-    const rows = buildFoodWeekRowsForMonth(year, month, weekly);
-    document.getElementById("foodPreviewNormalWeek").textContent = formatKr(weekly);
+    // Kids schedule UI
+    const ks = d.kidsSchedule || {};
+    const kidsEnabled = Boolean(ks.enabled);
+    setChipState("foodKidsOffBtn", !kidsEnabled);
+    setChipState("foodKidsSameBtn", kidsEnabled && ks.type === "same");
+    setChipState("foodKidsAltBtn", kidsEnabled && ks.type === "alternating");
+    const kidsAltSection = document.getElementById("foodKidsAltSection");
+    kidsAltSection.hidden = !kidsEnabled || ks.type !== "alternating";
+    document.getElementById("foodKidsStartDate").value = ks.periodStart || "";
+    document.getElementById("foodKidsEndDate").value = ks.periodEnd || "";
+    document.getElementById("foodKidsChildrenInput").value = asNumber(ks.membersWhenPresent?.children);
+    document.getElementById("foodKidsTeensInput").value = asNumber(ks.membersWhenPresent?.teens);
+    setChipState("foodKidsAbsenceZeroBtn", (ks.absenceMode || "zero") === "zero");
+    setChipState("foodKidsAbsenceReducedBtn", (ks.absenceMode || "zero") === "reduced");
+    const pctField = document.getElementById("foodKidsAbsencePercentField");
+    pctField.hidden = (ks.absenceMode || "zero") !== "reduced";
+    document.getElementById("foodKidsAbsencePercentInput").value = Math.round(100 * (asNumber(ks.absenceFactor) || 0));
+    const kidsErr = document.getElementById("foodKidsError");
+    kidsErr.hidden = true;
+    kidsErr.textContent = "";
+    if (kidsEnabled && ks.type === "alternating") {
+      const s = parseDateISO(ks.periodStart);
+      const e = parseDateISO(ks.periodEnd);
+      if (!s || !e || e.getTime() <= s.getTime()) {
+        kidsErr.hidden = false;
+        kidsErr.textContent = "Ange giltig period (till måste vara efter från).";
+      }
+    }
+
+    const normalWeekly = computeFoodWeeklyCost(d);
+    const rows = d.mode === "manual"
+      ? buildFoodWeekRowsForMonthFromConfig(year, month, { ...d, kidsSchedule: { enabled: false } })
+      : buildFoodWeekRowsForMonthFromConfig(year, month, d);
+    document.getElementById("foodPreviewNormalWeek").textContent = formatKr(normalWeekly);
     const preview = document.getElementById("foodPreviewWeeks");
     preview.innerHTML = rows
       .map((r) => `<div class="summary-row"><span>v.${escapeHtml(String(r.week))}${r.note ? ` (${escapeHtml(r.note)})` : ""}</span><strong>${escapeHtml(formatKr(r.amount))}</strong></div>`)
@@ -1239,6 +1363,29 @@ function renderFoodPage() {
   };
   document.getElementById("foodManualPlus500Btn").onclick = () => {
     ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(ui.foodConfigDraft.manualWeeklyCost) + 500);
+    draw();
+  };
+
+  const bumpKids = (key, delta) => {
+    ui.foodConfigDraft.kidsSchedule.membersWhenPresent[key] = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.kidsSchedule.membersWhenPresent[key]) + delta));
+    draw();
+  };
+  document.getElementById("foodKidsOffBtn").onclick = () => { ui.foodConfigDraft.kidsSchedule.enabled = false; draw(); };
+  document.getElementById("foodKidsSameBtn").onclick = () => { ui.foodConfigDraft.kidsSchedule.enabled = true; ui.foodConfigDraft.kidsSchedule.type = "same"; draw(); };
+  document.getElementById("foodKidsAltBtn").onclick = () => { ui.foodConfigDraft.kidsSchedule.enabled = true; ui.foodConfigDraft.kidsSchedule.type = "alternating"; draw(); };
+  document.getElementById("foodKidsStartDate").onchange = () => { ui.foodConfigDraft.kidsSchedule.periodStart = document.getElementById("foodKidsStartDate").value || ""; draw(); };
+  document.getElementById("foodKidsEndDate").onchange = () => { ui.foodConfigDraft.kidsSchedule.periodEnd = document.getElementById("foodKidsEndDate").value || ""; draw(); };
+  document.getElementById("foodKidsChildrenMinusBtn").onclick = () => bumpKids("children", -1);
+  document.getElementById("foodKidsChildrenPlusBtn").onclick = () => bumpKids("children", +1);
+  document.getElementById("foodKidsTeensMinusBtn").onclick = () => bumpKids("teens", -1);
+  document.getElementById("foodKidsTeensPlusBtn").onclick = () => bumpKids("teens", +1);
+  document.getElementById("foodKidsChildrenInput").oninput = () => { ui.foodConfigDraft.kidsSchedule.membersWhenPresent.children = Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsChildrenInput").value))); draw(); };
+  document.getElementById("foodKidsTeensInput").oninput = () => { ui.foodConfigDraft.kidsSchedule.membersWhenPresent.teens = Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsTeensInput").value))); draw(); };
+  document.getElementById("foodKidsAbsenceZeroBtn").onclick = () => { ui.foodConfigDraft.kidsSchedule.absenceMode = "zero"; draw(); };
+  document.getElementById("foodKidsAbsenceReducedBtn").onclick = () => { ui.foodConfigDraft.kidsSchedule.absenceMode = "reduced"; draw(); };
+  document.getElementById("foodKidsAbsencePercentInput").oninput = () => {
+    const pct = Math.max(0, Math.min(100, asNumber(document.getElementById("foodKidsAbsencePercentInput").value)));
+    ui.foodConfigDraft.kidsSchedule.absenceFactor = pct / 100;
     draw();
   };
   draw();
@@ -2817,8 +2964,18 @@ function initActions() {
       document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
       return;
     }
-    const weekly = computeFoodWeeklyCost(cfg);
-    const weekRows = buildFoodWeekRowsForMonth(year, Number(month), weekly);
+    if (cfg.mode !== "manual" && cfg.kidsSchedule?.enabled && cfg.kidsSchedule.type === "alternating") {
+      const s = parseDateISO(cfg.kidsSchedule.periodStart);
+      const e = parseDateISO(cfg.kidsSchedule.periodEnd);
+      if (!s || !e || e.getTime() <= s.getTime()) {
+        document.getElementById("foodNote").textContent = "Barnschema: ange giltig period (till måste vara efter från).";
+        return;
+      }
+    }
+
+    const weekRows = cfg.mode === "manual"
+      ? buildFoodWeekRowsForMonthFromConfig(year, Number(month), { ...cfg, kidsSchedule: { enabled: false } })
+      : buildFoodWeekRowsForMonthFromConfig(year, Number(month), cfg);
     const oldIds = Array.isArray(getFoodConfigForMonth(year, month).generatedExpenseIds) ? getFoodConfigForMonth(year, month).generatedExpenseIds : [];
     state.expenses = (state.expenses || []).filter((exp) => {
       if (oldIds.includes(exp.id)) return false;

@@ -460,6 +460,61 @@
                     <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
                   </div>
                 </div>
+
+                <div class="food-advanced">
+                  <div class="table-title small">Barnschema</div>
+                  <div class="field">
+                    <div class="chip-row">
+                      <button class="chip" type="button" id="foodKidsOffBtn">Av</button>
+                      <button class="chip" type="button" id="foodKidsSameBtn">Samma varje vecka</button>
+                      <button class="chip" type="button" id="foodKidsAltBtn">Varierar enligt schema</button>
+                    </div>
+                  </div>
+
+                  <div id="foodKidsAltSection" hidden>
+                    <div class="form-grid">
+                      <label class="field">
+                        Barn hos mig från
+                        <input id="foodKidsStartDate" type="date" />
+                      </label>
+                      <label class="field">
+                        Till
+                        <input id="foodKidsEndDate" type="date" />
+                      </label>
+                    </div>
+
+                    <div class="table-title small" style="margin-top: 10px;">Hushåll under perioden</div>
+                    <div class="food-counter-grid">
+                      <div class="food-counter-row">
+                        <span>Barn</span>
+                        <div class="food-counter-actions">
+                          <button class="secondary" type="button" id="foodKidsChildrenMinusBtn">-</button>
+                          <input id="foodKidsChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodKidsChildrenPlusBtn">+</button>
+                        </div>
+                      </div>
+                      <div class="food-counter-row">
+                        <span>Tonåringar</span>
+                        <div class="food-counter-actions">
+                          <button class="secondary" type="button" id="foodKidsTeensMinusBtn">-</button>
+                          <input id="foodKidsTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodKidsTeensPlusBtn">+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="table-title small" style="margin-top: 10px;">När barn ej är hos mig</div>
+                    <div class="chip-row">
+                      <button class="chip" type="button" id="foodKidsAbsenceZeroBtn">0 kostnad</button>
+                      <button class="chip" type="button" id="foodKidsAbsenceReducedBtn">Reducerad</button>
+                    </div>
+                    <label class="field" id="foodKidsAbsencePercentField" style="margin-top: 8px;" hidden>
+                      Reducering (%)
+                      <input id="foodKidsAbsencePercentInput" type="number" inputmode="decimal" min="0" max="100" step="1" />
+                    </label>
+                    <div class="field-error" id="foodKidsError" hidden></div>
+                  </div>
+                </div>
               </div>
 
               <div class="food-preview">

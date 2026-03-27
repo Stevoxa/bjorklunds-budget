@@ -1080,6 +1080,13 @@ body.modal-open {
   gap: 6px;
 }
 
+.food-advanced {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+}
+
 .defaults-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
