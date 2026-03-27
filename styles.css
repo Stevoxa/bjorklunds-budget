@@ -490,8 +490,18 @@ button:focus {
 }
 
 .loan-list-table thead th {
-  padding-top: 12px;
-  padding-bottom: 10px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Skuld ska vara vänsterställd (inte flyta åt höger) */
+.loan-list-table th:nth-child(2),
+.loan-list-table td:nth-child(2) {
+  text-align: left !important;
+}
+
+.loan-list-table td:nth-child(2) .kr-cell {
+  justify-content: flex-start;
 }
 
 .loan-header-subrow td {
