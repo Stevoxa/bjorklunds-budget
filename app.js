@@ -263,8 +263,7 @@ function normalizeStateShape(state) {
       household: {
         adults: Math.max(0, Math.floor(asNumber(mCfg.household?.adults ?? 1))),
         teens: Math.max(0, Math.floor(asNumber(mCfg.household?.teens ?? 0))),
-        children: Math.max(0, Math.floor(asNumber(mCfg.household?.children ?? 0))),
-        toddlers: Math.max(0, Math.floor(asNumber(mCfg.household?.toddlers ?? 0)))
+        children: Math.max(0, Math.floor(asNumber(mCfg.household?.children ?? 0)))
       },
       costLevel: ["budget", "normal", "high"].includes(mCfg.costLevel) ? mCfg.costLevel : "normal",
       foodScope: ["groceries", "mixed", "all"].includes(mCfg.foodScope) ? mCfg.foodScope : "groceries",
@@ -623,8 +622,7 @@ function getFoodConfigForYear(year) {
       household: {
         adults: Math.max(0, Math.floor(asNumber(cfg.household?.adults ?? 1))),
         teens: Math.max(0, Math.floor(asNumber(cfg.household?.teens ?? 0))),
-        children: Math.max(0, Math.floor(asNumber(cfg.household?.children ?? 0))),
-        toddlers: Math.max(0, Math.floor(asNumber(cfg.household?.toddlers ?? 0)))
+        children: Math.max(0, Math.floor(asNumber(cfg.household?.children ?? 0)))
       },
       costLevel: ["budget", "normal", "high"].includes(cfg.costLevel) ? cfg.costLevel : "normal",
       foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
@@ -637,7 +635,7 @@ function getFoodConfigForYear(year) {
   // Legacy monthly shapes live here; we keep month-level reads for UI but Step 3 saves to year config
   return {
     mode: "auto",
-    household: { adults: 1, teens: 0, children: 0, toddlers: 0 },
+    household: { adults: 1, teens: 0, children: 0 },
     costLevel: "normal",
     foodScope: "groceries",
     manualWeeklyCost: 2800,
@@ -691,7 +689,7 @@ function setFoodYearModel(year, config, weeks) {
 
 const FOOD_LEVEL_FACTORS = { budget: 0.85, normal: 1.0, high: 1.2 };
 const FOOD_SCOPE_FACTORS = { groceries: 1.0, mixed: 1.2, all: 1.45 };
-const FOOD_BASE_COSTS = { adults: 850, teens: 950, children: 650, toddlers: 450 };
+const FOOD_BASE_COSTS = { adults: 850, teens: 950, children: 650 };
 
 function getISOWeekInfo(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -893,7 +891,6 @@ function computeFoodDailyCost(config, date) {
   let adults = asNumber(hh.adults);
   let teens = asNumber(hh.teens);
   let children = asNumber(hh.children);
-  let toddlers = asNumber(hh.toddlers);
 
   // Temporary household overrides: last matching override wins
   const changes = Array.isArray(config.householdChanges) ? config.householdChanges : [];
@@ -907,14 +904,12 @@ function computeFoodDailyCost(config, date) {
     adults = Math.max(0, asNumber(o.adults));
     teens = Math.max(0, asNumber(o.teens));
     children = Math.max(0, asNumber(o.children));
-    toddlers = Math.max(0, asNumber(o.toddlers));
     break;
   }
 
   let base = adults * FOOD_BASE_COSTS.adults +
     teens * FOOD_BASE_COSTS.teens +
-    children * FOOD_BASE_COSTS.children +
-    toddlers * FOOD_BASE_COSTS.toddlers;
+    children * FOOD_BASE_COSTS.children;
 
   // Custody schedule: reduce baseline for absent children/teens
   const abs = getCustodyAbsenceForDate(config, date);
@@ -951,8 +946,7 @@ function computeFoodWeeklyCost(config) {
   const hh = config.household || {};
   const base = asNumber(hh.adults) * FOOD_BASE_COSTS.adults +
     asNumber(hh.teens) * FOOD_BASE_COSTS.teens +
-    asNumber(hh.children) * FOOD_BASE_COSTS.children +
-    asNumber(hh.toddlers) * FOOD_BASE_COSTS.toddlers;
+    asNumber(hh.children) * FOOD_BASE_COSTS.children;
   const levelF = FOOD_LEVEL_FACTORS[config.costLevel] || 1.0;
   const scopeF = FOOD_SCOPE_FACTORS[config.foodScope] || 1.0;
   return Math.round(base * levelF * scopeF);
@@ -1498,7 +1492,6 @@ function renderFoodPage() {
     adultsInput: document.getElementById("foodAdultsInput"),
     teensInput: document.getElementById("foodTeensInput"),
     childrenInput: document.getElementById("foodChildrenInput"),
-    toddlersInput: document.getElementById("foodToddlersInput"),
     manualWeeklyInput: document.getElementById("foodManualWeeklyInput"),
     previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
     previewMonthSum: document.getElementById("foodPreviewMonthSum"),
@@ -1545,7 +1538,6 @@ function renderFoodPage() {
     if (els.adultsInput) els.adultsInput.value = d.household.adults;
     if (els.teensInput) els.teensInput.value = d.household.teens;
     if (els.childrenInput) els.childrenInput.value = d.household.children;
-    if (els.toddlersInput) els.toddlersInput.value = d.household.toddlers;
     if (els.manualWeeklyInput) els.manualWeeklyInput.value = asNumber(d.manualWeeklyCost);
 
     setChipState("foodModeAutoBtn", d.mode === "auto");
@@ -1662,8 +1654,7 @@ function renderFoodPage() {
     const baseWeekly = Math.round(
       asNumber(d.household?.adults) * FOOD_BASE_COSTS.adults +
       asNumber(d.household?.teens) * FOOD_BASE_COSTS.teens +
-      asNumber(d.household?.children) * FOOD_BASE_COSTS.children +
-      asNumber(d.household?.toddlers) * FOOD_BASE_COSTS.toddlers
+      asNumber(d.household?.children) * FOOD_BASE_COSTS.children
     );
     const levelF = FOOD_LEVEL_FACTORS[d.costLevel] || 1.0;
     const scopeF = FOOD_SCOPE_FACTORS[d.foodScope] || 1.0;
@@ -1732,12 +1723,9 @@ function renderFoodPage() {
   document.getElementById("foodTeensPlusBtn").onclick = () => bump("teens", +1);
   document.getElementById("foodChildrenMinusBtn").onclick = () => bump("children", -1);
   document.getElementById("foodChildrenPlusBtn").onclick = () => bump("children", +1);
-  document.getElementById("foodToddlersMinusBtn").onclick = () => bump("toddlers", -1);
-  document.getElementById("foodToddlersPlusBtn").onclick = () => bump("toddlers", +1);
   document.getElementById("foodAdultsInput").oninput = () => { ui.foodConfigDraft.household.adults = Math.max(0, Math.floor(asNumber(document.getElementById("foodAdultsInput").value))); draw(); };
   document.getElementById("foodTeensInput").oninput = () => { ui.foodConfigDraft.household.teens = Math.max(0, Math.floor(asNumber(document.getElementById("foodTeensInput").value))); draw(); };
   document.getElementById("foodChildrenInput").oninput = () => { ui.foodConfigDraft.household.children = Math.max(0, Math.floor(asNumber(document.getElementById("foodChildrenInput").value))); draw(); };
-  document.getElementById("foodToddlersInput").oninput = () => { ui.foodConfigDraft.household.toddlers = Math.max(0, Math.floor(asNumber(document.getElementById("foodToddlersInput").value))); draw(); };
   document.getElementById("foodManualWeeklyInput").oninput = () => { ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(document.getElementById("foodManualWeeklyInput").value)); draw(); };
   document.getElementById("foodManualMinus500Btn").onclick = () => {
     ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(ui.foodConfigDraft.manualWeeklyCost) - 500);
@@ -1842,55 +1830,91 @@ function renderFoodPage() {
   const hhToggle = els.hhToggle;
   const hhSection = els.hhSection;
   if (hhToggle && hhSection) hhToggle.onclick = () => { hhSection.hidden = !hhSection.hidden; hhToggle.textContent = hhSection.hidden ? "▾" : "▴"; };
+  let editingHouseholdChangeIndex = -1;
   const renderHouseholdChanges = () => {
     const list = els.hhList;
     const arr = ui.foodConfigDraft.householdChanges || [];
-    if (!list) return;
-    list.innerHTML = arr.map((ch, idx) => {
-      const title = `${escapeHtml(ch.startDate || "")} – ${escapeHtml(ch.endDate || "")}`;
-      return `
-        <div class="food-period-card" data-hh-idx="${idx}">
-          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
-          <div class="form-grid">
-            <label class="field">Från<input type="date" data-hh-start="${idx}" value="${escapeHtml(ch.startDate || "")}"/></label>
-            <label class="field">Till<input type="date" data-hh-end="${idx}" value="${escapeHtml(ch.endDate || "")}"/></label>
-            <label class="field">Vuxna<input type="number" inputmode="numeric" min="0" step="1" data-hh-adults="${idx}" value="${escapeHtml(String(ch.household?.adults ?? 0))}"/></label>
-            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" step="1" data-hh-teens="${idx}" value="${escapeHtml(String(ch.household?.teens ?? 0))}"/></label>
-            <label class="field">Barn<input type="number" inputmode="numeric" min="0" step="1" data-hh-children="${idx}" value="${escapeHtml(String(ch.household?.children ?? 0))}"/></label>
-            <label class="field">Småbarn<input type="number" inputmode="numeric" min="0" step="1" data-hh-toddlers="${idx}" value="${escapeHtml(String(ch.household?.toddlers ?? 0))}"/></label>
-          </div>
-          <div class="food-period-actions">
-            <button class="danger" type="button" data-hh-del="${idx}">Ta bort</button>
-          </div>
-        </div>
-      `;
+    const editor = document.getElementById("foodHouseholdEditor");
+    const listYearEl = document.getElementById("foodHhListYear");
+    if (listYearEl) listYearEl.textContent = String(year);
+    if (!list || !editor) return;
+    const sorted = arr
+      .map((ch, idx) => ({ ch, idx }))
+      .sort((a, b) => String(a.ch.startDate || "").localeCompare(String(b.ch.startDate || "")));
+    list.innerHTML = sorted.map(({ ch, idx }) => {
+      const range = `${escapeHtml(ch.startDate || "-")} - ${escapeHtml(ch.endDate || "-")}`;
+      return `<div class="summary-row">
+        <span>${range}</span>
+        <strong><button class="secondary btn-icon" type="button" data-hh-edit="${idx}" aria-label="Redigera">Edit</button> <button class="danger btn-icon" type="button" data-hh-del="${idx}" aria-label="Ta bort">X</button></strong>
+      </div>`;
     }).join("");
     list.querySelectorAll("[data-hh-del]").forEach((btn) => btn.onclick = () => {
       const i = Number(btn.getAttribute("data-hh-del"));
       ui.foodConfigDraft.householdChanges.splice(i, 1);
+      if (editingHouseholdChangeIndex === i) editingHouseholdChangeIndex = -1;
+      if (editingHouseholdChangeIndex > i) editingHouseholdChangeIndex -= 1;
       renderHouseholdChanges();
+      renderHouseholdEditor();
       draw();
     });
-    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
-    bind("[data-hh-start]", (e) => { const i = Number(e.target.getAttribute("data-hh-start")); ui.foodConfigDraft.householdChanges[i].startDate = e.target.value; draw(); });
-    bind("[data-hh-end]", (e) => { const i = Number(e.target.getAttribute("data-hh-end")); ui.foodConfigDraft.householdChanges[i].endDate = e.target.value; draw(); });
-    ["adults","teens","children","toddlers"].forEach((k) => {
-      bind(`[data-hh-${k}]`, (e) => {
-        const i = Number(e.target.getAttribute(`data-hh-${k}`));
-        ui.foodConfigDraft.householdChanges[i].household[k] = Math.max(0, Math.floor(asNumber(e.target.value)));
-        draw();
-      });
+    list.querySelectorAll("[data-hh-edit]").forEach((btn) => btn.onclick = () => {
+      editingHouseholdChangeIndex = Number(btn.getAttribute("data-hh-edit"));
+      renderHouseholdEditor();
     });
+  };
+  const renderHouseholdEditor = () => {
+    const editor = document.getElementById("foodHouseholdEditor");
+    const empty = document.getElementById("foodHouseholdEditorEmpty");
+    if (!editor || !empty) return;
+    const arr = ui.foodConfigDraft.householdChanges || [];
+    const ch = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : null;
+    if (!ch) {
+      editor.hidden = true;
+      empty.hidden = false;
+      return;
+    }
+    editor.hidden = false;
+    empty.hidden = true;
+    document.getElementById("foodHhEditStart").value = ch.startDate || "";
+    document.getElementById("foodHhEditEnd").value = ch.endDate || "";
+    document.getElementById("foodHhEditAdults").value = asNumber(ch.household?.adults);
+    document.getElementById("foodHhEditTeens").value = asNumber(ch.household?.teens);
+    document.getElementById("foodHhEditChildren").value = asNumber(ch.household?.children);
+  };
+  const readHouseholdEditor = () => {
+    if (editingHouseholdChangeIndex < 0) return;
+    const arr = ui.foodConfigDraft.householdChanges || [];
+    const ch = arr[editingHouseholdChangeIndex];
+    if (!ch) return;
+    ch.startDate = document.getElementById("foodHhEditStart").value || "";
+    ch.endDate = document.getElementById("foodHhEditEnd").value || "";
+    ch.household = {
+      adults: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditAdults").value))),
+      teens: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditTeens").value))),
+      children: Math.max(0, Math.floor(asNumber(document.getElementById("foodHhEditChildren").value)))
+    };
+  };
+  document.getElementById("foodHhEditSaveBtn").onclick = () => {
+    readHouseholdEditor();
+    renderHouseholdChanges();
+    renderHouseholdEditor();
+    draw();
+  };
+  document.getElementById("foodHhEditCancelBtn").onclick = () => {
+    editingHouseholdChangeIndex = -1;
+    renderHouseholdEditor();
   };
   document.getElementById("foodAddHouseholdChangeBtn").onclick = () => {
     ui.foodConfigDraft.householdChanges = ui.foodConfigDraft.householdChanges || [];
     ui.foodConfigDraft.householdChanges.push({
       startDate: "",
       endDate: "",
-      household: { adults: ui.foodConfigDraft.household.adults, teens: ui.foodConfigDraft.household.teens, children: ui.foodConfigDraft.household.children, toddlers: ui.foodConfigDraft.household.toddlers }
+      household: { adults: ui.foodConfigDraft.household.adults, teens: ui.foodConfigDraft.household.teens, children: ui.foodConfigDraft.household.children }
     });
+    editingHouseholdChangeIndex = ui.foodConfigDraft.householdChanges.length - 1;
     if (hhSection.hidden) hhToggle.onclick();
     renderHouseholdChanges();
+    renderHouseholdEditor();
   };
 
   // Deviations section
@@ -1948,6 +1972,7 @@ function renderFoodPage() {
   };
 
   renderHouseholdChanges();
+  renderHouseholdEditor();
   renderDeviations();
 
   // Simple warnings (non-blocking)
@@ -3593,7 +3618,7 @@ function initActions() {
     const year = Number(ui.expensesYear || ui.overviewYear || currentYearMonth().year);
     const month = Number(ui.expensesFoodMonth || currentYearMonth().month);
     const cfg = ui.foodConfigDraft ? { ...ui.foodConfigDraft, household: { ...ui.foodConfigDraft.household }, custodySchedule: normalizeCustodySchedule(ui.foodConfigDraft.custodySchedule) } : getFoodConfigForYear(year);
-    const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children) + asNumber(cfg.household?.toddlers);
+    const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
       document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
       return;

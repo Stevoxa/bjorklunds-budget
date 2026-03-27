@@ -426,14 +426,6 @@
                         <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
                       </div>
                     </div>
-                    <div class="food-counter-row">
-                      <span>Småbarn</span>
-                      <div class="food-counter-actions">
-                        <button class="secondary" type="button" id="foodToddlersMinusBtn">-</button>
-                        <input id="foodToddlersInput" type="number" inputmode="numeric" min="0" step="1" />
-                        <button class="secondary" type="button" id="foodToddlersPlusBtn">+</button>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -558,7 +550,22 @@
                     <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
                       <button class="secondary" type="button" id="foodAddHouseholdChangeBtn">Lägg till period</button>
                     </div>
-                    <div id="foodHouseholdChangesList" class="food-period-list"></div>
+                    <div id="foodHouseholdEditorEmpty" class="note">Välj en period i listan eller klicka på "Lägg till period".</div>
+                    <div id="foodHouseholdEditor" class="food-period-card" hidden>
+                      <div class="form-grid">
+                        <label class="field">Från<input id="foodHhEditStart" type="date" /></label>
+                        <label class="field">Till<input id="foodHhEditEnd" type="date" /></label>
+                        <label class="field">Vuxna<input id="foodHhEditAdults" type="number" inputmode="numeric" min="0" step="1" /></label>
+                        <label class="field">Tonåringar<input id="foodHhEditTeens" type="number" inputmode="numeric" min="0" step="1" /></label>
+                        <label class="field">Barn<input id="foodHhEditChildren" type="number" inputmode="numeric" min="0" step="1" /></label>
+                      </div>
+                      <div class="actions-row" style="justify-content: flex-end;">
+                        <button class="secondary" type="button" id="foodHhEditCancelBtn">Avbryt</button>
+                        <button class="primary" type="button" id="foodHhEditSaveBtn">Spara</button>
+                      </div>
+                    </div>
+                    <div class="table-title small" style="margin-top: 10px;">Perioder med ändringar under [ <span id="foodHhListYear">-</span> ]</div>
+                    <div id="foodHouseholdChangesList" class="food-preview-list"></div>
                     <div class="field-error" id="foodHouseholdError" hidden></div>
                   </div>
                 </div>
