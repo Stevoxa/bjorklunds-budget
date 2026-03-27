@@ -1176,6 +1176,25 @@ body.modal-open {
   background: color-mix(in srgb, var(--card) 84%, transparent);
 }
 
+.food-date-with-clear {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.food-date-with-clear input[type="date"] {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.food-custody-row-shadowed {
+  opacity: 0.72;
+  border-left: 3px solid var(--danger);
+  padding-left: 8px;
+  margin-left: -8px;
+}
+
 .food-period-title {
   font-weight: 750;
   margin-bottom: 8px;

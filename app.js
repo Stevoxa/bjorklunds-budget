@@ -269,6 +269,7 @@ function normalizeStateShape(state) {
       foodScope: ["groceries", "mixed", "all"].includes(mCfg.foodScope) ? mCfg.foodScope : "groceries",
       manualWeeklyCost: Math.max(0, asNumber(mCfg.manualWeeklyCost ?? 2800)),
       custodySchedule: normalizeCustodySchedule(mCfg.custodySchedule || mCfg.kidsSchedule),
+      custodyPeriods: migrateCustodyPeriodsFromStored(mCfg, Number(y)),
       householdChanges: Array.isArray(mCfg.householdChanges) ? mCfg.householdChanges : [],
       deviations: Array.isArray(mCfg.deviations) ? mCfg.deviations : []
     };
@@ -683,6 +684,8 @@ function getFoodConfigForYear(year) {
       foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
       manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
       custodySchedule: normalizeCustodySchedule(cfg.custodySchedule || cfg.kidsSchedule),
+      custodyPeriods: migrateCustodyPeriodsFromStored(cfg, Number(year)),
+      foodBudgetYear: Number(year),
       householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
       deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
     };
@@ -695,6 +698,8 @@ function getFoodConfigForYear(year) {
     foodScope: "groceries",
     manualWeeklyCost: 2800,
     custodySchedule: normalizeCustodySchedule(null),
+    custodyPeriods: [],
+    foodBudgetYear: Number(year),
     householdChanges: [],
     deviations: []
   };
@@ -742,26 +747,166 @@ function normalizeCustodySchedule(input) {
   };
 }
 
-function syncCustodyAbsentWithHousehold(draft) {
-  const cs = draft.custodySchedule;
-  if (!cs || cs.type !== "alternating") return;
-  const baseC = Math.max(0, Math.floor(asNumber(draft.household?.children)));
-  const baseT = Math.max(0, Math.floor(asNumber(draft.household?.teens)));
-  if (!draft._custodyHhSnap) {
-    draft._custodyHhSnap = { c: baseC, t: baseT };
+function normalizeCustodyPeriodEntry(p) {
+  if (!p || typeof p !== "object") {
+    return { startDate: "", endDate: "", ratioKey: "7-7", absent: { children: 0, teens: 0 } };
+  }
+  const rk = CUSTODY_RATIO_KEYS.includes(p.ratioKey) ? p.ratioKey : "7-7";
+  return {
+    startDate: String(p.startDate || ""),
+    endDate: String(p.endDate || ""),
+    ratioKey: rk,
+    absent: {
+      children: Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0))),
+      teens: Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)))
+    }
+  };
+}
+
+function migrateCustodyPeriodsFromStored(cfg, foodYear) {
+  if (Array.isArray(cfg?.custodyPeriods) && cfg.custodyPeriods.length > 0) {
+    return cfg.custodyPeriods.map(normalizeCustodyPeriodEntry);
+  }
+  const cs = cfg?.custodySchedule;
+  if (cs && cs.type === "alternating") {
+    const alt = cs.alternating || {};
+    if (alt.startDate) {
+      return [normalizeCustodyPeriodEntry({
+        startDate: alt.startDate,
+        endDate: "",
+        ratioKey: alt.ratioKey || "7-7",
+        absent: { children: alt.absent?.children ?? 0, teens: alt.absent?.teens ?? 0 }
+      })];
+    }
+  }
+  return [];
+}
+
+function getCustodyPeriodEffectiveEnd(period, foodBudgetYear) {
+  const endStr = period.endDate && String(period.endDate).trim();
+  if (endStr) {
+    const e = parseDateISO(endStr);
+    return e;
+  }
+  const y = Number(foodBudgetYear) + 1;
+  const d = new Date(y, 11, 31);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function calendarRangesOverlapCustody(s1, e1, s2, e2) {
+  return diffCalendarDays(s1, e2) >= 0 && diffCalendarDays(s2, e1) >= 0;
+}
+
+function buildCustodyPeriodAcceptance(periods, foodBudgetYear) {
+  const arr = Array.isArray(periods) ? periods : [];
+  const sorted = arr
+    .map((p, origIdx) => ({ p: normalizeCustodyPeriodEntry(p), origIdx }))
+    .filter((x) => x.p.startDate)
+    .sort((a, b) => String(a.p.startDate).localeCompare(String(b.p.startDate)) || a.origIdx - b.origIdx);
+  const accepted = [];
+  const shadowedOrigIndices = new Set();
+  for (const { p, origIdx } of sorted) {
+    const s = parseDateISO(p.startDate);
+    if (!s) continue;
+    const e = getCustodyPeriodEffectiveEnd(p, foodBudgetYear);
+    if (!e) continue;
+    const { awayDays, withDays } = parseCustodyRatioKey(p.ratioKey);
+    const cycle = awayDays + withDays;
+    const span = diffCalendarDays(s, e) + 1;
+    if (span < cycle) continue;
+    let overlaps = false;
+    for (const acc of accepted) {
+      if (calendarRangesOverlapCustody(s, e, acc.s, acc.e)) {
+        overlaps = true;
+        break;
+      }
+    }
+    if (overlaps) shadowedOrigIndices.add(origIdx);
+    else accepted.push({ s, e, p, origIdx });
+  }
+  return { accepted, shadowedOrigIndices };
+}
+
+function resolveCustodyPeriodForDate(config, date) {
+  const year = Number(config.foodBudgetYear) || new Date().getFullYear();
+  const { accepted } = buildCustodyPeriodAcceptance(config.custodyPeriods || [], year);
+  for (const acc of accepted) {
+    if (diffCalendarDays(acc.s, date) >= 0 && diffCalendarDays(date, acc.e) >= 0) return acc.p;
+  }
+  return null;
+}
+
+function getCustodyAbsenceForAlternatingPeriod(period, date, foodBudgetYear) {
+  const start = parseDateISO(period.startDate);
+  if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0 };
+  const effEnd = getCustodyPeriodEffectiveEnd(period, foodBudgetYear);
+  if (diffCalendarDays(start, date) < 0 || diffCalendarDays(date, effEnd) < 0) {
+    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  }
+  const { awayDays, withDays } = parseCustodyRatioKey(period.ratioKey);
+  const cycle = awayDays + withDays;
+  const span = diffCalendarDays(start, effEnd) + 1;
+  if (span < cycle) return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  const aC = Math.max(0, Math.floor(asNumber(period.absent?.children ?? 0)));
+  const aT = Math.max(0, Math.floor(asNumber(period.absent?.teens ?? 0)));
+  const diffDays = diffCalendarDays(start, date);
+  const mod = ((diffDays % cycle) + cycle) % cycle;
+  const absent = mod < awayDays;
+  return { valid: true, absent, absentChildren: aC, absentTeens: aT };
+}
+
+function syncCustodyPeriodsAbsentWithHousehold(draft, extraAbsentRef) {
+  const arr = draft.custodyPeriods;
+  const absents = [];
+  if (Array.isArray(arr)) arr.forEach((p) => absents.push(p.absent));
+  if (extraAbsentRef) absents.push(extraAbsentRef);
+  if (absents.length === 0) {
+    delete draft._custodyHhSnapGlobal;
     return;
   }
-  const snap = draft._custodyHhSnap;
+  const baseC = Math.max(0, Math.floor(asNumber(draft.household?.children)));
+  const baseT = Math.max(0, Math.floor(asNumber(draft.household?.teens)));
+  if (!draft._custodyHhSnapGlobal) {
+    draft._custodyHhSnapGlobal = { c: baseC, t: baseT };
+    return;
+  }
+  const snap = draft._custodyHhSnapGlobal;
   if (baseC !== snap.c) {
-    if (baseC > snap.c) cs.alternating.absent.children = baseC;
-    else cs.alternating.absent.children = Math.min(cs.alternating.absent.children, baseC);
+    if (baseC > snap.c) {
+      absents.forEach((abs) => { abs.children = baseC; });
+    } else {
+      absents.forEach((abs) => { abs.children = Math.min(abs.children, baseC); });
+    }
     snap.c = baseC;
   }
   if (baseT !== snap.t) {
-    if (baseT > snap.t) cs.alternating.absent.teens = baseT;
-    else cs.alternating.absent.teens = Math.min(cs.alternating.absent.teens, baseT);
+    if (baseT > snap.t) {
+      absents.forEach((abs) => { abs.teens = baseT; });
+    } else {
+      absents.forEach((abs) => { abs.teens = Math.min(abs.teens, baseT); });
+    }
     snap.t = baseT;
   }
+}
+
+function custodyPeriodEndDateValid(p) {
+  const s = parseDateISO(p.startDate);
+  if (!s) return false;
+  const endStr = p.endDate && String(p.endDate).trim();
+  if (!endStr) return true;
+  const e = parseDateISO(endStr);
+  if (!e) return false;
+  return diffCalendarDays(s, e) >= 1;
+}
+
+function foodConfigWithSingleCustodyPeriod(base, year, period) {
+  const p = normalizeCustodyPeriodEntry(period);
+  return {
+    ...base,
+    custodyPeriods: p.startDate && String(p.startDate).trim() ? [p] : [],
+    foodBudgetYear: Number(year)
+  };
 }
 
 function setFoodYearModel(year, config, weeks) {
@@ -845,7 +990,7 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   if (config.mode === "manual") labels.add("manuell");
 
   // custody/absence labels
-  if (config.mode !== "manual" && config.custodySchedule?.type === "alternating") {
+  if (config.mode !== "manual" && Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0) {
     const custodyLabel = getCustodyLabelForWeek(config, weekStart);
     if (custodyLabel) labels.add(custodyLabel);
   }
@@ -961,28 +1106,10 @@ function isDateInRange(date, start, end) {
 }
 
 function getCustodyAbsenceForDate(config, date) {
-  const cs = config.custodySchedule;
-  if (!cs || cs.type === "off") {
-    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
-  }
-  if (cs.type === "alternating") {
-    const start = parseDateISO(cs.alternating?.startDate);
-    if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0 };
-    const { awayDays: ad, withDays: wd } = parseCustodyRatioKey(cs.alternating?.ratioKey);
-    const awayDays = Math.max(1, Math.floor(asNumber(ad)));
-    const withDays = Math.max(1, Math.floor(asNumber(wd)));
-    const cycle = awayDays + withDays;
-    const aC = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0)));
-    const aT = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0)));
-    if (diffCalendarDays(start, date) < 0) {
-      return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
-    }
-    const diffDays = diffCalendarDays(start, date);
-    const mod = ((diffDays % cycle) + cycle) % cycle;
-    const absent = mod < awayDays;
-    return { valid: true, absent, absentChildren: aC, absentTeens: aT };
-  }
-  return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  const year = Number(config.foodBudgetYear) || new Date().getFullYear();
+  const period = resolveCustodyPeriodForDate(config, date);
+  if (!period) return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  return getCustodyAbsenceForAlternatingPeriod(period, date, year);
 }
 
 function computeFoodDailyCost(config, date) {
@@ -1012,16 +1139,16 @@ function computeFoodDailyCost(config, date) {
     teens * FOOD_BASE_COSTS.teens +
     children * FOOD_BASE_COSTS.children;
 
-  const cs = config.custodySchedule;
   let daily;
-  if (config.mode !== "manual" && cs && cs.type === "alternating") {
-    const abs = getCustodyAbsenceForDate(config, date);
+  const period = config.mode !== "manual" ? resolveCustodyPeriodForDate(config, date) : null;
+  if (period) {
+    const abs = getCustodyAbsenceForAlternatingPeriod(period, date, Number(config.foodBudgetYear) || new Date().getFullYear());
     const aC = Math.min(
-      Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0))),
+      Math.max(0, Math.floor(asNumber(period.absent?.children ?? 0))),
       Math.max(0, Math.floor(children))
     );
     const aT = Math.min(
-      Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0))),
+      Math.max(0, Math.floor(asNumber(period.absent?.teens ?? 0))),
       Math.max(0, Math.floor(teens))
     );
     const useReduced = abs.valid && abs.absent && (aC > 0 || aT > 0);
@@ -1064,10 +1191,10 @@ function computeFoodWeekTotalForWeekStart(config, weekStart) {
 }
 
 function computeWeekCustodyReductionKr(config, weekStart) {
-  if (config.mode === "manual" || !config.custodySchedule || config.custodySchedule.type !== "alternating") {
+  if (config.mode === "manual" || !Array.isArray(config.custodyPeriods) || config.custodyPeriods.length === 0) {
     return 0;
   }
-  const baseCfg = { ...config, custodySchedule: normalizeCustodySchedule({ type: "off" }) };
+  const baseCfg = { ...config, custodyPeriods: [] };
   const baseTotal = computeFoodWeekTotalForWeekStart(baseCfg, weekStart);
   const withTotal = computeFoodWeekTotalForWeekStart(config, weekStart);
   return Math.max(0, baseTotal - withTotal);
@@ -1618,15 +1745,27 @@ function renderFoodPage() {
   if (monthSel) setMonthOptions(monthSel, month);
   if (monthSel) monthSel.onchange = () => renderFoodPage();
   const cfg = getFoodConfigForYear(year);
+  const periodsCopy = Array.isArray(cfg.custodyPeriods)
+    ? cfg.custodyPeriods.map((p) => {
+      const n = normalizeCustodyPeriodEntry(p);
+      return { ...n, absent: { ...n.absent } };
+    })
+    : [];
   ui.foodConfigDraft = {
     ...cfg,
-    household: { ...cfg.household },
+    household: {
+      ...cfg.household
+    },
+    custodyPeriods: periodsCopy,
     custodySchedule: normalizeCustodySchedule(cfg.custodySchedule)
   };
-  if (ui.foodConfigDraft.custodySchedule.type === "alternating") {
+  delete ui.foodConfigDraft._custodyHhSnap;
+  if (periodsCopy.length > 0) {
     const bc = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.children)));
     const bt = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.teens)));
-    ui.foodConfigDraft._custodyHhSnap = { c: bc, t: bt };
+    ui.foodConfigDraft._custodyHhSnapGlobal = { c: bc, t: bt };
+  } else {
+    delete ui.foodConfigDraft._custodyHhSnapGlobal;
   }
 
   const els = {
@@ -1643,18 +1782,15 @@ function renderFoodPage() {
     calcAdjustedWeek: document.getElementById("foodCalcAdjustedWeek"),
     calcFinalWeek: document.getElementById("foodCalcFinalWeek"),
     saveContext: document.getElementById("foodSaveContext"),
-    kidsAltSection: document.getElementById("foodKidsAltSection"),
-    kidsRatio: document.getElementById("foodKidsRatio"),
-    kidsAltStart: document.getElementById("foodKidsAltStartDate"),
-    kidsAltChildrenInput: document.getElementById("foodKidsAltChildrenInput"),
-    kidsAltTeensInput: document.getElementById("foodKidsAltTeensInput"),
-    kidsErrStart: document.getElementById("foodKidsErrStart"),
-    kidsErrRatio: document.getElementById("foodKidsErrRatio"),
-    kidsErrCounts: document.getElementById("foodKidsErrCounts"),
-    custodyPreviewWeek: document.getElementById("foodCustodyPreviewWeek"),
-    kidsPreview: document.getElementById("foodKidsPreview"),
-    kidsAltDetailsSection: document.getElementById("foodKidsAltDetailsSection"),
-    kidsKommandeBlock: document.getElementById("foodKidsKommandeBlock"),
+    custodyGlobalWarn: document.getElementById("foodCustodyGlobalWarn"),
+    custodyList: document.getElementById("foodCustodyPeriodsList"),
+    custodyListTitle: document.getElementById("foodCustodyListTitle"),
+    custodyListYear: document.getElementById("foodCustodyListYear"),
+    custodyListError: document.getElementById("foodCustodyListError"),
+    custodyEditor: document.getElementById("foodCustodyEditor"),
+    custodyEditorWeekCost: document.getElementById("foodCustodyEditorWeekCost"),
+    custodyExampleBlock: document.getElementById("foodCustodyExampleBlock"),
+    custodyExampleWeeks: document.getElementById("foodCustodyExampleWeeks"),
     kidsToggle: document.getElementById("foodKidsToggleBtn"),
     kidsSection: document.getElementById("foodKidsSection"),
     foodLevelHelp: document.getElementById("foodLevelHelp"),
@@ -1684,9 +1820,113 @@ function renderFoodPage() {
       el.textContent = "";
     }
   };
+
+  let editingCustodyIndex = -1;
+  let custodyEditorDraft = null;
+
+  const readCustodyEditorFromDom = () => ({
+    startDate: document.getElementById("foodCustodyEditStart")?.value || "",
+    endDate: document.getElementById("foodCustodyEditEnd")?.value || "",
+    ratioKey: document.getElementById("foodCustodyEditRatio")?.value || "7-7",
+    absent: {
+      children: Math.max(0, Math.floor(asNumber(document.getElementById("foodCustodyEditChildrenInput")?.value))),
+      teens: Math.max(0, Math.floor(asNumber(document.getElementById("foodCustodyEditTeensInput")?.value)))
+    }
+  });
+
+  const clearCustodyEditorFieldErrors = () => {
+    setCustodyFieldErr(document.getElementById("foodCustodyErrStart"), "");
+    setCustodyFieldErr(document.getElementById("foodCustodyErrEnd"), "");
+    setCustodyFieldErr(document.getElementById("foodCustodyErrCounts"), "");
+    const st = document.getElementById("foodCustodyEditStart");
+    if (st) st.classList.remove("input-invalid");
+  };
+
+  const renderCustodyEditor = () => {
+    const editor = els.custodyEditor;
+    if (!editor) return;
+    const arr = ui.foodConfigDraft.custodyPeriods || [];
+    const p = editingCustodyIndex >= 0 ? arr[editingCustodyIndex] : custodyEditorDraft;
+    if (!p) {
+      editor.hidden = true;
+      return;
+    }
+    editor.hidden = false;
+    document.getElementById("foodCustodyEditStart").value = p.startDate || "";
+    document.getElementById("foodCustodyEditEnd").value = p.endDate || "";
+    document.getElementById("foodCustodyEditRatio").value = p.ratioKey || "7-7";
+    document.getElementById("foodCustodyEditChildrenInput").value = asNumber(p.absent?.children);
+    document.getElementById("foodCustodyEditTeensInput").value = asNumber(p.absent?.teens);
+    clearCustodyEditorFieldErrors();
+  };
+
+  const renderCustodyPeriodsList = (custodyAccept) => {
+    const list = els.custodyList;
+    const arr = ui.foodConfigDraft.custodyPeriods || [];
+    if (els.custodyListYear) els.custodyListYear.textContent = String(year);
+    if (els.custodyListTitle) els.custodyListTitle.hidden = arr.length === 0;
+    if (els.custodyListError) {
+      els.custodyListError.hidden = true;
+      els.custodyListError.textContent = "";
+    }
+    if (!list) return;
+    const sorted = arr.map((p, idx) => ({ p, idx })).sort(
+      (a, b) => String(a.p.startDate || "").localeCompare(String(b.p.startDate || "")) || a.idx - b.idx
+    );
+    list.innerHTML = sorted.map(({ p, idx }) => {
+      const shadow = custodyAccept.shadowedOrigIndices.has(idx);
+      const endDisp = p.endDate && String(p.endDate).trim() ? p.endDate : "tills vidare";
+      const range = `${escapeHtml(p.startDate || "-")} – ${escapeHtml(endDisp)}`;
+      const clash = shadow ? ` <span style="color:var(--danger)">(överlapp — räknas ej)</span>` : "";
+      const rowClass = shadow ? "summary-row food-custody-row-shadowed" : "summary-row";
+      return `<div class="${rowClass}">
+        <span>${range}${clash}</span>
+        <strong><button class="icon-btn btn-icon" type="button" data-custody-edit="${idx}" aria-label="Redigera">✎</button> <button class="danger btn-icon" type="button" data-custody-del="${idx}" aria-label="Ta bort">X</button></strong>
+      </div>`;
+    }).join("");
+    list.querySelectorAll("[data-custody-del]").forEach((btn) => {
+      btn.onclick = () => {
+        const i = Number(btn.getAttribute("data-custody-del"));
+        ui.foodConfigDraft.custodyPeriods.splice(i, 1);
+        if (editingCustodyIndex === i) editingCustodyIndex = -1;
+        else if (editingCustodyIndex > i) editingCustodyIndex -= 1;
+        if (ui.foodConfigDraft.custodyPeriods.length === 0) delete ui.foodConfigDraft._custodyHhSnapGlobal;
+        custodyEditorDraft = null;
+        renderCustodyEditor();
+        draw();
+      };
+    });
+    list.querySelectorAll("[data-custody-edit]").forEach((btn) => {
+      btn.onclick = () => {
+        editingCustodyIndex = Number(btn.getAttribute("data-custody-edit"));
+        custodyEditorDraft = null;
+        renderCustodyEditor();
+        draw();
+      };
+    });
+  };
+
   let draw = () => {
     const d = ui.foodConfigDraft;
-    syncCustodyAbsentWithHousehold(d);
+    d.foodBudgetYear = year;
+    const editorAbsentRef = custodyEditorDraft ? custodyEditorDraft.absent : null;
+    syncCustodyPeriodsAbsentWithHousehold(d, editorAbsentRef);
+    if (els.custodyEditor && !els.custodyEditor.hidden) {
+      if (editingCustodyIndex >= 0) {
+        const cur = (d.custodyPeriods || [])[editingCustodyIndex];
+        if (cur) {
+          const cInp = document.getElementById("foodCustodyEditChildrenInput");
+          const tInp = document.getElementById("foodCustodyEditTeensInput");
+          if (cInp) cInp.value = asNumber(cur.absent.children);
+          if (tInp) tInp.value = asNumber(cur.absent.teens);
+        }
+      } else if (custodyEditorDraft) {
+        const cInp = document.getElementById("foodCustodyEditChildrenInput");
+        const tInp = document.getElementById("foodCustodyEditTeensInput");
+        if (cInp) cInp.value = asNumber(custodyEditorDraft.absent.children);
+        if (tInp) tInp.value = asNumber(custodyEditorDraft.absent.teens);
+      }
+    }
     const auto = d.mode !== "manual";
     if (els.autoSection) els.autoSection.hidden = !auto;
     if (els.manualSection) els.manualSection.hidden = auto;
@@ -1706,40 +1946,38 @@ function renderFoodPage() {
     setChipState("foodScopeMixedBtn", d.foodScope === "mixed");
     setChipState("foodScopeAllBtn", d.foodScope === "all");
 
-    // Custody schedule UI (absence)
-    const cs = normalizeCustodySchedule(d.custodySchedule);
-    d.custodySchedule = cs;
-    setChipState("foodKidsNoBtn", cs.type === "off");
-    setChipState("foodKidsYesBtn", cs.type === "alternating");
-    if (els.kidsAltSection) els.kidsAltSection.hidden = cs.type !== "alternating";
-    const hasCustodyStart = cs.type === "alternating" && !!parseDateISO(cs.alternating.startDate);
-    if (els.kidsAltDetailsSection) els.kidsAltDetailsSection.hidden = !hasCustodyStart;
-    if (els.kidsKommandeBlock) {
-      els.kidsKommandeBlock.hidden = d.mode === "manual" || cs.type !== "alternating" || !hasCustodyStart;
-    }
-    if (els.kidsAltStart) els.kidsAltStart.value = cs.alternating.startDate || "";
-    if (els.kidsRatio) els.kidsRatio.value = cs.alternating.ratioKey || "7-7";
-    if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.value = asNumber(cs.alternating.absent?.children);
-    if (els.kidsAltTeensInput) els.kidsAltTeensInput.value = asNumber(cs.alternating.absent?.teens);
-    if (els.kidsAltStart) els.kidsAltStart.classList.remove("input-invalid");
-    setCustodyFieldErr(els.kidsErrStart, "");
-    setCustodyFieldErr(els.kidsErrRatio, "");
-    setCustodyFieldErr(els.kidsErrCounts, "");
-
     const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
     const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
-    const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
-    const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
-    const chMinBtn = document.getElementById("foodKidsAltChildrenMinusBtn");
-    const chPlusBtn = document.getElementById("foodKidsAltChildrenPlusBtn");
-    const teMinBtn = document.getElementById("foodKidsAltTeensMinusBtn");
-    const tePlusBtn = document.getElementById("foodKidsAltTeensPlusBtn");
-    if (chMinBtn) chMinBtn.disabled = baseChildren <= 0 || aC <= 0;
-    if (chPlusBtn) chPlusBtn.disabled = baseChildren <= 0 || aC >= baseChildren;
-    if (teMinBtn) teMinBtn.disabled = baseTeens <= 0 || aT <= 0;
-    if (tePlusBtn) tePlusBtn.disabled = baseTeens <= 0 || aT >= baseTeens;
-    if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.disabled = baseChildren <= 0;
-    if (els.kidsAltTeensInput) els.kidsAltTeensInput.disabled = baseTeens <= 0;
+    const custodyAccept = buildCustodyPeriodAcceptance(d.custodyPeriods || [], year);
+    if (els.custodyGlobalWarn) {
+      if (custodyAccept.shadowedOrigIndices.size > 0) {
+        els.custodyGlobalWarn.hidden = false;
+        els.custodyGlobalWarn.textContent = "Minst två perioder överlappar. Den som börjar senare räknas inte — justera datumen innan du kan spara.";
+      } else {
+        els.custodyGlobalWarn.hidden = true;
+        els.custodyGlobalWarn.textContent = "";
+      }
+    }
+    renderCustodyPeriodsList(custodyAccept);
+
+    const edLive = readCustodyEditorFromDom();
+    const editorOpen = els.custodyEditor && !els.custodyEditor.hidden;
+    const aCed = Math.max(0, Math.floor(asNumber(edLive.absent.children)));
+    const aTed = Math.max(0, Math.floor(asNumber(edLive.absent.teens)));
+    const chMinBtn = document.getElementById("foodCustodyEditChildrenMinusBtn");
+    const chPlusBtn = document.getElementById("foodCustodyEditChildrenPlusBtn");
+    const teMinBtn = document.getElementById("foodCustodyEditTeensMinusBtn");
+    const tePlusBtn = document.getElementById("foodCustodyEditTeensPlusBtn");
+    if (editorOpen) {
+      if (chMinBtn) chMinBtn.disabled = baseChildren <= 0 || aCed <= 0;
+      if (chPlusBtn) chPlusBtn.disabled = baseChildren <= 0 || aCed >= baseChildren;
+      if (teMinBtn) teMinBtn.disabled = baseTeens <= 0 || aTed <= 0;
+      if (tePlusBtn) tePlusBtn.disabled = baseTeens <= 0 || aTed >= baseTeens;
+      const chi = document.getElementById("foodCustodyEditChildrenInput");
+      const tei = document.getElementById("foodCustodyEditTeensInput");
+      if (chi) chi.disabled = baseChildren <= 0;
+      if (tei) tei.disabled = baseTeens <= 0;
+    }
 
     // Helper texts (auto only)
     if (els.foodLevelHelp) {
@@ -1755,36 +1993,56 @@ function renderFoodPage() {
           : "All mat - All mat inklusive restaurang, take-away och spontanköp.");
     }
 
-    // Inline validation for custody schedule
     let custodyOk = true;
-    if (auto && cs.type === "alternating") {
-      const s = parseDateISO(cs.alternating.startDate);
-      if (!s) {
-        custodyOk = false;
-        setCustodyFieldErr(els.kidsErrStart, "Ange startdatum för första perioden utan barn.");
-        if (els.kidsAltStart) els.kidsAltStart.classList.add("input-invalid");
-      } else if (aC > baseChildren || aT > baseTeens) {
-        custodyOk = false;
-        setCustodyFieldErr(els.kidsErrCounts, `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`);
+    const periods = d.custodyPeriods || [];
+    if (custodyAccept.shadowedOrigIndices.size > 0) custodyOk = false;
+    for (let i = 0; i < periods.length; i++) {
+      const p = normalizeCustodyPeriodEntry(periods[i]);
+      if (!p.startDate || !String(p.startDate).trim()) continue;
+      if (!custodyPeriodEndDateValid(p)) custodyOk = false;
+      if (p.absent.children > baseChildren || p.absent.teens > baseTeens) custodyOk = false;
+    }
+
+    if (els.custodyEditorWeekCost) {
+      const sEd = parseDateISO(edLive.startDate);
+      if (auto && editorOpen && sEd) {
+        const previewCfg = foodConfigWithSingleCustodyPeriod(d, year, edLive);
+        const ws = getIsoWeekMondayFromDate(sEd);
+        let sum = 0;
+        for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(previewCfg, addDays(ws, i));
+        els.custodyEditorWeekCost.textContent = formatKr(Math.round(sum));
+      } else {
+        els.custodyEditorWeekCost.textContent = "—";
       }
     }
 
-    if (els.custodyPreviewWeek) {
-      if (auto && cs.type === "alternating" && hasCustodyStart) {
-        const ws = getIsoWeekMondayForIsoWeek(year, 1);
-        let sum = 0;
-        for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(d, addDays(ws, i));
-        els.custodyPreviewWeek.textContent = formatKr(Math.round(sum));
+    if (els.custodyExampleBlock && els.custodyExampleWeeks) {
+      const sEx = parseDateISO(edLive.startDate);
+      if (auto && editorOpen && sEx) {
+        els.custodyExampleBlock.hidden = false;
+        const previewCfg = foodConfigWithSingleCustodyPeriod(d, year, edLive);
+        const startWeek = getIsoWeekMondayFromDate(sEx);
+        const { awayDays: away, withDays: withD } = parseCustodyRatioKey(edLive.ratioKey);
+        const cycleDays = away + withD;
+        const nWeeks = Math.max(4, Math.ceil((2 * cycleDays) / 7));
+        const previewWeeks = Array.from({ length: nWeeks }).map((_, i) => addDays(startWeek, i * 7));
+        els.custodyExampleWeeks.innerHTML = previewWeeks.map((ws) => {
+          const { week } = getISOWeekInfo(ws);
+          const reduction = computeWeekCustodyReductionKr(previewCfg, ws);
+          const right = formatCustodyReductionKr(reduction);
+          return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(right)}</strong></div>`;
+        }).join("");
       } else {
-        els.custodyPreviewWeek.textContent = "—";
+        els.custodyExampleBlock.hidden = true;
+        els.custodyExampleWeeks.innerHTML = "";
       }
     }
 
     // Disable save while errors exist (inline validation)
     const saveBtn = document.getElementById("foodSaveBtn");
     let canSave = true;
+    if (!custodyOk) canSave = false;
     if (auto) {
-      if (!custodyOk) canSave = false;
       const badRange = (p) => {
         const s = parseDateISO(p?.startDate);
         const e = parseDateISO(p?.endDate);
@@ -1826,32 +2084,6 @@ function renderFoodPage() {
         return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))} (${escapeHtml(isoFromDate(w.planningDate))})${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
       }).join("")}
     `;
-
-    // Växelvis: kommande veckor — minskning mot vecka utan växelvis (minst 4 veckor, minst 2 cykler)
-    if (els.kidsPreview) {
-      if (!(auto && cs.type === "alternating" && hasCustodyStart)) {
-        els.kidsPreview.innerHTML = "";
-      } else {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const monToday = getIsoWeekMondayFromDate(today);
-        const custodyStart = parseDateISO(cs.alternating.startDate);
-        const monFromCustody = custodyStart ? getIsoWeekMondayFromDate(custodyStart) : monToday;
-        // Börja inte före veckan där schemat börjar — annars blir första veckor "blandade" (dagar före start) och minskningen varierar fel.
-        const startWeek = new Date(Math.max(monToday.getTime(), monFromCustody.getTime()));
-        let nWeeks = 4;
-        const { awayDays: away, withDays: withD } = parseCustodyRatioKey(cs.alternating?.ratioKey);
-        const cycleDays = away + withD;
-        nWeeks = Math.max(4, Math.ceil((2 * cycleDays) / 7));
-        const previewWeeks = Array.from({ length: nWeeks }).map((_, i) => addDays(startWeek, i * 7));
-        els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
-          const { week } = getISOWeekInfo(ws);
-          const reduction = computeWeekCustodyReductionKr(d, ws);
-          const right = formatCustodyReductionKr(reduction);
-          return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(right)}</strong></div>`;
-        }).join("");
-      }
-    }
   };
 
   const setWarn = (msg) => {
@@ -1891,58 +2123,96 @@ function renderFoodPage() {
     draw();
   };
 
-  const bumpCustodyAltAbsent = (key, delta) => {
+  const bumpCustodyEditorAbsent = (key, delta) => {
     const maxAllowed = key === "children"
       ? Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)))
       : Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    const next = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.custodySchedule.alternating.absent[key]) + delta));
-    ui.foodConfigDraft.custodySchedule.alternating.absent[key] = Math.min(maxAllowed, next);
+    const el = key === "children" ? document.getElementById("foodCustodyEditChildrenInput") : document.getElementById("foodCustodyEditTeensInput");
+    const next = Math.max(0, Math.floor(asNumber(el?.value) + delta));
+    if (el) el.value = String(Math.min(maxAllowed, next));
     draw();
   };
-  document.getElementById("foodKidsNoBtn").onclick = () => {
-    ui.foodConfigDraft.custodySchedule = normalizeCustodySchedule({ type: "off" });
-    delete ui.foodConfigDraft._custodyHhSnap;
-    draw();
-  };
-  document.getElementById("foodKidsYesBtn").onclick = () => {
+  document.getElementById("foodAddCustodyPeriodBtn").onclick = () => {
     const c = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
     const t = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    ui.foodConfigDraft.custodySchedule = normalizeCustodySchedule({
-      type: "alternating",
-      alternating: {
-        startDate: "",
-        absent: { children: c, teens: t }
-      }
+    custodyEditorDraft = normalizeCustodyPeriodEntry({
+      startDate: "",
+      endDate: "",
+      ratioKey: "7-7",
+      absent: { children: c, teens: t }
     });
-    ui.foodConfigDraft._custodyHhSnap = { c, t };
+    editingCustodyIndex = -1;
+    if (els.kidsSection && els.kidsSection.hidden) {
+      els.kidsSection.hidden = false;
+      if (els.kidsToggle) els.kidsToggle.textContent = "▴";
+    }
+    renderCustodyEditor();
     draw();
   };
-  const syncFoodKidsStartDate = () => {
-    ui.foodConfigDraft.custodySchedule.alternating.startDate = document.getElementById("foodKidsAltStartDate").value || "";
+  document.getElementById("foodCustodyEditCancelBtn").onclick = () => {
+    editingCustodyIndex = -1;
+    custodyEditorDraft = null;
+    clearCustodyEditorFieldErrors();
+    renderCustodyEditor();
     draw();
   };
-  document.getElementById("foodKidsAltStartDate").onchange = syncFoodKidsStartDate;
-  document.getElementById("foodKidsAltStartDate").oninput = syncFoodKidsStartDate;
-  document.getElementById("foodKidsRatio").onchange = () => {
-    const v = document.getElementById("foodKidsRatio").value;
-    const { ratioKey, awayDays, withDays } = parseCustodyRatioKey(v);
-    ui.foodConfigDraft.custodySchedule.alternating.ratioKey = ratioKey;
-    ui.foodConfigDraft.custodySchedule.alternating.awayDays = awayDays;
-    ui.foodConfigDraft.custodySchedule.alternating.withDays = withDays;
+  document.getElementById("foodCustodyClearEndBtn").onclick = () => {
+    const e = document.getElementById("foodCustodyEditEnd");
+    if (e) e.value = "";
     draw();
   };
-  document.getElementById("foodKidsAltChildrenMinusBtn").onclick = () => bumpCustodyAltAbsent("children", -1);
-  document.getElementById("foodKidsAltChildrenPlusBtn").onclick = () => bumpCustodyAltAbsent("children", +1);
-  document.getElementById("foodKidsAltTeensMinusBtn").onclick = () => bumpCustodyAltAbsent("teens", -1);
-  document.getElementById("foodKidsAltTeensPlusBtn").onclick = () => bumpCustodyAltAbsent("teens", +1);
-  document.getElementById("foodKidsAltChildrenInput").oninput = () => {
-    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-    ui.foodConfigDraft.custodySchedule.alternating.absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltChildrenInput").value))));
-    draw();
-  };
-  document.getElementById("foodKidsAltTeensInput").oninput = () => {
-    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))));
+  document.getElementById("foodCustodyEditStart").oninput = () => draw();
+  document.getElementById("foodCustodyEditStart").onchange = () => draw();
+  document.getElementById("foodCustodyEditEnd").oninput = () => draw();
+  document.getElementById("foodCustodyEditEnd").onchange = () => draw();
+  document.getElementById("foodCustodyEditRatio").onchange = () => draw();
+  document.getElementById("foodCustodyEditChildrenMinusBtn").onclick = () => bumpCustodyEditorAbsent("children", -1);
+  document.getElementById("foodCustodyEditChildrenPlusBtn").onclick = () => bumpCustodyEditorAbsent("children", +1);
+  document.getElementById("foodCustodyEditTeensMinusBtn").onclick = () => bumpCustodyEditorAbsent("teens", -1);
+  document.getElementById("foodCustodyEditTeensPlusBtn").onclick = () => bumpCustodyEditorAbsent("teens", +1);
+  document.getElementById("foodCustodyEditChildrenInput").oninput = () => draw();
+  document.getElementById("foodCustodyEditTeensInput").oninput = () => draw();
+  document.getElementById("foodCustodyEditSaveBtn").onclick = () => {
+    clearCustodyEditorFieldErrors();
+    const cErr = document.getElementById("foodCustodyErrCounts");
+    const next = normalizeCustodyPeriodEntry(readCustodyEditorFromDom());
+    const s = parseDateISO(next.startDate);
+    if (!s) {
+      setCustodyFieldErr(document.getElementById("foodCustodyErrStart"), "Ange startdatum.");
+      document.getElementById("foodCustodyEditStart")?.classList.add("input-invalid");
+      return;
+    }
+    const endStr = next.endDate && String(next.endDate).trim();
+    if (endStr) {
+      const eDt = parseDateISO(endStr);
+      if (!eDt || diffCalendarDays(s, eDt) < 1) {
+        setCustodyFieldErr(document.getElementById("foodCustodyErrEnd"), "Slutdatum måste vara minst en kalenderdag efter start.");
+        return;
+      }
+    }
+    const baseChildren = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    if (next.absent.children > baseChildren || next.absent.teens > baseTeens) {
+      setCustodyFieldErr(cErr, `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`);
+      return;
+    }
+    ui.foodConfigDraft.custodyPeriods = ui.foodConfigDraft.custodyPeriods || [];
+    const tryAccept = (periods) => buildCustodyPeriodAcceptance(periods, year);
+    let trial;
+    if (editingCustodyIndex >= 0) {
+      trial = ui.foodConfigDraft.custodyPeriods.map((p, i) => (i === editingCustodyIndex ? next : p));
+    } else {
+      trial = [...ui.foodConfigDraft.custodyPeriods, next];
+    }
+    if (tryAccept(trial).shadowedOrigIndices.size > 0) {
+      setCustodyFieldErr(document.getElementById("foodCustodyErrEnd"), "Perioden överlappar en annan. Justera datumen.");
+      return;
+    }
+    if (editingCustodyIndex >= 0) ui.foodConfigDraft.custodyPeriods[editingCustodyIndex] = next;
+    else ui.foodConfigDraft.custodyPeriods.push(next);
+    editingCustodyIndex = -1;
+    custodyEditorDraft = null;
+    renderCustodyEditor();
     draw();
   };
   const kidsToggle = els.kidsToggle;
@@ -2203,6 +2473,7 @@ function renderFoodPage() {
     renderDeviationEditor();
   };
 
+  renderCustodyEditor();
   renderHouseholdChanges();
   renderHouseholdEditor();
   renderDeviations();
@@ -3852,8 +4123,15 @@ function initActions() {
     const year = Number(ui.expensesYear || ui.overviewYear || currentYearMonth().year);
     const month = Number(ui.expensesFoodMonth || currentYearMonth().month);
     const cfg = ui.foodConfigDraft ? (() => {
-      const { _custodyHhSnap: _snap, ...rest } = ui.foodConfigDraft;
-      return { ...rest, household: { ...rest.household }, custodySchedule: normalizeCustodySchedule(rest.custodySchedule) };
+      const { _custodyHhSnapGlobal: _cg, _custodyHhSnap: _cs, ...rest } = ui.foodConfigDraft;
+      const custodyPeriods = (rest.custodyPeriods || []).map(normalizeCustodyPeriodEntry).filter((p) => p.startDate && String(p.startDate).trim());
+      return {
+        ...rest,
+        household: { ...rest.household },
+        custodyPeriods,
+        custodySchedule: normalizeCustodySchedule({ type: "off" }),
+        foodBudgetYear: year
+      };
     })() : getFoodConfigForYear(year);
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
@@ -3874,47 +4152,30 @@ function initActions() {
       document.getElementById("foodNote").textContent = "Avvikande veckor: kontrollera datum (till måste vara efter från).";
       return;
     }
-    if (cfg.mode !== "manual") {
-      const cs = normalizeCustodySchedule(cfg.custodySchedule);
-      if (cs.type === "alternating") {
-        const expandKidsSectionIfCollapsed = () => {
-          const ks = document.getElementById("foodKidsSection");
-          const kt = document.getElementById("foodKidsToggleBtn");
-          if (ks && ks.hidden) {
-            ks.hidden = false;
-            if (kt) kt.textContent = "▴";
-          }
-        };
-        const s = parseDateISO(cs.alternating.startDate);
-        if (!s) {
-          expandKidsSectionIfCollapsed();
-          const errEl = document.getElementById("foodKidsErrStart");
-          const inp = document.getElementById("foodKidsAltStartDate");
-          if (errEl) {
-            errEl.hidden = false;
-            errEl.textContent = "Ange startdatum för första perioden utan barn.";
-          }
-          if (inp) {
-            inp.classList.add("input-invalid");
-            inp.focus();
-          }
-          return;
-        }
-        const baseChildren = Math.max(0, Math.floor(asNumber(cfg.household?.children)));
-        const baseTeens = Math.max(0, Math.floor(asNumber(cfg.household?.teens)));
-        const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
-        const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
-        if (aC > baseChildren || aT > baseTeens) {
-          expandKidsSectionIfCollapsed();
-          const errEl = document.getElementById("foodKidsErrCounts");
-          if (errEl) {
-            errEl.hidden = false;
-            errEl.textContent = `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
-          }
-          const focusEl = document.getElementById("foodKidsAltTeensInput") || document.getElementById("foodKidsAltChildrenInput");
-          if (focusEl) focusEl.focus();
-          return;
-        }
+    const custodyForSave = cfg.custodyPeriods || [];
+    const custodyAccSave = buildCustodyPeriodAcceptance(custodyForSave, year);
+    if (custodyAccSave.shadowedOrigIndices.size > 0) {
+      document.getElementById("foodNote").textContent = "Växelvis boende: justera överlappande perioder innan du sparar.";
+      const ks = document.getElementById("foodKidsSection");
+      const kt = document.getElementById("foodKidsToggleBtn");
+      if (ks && ks.hidden) {
+        ks.hidden = false;
+        if (kt) kt.textContent = "▴";
+      }
+      return;
+    }
+    const baseChildren = Math.max(0, Math.floor(asNumber(cfg.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(cfg.household?.teens)));
+    for (const p of custodyForSave) {
+      const n = normalizeCustodyPeriodEntry(p);
+      if (!n.startDate || !String(n.startDate).trim()) continue;
+      if (!custodyPeriodEndDateValid(n)) {
+        document.getElementById("foodNote").textContent = "Växelvis: slutdatum måste vara minst en dag efter start, eller lämna slut tomt.";
+        return;
+      }
+      if (n.absent.children > baseChildren || n.absent.teens > baseTeens) {
+        document.getElementById("foodNote").textContent = "Växelvis: för många barn/tonåringar markerade som borta.";
+        return;
       }
     }
 
