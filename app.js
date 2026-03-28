@@ -1052,6 +1052,33 @@ function isoFromDate(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+/** Planeringsdag för visning, t.ex. "31 januari 2026" */
+function formatPlanningDateLongSv(d) {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  const day = d.getDate();
+  const mon = (MONTH_NAMES[d.getMonth()] || "").toLowerCase();
+  return `${day} ${mon} ${d.getFullYear()}`;
+}
+
+/** Veckokostnad utan växelvis, tillfälligt hushåll eller avvikelser (manuellt = angivet veckobelopp). */
+function computeFoodWeekPlainBaseline(config, weekStart) {
+  if (config.mode === "manual") {
+    return Math.max(0, Math.round(asNumber(config.manualWeeklyCost)));
+  }
+  const cfg = { ...config, custodyPeriods: [], householdChanges: [], deviations: [] };
+  let sum = 0;
+  for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(cfg, addDays(weekStart, i));
+  return Math.round(sum);
+}
+
+/** Parentes med förändring mot grund, t.ex. "(-20 000kr)" eller "(+5 000kr)". Tom om 0. */
+function formatKrParenDelta(delta) {
+  const n = Math.round(Number(delta) || 0);
+  if (n === 0) return "";
+  if (n > 0) return `(+${n.toLocaleString("sv-SE")}kr)`;
+  return `(${n.toLocaleString("sv-SE")}kr)`;
+}
+
 function foodConfigHasManualWeekAdjustments(config) {
   const hasCustody = Array.isArray(config.custodyPeriods) && config.custodyPeriods.some((p) => p.startDate && String(p.startDate).trim());
   const hasHH = Array.isArray(config.householdChanges) && config.householdChanges.length > 0;
@@ -1920,7 +1947,6 @@ function renderFoodPage() {
     custodyGlobalWarn: document.getElementById("foodCustodyGlobalWarn"),
     custodyList: document.getElementById("foodCustodyPeriodsList"),
     custodyListTitle: document.getElementById("foodCustodyListTitle"),
-    custodyListYear: document.getElementById("foodCustodyListYear"),
     custodyListError: document.getElementById("foodCustodyListError"),
     custodyEditor: document.getElementById("foodCustodyEditor"),
     custodyEditorWeekCost: document.getElementById("foodCustodyEditorWeekCost"),
@@ -1998,7 +2024,6 @@ function renderFoodPage() {
   const renderCustodyPeriodsList = (custodyAccept) => {
     const list = els.custodyList;
     const arr = ui.foodConfigDraft.custodyPeriods || [];
-    if (els.custodyListYear) els.custodyListYear.textContent = foodWindowLabel;
     if (els.custodyListTitle) els.custodyListTitle.hidden = arr.length === 0;
     if (els.custodyListError) {
       els.custodyListError.hidden = true;
@@ -2241,13 +2266,16 @@ function renderFoodPage() {
       const cap = monthLong ? monthLong.charAt(0).toUpperCase() + monthLong.slice(1) : "";
       els.previewWeeksTitle.textContent = cap ? `Veckor i ${cap}` : "Veckor";
     }
-    els.previewWeeks.innerHTML = `
-      ${monthWeeks.map((w) => {
+    els.previewWeeks.innerHTML = monthWeeks
+      .map((w) => {
         const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
-        const labelTxt = w.labels && w.labels.length ? ` (${escapeHtml(w.labels.join(", "))})` : "";
-        return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))} (${escapeHtml(isoFromDate(w.planningDate))})${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
-      }).join("")}
-    `;
+        const baseline = computeFoodWeekPlainBaseline(d, w.weekStart);
+        const delta = Math.round(asNumber(w.amount)) - baseline;
+        const deltaStr = formatKrParenDelta(delta);
+        const left = `v${w.week}  (${formatPlanningDateLongSv(w.planningDate)})`;
+        return `<div class="summary-row food-week-preview-row" data-food-week="${escapeHtml(wkKey)}"><span class="food-week-preview-label">${escapeHtml(left)}</span><span class="food-week-preview-amount">${escapeHtml(formatKr(w.amount))}</span><span class="food-week-preview-delta">${deltaStr ? escapeHtml(deltaStr) : ""}</span></div>`;
+      })
+      .join("");
   };
 
   const setWarn = (msg) => {
@@ -2397,9 +2425,7 @@ function renderFoodPage() {
     const list = els.hhList;
     const arr = ui.foodConfigDraft.householdChanges || [];
     const editor = document.getElementById("foodHouseholdEditor");
-    const listYearEl = document.getElementById("foodHhListYear");
     const listTitleEl = document.getElementById("foodHhListTitle");
-    if (listYearEl) listYearEl.textContent = foodWindowLabel;
     if (listTitleEl) listTitleEl.hidden = arr.length === 0;
     if (!list || !editor) return;
     const sorted = arr
@@ -2557,9 +2583,7 @@ function renderFoodPage() {
     const list = els.devList;
     const arr = ui.foodConfigDraft.deviations || [];
     const listTitleEl = document.getElementById("foodDevListTitle");
-    const listYearEl = document.getElementById("foodDevListYear");
     if (listTitleEl) listTitleEl.hidden = arr.length === 0;
-    if (listYearEl) listYearEl.textContent = foodWindowLabel;
     if (!list) return;
     const sorted = arr
       .map((dv, idx) => ({ dv, idx }))

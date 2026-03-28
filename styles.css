@@ -1147,6 +1147,35 @@ body.modal-open {
   gap: 6px;
 }
 
+/* Mat preview: v10  (31 januari 2026)   10 000kr   (-20 000kr) */
+.food-week-preview-row.summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  column-gap: clamp(14px, 3.5vw, 32px);
+  align-items: baseline;
+  justify-content: stretch;
+  margin-top: 0;
+  color: var(--text);
+}
+
+.food-week-preview-label {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.food-week-preview-amount {
+  font-weight: 750;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.food-week-preview-delta {
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: right;
+  min-width: 7.5em;
+}
+
 .food-week-highlight {
   border-radius: 10px;
   padding: 6px 8px;
@@ -1236,6 +1265,14 @@ body.modal-open {
 
 .food-mat-period-cards .food-advanced {
   margin-top: 0;
+}
+
+/* Rubrik ovanför lista med sparade perioder (mat) */
+.food-period-list-title {
+  margin-top: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
 }
 
 .food-period-list {
