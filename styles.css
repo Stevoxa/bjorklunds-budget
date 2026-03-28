@@ -1143,37 +1143,47 @@ body.modal-open {
 }
 
 .food-preview-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
 }
 
-/* Mat preview: v10  (31 januari 2026)   10 000kr   (-20 000kr) */
+/* En rad: v10  (31 januari 2026)  (-20 000kr) 10 000kr — vid smal vy scroll i listan */
 .food-week-preview-row.summary-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  column-gap: clamp(14px, 3.5vw, 32px);
+  display: flex;
+  flex-wrap: nowrap;
   align-items: baseline;
-  justify-content: stretch;
+  gap: 10px 16px;
+  width: max-content;
+  min-width: 100%;
+  box-sizing: border-box;
   margin-top: 0;
   color: var(--text);
+  font-size: clamp(0.78rem, 2.4vw + 0.55rem, 0.95rem);
+  font-variant-numeric: tabular-nums;
 }
 
 .food-week-preview-label {
+  flex: 0 0 auto;
   color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.food-week-preview-amount {
-  font-weight: 750;
-  color: var(--text);
   white-space: nowrap;
 }
 
 .food-week-preview-delta {
+  flex: 0 0 auto;
   color: var(--muted);
   white-space: nowrap;
-  text-align: right;
-  min-width: 7.5em;
+}
+
+.food-week-preview-amount {
+  flex: 0 0 auto;
+  font-weight: 750;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 .food-week-highlight {
