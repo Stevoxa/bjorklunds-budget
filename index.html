@@ -526,7 +526,11 @@
                         </div>
                       </div>
                       <div class="field-error" id="foodCustodyErrCounts" hidden></div>
-                      <div class="summary-row" style="margin-top: 10px;"><span>Beräknad veckokostnad (exempelvecka):</span><strong id="foodCustodyEditorWeekCost">—</strong></div>
+                      <div class="summary-row food-custody-week-cost-row" style="margin-top: 10px;"><span>Veckokostnad utan barn:</span><strong id="foodCustodyEditorWeekCost">—</strong></div>
+                      <div id="foodCustodyExampleBlock" class="food-custody-example-block" hidden>
+                        <div class="food-custody-example-title">Exempelveckor i perioden</div>
+                        <div id="foodCustodyExampleWeeks" class="food-preview-list food-custody-example-weeks"></div>
+                      </div>
                       <div class="actions-row food-hh-editor-actions">
                         <button class="secondary" type="button" id="foodCustodyEditCancelBtn">Avbryt</button>
                         <button class="primary" type="button" id="foodCustodyEditSaveBtn">Spara period</button>
@@ -535,10 +539,6 @@
                     <div class="table-title small food-period-list-title" id="foodCustodyListTitle" hidden>Perioder</div>
                     <div id="foodCustodyPeriodsList" class="food-preview-list"></div>
                     <div class="field-error" id="foodCustodyListError" hidden></div>
-                    <div id="foodCustodyExampleBlock" hidden>
-                      <div class="note" style="margin-top: 10px;">Exempel veckor (från perioden du redigerar)</div>
-                      <div id="foodCustodyExampleWeeks" class="food-preview-list"></div>
-                    </div>
                   </div>
                   </div>
 
@@ -623,9 +623,6 @@
                     Månad
                     <select id="foodPreviewMonth"></select>
                   </label>
-                </div>
-                <div class="note" id="foodMonthHelp">
-                  Filtrerar listan: veckor vars planeringsdag hamnar i vald månad och år.
                 </div>
                 <div class="food-preview-summary">
                   <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>

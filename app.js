@@ -1323,38 +1323,6 @@ function computeFoodWeekTotalForWeekStart(config, weekStart) {
   return Math.round(sum);
 }
 
-function computeWeekCustodyReductionKr(config, weekStart) {
-  if (!Array.isArray(config.custodyPeriods) || config.custodyPeriods.length === 0) return 0;
-  if (config.mode === "manual") {
-    const manualW = Math.max(0, asNumber(config.manualWeeklyCost));
-    if (!foodConfigHasManualWeekAdjustments(config)) return 0;
-    const cfgA = { ...config, mode: "auto" };
-    const cfgNoCustody = { ...config, mode: "auto", custodyPeriods: [] };
-    const cfgPlain = { ...config, mode: "auto", custodyPeriods: [], householdChanges: [], deviations: [] };
-    let withC = 0;
-    let noC = 0;
-    let plain = 0;
-    for (let i = 0; i < 7; i++) {
-      const day = addDays(weekStart, i);
-      withC += computeFoodDailyCost(cfgA, day);
-      noC += computeFoodDailyCost(cfgNoCustody, day);
-      plain += computeFoodDailyCost(cfgPlain, day);
-    }
-    if (plain <= 0) return 0;
-    return Math.max(0, Math.round((manualW * (noC - withC)) / plain));
-  }
-  const baseCfg = { ...config, custodyPeriods: [] };
-  const baseTotal = computeFoodWeekTotalForWeekStart(baseCfg, weekStart);
-  const withTotal = computeFoodWeekTotalForWeekStart(config, weekStart);
-  return Math.max(0, baseTotal - withTotal);
-}
-
-function formatCustodyReductionKr(reduction) {
-  const n = Math.round(reduction);
-  if (n <= 0) return "0 kr";
-  return `-${n.toLocaleString("sv-SE")} kr`;
-}
-
 function computeFoodWeeklyCost(config) {
   if (config.mode === "manual") return Math.max(0, asNumber(config.manualWeeklyCost));
   const hh = config.household || {};
@@ -1983,6 +1951,40 @@ function renderFoodPage() {
   let editingCustodyIndex = -1;
   let custodyEditorDraft = null;
 
+  const writeCustodyEditorAbsent = (key, rawValue) => {
+    const baseC = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const baseT = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    if (key === "children") {
+      const nv = Math.min(baseC, Math.max(0, Math.floor(asNumber(rawValue))));
+      if (editingCustodyIndex >= 0) {
+        const p = ui.foodConfigDraft.custodyPeriods?.[editingCustodyIndex];
+        if (p) {
+          if (!p.absent) p.absent = { children: 0, teens: 0 };
+          p.absent.children = nv;
+        }
+      } else if (custodyEditorDraft) {
+        if (!custodyEditorDraft.absent) custodyEditorDraft.absent = { children: 0, teens: 0 };
+        custodyEditorDraft.absent.children = nv;
+      }
+      const el = document.getElementById("foodCustodyEditChildrenInput");
+      if (el) el.value = String(nv);
+    } else {
+      const nv = Math.min(baseT, Math.max(0, Math.floor(asNumber(rawValue))));
+      if (editingCustodyIndex >= 0) {
+        const p = ui.foodConfigDraft.custodyPeriods?.[editingCustodyIndex];
+        if (p) {
+          if (!p.absent) p.absent = { children: 0, teens: 0 };
+          p.absent.teens = nv;
+        }
+      } else if (custodyEditorDraft) {
+        if (!custodyEditorDraft.absent) custodyEditorDraft.absent = { children: 0, teens: 0 };
+        custodyEditorDraft.absent.teens = nv;
+      }
+      const el = document.getElementById("foodCustodyEditTeensInput");
+      if (el) el.value = String(nv);
+    }
+  };
+
   const readCustodyEditorFromDom = () => ({
     startDate: document.getElementById("foodCustodyEditStart")?.value || "",
     endDate: document.getElementById("foodCustodyEditEnd")?.value || "",
@@ -2180,17 +2182,32 @@ function renderFoodPage() {
       if (editorOpen && sEx) {
         els.custodyExampleBlock.hidden = false;
         const previewCfg = foodConfigWithSingleCustodyPeriod(d, edLive);
-        const startWeek = getIsoWeekMondayFromDate(sEx);
-        const { awayDays: away, withDays: withD } = parseCustodyRatioKey(edLive.ratioKey);
-        const cycleDays = away + withD;
-        const nWeeks = Math.max(4, Math.ceil((2 * cycleDays) / 7));
-        const previewWeeks = Array.from({ length: nWeeks }).map((_, i) => addDays(startWeek, i * 7));
-        els.custodyExampleWeeks.innerHTML = previewWeeks.map((ws) => {
+        const pNorm = normalizeCustodyPeriodEntry(edLive);
+        const budgetYear = Number(d.foodBudgetYear) || currentYearMonth().year;
+        const effEnd = getCustodyPeriodEffectiveEnd(pNorm, budgetYear);
+        const periodStartMonday = getIsoWeekMondayFromDate(sEx);
+        const rows = [];
+        for (let i = 0; i < 24 && rows.length < 12; i++) {
+          const ws = addDays(periodStartMonday, i * 7);
+          const we = addDays(ws, 6);
+          if (ws.getTime() > effEnd.getTime()) break;
+          if (we.getTime() < sEx.getTime()) continue;
+          const total = computeFoodWeekTotalForWeekStart(previewCfg, ws);
           const { week } = getISOWeekInfo(ws);
-          const reduction = computeWeekCustodyReductionKr(previewCfg, ws);
-          const right = formatCustodyReductionKr(reduction);
-          return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(right)}</strong></div>`;
-        }).join("");
+          const rangeStr = formatIsoWeekRangeLongSv(ws, we);
+          rows.push({ week, total, rangeStr });
+        }
+        els.custodyExampleWeeks.innerHTML = rows
+          .map(
+            (r) => `<div class="food-preview-week-block food-custody-example-week">
+  <div class="food-preview-week-top">
+    <strong class="food-preview-week-num">Vecka ${escapeHtml(String(r.week))}</strong>
+    <strong class="food-preview-week-total">${escapeHtml(formatKr(r.total))}</strong>
+  </div>
+  <div class="food-preview-week-range">${escapeHtml(r.rangeStr)}</div>
+</div>`
+          )
+          .join("");
       } else {
         els.custodyExampleBlock.hidden = true;
         els.custodyExampleWeeks.innerHTML = "";
@@ -2326,12 +2343,9 @@ function renderFoodPage() {
   };
 
   const bumpCustodyEditorAbsent = (key, delta) => {
-    const maxAllowed = key === "children"
-      ? Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)))
-      : Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
     const el = key === "children" ? document.getElementById("foodCustodyEditChildrenInput") : document.getElementById("foodCustodyEditTeensInput");
-    const next = Math.max(0, Math.floor(asNumber(el?.value) + delta));
-    if (el) el.value = String(Math.min(maxAllowed, next));
+    const cur = Math.max(0, Math.floor(asNumber(el?.value)));
+    writeCustodyEditorAbsent(key, cur + delta);
     draw();
   };
   document.getElementById("foodAddCustodyPeriodBtn").onclick = () => {
@@ -2372,8 +2386,14 @@ function renderFoodPage() {
   document.getElementById("foodCustodyEditChildrenPlusBtn").onclick = () => bumpCustodyEditorAbsent("children", +1);
   document.getElementById("foodCustodyEditTeensMinusBtn").onclick = () => bumpCustodyEditorAbsent("teens", -1);
   document.getElementById("foodCustodyEditTeensPlusBtn").onclick = () => bumpCustodyEditorAbsent("teens", +1);
-  document.getElementById("foodCustodyEditChildrenInput").oninput = () => draw();
-  document.getElementById("foodCustodyEditTeensInput").oninput = () => draw();
+  document.getElementById("foodCustodyEditChildrenInput").oninput = () => {
+    writeCustodyEditorAbsent("children", document.getElementById("foodCustodyEditChildrenInput").value);
+    draw();
+  };
+  document.getElementById("foodCustodyEditTeensInput").oninput = () => {
+    writeCustodyEditorAbsent("teens", document.getElementById("foodCustodyEditTeensInput").value);
+    draw();
+  };
   document.getElementById("foodCustodyEditSaveBtn").onclick = () => {
     clearCustodyEditorFieldErrors();
     const cErr = document.getElementById("foodCustodyErrCounts");
