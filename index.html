@@ -613,7 +613,7 @@
               </div>
 
               <div class="food-preview">
-                <div class="table-title small">Matkostnad denna månad</div>
+                <div class="table-title small">Matkostnad översikt</div>
                 <div class="picker-row" style="justify-content: flex-start; margin-top: 8px;">
                   <label>
                     År
@@ -627,10 +627,14 @@
                 <div class="note" id="foodMonthHelp">
                   Filtrerar listan: veckor vars planeringsdag hamnar i vald månad och år.
                 </div>
-                <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
-                <div class="summary-row"><span>Totalt denna månad</span><strong id="foodPreviewMonthSum">0kr</strong></div>
-                <div class="note" id="foodPreviewWeeksTitle" style="margin-top: 6px;"></div>
+                <div class="food-preview-summary">
+                  <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
+                  <div class="summary-row food-preview-summary-row"><span>Differens mellan veckor</span><strong id="foodPreviewWeekSpread">0kr</strong></div>
+                  <div class="summary-row food-preview-summary-row"><span>Snittkostnad per vecka</span><strong id="foodPreviewWeekAvg">0kr</strong></div>
+                </div>
+                <div class="note food-preview-weeks-heading" id="foodPreviewWeeksTitle"></div>
                 <div id="foodPreviewWeeks" class="food-preview-list food-preview-weeks"></div>
+                <div class="food-preview-month-total" id="foodPreviewMonthTotal"></div>
               </div>
               <div class="note" id="foodSaveContext" role="status" aria-live="polite"></div>
               <div class="actions-row food-mat-save-actions">

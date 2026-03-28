@@ -1060,23 +1060,19 @@ function formatPlanningDateLongSv(d) {
   return `${day} ${mon} ${d.getFullYear()}`;
 }
 
-/** Veckokostnad utan växelvis, tillfälligt hushåll eller avvikelser (manuellt = angivet veckobelopp). */
-function computeFoodWeekPlainBaseline(config, weekStart) {
-  if (config.mode === "manual") {
-    return Math.max(0, Math.round(asNumber(config.manualWeeklyCost)));
+/** ISO-veckas måndag–söndag, t.ex. "16 februari - 22 februari 2026" */
+function formatIsoWeekRangeLongSv(weekStart, weekEnd) {
+  if (!weekStart || !weekEnd || Number.isNaN(weekStart.getTime()) || Number.isNaN(weekEnd.getTime())) return "";
+  const y1 = weekStart.getFullYear();
+  const y2 = weekEnd.getFullYear();
+  const d1 = weekStart.getDate();
+  const m1 = (MONTH_NAMES[weekStart.getMonth()] || "").toLowerCase();
+  if (y1 === y2) {
+    const d2 = weekEnd.getDate();
+    const m2 = (MONTH_NAMES[weekEnd.getMonth()] || "").toLowerCase();
+    return `${d1} ${m1} - ${d2} ${m2} ${y2}`;
   }
-  const cfg = { ...config, custodyPeriods: [], householdChanges: [], deviations: [] };
-  let sum = 0;
-  for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(cfg, addDays(weekStart, i));
-  return Math.round(sum);
-}
-
-/** Parentes med förändring mot grund, t.ex. "(-20 000kr)" eller "(+5 000kr)". Tom om 0. */
-function formatKrParenDelta(delta) {
-  const n = Math.round(Number(delta) || 0);
-  if (n === 0) return "";
-  if (n > 0) return `(+${n.toLocaleString("sv-SE")}kr)`;
-  return `(${n.toLocaleString("sv-SE")}kr)`;
+  return `${formatPlanningDateLongSv(weekStart)} - ${formatPlanningDateLongSv(weekEnd)}`;
 }
 
 function foodConfigHasManualWeekAdjustments(config) {
@@ -1937,7 +1933,9 @@ function renderFoodPage() {
     childrenInput: document.getElementById("foodChildrenInput"),
     manualWeeklyInput: document.getElementById("foodManualWeeklyInput"),
     previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
-    previewMonthSum: document.getElementById("foodPreviewMonthSum"),
+    previewWeekSpread: document.getElementById("foodPreviewWeekSpread"),
+    previewWeekAvg: document.getElementById("foodPreviewWeekAvg"),
+    previewMonthTotal: document.getElementById("foodPreviewMonthTotal"),
     previewWeeks: document.getElementById("foodPreviewWeeks"),
     previewWeeksTitle: document.getElementById("foodPreviewWeeksTitle"),
     calcBaseWeek: document.getElementById("foodCalcBaseWeek"),
@@ -2259,7 +2257,16 @@ function renderFoodPage() {
       (w) => w.planningDate.getMonth() + 1 === Number(previewMonth) && w.planningDate.getFullYear() === Number(previewYear)
     );
     const monthSum = monthWeeks.reduce((s, w) => s + asNumber(w.amount), 0);
-    if (els.previewMonthSum) els.previewMonthSum.textContent = formatKr(monthSum);
+    const amounts = monthWeeks.map((w) => Math.round(asNumber(w.amount)));
+    const spread =
+      amounts.length >= 2 ? Math.max(...amounts) - Math.min(...amounts) : 0;
+    const avg =
+      monthWeeks.length > 0 ? Math.round(monthSum / monthWeeks.length) : 0;
+    if (els.previewWeekSpread) els.previewWeekSpread.textContent = formatKr(spread);
+    if (els.previewWeekAvg) els.previewWeekAvg.textContent = formatKr(avg);
+    if (els.previewMonthTotal) {
+      els.previewMonthTotal.textContent = `Totalt denna månad: ${formatKr(monthSum)}`;
+    }
     if (els.previewWeeksTitle) {
       const m = Math.max(1, Math.min(12, Math.floor(Number(previewMonth)) || 1));
       const monthLong = new Date(2000, m - 1, 1).toLocaleDateString("sv-SE", { month: "long" });
@@ -2269,14 +2276,14 @@ function renderFoodPage() {
     els.previewWeeks.innerHTML = monthWeeks
       .map((w) => {
         const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
-        const baseline = computeFoodWeekPlainBaseline(d, w.weekStart);
-        const delta = Math.round(asNumber(w.amount)) - baseline;
-        const deltaStr = formatKrParenDelta(delta);
-        const left = `v${w.week}  (${formatPlanningDateLongSv(w.planningDate)})`;
-        const deltaHtml = deltaStr
-          ? `<span class="food-week-preview-delta">${escapeHtml(deltaStr)}</span>`
-          : `<span class="food-week-preview-delta food-week-preview-delta--empty" aria-hidden="true"></span>`;
-        return `<div class="summary-row food-week-preview-row" data-food-week="${escapeHtml(wkKey)}"><span class="food-week-preview-label">${escapeHtml(left)}</span>${deltaHtml}<span class="food-week-preview-amount">${escapeHtml(formatKr(w.amount))}</span></div>`;
+        const rangeStr = formatIsoWeekRangeLongSv(w.weekStart, w.weekEnd);
+        return `<div class="food-preview-week-block" data-food-week="${escapeHtml(wkKey)}">
+  <div class="food-preview-week-top">
+    <strong class="food-preview-week-num">Vecka ${escapeHtml(String(w.week))}</strong>
+    <strong class="food-preview-week-total">${escapeHtml(formatKr(w.amount))}</strong>
+  </div>
+  <div class="food-preview-week-range">${escapeHtml(rangeStr)}</div>
+</div>`;
       })
       .join("");
   };

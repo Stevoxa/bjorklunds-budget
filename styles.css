@@ -1152,69 +1152,66 @@ body.modal-open {
   padding-bottom: 2px;
 }
 
-/* Mat månadsvy: subgrid = samma kolumnbredd för alla rader (Mars m.m.). Annars fasta em-spår. */
-@supports (grid-template-columns: subgrid) {
-  .food-preview-list.food-preview-weeks {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    column-gap: clamp(12px, 3vw, 20px);
-    row-gap: 6px;
-    align-items: baseline;
-  }
-
-  .food-preview-weeks .food-week-preview-row.summary-row {
-    display: grid;
-    grid-template-columns: subgrid;
-    grid-column: 1 / -1;
-    column-gap: unset;
-    min-width: 0;
-    width: 100%;
-  }
+.food-preview-summary {
+  margin-top: 12px;
 }
 
-/* Tre kolumner: fast bredd mitten/höger när subgrid inte finns */
-.food-week-preview-row.summary-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(10.5em, 13em) minmax(6.5em, 8.5em);
-  column-gap: clamp(12px, 3vw, 20px);
-  align-items: baseline;
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  margin-top: 0;
-  color: var(--text);
-  font-size: clamp(0.78rem, 2.4vw + 0.55rem, 0.95rem);
+.food-preview-summary-row {
   font-variant-numeric: tabular-nums;
 }
 
-.food-week-preview-label {
-  min-width: 0;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.food-preview-weeks-heading {
+  margin-top: 14px;
+  margin-bottom: 2px;
 }
 
-/* Vänsterjusterat: samma start för "(" trots olika längd på belopp */
-.food-week-preview-delta {
-  color: var(--muted);
-  white-space: nowrap;
-  text-align: left;
-  justify-self: start;
-  min-width: 0;
+.food-preview-list.food-preview-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 4px;
 }
 
-.food-week-preview-delta--empty {
-  visibility: hidden;
-  pointer-events: none;
+.food-preview-week-block {
+  padding: 10px 0 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  font-size: clamp(0.82rem, 2.2vw + 0.55rem, 0.95rem);
+  font-variant-numeric: tabular-nums;
 }
 
-.food-week-preview-amount {
+.food-preview-week-block:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.food-preview-week-top {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.food-preview-week-num,
+.food-preview-week-total {
   font-weight: 750;
   color: var(--text);
-  white-space: nowrap;
-  text-align: right;
-  justify-self: stretch;
+}
+
+.food-preview-week-range {
+  margin-top: 5px;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.food-preview-month-total {
+  margin-top: 14px;
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .food-week-highlight {
