@@ -1152,10 +1152,30 @@ body.modal-open {
   padding-bottom: 2px;
 }
 
-/* Tre kolumner: datum fyller 1fr så (-950kr) börjar på samma x över alla rader */
+/* Mat månadsvy: subgrid = samma kolumnbredd för alla rader (Mars m.m.). Annars fasta em-spår. */
+@supports (grid-template-columns: subgrid) {
+  .food-preview-list.food-preview-weeks {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: clamp(12px, 3vw, 20px);
+    row-gap: 6px;
+    align-items: baseline;
+  }
+
+  .food-preview-weeks .food-week-preview-row.summary-row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
+    column-gap: unset;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* Tre kolumner: fast bredd mitten/höger när subgrid inte finns */
 .food-week-preview-row.summary-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) minmax(10.5em, 13em) minmax(6.5em, 8.5em);
   column-gap: clamp(12px, 3vw, 20px);
   align-items: baseline;
   width: 100%;
@@ -1175,11 +1195,13 @@ body.modal-open {
   text-overflow: ellipsis;
 }
 
+/* Vänsterjusterat: samma start för "(" trots olika längd på belopp */
 .food-week-preview-delta {
   color: var(--muted);
   white-space: nowrap;
-  text-align: right;
-  justify-self: end;
+  text-align: left;
+  justify-self: start;
+  min-width: 0;
 }
 
 .food-week-preview-delta--empty {
@@ -1192,7 +1214,7 @@ body.modal-open {
   color: var(--text);
   white-space: nowrap;
   text-align: right;
-  justify-self: end;
+  justify-self: stretch;
 }
 
 .food-week-highlight {
