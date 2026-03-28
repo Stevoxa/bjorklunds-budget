@@ -1860,6 +1860,9 @@ function renderHomePage() {
 }
 
 function renderFoodPage() {
+  const foodNoteClear = document.getElementById("foodNote");
+  if (foodNoteClear) foodNoteClear.textContent = "";
+
   const previewYearSel = document.getElementById("foodPreviewYear");
   const previewMonthSel = document.getElementById("foodPreviewMonth");
   const cur = currentYearMonth();
@@ -1909,6 +1912,7 @@ function renderFoodPage() {
     previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
     previewMonthSum: document.getElementById("foodPreviewMonthSum"),
     previewWeeks: document.getElementById("foodPreviewWeeks"),
+    previewWeeksTitle: document.getElementById("foodPreviewWeeksTitle"),
     calcBaseWeek: document.getElementById("foodCalcBaseWeek"),
     calcAdjustedWeek: document.getElementById("foodCalcAdjustedWeek"),
     calcFinalWeek: document.getElementById("foodCalcFinalWeek"),
@@ -2172,18 +2176,34 @@ function renderFoodPage() {
 
     // Disable save while errors exist (inline validation)
     const saveBtn = document.getElementById("foodSaveBtn");
+    const badRange = (p) => {
+      const s = parseDateISO(p?.startDate);
+      const e = parseDateISO(p?.endDate);
+      return !s || !e || e.getTime() < s.getTime();
+    };
     let canSave = true;
     if (!custodyOk) canSave = false;
     if (auto) {
-      const badRange = (p) => {
-        const s = parseDateISO(p?.startDate);
-        const e = parseDateISO(p?.endDate);
-        return !s || !e || e.getTime() < s.getTime();
-      };
       if ((d.householdChanges || []).some(badRange)) canSave = false;
       if ((d.deviations || []).some(badRange)) canSave = false;
     }
     if (saveBtn) saveBtn.disabled = !canSave;
+
+    let saveBlockMsg = "";
+    if (custodyAccept.shadowedOrigIndices.size > 0) {
+      saveBlockMsg = "Växelvis boende: justera överlappande perioder innan du kan spara.";
+    } else if (!custodyOk) {
+      saveBlockMsg = "Växelvis: kontrollera periodernas datum och antal som är borta.";
+    } else if (auto && (d.householdChanges || []).some(badRange)) {
+      saveBlockMsg = "Ändrat hushåll: varje period behöver giltiga datum (till efter från).";
+    } else if (auto && (d.deviations || []).some(badRange)) {
+      saveBlockMsg = "Avvikande veckor: varje period behöver giltiga datum (till efter från).";
+    }
+    if (els.saveContext) {
+      els.saveContext.textContent = saveBlockMsg;
+      els.saveContext.classList.toggle("field-error", Boolean(saveBlockMsg));
+      els.saveContext.setAttribute("role", saveBlockMsg ? "alert" : "status");
+    }
 
     const normalWeekly = d.mode === "manual" ? Math.max(0, asNumber(d.manualWeeklyCost)) : computeFoodWeeklyCost(d);
     if (els.previewNormalWeek) els.previewNormalWeek.textContent = formatKr(normalWeekly);
@@ -2199,10 +2219,6 @@ function renderFoodPage() {
     if (els.calcAdjustedWeek) els.calcAdjustedWeek.textContent = formatKr(adjustedWeekly);
     if (els.calcFinalWeek) els.calcFinalWeek.textContent = formatKr(adjustedWeekly);
     const appYears = getSelectableAppYears();
-    const totalWeeksAll = appYears.reduce((s, y) => s + getIsoWeeksForYear(y).length, 0);
-    if (els.saveContext) {
-      els.saveContext.textContent = `Spara skapar ${totalWeeksAll} veckor för åren ${appYears[0]}–${appYears[2]} (samma inställning för alla).`;
-    }
     if (!els.previewWeeks) return;
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
     const weeks = [];
@@ -2219,6 +2235,12 @@ function renderFoodPage() {
     );
     const monthSum = monthWeeks.reduce((s, w) => s + asNumber(w.amount), 0);
     if (els.previewMonthSum) els.previewMonthSum.textContent = formatKr(monthSum);
+    if (els.previewWeeksTitle) {
+      const m = Math.max(1, Math.min(12, Math.floor(Number(previewMonth)) || 1));
+      const monthLong = new Date(2000, m - 1, 1).toLocaleDateString("sv-SE", { month: "long" });
+      const cap = monthLong ? monthLong.charAt(0).toUpperCase() + monthLong.slice(1) : "";
+      els.previewWeeksTitle.textContent = cap ? `Veckor i ${cap}` : "Veckor";
+    }
     els.previewWeeks.innerHTML = `
       ${monthWeeks.map((w) => {
         const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
@@ -4344,7 +4366,8 @@ function initActions() {
 
     setSharedFoodModel(cfg, weeks);
     saveState();
-    document.getElementById("foodNote").textContent = `Matkostnader sparade (${weeks.length} veckor för åren ${appYears[0]}–${appYears[2]}).`;
+    const foodNoteOk = document.getElementById("foodNote");
+    if (foodNoteOk) foodNoteOk.textContent = "";
     renderOverviewIfOnOverview();
     renderExpensesList();
     renderFoodPage();

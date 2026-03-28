@@ -247,6 +247,12 @@ button:focus {
   margin-top: 14px;
 }
 
+.food-mat-save-actions {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
 .note {
   margin-top: 10px;
   color: var(--muted);

@@ -613,7 +613,7 @@
               </div>
 
               <div class="food-preview">
-                <div class="table-title small">Preview</div>
+                <div class="table-title small">Matkostnad denna månad</div>
                 <div class="picker-row" style="justify-content: flex-start; margin-top: 8px;">
                   <label>
                     År
@@ -628,14 +628,14 @@
                   Filtrerar listan: veckor vars planeringsdag hamnar i vald månad och år.
                 </div>
                 <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
-                <div class="summary-row"><span>Månadssumma</span><strong id="foodPreviewMonthSum">0kr</strong></div>
-                <div class="note" style="margin-top: 6px;">Veckor i vald månad</div>
+                <div class="summary-row"><span>Totalt denna månad</span><strong id="foodPreviewMonthSum">0kr</strong></div>
+                <div class="note" id="foodPreviewWeeksTitle" style="margin-top: 6px;"></div>
                 <div id="foodPreviewWeeks" class="food-preview-list"></div>
               </div>
-              <div class="note" id="foodSaveContext"></div>
-              <div class="actions-row">
+              <div class="note" id="foodSaveContext" role="status" aria-live="polite"></div>
+              <div class="actions-row food-mat-save-actions">
+                <button class="primary" id="foodSaveBtn" type="button">Spara</button>
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="foodSaveBtn" type="button">Spara matkostnader</button>
               </div>
               <div class="note" id="foodNote"></div>
             </div>
