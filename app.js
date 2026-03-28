@@ -2061,7 +2061,9 @@ function renderFoodPage() {
     const auto = d.mode !== "manual";
     if (els.manualSection) els.manualSection.hidden = auto;
     const autoOnly = document.getElementById("foodAutoOnlySection");
+    const autoCalc = document.getElementById("foodAutoCalcSection");
     if (autoOnly) autoOnly.hidden = !auto;
+    if (autoCalc) autoCalc.hidden = !auto;
     if (els.adultsInput) els.adultsInput.value = d.household.adults;
     if (els.teensInput) els.teensInput.value = d.household.teens;
     if (els.childrenInput) els.childrenInput.value = d.household.children;

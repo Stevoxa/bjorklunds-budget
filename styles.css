@@ -1163,45 +1163,73 @@ body.modal-open {
   gap: 10px;
 }
 
+/* Mat-overlay: luft mellan intro och Hushållet-kortet */
+.food-intro-note {
+  margin-bottom: 26px;
+}
+
 .food-household-card {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px 16px 14px;
   background: color-mix(in srgb, var(--card) 92%, transparent);
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .food-household-title {
-  margin: 0 0 4px;
+  margin: 0 0 10px;
   font-weight: 750;
   letter-spacing: -0.02em;
 }
 
 .food-household-mode-field {
-  margin-top: 14px;
+  margin-top: 0;
   margin-bottom: 0;
 }
 
 .food-household-mode-field .chip-row {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .food-manual-in-card {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
-.food-household-counters {
-  margin-top: 18px;
+.food-auto-only-block {
+  margin-top: 22px;
 }
 
-#foodAutoOnlySection {
-  margin-top: 18px;
+.food-auto-only-block .food-auto-only-field + .food-auto-only-field {
+  margin-top: 24px;
 }
 
-.food-advanced--in-card {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+.food-auto-calc-section {
+  margin-top: 20px;
+}
+
+.food-household-size-box {
+  margin-top: 24px;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  background: color-mix(in srgb, var(--card) 86%, transparent);
+}
+
+.food-household-size-title {
+  margin: 0 0 12px !important;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.food-mat-period-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.food-mat-period-cards .food-advanced {
+  margin-top: 0;
 }
 
 .food-period-list {

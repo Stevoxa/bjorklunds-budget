@@ -378,7 +378,7 @@
           <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
               <div class="table-title">Mat</div>
-              <div class="note" id="foodIntroText">
+              <div class="note food-intro-note" id="foodIntroText">
                 Samma matinställning gäller för de tre år som appen använder (föregående, nuvarande och nästa år). När du sparas skapas en utgift per vecka för alla dessa år.
               </div>
 
@@ -404,7 +404,30 @@
                     <div class="note">Justera med 500 kr per tryck.</div>
                   </div>
 
-                  <div id="foodAutoSection" class="food-household-counters">
+                  <div id="foodAutoOnlySection" class="food-auto-only-block" hidden>
+                    <div class="field food-auto-only-field">
+                      <span>Matnivå</span>
+                      <div class="chip-row">
+                        <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
+                        <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
+                        <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
+                      </div>
+                      <div class="note" id="foodLevelHelp"></div>
+                    </div>
+
+                    <div class="field food-auto-only-field">
+                      <span>Vad ska räknas med?</span>
+                      <div class="chip-row">
+                        <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
+                        <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
+                        <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
+                      </div>
+                      <div class="note" id="foodScopeHelp"></div>
+                    </div>
+                  </div>
+
+                  <div id="foodAutoSection" class="food-household-size-box">
+                    <div class="table-title small food-household-size-title">Hushållets storlek</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
                         <span>Vuxna</span>
@@ -433,34 +456,17 @@
                     </div>
                   </div>
 
-                  <div id="foodAutoOnlySection" hidden>
-                    <div class="field">
-                      <span>Matnivå</span>
-                      <div class="chip-row">
-                        <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
-                        <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
-                        <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
-                      </div>
-                      <div class="note" id="foodLevelHelp"></div>
-                    </div>
-
-                    <div class="field">
-                      <span>Vad ska räknas med?</span>
-                      <div class="chip-row">
-                        <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
-                        <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
-                        <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
-                      </div>
-                      <div class="note" id="foodScopeHelp"></div>
-                    </div>
+                  <div id="foodAutoCalcSection" class="food-auto-calc-section" hidden>
                     <div class="food-calc-box">
                       <div class="summary-row"><span>Bas utifran hushall</span><strong id="foodCalcBaseWeek">0kr</strong></div>
                       <div class="summary-row"><span>Efter installningar</span><strong id="foodCalcAdjustedWeek">0kr</strong></div>
                       <div class="summary-row"><span><strong>Beraknad veckokostnad</strong></span><strong id="foodCalcFinalWeek">0kr</strong></div>
                     </div>
                   </div>
+                </div>
 
-                  <div class="food-advanced food-advanced--in-card">
+                <div class="food-mat-period-cards">
+                  <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
                       <div class="table-title small" style="margin: 0;">Barn med växelvis boende</div>
@@ -536,7 +542,7 @@
                   </div>
                   </div>
 
-                  <div class="food-advanced food-advanced--in-card">
+                  <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
                       <div class="table-title small" style="margin: 0;">När hushållets storlek förändras</div>
@@ -567,7 +573,7 @@
                   </div>
                   </div>
 
-                  <div class="food-advanced food-advanced--in-card">
+                  <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
                       <div class="table-title small" style="margin: 0;">Perioder med annan kostnad</div>
