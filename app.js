@@ -2273,7 +2273,9 @@ function renderFoodPage() {
         const delta = Math.round(asNumber(w.amount)) - baseline;
         const deltaStr = formatKrParenDelta(delta);
         const left = `v${w.week}  (${formatPlanningDateLongSv(w.planningDate)})`;
-        const deltaHtml = deltaStr ? `<span class="food-week-preview-delta">${escapeHtml(deltaStr)}</span>` : "";
+        const deltaHtml = deltaStr
+          ? `<span class="food-week-preview-delta">${escapeHtml(deltaStr)}</span>`
+          : `<span class="food-week-preview-delta food-week-preview-delta--empty" aria-hidden="true"></span>`;
         return `<div class="summary-row food-week-preview-row" data-food-week="${escapeHtml(wkKey)}"><span class="food-week-preview-label">${escapeHtml(left)}</span>${deltaHtml}<span class="food-week-preview-amount">${escapeHtml(formatKr(w.amount))}</span></div>`;
       })
       .join("");
