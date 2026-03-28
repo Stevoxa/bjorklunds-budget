@@ -977,15 +977,6 @@ function custodyPeriodEndDateValid(p) {
   return diffCalendarDays(s, e) >= 1;
 }
 
-function foodConfigWithSingleCustodyPeriod(base, period) {
-  const p = normalizeCustodyPeriodEntry(period);
-  return {
-    ...base,
-    custodyPeriods: p.startDate && String(p.startDate).trim() ? [p] : [],
-    foodBudgetYear: currentYearMonth().year
-  };
-}
-
 function setSharedFoodModel(config, weeks) {
   if (!state.special.foodShared) state.special.foodShared = {};
   state.special.foodShared.config = { ...config };
@@ -1321,6 +1312,45 @@ function computeFoodWeekTotalForWeekStart(config, weekStart) {
     sum += computeFoodDailyCost(config, addDays(weekStart, i));
   }
   return Math.round(sum);
+}
+
+/**
+ * Veckosumma med endast den redigerade växelvis-perioden: grund utan växelvis/hushållsändringar/avvikelser,
+ * sedan enbart denna periods avväxling (autoläge direkt; manuellt = samma skalning som i huvudlogiken).
+ */
+function computeFoodWeekTotalCustodyEditorOnly(baseDraft, periodLive, weekStart) {
+  const p = normalizeCustodyPeriodEntry(periodLive);
+  if (!p.startDate || !String(p.startDate).trim()) return 0;
+  const budgetYear = Number(baseDraft.foodBudgetYear) || currentYearMonth().year;
+  const cfgPlain = {
+    ...baseDraft,
+    custodyPeriods: [],
+    householdChanges: [],
+    deviations: [],
+    foodBudgetYear: budgetYear
+  };
+  const cfgWithPeriod = {
+    ...cfgPlain,
+    custodyPeriods: [p],
+    foodBudgetYear: budgetYear
+  };
+  if (baseDraft.mode !== "manual") {
+    return computeFoodWeekTotalForWeekStart(cfgWithPeriod, weekStart);
+  }
+  const manualW = Math.max(0, asNumber(baseDraft.manualWeeklyCost));
+  const cfgAutoPlain = { ...cfgPlain, mode: "auto" };
+  const cfgAutoWith = { ...cfgWithPeriod, mode: "auto" };
+  let autoPlain = 0;
+  let autoWith = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(weekStart, i);
+    autoPlain += computeFoodDailyCost(cfgAutoPlain, day);
+    autoWith += computeFoodDailyCost(cfgAutoWith, day);
+  }
+  autoPlain = Math.round(autoPlain);
+  autoWith = Math.round(autoWith);
+  if (autoPlain <= 0) return Math.round(manualW);
+  return Math.max(0, Math.round((manualW * autoWith) / autoPlain));
 }
 
 function computeFoodWeeklyCost(config) {
@@ -2167,11 +2197,10 @@ function renderFoodPage() {
     if (els.custodyEditorWeekCost) {
       const sEd = parseDateISO(edLive.startDate);
       if (editorOpen && sEd) {
-        const previewCfg = foodConfigWithSingleCustodyPeriod(d, edLive);
         const ws = getIsoWeekMondayFromDate(sEd);
-        let sum = 0;
-        for (let i = 0; i < 7; i++) sum += computeFoodDailyCost(previewCfg, addDays(ws, i));
-        els.custodyEditorWeekCost.textContent = formatKr(Math.round(sum));
+        els.custodyEditorWeekCost.textContent = formatKr(
+          computeFoodWeekTotalCustodyEditorOnly(d, edLive, ws)
+        );
       } else {
         els.custodyEditorWeekCost.textContent = "—";
       }
@@ -2181,18 +2210,17 @@ function renderFoodPage() {
       const sEx = parseDateISO(edLive.startDate);
       if (editorOpen && sEx) {
         els.custodyExampleBlock.hidden = false;
-        const previewCfg = foodConfigWithSingleCustodyPeriod(d, edLive);
         const pNorm = normalizeCustodyPeriodEntry(edLive);
         const budgetYear = Number(d.foodBudgetYear) || currentYearMonth().year;
         const effEnd = getCustodyPeriodEffectiveEnd(pNorm, budgetYear);
         const periodStartMonday = getIsoWeekMondayFromDate(sEx);
         const rows = [];
-        for (let i = 0; i < 24 && rows.length < 12; i++) {
+        for (let i = 0; i < 24 && rows.length < 4; i++) {
           const ws = addDays(periodStartMonday, i * 7);
           const we = addDays(ws, 6);
           if (ws.getTime() > effEnd.getTime()) break;
           if (we.getTime() < sEx.getTime()) continue;
-          const total = computeFoodWeekTotalForWeekStart(previewCfg, ws);
+          const total = computeFoodWeekTotalCustodyEditorOnly(d, edLive, ws);
           const { week } = getISOWeekInfo(ws);
           const rangeStr = formatIsoWeekRangeLongSv(ws, we);
           rows.push({ week, total, rangeStr });
