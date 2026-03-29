@@ -1682,19 +1682,9 @@ body.modal-open {
   line-height: 1.35;
 }
 
-.tagged-expense-edit-btn {
+.tagged-expense-row-meta .tagged-expense-edit-btn {
   flex-shrink: 0;
-  text-align: right;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  color: color-mix(in srgb, var(--primary) 72%, var(--text));
-  min-height: 44px;
-  padding: 8px 2px 8px 10px;
   align-self: center;
-}
-
-.tagged-expense-edit-btn:hover {
-  color: var(--primary);
 }
 
 .tagged-omkostnader-total {

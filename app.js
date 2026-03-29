@@ -135,11 +135,11 @@ function applyFoodOverlayDateBounds() {
 }
 
 function isGeneratedMatExpenseInSelectableWindow(exp) {
-  if (!exp?.foodGenerated) return false;
+  if (!isMatLikeExpense(exp)) return false;
   const years = getSelectableAppYears();
-  const fy = Number(exp.foodYear);
+  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
   if (Number.isFinite(fy)) return years.includes(fy);
-  const iso = exp?.foodPlanningDate || exp?.payments?.[0]?.date;
+  const iso = exp.metadata?.food?.planningDate || exp.foodPlanningDate || exp?.payments?.[0]?.date;
   if (!iso || typeof iso !== "string" || iso.length < 4) return false;
   const py = Number(iso.slice(0, 4));
   return Number.isFinite(py) && years.includes(py);
@@ -212,7 +212,7 @@ function getSystemTheme() {
 function getDefaultState() {
   const currentYear = new Date().getFullYear();
   return {
-    version: 1,
+    version: 2,
     themeMode: "system", // system | light | dark
     settings: {
       backupIntervalDays: 30,
@@ -253,6 +253,137 @@ function ensureOneOffList(root, year, monthIndex1to12) {
   return root[y][m];
 }
 
+function deepCloneJson(x) {
+  try {
+    return x == null ? x : JSON.parse(JSON.stringify(x));
+  } catch {
+    return {};
+  }
+}
+
+/** Flyttar gamla oneOff-buckets till incomes/expenses som vanliga rader (category one_off). */
+function migrateOneOffBucketsToLineItems(root) {
+  if (!root?.oneOff) return;
+  root.expenses = Array.isArray(root.expenses) ? root.expenses : [];
+  root.incomes = Array.isArray(root.incomes) ? root.incomes : [];
+  const exRoot = root.oneOff.expenses;
+  if (exRoot && typeof exRoot === "object") {
+    for (const yk of Object.keys(exRoot)) {
+      if (!/^\d{4}$/.test(yk)) continue;
+      const yo = exRoot[yk];
+      if (!yo || typeof yo !== "object") continue;
+      for (const mk of Object.keys(yo)) {
+        if (!/^\d{2}$/.test(mk)) continue;
+        const list = yo[mk];
+        if (!Array.isArray(list) || list.length === 0) continue;
+        for (const it of list) {
+          const amt = asNumber(it?.amount);
+          if (amt <= 0) continue;
+          const name = String(it?.name || "").trim() || "Enstaka utgift";
+          root.expenses.push({
+            id: uid(),
+            name,
+            category: "one_off",
+            interval: "once",
+            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }],
+            metadata: {}
+          });
+        }
+        yo[mk] = [];
+      }
+    }
+  }
+  const inRoot = root.oneOff.incomes;
+  if (inRoot && typeof inRoot === "object") {
+    for (const yk of Object.keys(inRoot)) {
+      if (!/^\d{4}$/.test(yk)) continue;
+      const yo = inRoot[yk];
+      if (!yo || typeof yo !== "object") continue;
+      for (const mk of Object.keys(yo)) {
+        if (!/^\d{2}$/.test(mk)) continue;
+        const list = yo[mk];
+        if (!Array.isArray(list) || list.length === 0) continue;
+        for (const it of list) {
+          const amt = asNumber(it?.amount);
+          if (amt <= 0) continue;
+          const name = String(it?.name || "").trim() || "Enstaka intäkt";
+          root.incomes.push({
+            id: uid(),
+            name,
+            category: "one_off",
+            interval: "once",
+            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }]
+          });
+        }
+        yo[mk] = [];
+      }
+    }
+  }
+}
+
+/** En post i expenses med category, valfri subcategory och metadata (schedule, food, …). */
+function canonicalizeExpenseRecord(raw) {
+  const payments = Array.isArray(raw?.payments) ? raw.payments : [];
+  const normalizedPayments = payments.map((p) => ({
+    id: p?.id || uid(),
+    date: p?.date || "",
+    amount: asNumber(p?.amount)
+  }));
+
+  let category = raw?.category || raw?.expenseCategory || "";
+  if (!category) {
+    if (raw?.foodGenerated) category = "food";
+    else if (/^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) category = "food";
+    else category = "other";
+  }
+
+  let subcategory = raw?.subcategory;
+  if (subcategory == null || subcategory === "") {
+    if (category === "car" && raw?.carTypeKey) subcategory = String(raw.carTypeKey);
+    else if (category === "home" && raw?.homeTypeKey) subcategory = String(raw.homeTypeKey);
+    else if (category === "children" && raw?.childrenTypeKey) subcategory = String(raw.childrenTypeKey);
+    else if (category === "savings" && raw?.savingsTypeKey) subcategory = String(raw.savingsTypeKey);
+  }
+  if (category === "savings" && (subcategory == null || subcategory === "")) subcategory = "own";
+
+  const meta =
+    typeof raw?.metadata === "object" && raw.metadata && !Array.isArray(raw.metadata) ? deepCloneJson(raw.metadata) : {};
+
+  const schedIn = meta.schedule && typeof meta.schedule === "object" ? { ...meta.schedule } : {};
+  if (raw?.carPaymentDay != null && schedIn.paymentDay == null) {
+    const cpd = Math.floor(asNumber(raw.carPaymentDay));
+    if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) schedIn.paymentDay = cpd;
+  }
+  if (raw?.carFirstDate && !schedIn.firstDate) schedIn.firstDate = String(raw.carFirstDate).slice(0, 10);
+  if (raw?.carEndDate !== undefined && raw?.carEndDate !== null && schedIn.endDate === undefined) {
+    schedIn.endDate = String(raw.carEndDate || "");
+  }
+  if (Object.keys(schedIn).length > 0) meta.schedule = schedIn;
+
+  const foodIn = meta.food && typeof meta.food === "object" ? { ...meta.food } : {};
+  if (raw?.foodGenerated) foodIn.generated = true;
+  if (raw?.foodYear != null && raw.foodYear !== "") foodIn.year = Number(raw.foodYear);
+  if (raw?.foodWeekKey) foodIn.weekKey = String(raw.foodWeekKey);
+  if (raw?.foodPlanningDate) foodIn.planningDate = String(raw.foodPlanningDate);
+  if (Array.isArray(raw?.foodLabels)) foodIn.labels = raw.foodLabels.map((x) => String(x));
+  if (Object.keys(foodIn).length > 0) meta.food = foodIn;
+
+  if (category === "food" && !meta.food?.generated && /^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) {
+    meta.food = { ...meta.food, generated: true, legacyMatName: true };
+  }
+
+  const out = {
+    id: raw?.id || uid(),
+    name: String(raw?.name || "").trim(),
+    category,
+    interval: raw?.interval || "once",
+    payments: normalizedPayments
+  };
+  if (subcategory != null && subcategory !== "") out.subcategory = String(subcategory);
+  if (Object.keys(meta).length > 0) out.metadata = meta;
+  return out;
+}
+
 /** En gemensam matkonfiguration (foodShared); migreras från första bästa årsnyckel under special.food. */
 function migrateSpecialFoodToSharedModel(root) {
   const special = root?.special;
@@ -290,7 +421,7 @@ function normalizeStateShape(state) {
   if (!state || typeof state !== "object") return base;
 
   const normalized = { ...base, ...state };
-  normalized.version = 1;
+  normalized.version = 2;
 
   normalized.themeMode = ["system", "light", "dark"].includes(normalized.themeMode) ? normalized.themeMode : "system";
 
@@ -351,6 +482,8 @@ function normalizeStateShape(state) {
   }
 
   migrateSpecialFoodToSharedModel(normalized);
+
+  migrateOneOffBucketsToLineItems(normalized);
 
   migrateLegacyIncomes(normalized);
   ensureIncomeIds(normalized);
@@ -414,6 +547,7 @@ function ensureIncomeIds(root) {
       id: incomeId,
       name: String(inc?.name || "").trim(),
       interval: inc?.interval || "once",
+      category: String(inc?.category || "other").trim() || "other",
       payments: normalizedPayments
     };
   });
@@ -421,63 +555,7 @@ function ensureIncomeIds(root) {
 
 function ensureExpenseIds(root) {
   if (!Array.isArray(root.expenses)) root.expenses = [];
-  root.expenses = root.expenses.map((exp) => {
-    const expenseId = exp?.id || uid();
-    const payments = Array.isArray(exp?.payments) ? exp.payments : [];
-    const normalizedPayments = payments.map((p) => ({
-      id: p?.id || uid(),
-      date: p?.date || "",
-      amount: asNumber(p?.amount)
-    }));
-    const out = {
-      id: expenseId,
-      name: String(exp?.name || "").trim(),
-      interval: exp?.interval || "once",
-      payments: normalizedPayments
-    };
-    // Viktigt: systemgenererad mat måste behålla metadata annars kan inte gamla rader tas bort vid nytt spara → dubbletter.
-    if (exp?.foodGenerated) {
-      out.foodGenerated = true;
-      if (exp.foodYear != null && exp.foodYear !== "") out.foodYear = Number(exp.foodYear);
-      if (exp.foodWeekKey) out.foodWeekKey = String(exp.foodWeekKey);
-      if (exp.foodPlanningDate) out.foodPlanningDate = String(exp.foodPlanningDate);
-      if (Array.isArray(exp.foodLabels)) out.foodLabels = exp.foodLabels.map((x) => String(x));
-    }
-    if (exp?.expenseCategory === "car") {
-      out.expenseCategory = "car";
-      if (exp.carTypeKey) out.carTypeKey = String(exp.carTypeKey);
-      const cpd = Math.floor(asNumber(exp.carPaymentDay));
-      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
-      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
-      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
-    }
-    if (exp?.expenseCategory === "home") {
-      out.expenseCategory = "home";
-      if (exp.homeTypeKey) out.homeTypeKey = String(exp.homeTypeKey);
-      const cpd = Math.floor(asNumber(exp.carPaymentDay));
-      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
-      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
-      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
-    }
-    if (exp?.expenseCategory === "children") {
-      out.expenseCategory = "children";
-      if (exp.childrenTypeKey) out.childrenTypeKey = String(exp.childrenTypeKey);
-      const cpd = Math.floor(asNumber(exp.carPaymentDay));
-      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
-      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
-      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
-    }
-    if (exp?.expenseCategory === "savings") {
-      out.expenseCategory = "savings";
-      const sk = String(exp.savingsTypeKey || "own");
-      out.savingsTypeKey = ["own", "system"].includes(sk) ? sk : "own";
-      const cpd = Math.floor(asNumber(exp.carPaymentDay));
-      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
-      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
-      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
-    }
-    return out;
-  });
+  root.expenses = root.expenses.map((exp) => canonicalizeExpenseRecord(exp));
 }
 
 function dedupeGeneratedFoodExpenses(expenses) {
@@ -485,10 +563,12 @@ function dedupeGeneratedFoodExpenses(expenses) {
   const seenWeek = new Set();
   const seenLegacyDate = new Set();
   return expenses.filter((exp) => {
-    if (exp?.foodGenerated && exp.foodWeekKey) {
-      const y = Number(exp.foodYear);
+    const wk = exp?.metadata?.food?.weekKey || exp?.foodWeekKey;
+    const yFood = exp?.metadata?.food?.year ?? exp?.foodYear;
+    if (isMatLikeExpense(exp) && wk) {
+      const y = Number(yFood);
       if (!Number.isFinite(y)) return true;
-      const k = `${y}|${exp.foodWeekKey}`;
+      const k = `${y}|${wk}`;
       if (seenWeek.has(k)) return false;
       seenWeek.add(k);
       return true;
@@ -510,7 +590,9 @@ function dedupeGeneratedFoodExpenses(expenses) {
 function isGeneratedMatExpenseForYear(exp, year) {
   const y = Number(year);
   if (!Number.isFinite(y)) return false;
-  if (exp?.foodGenerated) return Number(exp.foodYear) === y;
+  if (!isMatLikeExpense(exp)) return false;
+  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
+  if (Number.isFinite(fy)) return fy === y;
   const name = String(exp?.name || "").trim();
   if (!/^Mat v\.\d+$/i.test(name)) return false;
   const iso = exp?.payments?.[0]?.date;
@@ -521,11 +603,13 @@ function isGeneratedMatExpenseForYear(exp, year) {
 
 function isMatLikeExpense(exp) {
   if (!exp) return false;
+  if (exp.metadata?.food?.generated) return true;
   if (exp.foodGenerated) return true;
+  if (exp.category === "food" && exp.metadata?.food?.generated) return true;
   return /^Mat v\.\d+$/i.test(String(exp.name || "").trim());
 }
 
-/** Bilutgifter sparas som vanliga state.expenses med expenseCategory "car" + carTypeKey. */
+/** Bilutgifter: category car + subcategory (typnyckel). */
 const CAR_EXPENSE_TYPES = [
   { key: "insurance", label: "Försäkring" },
   { key: "leasing", label: "Leasing avgift" },
@@ -540,19 +624,19 @@ const CAR_EXPENSE_TYPES = [
 ];
 
 function isCarExpense(exp) {
-  return Boolean(exp && exp.expenseCategory === "car");
+  return Boolean(exp && exp.category === "car");
 }
 
 function isHomeExpense(exp) {
-  return Boolean(exp && exp.expenseCategory === "home");
+  return Boolean(exp && exp.category === "home");
 }
 
 function isChildrenExpense(exp) {
-  return Boolean(exp && exp.expenseCategory === "children");
+  return Boolean(exp && exp.category === "children");
 }
 
 function isSavingsExpense(exp) {
-  return Boolean(exp && exp.expenseCategory === "savings");
+  return Boolean(exp && exp.category === "savings");
 }
 
 function isTaggedOverviewExpense(exp) {
@@ -589,8 +673,8 @@ const CHILDREN_EXPENSE_TYPES = [
 const TAGGED_CATEGORY_CONFIG = {
   car: {
     overlayKey: "car",
-    expenseCategory: "car",
-    typeKeyField: "carTypeKey",
+    category: "car",
+    subcategoryField: "subcategory",
     types: CAR_EXPENSE_TYPES,
     ids: {
       editorCard: "carEditorCard",
@@ -624,8 +708,8 @@ const TAGGED_CATEGORY_CONFIG = {
   },
   home: {
     overlayKey: "home",
-    expenseCategory: "home",
-    typeKeyField: "homeTypeKey",
+    category: "home",
+    subcategoryField: "subcategory",
     types: HOME_EXPENSE_TYPES,
     ids: {
       editorCard: "homeEditorCard",
@@ -659,8 +743,8 @@ const TAGGED_CATEGORY_CONFIG = {
   },
   children: {
     overlayKey: "children",
-    expenseCategory: "children",
-    typeKeyField: "childrenTypeKey",
+    category: "children",
+    subcategoryField: "subcategory",
     types: CHILDREN_EXPENSE_TYPES,
     ids: {
       editorCard: "childrenEditorCard",
@@ -694,8 +778,8 @@ const TAGGED_CATEGORY_CONFIG = {
   },
   savings: {
     overlayKey: "savings",
-    expenseCategory: "savings",
-    typeKeyField: "savingsTypeKey",
+    category: "savings",
+    subcategoryField: "subcategory",
     types: [
       { key: "own", label: "Eget sparande" },
       { key: "system", label: "System Sparande" }
@@ -746,7 +830,7 @@ const TAGGED_CATEGORY_CONFIG = {
 const TAGGED_CATEGORY_KEYS = Object.keys(TAGGED_CATEGORY_CONFIG);
 
 function getTaggedExpenseCategory(exp) {
-  const c = exp?.expenseCategory;
+  const c = exp?.category;
   if (c && TAGGED_CATEGORY_CONFIG[c]) return c;
   return null;
 }
@@ -756,7 +840,7 @@ function getTaggedTypeLabel(cat, typeKey) {
   if (!C) return String(typeKey || "");
   const k = String(typeKey || "");
   const row = C.types.find((t) => t.key === k);
-  return row ? row.label : k || C.expenseCategory;
+  return row ? row.label : k || C.category;
 }
 
 function getCarTypeLabel(carTypeKey) {
@@ -800,12 +884,16 @@ function migrateLegacyCarSpecialToExpenses(root) {
         id: uid(),
         name: e.name,
         interval: "monthly",
-        payments,
-        expenseCategory: "car",
-        carTypeKey: e.carTypeKey,
-        carPaymentDay: payDay,
-        carFirstDate: `${year}-01-${pad2(payDay)}`,
-        carEndDate: ""
+        category: "car",
+        subcategory: e.carTypeKey,
+        metadata: {
+          schedule: {
+            paymentDay: payDay,
+            firstDate: `${year}-01-${pad2(payDay)}`,
+            endDate: ""
+          }
+        },
+        payments
       });
     }
     cfg._legacyMigrated = true;
@@ -817,24 +905,27 @@ function migrateLegacyCarSpecialToExpenses(root) {
   }
 }
 
-function pushTaggedMonthlyExpense(root, { expenseCategory, typeKeyField, typeKey, name, year, amt, payDay = 25 }) {
+function pushTaggedMonthlyExpense(root, { category, subcategory, name, year, amt, payDay = 25 }) {
   const payments = Array.from({ length: 12 }, (_, i) => ({
     id: uid(),
     date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
     amount: amt
   }));
-  const row = {
+  root.expenses.push({
     id: uid(),
     name,
     interval: "monthly",
-    payments,
-    expenseCategory,
-    carPaymentDay: payDay,
-    carFirstDate: `${year}-01-${pad2(payDay)}`,
-    carEndDate: ""
-  };
-  row[typeKeyField] = typeKey;
-  root.expenses.push(row);
+    category,
+    subcategory,
+    metadata: {
+      schedule: {
+        paymentDay: payDay,
+        firstDate: `${year}-01-${pad2(payDay)}`,
+        endDate: ""
+      }
+    },
+    payments
+  });
 }
 
 function migrateLegacyHomeSpecialToExpenses(root) {
@@ -864,9 +955,8 @@ function migrateLegacyHomeSpecialToExpenses(root) {
     const payDay = 25;
     for (const [typeKey, name, amt] of entries) {
       pushTaggedMonthlyExpense(root, {
-        expenseCategory: "home",
-        typeKeyField: "homeTypeKey",
-        typeKey,
+        category: "home",
+        subcategory: typeKey,
         name,
         amt,
         year,
@@ -912,9 +1002,8 @@ function migrateLegacyChildrenSpecialToExpenses(root) {
     const payDay = 25;
     for (const [typeKey, name, amt] of entries) {
       pushTaggedMonthlyExpense(root, {
-        expenseCategory: "children",
-        typeKeyField: "childrenTypeKey",
-        typeKey,
+        category: "children",
+        subcategory: typeKey,
         name,
         amt,
         year,
@@ -1228,10 +1317,10 @@ function computeTaggedCategoryMonthly(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   const items = [];
   let total = 0;
-  const keyField = C.typeKeyField;
+  const keyField = C.subcategoryField || "subcategory";
   const omitType = Boolean(C.omitTypeInOverviewLabel);
   for (const exp of state.expenses || []) {
-    if (exp.expenseCategory !== C.expenseCategory) continue;
+    if (exp.category !== C.category) continue;
     const typeKey = exp[keyField];
     const typeLabel = getTaggedTypeLabel(cat, typeKey);
     const name = String(exp.name || "").trim() || typeLabel;
@@ -2023,9 +2112,6 @@ function computeRecurringMonthlyItems(items) {
 }
 
 function computeMonthOverview(year, month) {
-  const y = String(year);
-  const m = monthKey(month);
-
   const car = computeSpecialCarMonthly(year, month);
   const housing = computeSpecialHousingMonthly(year, month);
   const loans = computeSpecialLoansMonthly(year, month);
@@ -2033,19 +2119,29 @@ function computeMonthOverview(year, month) {
   const children = computeSpecialChildrenMonthly(year, month);
   const savings = computeTaggedCategoryMonthly(year, month, "savings");
 
-  const oneOffExpenses = (state.oneOff?.expenses?.[y]?.[m] || []).map((it) => ({
-    id: it.id,
-    label: it.name,
-    amount: asNumber(it.amount)
-  }));
-  const oneOffIncomes = (state.oneOff?.incomes?.[y]?.[m] || []).map((it) => ({
-    id: it.id,
-    label: it.name,
-    amount: asNumber(it.amount)
-  }));
+  const sumPaymentsInMonth = (payments) =>
+    (Array.isArray(payments) ? payments : []).reduce((s, p) => {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) return s;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) return s;
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
+      return s;
+    }, 0);
+
+  const oneOffExpensesAmount = (state.expenses || []).reduce((sum, exp) => {
+    if (exp.category !== "one_off") return sum;
+    return sum + sumPaymentsInMonth(exp.payments);
+  }, 0);
+
+  const oneOffIncomesAmount = (state.incomes || []).reduce((sum, inc) => {
+    if (inc.category !== "one_off") return sum;
+    return sum + sumPaymentsInMonth(inc.payments);
+  }, 0);
 
   const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
     if (isTaggedOverviewExpense(exp)) return sum;
+    if (exp.category === "one_off") return sum;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     return (
       sum +
@@ -2079,26 +2175,13 @@ function computeMonthOverview(year, month) {
   }, 0);
 
   const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
-    const payments = Array.isArray(inc.payments) ? inc.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        const py = dt.getFullYear();
-        const pm = dt.getMonth() + 1;
-        if (py === year && pm === month) return s + amt;
-        return s;
-      }, 0)
-    );
+    if (inc.category === "one_off") return sum;
+    return sum + sumPaymentsInMonth(inc.payments);
   }, 0);
 
   const specialsAmount = car.total + housing.total + loans.total + children.total + savings.total;
-  const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
-  const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
+  const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
   const plannedExpensesAmount = expensePaymentsAmount + specialsAmount + oneOffExpensesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
@@ -2118,6 +2201,7 @@ function computeMonthOverview(year, month) {
   const expensesRows = [];
   for (const exp of state.expenses || []) {
     if (isTaggedOverviewExpense(exp)) continue;
+    if (exp.category === "one_off") continue;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     for (const p of payments) {
       const amt = asNumber(p.amount);
@@ -2125,8 +2209,24 @@ function computeMonthOverview(year, month) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      const group = exp?.foodGenerated ? "Mat" : "Utgifter";
+      const group = isMatLikeExpense(exp) ? "Mat" : "Utgifter";
       expensesRows.push({ group, label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
+    }
+  }
+  for (const exp of state.expenses || []) {
+    if (exp.category !== "one_off") continue;
+    const payments = Array.isArray(exp.payments) ? exp.payments : [];
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
+      expensesRows.push({
+        group: "Enstaka utgifter",
+        label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`,
+        amount: amt
+      });
     }
   }
   for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
@@ -2134,10 +2234,10 @@ function computeMonthOverview(year, month) {
   for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
   for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
   for (const it of savings.items) expensesRows.push({ group: "Spar", label: it.label, amount: it.amount });
-  for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
 
   const incomesRows = [];
   for (const inc of state.incomes || []) {
+    if (inc.category === "one_off") continue;
     const payments = Array.isArray(inc.payments) ? inc.payments : [];
     for (const p of payments) {
       const amt = asNumber(p.amount);
@@ -2154,7 +2254,22 @@ function computeMonthOverview(year, month) {
       });
     }
   }
-  for (const it of oneOffIncomes) incomesRows.push({ group: "Enstaka intäkter", label: it.label, amount: it.amount });
+  for (const inc of state.incomes || []) {
+    if (inc.category !== "one_off") continue;
+    const payments = Array.isArray(inc.payments) ? inc.payments : [];
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
+      incomesRows.push({
+        group: "Enstaka intäkter",
+        label: `${inc.name || "Intäkt"} (${dt.toLocaleDateString("sv-SE")})`,
+        amount: amt
+      });
+    }
+  }
 
   return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
 }
@@ -2401,7 +2516,7 @@ function updateTaggedEditorIntervalVisibility(cat) {
   }
 }
 
-/** Gemensamma fält carPaymentDay / carFirstDate / carEndDate för alla taggade kategorier. */
+/** Läser schema från metadata.schedule (fallback: äldre platta fält under migrering). */
 function inferScheduleMetaFromExpense(exp) {
   const pts = (exp.payments || [])
     .filter((p) => asNumber(p.amount) > 0 && p.date)
@@ -2409,7 +2524,9 @@ function inferScheduleMetaFromExpense(exp) {
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
   const first = pts[0];
   const second = pts[1];
-  let payDay = exp.carPaymentDay;
+  const sched = exp.metadata?.schedule || {};
+  let payDay = sched.paymentDay;
+  if (payDay == null || payDay === "") payDay = exp.carPaymentDay;
   if (payDay == null || payDay === "") {
     const p2 = second?.date ? datePartsFromIso(second.date) : null;
     if (p2) payDay = p2.d;
@@ -2419,9 +2536,11 @@ function inferScheduleMetaFromExpense(exp) {
     payDay = p1?.d ?? 25;
   }
   payDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDay)) || 25));
-  const firstDate = exp.carFirstDate || first?.date || "";
+  let firstDate = sched.firstDate || exp.carFirstDate || first?.date || "";
   const amount = first ? asNumber(first.amount) : 0;
-  const endDate = exp.carEndDate != null && exp.carEndDate !== undefined ? String(exp.carEndDate) : "";
+  let endDate = "";
+  if (sched.endDate !== undefined && sched.endDate !== null) endDate = String(sched.endDate);
+  else if (exp.carEndDate != null && exp.carEndDate !== undefined) endDate = String(exp.carEndDate);
   return { firstDate, payDay, amount, endDate };
 }
 
@@ -2433,10 +2552,10 @@ function formatTaggedExpenseDateDisplaySv(isoDate) {
 
 function getTaggedExpenseRowsForMonth(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
-  const keyField = C.typeKeyField;
+  const keyField = C.subcategoryField || "subcategory";
   const rows = [];
   for (const exp of state.expenses || []) {
-    if (exp.expenseCategory !== C.expenseCategory) continue;
+    if (exp.category !== C.category) continue;
     const key = exp[keyField] || "other";
     const typeLabel = getTaggedTypeLabel(cat, key);
     const nameRaw = String(exp.name || "").trim();
@@ -2506,7 +2625,7 @@ function renderTaggedExpenseListMount(cat) {
         </div>
         <div class="tagged-expense-row-meta">
           <span class="tagged-expense-date">${escapeHtml(r.dateStr)}</span>
-          <button type="button" class="linklike tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}">Redigera</button>
+          <button type="button" class="secondary btn-icon tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera">✎</button>
         </div>
       `;
       mount.appendChild(row);
@@ -2588,7 +2707,7 @@ function renderTaggedCategoryPage(cat) {
   }
 
   const editingId = u.editingId;
-  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.expenseCategory === C.expenseCategory) : null;
+  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.category === C.category) : null;
 
   if (editorCard) editorCard.hidden = !u.editorOpen;
 
@@ -2597,7 +2716,7 @@ function renderTaggedCategoryPage(cat) {
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
 
-    const kf = C.typeKeyField;
+    const kf = C.subcategoryField || "subcategory";
     const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key || "own";
     if (editing) {
       const curKey = editing[kf];
@@ -2663,6 +2782,7 @@ function saveTaggedCategoryFromEditor(cat) {
   const amtInp = document.getElementById(ids.editAmount);
   if (!nameInp || !intervalSel || !firstInp || !amtInp) return;
 
+  const kf = C.subcategoryField || "subcategory";
   const name = (nameInp.value || "").trim();
   const L = C.labels || {};
   if (!name) {
@@ -2673,7 +2793,7 @@ function saveTaggedCategoryFromEditor(cat) {
   let typeKey = typeSel?.value || defaultTypeKey;
   if (u.editingId && C.hideTypeInEditor) {
     const prev = (state.expenses || []).find((x) => x.id === u.editingId);
-    const pk = prev && prev[C.typeKeyField];
+    const pk = prev && prev[kf];
     if (pk && C.types.some((t) => t.key === pk)) typeKey = pk;
     else typeKey = defaultTypeKey;
   }
@@ -2719,23 +2839,30 @@ function saveTaggedCategoryFromEditor(cat) {
         "Inga betalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum.";
     return;
   }
-  const kf = C.typeKeyField;
+  const prevRow = u.editingId ? (state.expenses || []).find((x) => x.id === u.editingId) : null;
+  const prevMeta =
+    prevRow && typeof prevRow.metadata === "object" && prevRow.metadata && !Array.isArray(prevRow.metadata)
+      ? deepCloneJson(prevRow.metadata)
+      : {};
+  prevMeta.schedule = {
+    paymentDay: interval === "once" ? firstParts.d : paymentDay,
+    firstDate: firstDateISO,
+    endDate: endDateISO
+  };
   const base = {
     name,
     interval,
     payments,
-    expenseCategory: C.expenseCategory,
-    carPaymentDay: interval === "once" ? firstParts.d : paymentDay,
-    carFirstDate: firstDateISO,
-    carEndDate: endDateISO
+    category: C.category,
+    metadata: prevMeta
   };
   base[kf] = typeKey;
 
   if (u.editingId) {
     const idx = (state.expenses || []).findIndex((x) => x.id === u.editingId);
-    if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], ...base, id: state.expenses[idx].id };
+    if (idx >= 0) state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], ...base, id: state.expenses[idx].id });
   } else {
-    state.expenses.push({ id: uid(), ...base });
+    state.expenses.push(canonicalizeExpenseRecord({ id: uid(), ...base }));
   }
   saveState();
   if (note) note.textContent = "";
@@ -4308,7 +4435,7 @@ function saveIncomeFromOverlay() {
       state.incomes[idx] = { ...state.incomes[idx], name, interval, payments: storedPayments };
     }
   } else {
-    state.incomes.push({ id: uid(), name, interval, payments: storedPayments });
+    state.incomes.push({ id: uid(), name, interval, category: "other", payments: storedPayments });
   }
 
   saveState();
@@ -4462,8 +4589,8 @@ function buildExpensePaymentRowsForList(yearFilter) {
         date: dt,
         amount: amt,
         isFoodPayment: isMatLikeExpense(exp),
-        foodYear: exp?.foodYear,
-        foodWeekKey: exp?.foodWeekKey
+        foodYear: exp?.metadata?.food?.year ?? exp?.foodYear,
+        foodWeekKey: exp?.metadata?.food?.weekKey ?? exp?.foodWeekKey
       });
     }
   }
@@ -4704,8 +4831,13 @@ function openExpenseOverlay(expenseId, opts = {}) {
     const p0 = exp?.payments?.[0];
     openFoodOverlayForExpenseRow({
       date: p0?.date ? new Date(p0.date) : null,
-      foodYear: exp.foodYear != null && exp.foodYear !== "" ? Number(exp.foodYear) : undefined,
-      foodWeekKey: exp.foodWeekKey
+      foodYear:
+        exp.metadata?.food?.year != null && exp.metadata?.food?.year !== ""
+          ? Number(exp.metadata.food.year)
+          : exp.foodYear != null && exp.foodYear !== ""
+            ? Number(exp.foodYear)
+            : undefined,
+      foodWeekKey: exp.metadata?.food?.weekKey || exp.foodWeekKey
     });
     return;
   }
@@ -4918,9 +5050,10 @@ function saveExpenseFromOverlay() {
   });
   if (ui.editExpenseId) {
     const idx = (state.expenses || []).findIndex((x) => x.id === ui.editExpenseId);
-    if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], name, interval, payments: stored };
+    if (idx >= 0)
+      state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], name, interval, payments: stored, id: state.expenses[idx].id });
   } else {
-    state.expenses.push({ id: uid(), name, interval, payments: stored });
+    state.expenses.push(canonicalizeExpenseRecord({ id: uid(), name, interval, payments: stored, category: "other" }));
   }
   saveState();
   closeExpenseOverlay();
@@ -5353,17 +5486,24 @@ function initActions() {
 
     for (const wk of weeks) {
       const id = uid();
-      state.expenses.push({
-        id,
-        name: `Mat v.${wk.weekNumber}`,
-        interval: "once",
-        foodGenerated: true,
-        foodYear: Number(wk.expenseFoodYear),
-        foodWeekKey: `${wk.isoYear}-W${pad2(wk.weekNumber)}`,
-        foodPlanningDate: wk.planningDate,
-        foodLabels: wk.labels,
-        payments: [{ id: uid(), date: wk.planningDate, amount: wk.amount }]
-      });
+      state.expenses.push(
+        canonicalizeExpenseRecord({
+          id,
+          name: `Mat v.${wk.weekNumber}`,
+          category: "food",
+          interval: "once",
+          metadata: {
+            food: {
+              generated: true,
+              year: Number(wk.expenseFoodYear),
+              weekKey: `${wk.isoYear}-W${pad2(wk.weekNumber)}`,
+              planningDate: wk.planningDate,
+              labels: wk.labels
+            }
+          },
+          payments: [{ id: uid(), date: wk.planningDate, amount: wk.amount }]
+        })
+      );
     }
 
     setSharedFoodModel(cfg, weeks);
