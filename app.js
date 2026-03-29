@@ -357,6 +357,8 @@ function normalizeStateShape(state) {
   cleanupIncomeGarbage(normalized);
   migrateLegacyExpenses(normalized);
   migrateLegacyCarSpecialToExpenses(normalized);
+  migrateLegacyHomeSpecialToExpenses(normalized);
+  migrateLegacyChildrenSpecialToExpenses(normalized);
   ensureExpenseIds(normalized);
   normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
@@ -449,6 +451,22 @@ function ensureExpenseIds(root) {
       if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
       if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
     }
+    if (exp?.expenseCategory === "home") {
+      out.expenseCategory = "home";
+      if (exp.homeTypeKey) out.homeTypeKey = String(exp.homeTypeKey);
+      const cpd = Math.floor(asNumber(exp.carPaymentDay));
+      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
+      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
+      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
+    }
+    if (exp?.expenseCategory === "children") {
+      out.expenseCategory = "children";
+      if (exp.childrenTypeKey) out.childrenTypeKey = String(exp.childrenTypeKey);
+      const cpd = Math.floor(asNumber(exp.carPaymentDay));
+      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
+      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
+      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
+    }
     return out;
   });
 }
@@ -516,10 +534,171 @@ function isCarExpense(exp) {
   return Boolean(exp && exp.expenseCategory === "car");
 }
 
+function isHomeExpense(exp) {
+  return Boolean(exp && exp.expenseCategory === "home");
+}
+
+function isChildrenExpense(exp) {
+  return Boolean(exp && exp.expenseCategory === "children");
+}
+
+function isTaggedOverviewExpense(exp) {
+  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp);
+}
+
+const HOME_EXPENSE_TYPES = [
+  { key: "rent", label: "Hyra" },
+  { key: "electricity", label: "El" },
+  { key: "water", label: "Vatten" },
+  { key: "garbage", label: "Sophämtning" },
+  { key: "internet", label: "Internet" },
+  { key: "parking_slot", label: "Parkeringsplats" },
+  { key: "streaming", label: "Streaming tjänst" },
+  { key: "digital_service", label: "Digitala tjänst" },
+  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "association_fee", label: "Föreningsavgift" },
+  { key: "bus_card", label: "Busskort" },
+  { key: "other", label: "Annan" }
+];
+
+const CHILDREN_EXPENSE_TYPES = [
+  { key: "clothes", label: "Kläder" },
+  { key: "bus_card", label: "Busskort" },
+  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "activity", label: "Aktivitet" },
+  { key: "pocket_money", label: "Månadspeng" },
+  { key: "birthday_gifts", label: "Födelsedagspresenter" },
+  { key: "christmas_gifts", label: "Julklappar" },
+  { key: "other", label: "Annan" }
+];
+
+/** Gemensam konfiguration för Bil / Hem / Barn (samma UI-flöde som Bil). */
+const TAGGED_CATEGORY_CONFIG = {
+  car: {
+    overlayKey: "car",
+    expenseCategory: "car",
+    typeKeyField: "carTypeKey",
+    types: CAR_EXPENSE_TYPES,
+    ids: {
+      editorCard: "carEditorCard",
+      editorTitle: "carEditorTitle",
+      editType: "carEditType",
+      editName: "carEditName",
+      paymentDayRow: "carPaymentDayRow",
+      editPaymentDay: "carEditPaymentDay",
+      editInterval: "carEditInterval",
+      firstDateLabel: "carFirstDateLabel",
+      editFirstDate: "carEditFirstDate",
+      endDateRow: "carEndDateRow",
+      editEndDate: "carEditEndDate",
+      editAmount: "carEditAmount",
+      deleteBtn: "carDeleteBtn",
+      saveBtn: "carSaveBtn",
+      cancelBtn: "carCancelEditorBtn",
+      note: "carNote",
+      listYear: "carListYear",
+      listMonth: "carListMonth",
+      listMount: "carListMount",
+      listMonthTitle: "carListMonthTitle",
+      monthTotal: "carMonthTotal",
+      addBtn: "carAddBtn"
+    },
+    labels: {
+      newItem: "Ny bilutgift",
+      editItem: "Redigera bilutgift",
+      emptyMonth: "Inga bilutgifter denna månad."
+    }
+  },
+  home: {
+    overlayKey: "home",
+    expenseCategory: "home",
+    typeKeyField: "homeTypeKey",
+    types: HOME_EXPENSE_TYPES,
+    ids: {
+      editorCard: "homeEditorCard",
+      editorTitle: "homeEditorTitle",
+      editType: "homeEditType",
+      editName: "homeEditName",
+      paymentDayRow: "homePaymentDayRow",
+      editPaymentDay: "homeEditPaymentDay",
+      editInterval: "homeEditInterval",
+      firstDateLabel: "homeFirstDateLabel",
+      editFirstDate: "homeEditFirstDate",
+      endDateRow: "homeEndDateRow",
+      editEndDate: "homeEditEndDate",
+      editAmount: "homeEditAmount",
+      deleteBtn: "homeDeleteBtn",
+      saveBtn: "homeSaveBtn",
+      cancelBtn: "homeCancelEditorBtn",
+      note: "homeNote",
+      listYear: "homeListYear",
+      listMonth: "homeListMonth",
+      listMount: "homeListMount",
+      listMonthTitle: "homeListMonthTitle",
+      monthTotal: "homeMonthTotal",
+      addBtn: "homeAddBtn"
+    },
+    labels: {
+      newItem: "Ny hemutgift",
+      editItem: "Redigera hemutgift",
+      emptyMonth: "Inga hemomkostnader denna månad."
+    }
+  },
+  children: {
+    overlayKey: "children",
+    expenseCategory: "children",
+    typeKeyField: "childrenTypeKey",
+    types: CHILDREN_EXPENSE_TYPES,
+    ids: {
+      editorCard: "childrenEditorCard",
+      editorTitle: "childrenEditorTitle",
+      editType: "childrenEditType",
+      editName: "childrenEditName",
+      paymentDayRow: "childrenPaymentDayRow",
+      editPaymentDay: "childrenEditPaymentDay",
+      editInterval: "childrenEditInterval",
+      firstDateLabel: "childrenFirstDateLabel",
+      editFirstDate: "childrenEditFirstDate",
+      endDateRow: "childrenEndDateRow",
+      editEndDate: "childrenEditEndDate",
+      editAmount: "childrenEditAmount",
+      deleteBtn: "childrenDeleteBtn",
+      saveBtn: "childrenSaveBtn",
+      cancelBtn: "childrenCancelEditorBtn",
+      note: "childrenNote",
+      listYear: "childrenListYear",
+      listMonth: "childrenListMonth",
+      listMount: "childrenListMount",
+      listMonthTitle: "childrenListMonthTitle",
+      monthTotal: "childrenMonthTotal",
+      addBtn: "childrenAddBtn"
+    },
+    labels: {
+      newItem: "Ny barnutgift",
+      editItem: "Redigera barnutgift",
+      emptyMonth: "Inga barnutgifter denna månad."
+    }
+  }
+};
+
+const TAGGED_CATEGORY_KEYS = Object.keys(TAGGED_CATEGORY_CONFIG);
+
+function getTaggedExpenseCategory(exp) {
+  const c = exp?.expenseCategory;
+  if (c && TAGGED_CATEGORY_CONFIG[c]) return c;
+  return null;
+}
+
+function getTaggedTypeLabel(cat, typeKey) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return String(typeKey || "");
+  const k = String(typeKey || "");
+  const row = C.types.find((t) => t.key === k);
+  return row ? row.label : k || C.expenseCategory;
+}
+
 function getCarTypeLabel(carTypeKey) {
-  const k = String(carTypeKey || "");
-  const row = CAR_EXPENSE_TYPES.find((t) => t.key === k);
-  return row ? row.label : k || "Bil";
+  return getTaggedTypeLabel("car", carTypeKey);
 }
 
 function migrateLegacyCarSpecialToExpenses(root) {
@@ -573,6 +752,121 @@ function migrateLegacyCarSpecialToExpenses(root) {
     delete cfg.fuel;
     delete cfg.parking;
     delete cfg.leasing;
+  }
+}
+
+function pushTaggedMonthlyExpense(root, { expenseCategory, typeKeyField, typeKey, name, year, amt, payDay = 25 }) {
+  const payments = Array.from({ length: 12 }, (_, i) => ({
+    id: uid(),
+    date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
+    amount: amt
+  }));
+  const row = {
+    id: uid(),
+    name,
+    interval: "monthly",
+    payments,
+    expenseCategory,
+    carPaymentDay: payDay,
+    carFirstDate: `${year}-01-${pad2(payDay)}`,
+    carEndDate: ""
+  };
+  row[typeKeyField] = typeKey;
+  root.expenses.push(row);
+}
+
+function migrateLegacyHomeSpecialToExpenses(root) {
+  const home = root?.special?.home;
+  if (!home || typeof home !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(home)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = home[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const entries = [
+      ["rent", "Hyra", asNumber(cfg.rent)],
+      ["electricity", "El", asNumber(cfg.electricity)],
+      ["water", "Vatten", asNumber(cfg.water)],
+      ["garbage", "Sophämtning", asNumber(cfg.garbage)],
+      ["internet", "Internet", asNumber(cfg.internet)],
+      ["parking_slot", "Parkering", asNumber(cfg.parking)]
+    ].filter((x) => x[2] > 0);
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const [typeKey, name, amt] of entries) {
+      pushTaggedMonthlyExpense(root, {
+        expenseCategory: "home",
+        typeKeyField: "homeTypeKey",
+        typeKey,
+        name,
+        amt,
+        year,
+        payDay
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.rent;
+    delete cfg.electricity;
+    delete cfg.water;
+    delete cfg.garbage;
+    delete cfg.internet;
+    delete cfg.parking;
+  }
+}
+
+function migrateLegacyChildrenSpecialToExpenses(root) {
+  const ch = root?.special?.children;
+  if (!ch || typeof ch !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(ch)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = ch[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const parties = Math.max(0, asNumber(cfg.kidsPartiesPerYear)) * asNumber(cfg.kidsPartyUnitCost);
+    const partiesMonthly = parties / 12;
+    const entries = [
+      ["clothes", "Kläder", asNumber(cfg.kidsClothesPerMonth)],
+      ["bus_card", "Busskort", asNumber(cfg.kidsBusCardPerMonth)],
+      ["mobile_plan", "Mobil abonnemang", asNumber(cfg.kidsPhonePerMonth)],
+      ["activity", "Aktivitet", asNumber(cfg.kidsActivitiesPerMonth)],
+      ["pocket_money", "Månadspeng", asNumber(cfg.kidsPocketMoneyPerMonth)]
+    ].filter((x) => x[2] > 0);
+    if (partiesMonthly > 0) entries.push(["other", "Kalas / partyn (migrerat)", partiesMonthly]);
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const [typeKey, name, amt] of entries) {
+      pushTaggedMonthlyExpense(root, {
+        expenseCategory: "children",
+        typeKeyField: "childrenTypeKey",
+        typeKey,
+        name,
+        amt,
+        year,
+        payDay
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.kidsClothesPerMonth;
+    delete cfg.kidsBusCardPerMonth;
+    delete cfg.kidsPhonePerMonth;
+    delete cfg.kidsActivitiesPerMonth;
+    delete cfg.kidsPocketMoneyPerMonth;
+    delete cfg.kidsPartiesPerYear;
+    delete cfg.kidsPartyUnitCost;
   }
 }
 
@@ -739,10 +1033,11 @@ const ui = {
   editLoanId: null,
   loanCopySourceName: null,
   foodScrollWeekKey: null,
-  carListYear: null,
-  carListMonth: null,
-  carEditorOpen: false,
-  carEditingExpenseId: null
+  tagged: {
+    car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    children: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
+  }
 };
 
 function loadState() {
@@ -866,12 +1161,15 @@ function weeksToMonthlyCount(perWeek) {
   return Math.max(0, Math.round(x * WEEKS_PER_MONTH));
 }
 
-function computeSpecialCarMonthly(year, month) {
+function computeTaggedCategoryMonthly(year, month, cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
   const items = [];
   let total = 0;
+  const keyField = C.typeKeyField;
   for (const exp of state.expenses || []) {
-    if (!isCarExpense(exp)) continue;
-    const typeLabel = getCarTypeLabel(exp.carTypeKey);
+    if (exp.expenseCategory !== C.expenseCategory) continue;
+    const typeKey = exp[keyField];
+    const typeLabel = getTaggedTypeLabel(cat, typeKey);
     const name = String(exp.name || "").trim() || typeLabel;
     for (const p of exp.payments || []) {
       const pAmt = asNumber(p.amount);
@@ -884,7 +1182,6 @@ function computeSpecialCarMonthly(year, month) {
       items.push({
         label: `${typeLabel} · ${name} (${dateStr})`,
         amount: pAmt,
-        carTypeKey: exp.carTypeKey,
         expenseId: exp.id
       });
     }
@@ -892,18 +1189,12 @@ function computeSpecialCarMonthly(year, month) {
   return { total, items };
 }
 
-function computeSpecialHousingMonthly(year) {
-  const config = state.special.home[String(year)] || {};
-  const items = [
-    { label: "Hyra", amount: asNumber(config.rent) },
-    { label: "El", amount: asNumber(config.electricity) },
-    { label: "Vatten", amount: asNumber(config.water) },
-    { label: "Sophämtning", amount: asNumber(config.garbage) },
-    { label: "Internet", amount: asNumber(config.internet) },
-    { label: "Parkering", amount: asNumber(config.parking) }
-  ];
-  const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items };
+function computeSpecialCarMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "car");
+}
+
+function computeSpecialHousingMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "home");
 }
 
 function computeSpecialFoodMonthly() {
@@ -1532,23 +1823,8 @@ function computeFoodWeeklyCost(config) {
   return Math.round(base * levelF * scopeF);
 }
 
-function computeSpecialChildrenMonthly(year) {
-  const config = state.special.children[String(year)] || {};
-
-  const parties = Math.max(0, asNumber(config.kidsPartiesPerYear)) * asNumber(config.kidsPartyUnitCost);
-  const partiesMonthly = parties / 12;
-
-  const items = [
-    { label: "Kläder", amount: asNumber(config.kidsClothesPerMonth) },
-    { label: "Busskort", amount: asNumber(config.kidsBusCardPerMonth) },
-    { label: "Telefonabonnemang", amount: asNumber(config.kidsPhonePerMonth) },
-    { label: "Aktiviteter", amount: asNumber(config.kidsActivitiesPerMonth) },
-    { label: "Månadspeng", amount: asNumber(config.kidsPocketMoneyPerMonth) },
-    { label: "Andra barns kalas", amount: partiesMonthly }
-  ];
-
-  const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items };
+function computeSpecialChildrenMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "children");
 }
 
 function normalizeLoanItem(rawLoan) {
@@ -1686,10 +1962,10 @@ function computeMonthOverview(year, month) {
   const m = monthKey(month);
 
   const car = computeSpecialCarMonthly(year, month);
-  const housing = computeSpecialHousingMonthly(year);
+  const housing = computeSpecialHousingMonthly(year, month);
   const loans = computeSpecialLoansMonthly(year, month);
   // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
-  const children = computeSpecialChildrenMonthly(year);
+  const children = computeSpecialChildrenMonthly(year, month);
 
   const oneOffExpenses = (state.oneOff?.expenses?.[y]?.[m] || []).map((it) => ({
     id: it.id,
@@ -1703,7 +1979,7 @@ function computeMonthOverview(year, month) {
   }));
 
   const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (isCarExpense(exp)) return sum;
+    if (isTaggedOverviewExpense(exp)) return sum;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     return (
       sum +
@@ -1774,7 +2050,7 @@ function computeMonthOverview(year, month) {
   // Tabellen: bryt ner utgifter och intäkter
   const expensesRows = [];
   for (const exp of state.expenses || []) {
-    if (isCarExpense(exp)) continue;
+    if (isTaggedOverviewExpense(exp)) continue;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     for (const p of payments) {
       const amt = asNumber(p.amount);
@@ -2025,27 +2301,33 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
-function applyCarOverlayDateBounds() {
+function applyTaggedOverlayDateBounds(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
   const min = getFoodDateInputMinIso();
   const max = getFoodDateInputMaxIso();
-  document.querySelectorAll('[data-expview="car"] input[type="date"]').forEach((inp) => {
+  document.querySelectorAll(`[data-expview="${C.overlayKey}"] input[type="date"]`).forEach((inp) => {
     inp.min = min;
     inp.max = max;
   });
 }
 
-function updateCarEditorIntervalVisibility() {
-  const interval = document.getElementById("carEditInterval")?.value || "once";
+function updateTaggedEditorIntervalVisibility(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const interval = document.getElementById(ids.editInterval)?.value || "once";
   const recurring = interval !== "once";
-  const payDayRow = document.getElementById("carPaymentDayRow");
-  const endRow = document.getElementById("carEndDateRow");
-  const firstLbl = document.getElementById("carFirstDateLabel");
+  const payDayRow = document.getElementById(ids.paymentDayRow);
+  const endRow = document.getElementById(ids.endDateRow);
+  const firstLbl = document.getElementById(ids.firstDateLabel);
   if (payDayRow) payDayRow.hidden = !recurring;
   if (endRow) endRow.hidden = !recurring;
   if (firstLbl) firstLbl.textContent = recurring ? "Första betalningsdatum" : "Betalningsdatum";
 }
 
-function inferCarMetaFromExpense(exp) {
+/** Gemensamma fält carPaymentDay / carFirstDate / carEndDate för alla taggade kategorier. */
+function inferScheduleMetaFromExpense(exp) {
   const pts = (exp.payments || [])
     .filter((p) => asNumber(p.amount) > 0 && p.date)
     .slice()
@@ -2068,10 +2350,12 @@ function inferCarMetaFromExpense(exp) {
   return { firstDate, payDay, amount, endDate };
 }
 
-function getCarExpenseGroupsForMonth(year, month) {
+function getTaggedExpenseGroupsForMonth(year, month, cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
   const byType = new Map();
+  const keyField = C.typeKeyField;
   for (const exp of state.expenses || []) {
-    if (!isCarExpense(exp)) continue;
+    if (exp.expenseCategory !== C.expenseCategory) continue;
     let sum = 0;
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
@@ -2079,41 +2363,44 @@ function getCarExpenseGroupsForMonth(year, month) {
       if (dt.getFullYear() === year && dt.getMonth() + 1 === month) sum += asNumber(p.amount);
     }
     if (sum <= 0) continue;
-    const key = exp.carTypeKey || "other";
+    const key = exp[keyField] || "other";
     if (!byType.has(key)) byType.set(key, []);
     byType.get(key).push({
       expenseId: exp.id,
-      name: String(exp.name || "").trim() || getCarTypeLabel(key),
+      name: String(exp.name || "").trim() || getTaggedTypeLabel(cat, key),
       amount: sum
     });
   }
   const groups = [];
-  for (const t of CAR_EXPENSE_TYPES) {
+  for (const t of C.types) {
     const items = byType.get(t.key);
     if (items && items.length) groups.push({ typeLabel: t.label, items });
     byType.delete(t.key);
   }
-  for (const [key, items] of byType) groups.push({ typeLabel: getCarTypeLabel(key), items });
+  for (const [key, items] of byType) groups.push({ typeLabel: getTaggedTypeLabel(cat, key), items });
   const total = groups.reduce((s, g) => s + g.items.reduce((a, it) => a + it.amount, 0), 0);
   return { groups, total };
 }
 
-function renderCarExpenseListMount() {
-  const mount = document.getElementById("carListMount");
-  const totalEl = document.getElementById("carMonthTotal");
-  const titleEl = document.getElementById("carListMonthTitle");
+function renderTaggedExpenseListMount(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  const ids = C.ids;
+  const mount = document.getElementById(ids.listMount);
+  const totalEl = document.getElementById(ids.monthTotal);
+  const titleEl = document.getElementById(ids.listMonthTitle);
   if (!mount) return;
 
-  const year = Number(ui.carListYear);
-  const month = Number(ui.carListMonth);
+  const u = ui.tagged[cat];
+  const year = Number(u.listYear);
+  const month = Number(u.listMonth);
   if (!Number.isFinite(year) || !Number.isFinite(month)) return;
 
   if (titleEl) titleEl.textContent = `Utgifter ${monthName(month).toLowerCase()}`;
-  const { groups, total } = getCarExpenseGroupsForMonth(year, month);
+  const { groups, total } = getTaggedExpenseGroupsForMonth(year, month, cat);
   mount.innerHTML = "";
 
   if (groups.length === 0) {
-    mount.innerHTML = `<div class="car-list-empty">Inga bilutgifter denna månad.</div>`;
+    mount.innerHTML = `<div class="car-list-empty">${escapeHtml(C.labels.emptyMonth)}</div>`;
   } else {
     for (const g of groups) {
       const block = document.createElement("div");
@@ -2128,7 +2415,7 @@ function renderCarExpenseListMount() {
           </div>
           <div class="car-expense-line2">
             <span class="car-expense-name">${escapeHtml(it.name)}</span>
-            <button type="button" class="car-edit-btn" data-car-edit-id="${escapeHtml(it.expenseId)}" aria-label="Redigera">
+            <button type="button" class="car-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(it.expenseId)}" aria-label="Redigera">
               <span class="car-edit-pill" aria-hidden="true"></span>
             </button>
           </div>
@@ -2144,59 +2431,67 @@ function renderCarExpenseListMount() {
   }
 
   mount.onclick = (e) => {
-    const btn = e.target.closest("[data-car-edit-id]");
+    const btn = e.target.closest("[data-tagged-edit-id]");
     if (!btn) return;
-    const id = btn.getAttribute("data-car-edit-id");
-    if (!id) return;
-    ui.carEditingExpenseId = id;
-    ui.carEditorOpen = true;
-    renderCarPage();
+    const id = btn.getAttribute("data-tagged-edit-id");
+    const c = btn.getAttribute("data-tagged-cat");
+    if (!id || !c || !TAGGED_CATEGORY_CONFIG[c]) return;
+    ui.tagged[c].editingId = id;
+    ui.tagged[c].editorOpen = true;
+    if (c === "car") renderCarPage();
+    else if (c === "home") renderHomePage();
+    else if (c === "children") renderChildrenPage();
   };
 }
 
-function renderCarPage() {
-  const listYearSel = document.getElementById("carListYear");
-  const listMonthSel = document.getElementById("carListMonth");
+function renderTaggedCategoryPage(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.tagged[cat];
+
+  const listYearSel = document.getElementById(ids.listYear);
+  const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
   const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
   const appYears = getSelectableAppYears();
-  if (ui.carListYear == null || !Number.isFinite(Number(ui.carListYear)) || !appYears.includes(Number(ui.carListYear))) {
-    ui.carListYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  if (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear))) {
+    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[1];
   }
-  if (ui.carListMonth == null || !Number.isFinite(Number(ui.carListMonth)) || ui.carListMonth < 1 || ui.carListMonth > 12) {
-    ui.carListMonth = cur.month;
+  if (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12) {
+    u.listMonth = cur.month;
   }
 
   if (listYearSel) {
-    setYear3Options(listYearSel, ui.carListYear);
+    setYear3Options(listYearSel, u.listYear);
     listYearSel.onchange = () => {
-      ui.carListYear = Number(listYearSel.value);
-      renderCarExpenseListMount();
+      u.listYear = Number(listYearSel.value);
+      renderTaggedExpenseListMount(cat);
     };
   }
   if (listMonthSel) {
-    setMonthOptions(listMonthSel, ui.carListMonth);
+    setMonthOptions(listMonthSel, u.listMonth);
     listMonthSel.onchange = () => {
-      ui.carListMonth = Number(listMonthSel.value);
-      renderCarExpenseListMount();
+      u.listMonth = Number(listMonthSel.value);
+      renderTaggedExpenseListMount(cat);
     };
   }
 
-  const editorCard = document.getElementById("carEditorCard");
-  const editorTitle = document.getElementById("carEditorTitle");
-  const typeSel = document.getElementById("carEditType");
-  const nameInp = document.getElementById("carEditName");
-  const payDayInp = document.getElementById("carEditPaymentDay");
-  const intervalSel = document.getElementById("carEditInterval");
-  const firstInp = document.getElementById("carEditFirstDate");
-  const endInp = document.getElementById("carEditEndDate");
-  const amtInp = document.getElementById("carEditAmount");
-  const delBtn = document.getElementById("carDeleteBtn");
-  const saveBtn = document.getElementById("carSaveBtn");
-  const note = document.getElementById("carNote");
+  const editorCard = document.getElementById(ids.editorCard);
+  const editorTitle = document.getElementById(ids.editorTitle);
+  const typeSel = document.getElementById(ids.editType);
+  const nameInp = document.getElementById(ids.editName);
+  const payDayInp = document.getElementById(ids.editPaymentDay);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
+  const delBtn = document.getElementById(ids.deleteBtn);
+  const saveBtn = document.getElementById(ids.saveBtn);
+  const note = document.getElementById(ids.note);
 
   if (typeSel && typeSel.options.length === 0) {
-    for (const t of CAR_EXPENSE_TYPES) {
+    for (const t of C.types) {
       const opt = document.createElement("option");
       opt.value = t.key;
       opt.textContent = t.label;
@@ -2204,68 +2499,74 @@ function renderCarPage() {
     }
   }
 
-  const editingId = ui.carEditingExpenseId;
-  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && isCarExpense(x)) : null;
+  const editingId = u.editingId;
+  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.expenseCategory === C.expenseCategory) : null;
 
-  if (editorCard) editorCard.hidden = !ui.carEditorOpen;
+  if (editorCard) editorCard.hidden = !u.editorOpen;
 
-  if (ui.carEditorOpen && typeSel && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
-    if (editorTitle) editorTitle.textContent = editing ? "Redigera bilutgift" : "Ny bilutgift";
+  if (u.editorOpen && typeSel && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
+    if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
 
+    const kf = C.typeKeyField;
     if (editing) {
-      typeSel.value = CAR_EXPENSE_TYPES.some((t) => t.key === editing.carTypeKey) ? editing.carTypeKey : CAR_EXPENSE_TYPES[0].key;
-      nameInp.value = editing.name || getCarTypeLabel(editing.carTypeKey);
+      const curKey = editing[kf];
+      typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
+      nameInp.value = editing.name || getTaggedTypeLabel(cat, curKey);
       intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
-      const inf = inferCarMetaFromExpense(editing);
+      const inf = inferScheduleMetaFromExpense(editing);
       payDayInp.value = String(inf.payDay);
       firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
       amtInp.value = inf.amount > 0 ? String(Math.round(inf.amount)) : "";
     } else {
-      const defType = CAR_EXPENSE_TYPES[0];
+      const defType = C.types[0];
       typeSel.value = defType.key;
       nameInp.value = defType.label;
       intervalSel.value = "once";
       payDayInp.value = "25";
-      const y = Number(ui.carListYear) || baseYear;
-      const m = Number(ui.carListMonth) || cur.month;
+      const y = Number(u.listYear) || baseYear;
+      const m = Number(u.listMonth) || cur.month;
       const d = clampDay(y, m, 25);
       firstInp.value = `${y}-${pad2(m)}-${pad2(d)}`;
       endInp.value = "";
       amtInp.value = "";
     }
-    updateCarEditorIntervalVisibility();
+    updateTaggedEditorIntervalVisibility(cat);
     if (note) note.textContent = "";
-    applyCarOverlayDateBounds();
+    applyTaggedOverlayDateBounds(cat);
   }
 
-  renderCarExpenseListMount();
+  renderTaggedExpenseListMount(cat);
 
-  if (intervalSel && !intervalSel._carBound) {
-    intervalSel._carBound = true;
-    intervalSel.addEventListener("change", updateCarEditorIntervalVisibility);
+  if (intervalSel && intervalSel.getAttribute("data-tag-interval-bound") !== cat) {
+    intervalSel.setAttribute("data-tag-interval-bound", cat);
+    intervalSel.addEventListener("change", () => updateTaggedEditorIntervalVisibility(cat));
   }
-  if (typeSel && !typeSel._carBound) {
-    typeSel._carBound = true;
+  if (typeSel && typeSel.getAttribute("data-tag-type-bound") !== cat) {
+    typeSel.setAttribute("data-tag-type-bound", cat);
     typeSel.addEventListener("change", () => {
-      if (ui.carEditingExpenseId) return;
-      const t = CAR_EXPENSE_TYPES.find((x) => x.key === typeSel.value);
+      if (u.editingId) return;
+      const t = C.types.find((x) => x.key === typeSel.value);
       if (t && nameInp) nameInp.value = t.label;
     });
   }
 }
 
-function saveCarExpenseFromEditor() {
-  const note = document.getElementById("carNote");
-  const typeSel = document.getElementById("carEditType");
-  const nameInp = document.getElementById("carEditName");
-  const payDayInp = document.getElementById("carEditPaymentDay");
-  const intervalSel = document.getElementById("carEditInterval");
-  const firstInp = document.getElementById("carEditFirstDate");
-  const endInp = document.getElementById("carEditEndDate");
-  const amtInp = document.getElementById("carEditAmount");
+function saveTaggedCategoryFromEditor(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.tagged[cat];
+  const note = document.getElementById(ids.note);
+  const typeSel = document.getElementById(ids.editType);
+  const nameInp = document.getElementById(ids.editName);
+  const payDayInp = document.getElementById(ids.editPaymentDay);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
   if (!typeSel || !nameInp || !intervalSel || !firstInp || !amtInp) return;
 
   const name = (nameInp.value || "").trim();
@@ -2273,7 +2574,7 @@ function saveCarExpenseFromEditor() {
     if (note) note.textContent = "Ange namn på utgift.";
     return;
   }
-  const carTypeKey = typeSel.value || CAR_EXPENSE_TYPES[0].key;
+  const typeKey = typeSel.value || C.types[0].key;
   const interval = intervalSel.value || "once";
   const firstDateISO = (firstInp.value || "").trim();
   const firstParts = datePartsFromIso(firstDateISO);
@@ -2311,51 +2612,63 @@ function saveCarExpenseFromEditor() {
         "Inga betalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum.";
     return;
   }
+  const kf = C.typeKeyField;
   const base = {
     name,
     interval,
     payments,
-    expenseCategory: "car",
-    carTypeKey,
+    expenseCategory: C.expenseCategory,
     carPaymentDay: interval === "once" ? firstParts.d : paymentDay,
     carFirstDate: firstDateISO,
     carEndDate: endDateISO
   };
-  if (ui.carEditingExpenseId) {
-    const idx = (state.expenses || []).findIndex((x) => x.id === ui.carEditingExpenseId);
+  base[kf] = typeKey;
+
+  if (u.editingId) {
+    const idx = (state.expenses || []).findIndex((x) => x.id === u.editingId);
     if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], ...base, id: state.expenses[idx].id };
   } else {
     state.expenses.push({ id: uid(), ...base });
   }
   saveState();
   if (note) note.textContent = "";
-  ui.carEditorOpen = false;
-  ui.carEditingExpenseId = null;
-  renderCarPage();
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedCategoryPage(cat);
   renderOverviewIfOnOverview();
   renderExpensesList();
 }
 
-function deleteCarExpenseFromEditor() {
-  if (!ui.carEditingExpenseId) return;
-  state.expenses = (state.expenses || []).filter((x) => x.id !== ui.carEditingExpenseId);
+function deleteTaggedCategoryFromEditor(cat) {
+  const u = ui.tagged[cat];
+  if (!u.editingId) return;
+  state.expenses = (state.expenses || []).filter((x) => x.id !== u.editingId);
   saveState();
-  ui.carEditorOpen = false;
-  ui.carEditingExpenseId = null;
-  renderCarPage();
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedCategoryPage(cat);
   renderOverviewIfOnOverview();
   renderExpensesList();
+}
+
+function renderCarPage() {
+  renderTaggedCategoryPage("car");
 }
 
 function renderHomePage() {
-  const year = ui.expensesYear;
-  const config = state.special.home[String(year)] || {};
-  document.getElementById("homeRent").value = asNumber(config.rent);
-  document.getElementById("homeElectricity").value = asNumber(config.electricity);
-  document.getElementById("homeWater").value = asNumber(config.water);
-  document.getElementById("homeGarbage").value = asNumber(config.garbage);
-  document.getElementById("homeInternet").value = asNumber(config.internet);
-  document.getElementById("homeParking").value = asNumber(config.parking);
+  renderTaggedCategoryPage("home");
+}
+
+function renderChildrenPage() {
+  renderTaggedCategoryPage("children");
+}
+
+function saveCarExpenseFromEditor() {
+  saveTaggedCategoryFromEditor("car");
+}
+
+function deleteCarExpenseFromEditor() {
+  deleteTaggedCategoryFromEditor("car");
 }
 
 function renderFoodPage() {
@@ -3217,16 +3530,6 @@ function renderFoodPage() {
   // replace draw calls by wrappedDraw via function alias
   draw = wrappedDraw;
   draw();
-}
-
-function renderChildrenPage() {
-  const year = ui.expensesYear;
-  const config = state.special.children[String(year)] || {};
-  document.getElementById("kidsClothesPerMonth").value = asNumber(config.kidsClothesPerMonth);
-  document.getElementById("kidsActivitiesPerMonth").value = asNumber(config.kidsActivitiesPerMonth);
-  document.getElementById("kidsPocketMoneyPerMonth").value = asNumber(config.kidsPocketMoneyPerMonth);
-  document.getElementById("kidsPhonePerMonth").value = asNumber(config.kidsPhonePerMonth);
-  document.getElementById("kidsBusCardPerMonth").value = asNumber(config.kidsBusCardPerMonth);
 }
 
 function renderSettingsPage() {
@@ -4295,19 +4598,21 @@ function openExpenseOverlay(expenseId, opts = {}) {
     });
     return;
   }
-  if (isCarExpense(exp)) {
+  const tagCat = getTaggedExpenseCategory(exp);
+  if (tagCat) {
     closeExpenseOverlay();
-    ui.carEditingExpenseId = expenseId;
-    ui.carEditorOpen = true;
+    const u = ui.tagged[tagCat];
+    u.editingId = expenseId;
+    u.editorOpen = true;
     const p0 = exp?.payments?.[0];
     if (p0?.date) {
       const d = new Date(p0.date);
       if (!Number.isNaN(d.getTime())) {
-        ui.carListYear = d.getFullYear();
-        ui.carListMonth = d.getMonth() + 1;
+        u.listYear = d.getFullYear();
+        u.listMonth = d.getMonth() + 1;
       }
     }
-    openExpenseCategoryOverlay("car");
+    openExpenseCategoryOverlay(TAGGED_CATEGORY_CONFIG[tagCat].overlayKey);
     return;
   }
   requireEl("expenseNameInput").value = exp?.name || "";
@@ -4549,8 +4854,10 @@ function closeExpenseCategoryOverlay() {
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
   closeLoanEditor();
   hideConfirmDeleteLoanModal();
-  ui.carEditorOpen = false;
-  ui.carEditingExpenseId = null;
+  for (const k of TAGGED_CATEGORY_KEYS) {
+    ui.tagged[k].editorOpen = false;
+    ui.tagged[k].editingId = null;
+  }
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }
@@ -4804,48 +5111,43 @@ function hideConfirmDeleteLoanModal() {
 
 function initActions() {
   // CAR
-  const carAddBtn = document.getElementById("carAddBtn");
-  if (carAddBtn) {
-    carAddBtn.addEventListener("click", () => {
-      ui.carEditingExpenseId = null;
-      ui.carEditorOpen = true;
-      renderCarPage();
-      const editorCard = document.getElementById("carEditorCard");
-      if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }
-  const carSaveBtn = document.getElementById("carSaveBtn");
-  if (carSaveBtn) carSaveBtn.addEventListener("click", () => saveCarExpenseFromEditor());
-  const carDeleteBtn = document.getElementById("carDeleteBtn");
-  if (carDeleteBtn) carDeleteBtn.addEventListener("click", () => deleteCarExpenseFromEditor());
-  const carCancelEditorBtn = document.getElementById("carCancelEditorBtn");
-  if (carCancelEditorBtn) {
-    carCancelEditorBtn.addEventListener("click", () => {
-      ui.carEditorOpen = false;
-      ui.carEditingExpenseId = null;
-      const note = document.getElementById("carNote");
-      if (note) note.textContent = "";
-      renderCarPage();
-    });
-  }
-
-  // HOME
-  document.getElementById("homeSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.home[String(year)] = {
-      rent: asNumber(document.getElementById("homeRent").value),
-      electricity: asNumber(document.getElementById("homeElectricity").value),
-      water: asNumber(document.getElementById("homeWater").value),
-      garbage: asNumber(document.getElementById("homeGarbage").value),
-      internet: asNumber(document.getElementById("homeInternet").value),
-      parking: asNumber(document.getElementById("homeParking").value)
-    };
-    saveState();
-    document.getElementById("homeNote").textContent = "Hemkostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderHomePage();
-    closeExpenseCategoryOverlay();
-  });
+  const wireTaggedCategoryActions = (cat) => {
+    const C = TAGGED_CATEGORY_CONFIG[cat];
+    if (!C) return;
+    const ids = C.ids;
+    const u = ui.tagged[cat];
+    const addBtn = document.getElementById(ids.addBtn);
+    if (addBtn) {
+      addBtn.addEventListener("click", () => {
+        u.editingId = null;
+        u.editorOpen = true;
+        if (cat === "car") renderCarPage();
+        else if (cat === "home") renderHomePage();
+        else if (cat === "children") renderChildrenPage();
+        const editorCard = document.getElementById(ids.editorCard);
+        if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    const saveBtn = document.getElementById(ids.saveBtn);
+    if (saveBtn) saveBtn.addEventListener("click", () => saveTaggedCategoryFromEditor(cat));
+    const delBtn = document.getElementById(ids.deleteBtn);
+    if (delBtn) delBtn.addEventListener("click", () => deleteTaggedCategoryFromEditor(cat));
+    const cancelBtn = document.getElementById(ids.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => {
+        u.editorOpen = false;
+        u.editingId = null;
+        const note = document.getElementById(ids.note);
+        if (note) note.textContent = "";
+        if (cat === "car") renderCarPage();
+        else if (cat === "home") renderHomePage();
+        else if (cat === "children") renderChildrenPage();
+      });
+    }
+  };
+  wireTaggedCategoryActions("car");
+  wireTaggedCategoryActions("home");
+  wireTaggedCategoryActions("children");
 
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
@@ -4950,23 +5252,6 @@ function initActions() {
     renderOverviewIfOnOverview();
     renderExpensesList();
     renderFoodPage();
-    closeExpenseCategoryOverlay();
-  });
-
-  // CHILDREN
-  document.getElementById("kidsSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.children[String(year)] = {
-      kidsClothesPerMonth: asNumber(document.getElementById("kidsClothesPerMonth").value),
-      kidsActivitiesPerMonth: asNumber(document.getElementById("kidsActivitiesPerMonth").value),
-      kidsPocketMoneyPerMonth: asNumber(document.getElementById("kidsPocketMoneyPerMonth").value),
-      kidsPhonePerMonth: asNumber(document.getElementById("kidsPhonePerMonth").value),
-      kidsBusCardPerMonth: asNumber(document.getElementById("kidsBusCardPerMonth").value)
-    };
-    saveState();
-    document.getElementById("kidsNote").textContent = "Barnkostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderChildrenPage();
     closeExpenseCategoryOverlay();
   });
 

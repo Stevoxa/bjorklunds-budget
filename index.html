@@ -191,39 +191,74 @@
 
           <!-- HOME -->
           <section class="exp-view exp-overlay" data-expview="home" hidden>
-            <div class="table-card">
-              <div class="table-title">Hem</div>
+            <div class="table-card" id="homeEditorCard" hidden>
+              <div class="table-title" id="homeEditorTitle">Ny hemutgift</div>
               <div class="form-grid">
                 <label class="field">
-                  Hyra (kr/mån)
-                  <input id="homeRent" type="number" inputmode="decimal" min="0" step="1" />
+                  Typ
+                  <select id="homeEditType"></select>
                 </label>
                 <label class="field">
-                  El (kr/mån)
-                  <input id="homeElectricity" type="number" inputmode="decimal" min="0" step="1" />
+                  Namn på utgift
+                  <input id="homeEditName" type="text" autocomplete="off" />
+                </label>
+                <label class="field" id="homePaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="homeEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </label>
                 <label class="field">
-                  Vatten (kr/mån)
-                  <input id="homeWater" type="number" inputmode="decimal" min="0" step="1" />
+                  Betalningsintervall
+                  <select id="homeEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
                 </label>
                 <label class="field">
-                  Sophämtning (kr/mån)
-                  <input id="homeGarbage" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="homeFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="homeEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="homeEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="homeEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Internet (kr/mån)
-                  <input id="homeInternet" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Parkering (kr/mån)
-                  <input id="homeParking" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="homeEditAmount" type="number" inputmode="decimal" min="0" step="1" />
                 </label>
               </div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="homeSaveBtn" type="button">Spara hemkostnader</button>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="homeSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="homeCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="homeNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="table-title">Hem omkostnader</div>
+              <div class="form-grid narrow car-list-filters">
+                <label class="field car-omkostnader-field">
+                  År
+                  <select id="homeListYear"></select>
+                </label>
+                <label class="field car-omkostnader-field">
+                  Månad
+                  <select id="homeListMonth"></select>
+                </label>
+              </div>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" id="homeAddBtn" type="button">Lägg till</button>
+              </div>
+              <h3 class="car-list-month-heading" id="homeListMonthTitle">Utgifter</h3>
+              <div id="homeListMount" class="car-list-mount"></div>
+              <p class="car-month-total" id="homeMonthTotal"></p>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 
@@ -680,35 +715,74 @@
 
           <!-- CHILDREN -->
           <section class="exp-view exp-overlay" data-expview="children" hidden>
-            <div class="table-card">
-              <div class="table-title">Barn</div>
+            <div class="table-card" id="childrenEditorCard" hidden>
+              <div class="table-title" id="childrenEditorTitle">Ny barnutgift</div>
               <div class="form-grid">
                 <label class="field">
-                  Kläder (kr/mån)
-                  <input id="kidsClothesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Typ
+                  <select id="childrenEditType"></select>
                 </label>
                 <label class="field">
-                  Busskort (kr/mån)
-                  <input id="kidsBusCardPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Namn på utgift
+                  <input id="childrenEditName" type="text" autocomplete="off" />
+                </label>
+                <label class="field" id="childrenPaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="childrenEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </label>
                 <label class="field">
-                  Telefonabonnemang (kr/mån)
-                  <input id="kidsPhonePerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Betalningsintervall
+                  <select id="childrenEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
                 </label>
                 <label class="field">
-                  Aktiviteter (kr/mån)
-                  <input id="kidsActivitiesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="childrenFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="childrenEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="childrenEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="childrenEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Månadspeng (kr/mån)
-                  <input id="kidsPocketMoneyPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="childrenEditAmount" type="number" inputmode="decimal" min="0" step="1" />
                 </label>
               </div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="kidsSaveBtn" type="button">Spara barnkostnader</button>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="childrenSaveBtn" type="button">Lägg till</button>
               </div>
-              <div class="note" id="kidsNote"></div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="childrenCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="childrenNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="table-title">Barn omkostnader</div>
+              <div class="form-grid narrow car-list-filters">
+                <label class="field car-omkostnader-field">
+                  År
+                  <select id="childrenListYear"></select>
+                </label>
+                <label class="field car-omkostnader-field">
+                  Månad
+                  <select id="childrenListMonth"></select>
+                </label>
+              </div>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" id="childrenAddBtn" type="button">Lägg till</button>
+              </div>
+              <h3 class="car-list-month-heading" id="childrenListMonthTitle">Utgifter</h3>
+              <div id="childrenListMount" class="car-list-mount"></div>
+              <p class="car-month-total" id="childrenMonthTotal"></p>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 
