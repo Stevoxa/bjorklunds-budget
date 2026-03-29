@@ -1189,10 +1189,13 @@
       aria-hidden="true"
     >
       <div class="date-sheet-handle bottom-sheet-drag" id="dateSheetHandle" aria-hidden="true"></div>
-      <div class="date-sheet-header">
-        <button type="button" class="secondary date-sheet-cancel" id="dateSheetCancelBtn">Avbryt</button>
-        <div class="date-sheet-title" id="dateSheetTitle">Välj datum</div>
-        <button type="button" class="primary date-sheet-ok" id="dateSheetOkBtn">Klar</button>
+      <div class="date-sheet-chrome">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="dateSheetTitle">Välj datum</h2>
+        </div>
+        <button type="button" class="icon-btn date-sheet-close" id="dateSheetCloseBtn" aria-label="Stäng">
+          ×
+        </button>
       </div>
       <div class="date-sheet-body">
         <div class="date-sheet-month-nav">
@@ -1209,6 +1212,9 @@
         </div>
         <div class="date-sheet-grid" id="dateSheetGrid"></div>
       </div>
+      <footer class="date-sheet-footer">
+        <button type="button" class="primary date-sheet-footer-ok" id="dateSheetOkBtn">Klar</button>
+      </footer>
     </div>
 
     <div class="period-sheet-backdrop" id="periodSheetBackdrop" hidden aria-hidden="true"></div>
@@ -1222,10 +1228,13 @@
       aria-hidden="true"
     >
       <div class="date-sheet-handle bottom-sheet-drag" id="periodSheetHandle" aria-hidden="true"></div>
-      <div class="date-sheet-header">
-        <button type="button" class="secondary date-sheet-cancel" id="periodSheetCancelBtn">Avbryt</button>
-        <div class="date-sheet-title" id="periodSheetTitle">Välj period</div>
-        <button type="button" class="primary date-sheet-ok" id="periodSheetOkBtn">Klar</button>
+      <div class="date-sheet-chrome">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="periodSheetTitle">Välj period</h2>
+        </div>
+        <button type="button" class="icon-btn date-sheet-close" id="periodSheetCloseBtn" aria-label="Stäng">
+          ×
+        </button>
       </div>
       <div class="date-sheet-body">
         <div class="period-sheet-section-label">År</div>
@@ -1233,6 +1242,9 @@
         <div class="period-sheet-section-label">Månad</div>
         <div id="periodSheetMonths" class="period-sheet-month-grid"></div>
       </div>
+      <footer class="date-sheet-footer">
+        <button type="button" class="primary date-sheet-footer-ok" id="periodSheetOkBtn">Klar</button>
+      </footer>
     </div>
 
     <script type="module" src="app.js"></script>

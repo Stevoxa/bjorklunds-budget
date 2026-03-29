@@ -132,6 +132,7 @@ function applyFoodOverlayDateBounds() {
     inp.min = min;
     inp.max = max;
   });
+  refreshAllSJDateTriggers();
 }
 
 function isGeneratedMatExpenseInSelectableWindow(exp) {
@@ -320,7 +321,7 @@ function getDateSheetEls() {
     monthLabel: document.getElementById("dateSheetMonthLabel"),
     prevBtn: document.getElementById("dateSheetPrevMonth"),
     nextBtn: document.getElementById("dateSheetNextMonth"),
-    cancelBtn: document.getElementById("dateSheetCancelBtn"),
+    closeBtn: document.getElementById("dateSheetCloseBtn"),
     okBtn: document.getElementById("dateSheetOkBtn"),
     handle: document.getElementById("dateSheetHandle")
   };
@@ -330,10 +331,142 @@ function getPeriodSheetEls() {
   return {
     backdrop: document.getElementById("periodSheetBackdrop"),
     sheet: document.getElementById("periodSheet"),
-    cancelBtn: document.getElementById("periodSheetCancelBtn"),
+    closeBtn: document.getElementById("periodSheetCloseBtn"),
     okBtn: document.getElementById("periodSheetOkBtn"),
     handle: document.getElementById("periodSheetHandle")
   };
+}
+
+let sjDateFieldResizeTimer = null;
+
+function formatDateForSJDisplay(iso) {
+  if (!iso || typeof iso !== "string") return "Välj datum";
+  const parts = datePartsFromIso(iso);
+  if (!parts) return "Välj datum";
+  const d = new Date(parts.y, parts.m - 1, parts.d);
+  if (Number.isNaN(d.getTime())) return "Välj datum";
+  const today = todayIsoLocal();
+  const datePart = d.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+  if (iso === today) return `Idag ${datePart}`;
+  const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  return `${cap(wd)} ${datePart}`;
+}
+
+function createCalendarIconSvg() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "date-field-sj-icon");
+  svg.setAttribute("width", "22");
+  svg.setAttribute("height", "22");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const r = document.createElementNS(ns, "rect");
+  r.setAttribute("x", "3.5");
+  r.setAttribute("y", "5");
+  r.setAttribute("width", "17");
+  r.setAttribute("height", "14.5");
+  r.setAttribute("rx", "2");
+  r.setAttribute("fill", "none");
+  r.setAttribute("stroke", "currentColor");
+  r.setAttribute("stroke-width", "1.65");
+  svg.appendChild(r);
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", "M3.5 9.5h17M8 3v3.2M16 3v3.2");
+  p.setAttribute("fill", "none");
+  p.setAttribute("stroke", "currentColor");
+  p.setAttribute("stroke-width", "1.65");
+  p.setAttribute("stroke-linecap", "round");
+  svg.appendChild(p);
+  return svg;
+}
+
+function syncSJDateTrigger(inp) {
+  const wrap = inp.closest(".date-field-sj");
+  if (!wrap) return;
+  const tr = wrap.querySelector(".date-field-sj-trigger");
+  const val = wrap.querySelector(".date-field-sj-value");
+  const shown = formatDateForSJDisplay(inp.value);
+  if (val) val.textContent = shown;
+  if (tr) {
+    tr.disabled = inp.disabled;
+    const base = humanLabelForDateInput(inp);
+    tr.setAttribute("aria-label", `${base}: ${shown}`);
+  }
+}
+
+function applySJDateFieldTabState(inp) {
+  const wrap = inp.closest(".date-field-sj");
+  if (!wrap) return;
+  const btn = wrap.querySelector(".date-field-sj-trigger");
+  if (!btn) return;
+  if (isDateSheetViewport()) {
+    inp.tabIndex = -1;
+    btn.removeAttribute("tabindex");
+  } else {
+    inp.removeAttribute("tabindex");
+    btn.tabIndex = -1;
+  }
+}
+
+function refreshAllSJDateTriggers() {
+  document.querySelectorAll(".date-field-sj-native").forEach((el) => {
+    if (el instanceof HTMLInputElement) syncSJDateTrigger(el);
+  });
+}
+
+function enhanceAllDateFieldsToSJRows() {
+  document.querySelectorAll('input[type="date"]').forEach((inp) => {
+    if (!(inp instanceof HTMLInputElement)) return;
+    if (inp.hasAttribute("data-native-date")) return;
+    if (inp.closest(".date-field-sj")) {
+      syncSJDateTrigger(inp);
+      applySJDateFieldTabState(inp);
+      return;
+    }
+    const wrap = document.createElement("div");
+    wrap.className = "date-field-sj";
+    inp.parentNode?.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    inp.classList.add("date-field-sj-native");
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-field-sj-trigger";
+    const valSpan = document.createElement("span");
+    valSpan.className = "date-field-sj-value";
+    btn.appendChild(valSpan);
+    btn.appendChild(createCalendarIconSvg());
+    wrap.appendChild(btn);
+
+    const onSync = () => syncSJDateTrigger(inp);
+    inp.addEventListener("input", onSync);
+    inp.addEventListener("change", onSync);
+    onSync();
+    applySJDateFieldTabState(inp);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (inp.disabled) return;
+      if (isDateSheetViewport()) openDateSheet(inp);
+      else if (typeof inp.showPicker === "function") inp.showPicker();
+      else inp.focus();
+    });
+  });
+}
+
+function initSJDateFieldRows() {
+  enhanceAllDateFieldsToSJRows();
+  window.addEventListener("resize", () => {
+    clearTimeout(sjDateFieldResizeTimer);
+    sjDateFieldResizeTimer = setTimeout(() => {
+      document.querySelectorAll(".date-field-sj-native").forEach((el) => {
+        if (!(el instanceof HTMLInputElement)) return;
+        applySJDateFieldTabState(el);
+        syncSJDateTrigger(el);
+      });
+    }, 120);
+  });
 }
 
 function humanLabelForDateInput(inp) {
@@ -753,8 +886,8 @@ function openOverviewPeriodSheet() {
 
 function initOverviewPeriodSheet() {
   const wrap = document.querySelector("[data-overview-period]");
-  const { backdrop, cancelBtn, okBtn, handle, sheet } = getPeriodSheetEls();
-  if (!wrap || !backdrop || !cancelBtn || !okBtn) return;
+  const { backdrop, closeBtn, okBtn, handle, sheet } = getPeriodSheetEls();
+  if (!wrap || !backdrop || !closeBtn || !okBtn) return;
 
   wrap.addEventListener(
     "pointerdown",
@@ -782,14 +915,14 @@ function initOverviewPeriodSheet() {
   );
 
   backdrop.addEventListener("click", () => closePeriodSheetAnimated());
-  cancelBtn.addEventListener("click", () => closePeriodSheetAnimated());
+  closeBtn.addEventListener("click", () => closePeriodSheetAnimated());
   okBtn.addEventListener("click", () => applyPeriodSheetKlar());
   attachBottomSheetDragDismiss(handle, sheet, () => closePeriodSheetAnimated());
 }
 
 function initMobileDateSheetPicker() {
-  const { backdrop, cancelBtn, okBtn, prevBtn, nextBtn, handle, sheet } = getDateSheetEls();
-  if (!backdrop || !cancelBtn || !okBtn) return;
+  const { backdrop, closeBtn, okBtn, prevBtn, nextBtn, handle, sheet } = getDateSheetEls();
+  if (!backdrop || !closeBtn || !okBtn) return;
 
   document.addEventListener(
     "pointerdown",
@@ -832,7 +965,7 @@ function initMobileDateSheetPicker() {
   );
 
   backdrop.addEventListener("click", () => closeDateSheetAnimated(true));
-  cancelBtn.addEventListener("click", () => closeDateSheetAnimated(true));
+  closeBtn.addEventListener("click", () => closeDateSheetAnimated(true));
   okBtn.addEventListener("click", () => applyDateSheetKlar());
   attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
   if (prevBtn) {
@@ -3225,6 +3358,7 @@ function applyTaggedOverlayDateBounds(cat) {
     inp.min = min;
     inp.max = max;
   });
+  refreshAllSJDateTriggers();
 }
 
 function updateTaggedEditorIntervalVisibility(cat) {
@@ -6495,6 +6629,7 @@ function initRoot() {
     state = loadState();
     applyTheme();
     initSystemThemeListener();
+    initSJDateFieldRows();
     initMobileDateSheetPicker();
     initOverviewPeriodSheet();
     initRouting();

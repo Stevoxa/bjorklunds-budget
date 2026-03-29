@@ -2218,7 +2218,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   flex-direction: column;
   transform: translateY(108%);
   transition: transform 260ms var(--motion-ease);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: 0;
   will-change: transform;
 }
 
@@ -2245,37 +2245,134 @@ html[data-theme="dark"] .period-sheet-backdrop {
   flex-shrink: 0;
 }
 
-.date-sheet-header {
-  display: grid;
-  grid-template-columns: minmax(76px, auto) 1fr minmax(76px, auto);
-  align-items: center;
+.date-sheet-chrome {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-1) var(--space-2) 0 var(--space-3);
+  flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
 
-.date-sheet-cancel {
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  font-size: 0.86rem;
-  justify-self: start;
+.date-sheet-title-wrap {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-1) var(--space-3);
+  text-align: center;
 }
 
 .date-sheet-title {
   font-weight: 800;
-  font-size: 0.96rem;
+  font-size: 1rem;
   letter-spacing: -0.03em;
   text-align: center;
   margin: 0;
   line-height: 1.25;
 }
 
-.date-sheet-ok {
-  min-height: 40px;
-  padding: 0 var(--space-3);
-  font-size: 0.86rem;
+.date-sheet-close {
+  flex-shrink: 0;
+  margin-top: var(--space-1);
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.date-sheet-close:hover {
+  color: var(--text);
+}
+
+.date-sheet-footer {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+
+.date-sheet-footer-ok {
+  width: 100%;
+  min-height: 48px;
   font-weight: 750;
-  justify-self: end;
+  font-size: 0.95rem;
+}
+
+/* SJ-lik datumrad: synlig trigger på smal vy, native date på desktop */
+.date-field-sj {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-width: 0;
+}
+
+.date-field-sj-trigger {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-2) var(--space-4);
+  margin: 0;
+  text-align: left;
+  font: inherit;
+  font-weight: 650;
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 88%, var(--card));
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.date-field-sj-trigger:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.date-field-sj-trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.date-field-sj-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-field-sj-icon {
+  flex-shrink: 0;
+  color: var(--muted);
+  opacity: 0.92;
+}
+
+@media (max-width: 720px) {
+  .date-field-sj-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .date-field-sj-trigger {
+    display: flex;
+  }
 }
 
 .period-sheet-section-label {
@@ -2408,17 +2505,29 @@ html[data-theme="dark"] .period-sheet-backdrop {
 }
 
 .date-sheet-cell--empty {
-  min-height: 44px;
+  aspect-ratio: 1;
+  max-width: 44px;
+  width: 100%;
+  min-height: 40px;
+  margin-inline: auto;
 }
 
 .date-sheet-day {
-  min-height: 44px;
-  border-radius: 12px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 44px;
+  aspect-ratio: 1;
+  margin-inline: auto;
+  padding: 0;
+  border-radius: 50%;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--card-2) 92%, transparent);
   color: var(--text);
   font-weight: 650;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   cursor: pointer;
   transition:
     background var(--motion-fast) var(--motion-ease),
@@ -2448,9 +2557,26 @@ html[data-theme="dark"] .period-sheet-backdrop {
 
 .date-sheet-day--disabled,
 .date-sheet-day:disabled {
-  opacity: 0.32;
+  opacity: 0.38;
+  color: var(--muted);
   cursor: not-allowed;
   transform: none;
+}
+
+.date-sheet-day--disabled::after,
+.date-sheet-day:disabled::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 50%;
+  height: 0;
+  margin-top: -0.75px;
+  border-top: 1.5px solid currentColor;
+  transform: rotate(-34deg);
+  transform-origin: center;
+  pointer-events: none;
+  opacity: 0.9;
 }
 
 body.app-bottom-sheet-open {
