@@ -1549,13 +1549,41 @@ body.modal-open {
   }
 }
 
-/* Bil overlay */
+/* Bil overlay — layout enligt mobilmockup (fullbredd filter + knappar) */
 .car-omkostnader-card .car-list-filters {
   margin-bottom: 0;
+  gap: 14px;
+}
+
+.car-omkostnader-card .car-omkostnader-field {
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+  gap: 8px;
+}
+
+.car-omkostnader-card .car-omkostnader-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.car-omkostnader-actions {
+  justify-content: stretch;
+  align-items: stretch;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.car-omkostnader-actions + .car-list-month-heading {
+  margin-top: 18px;
+}
+
+.car-omkostnader-btn {
+  width: 100%;
+  font-weight: 600;
 }
 
 .car-list-month-heading {
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 600;
   margin: 16px 0 10px;
   color: var(--text);
@@ -1598,7 +1626,8 @@ body.modal-open {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .car-expense-type {
@@ -1616,9 +1645,9 @@ body.modal-open {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.92rem;
+  margin-top: 8px;
+  color: color-mix(in srgb, var(--muted) 92%, var(--text));
+  font-size: 0.88rem;
 }
 
 .car-expense-name {
@@ -1630,8 +1659,40 @@ body.modal-open {
 
 .car-edit-btn {
   flex-shrink: 0;
-  padding: 6px;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px -4px -6px 0;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.car-edit-btn:hover .car-edit-pill,
+.car-edit-btn:focus-visible .car-edit-pill {
+  background: color-mix(in srgb, var(--text) 32%, transparent);
+  border-color: color-mix(in srgb, var(--muted) 65%, transparent);
+}
+
+.car-edit-btn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.car-edit-pill {
+  display: block;
+  width: 7px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--muted) 50%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
 }
 
 .car-month-total {
