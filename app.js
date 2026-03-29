@@ -467,6 +467,15 @@ function ensureExpenseIds(root) {
       if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
       if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
     }
+    if (exp?.expenseCategory === "savings") {
+      out.expenseCategory = "savings";
+      const sk = String(exp.savingsTypeKey || "own");
+      out.savingsTypeKey = ["own", "system"].includes(sk) ? sk : "own";
+      const cpd = Math.floor(asNumber(exp.carPaymentDay));
+      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
+      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
+      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
+    }
     return out;
   });
 }
@@ -542,8 +551,12 @@ function isChildrenExpense(exp) {
   return Boolean(exp && exp.expenseCategory === "children");
 }
 
+function isSavingsExpense(exp) {
+  return Boolean(exp && exp.expenseCategory === "savings");
+}
+
 function isTaggedOverviewExpense(exp) {
-  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp);
+  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp) || isSavingsExpense(exp);
 }
 
 const HOME_EXPENSE_TYPES = [
@@ -677,6 +690,55 @@ const TAGGED_CATEGORY_CONFIG = {
       newItem: "Ny barnutgift",
       editItem: "Redigera barnutgift",
       emptyMonth: "Inga barnutgifter denna månad."
+    }
+  },
+  savings: {
+    overlayKey: "savings",
+    expenseCategory: "savings",
+    typeKeyField: "savingsTypeKey",
+    types: [
+      { key: "own", label: "Eget sparande" },
+      { key: "system", label: "System Sparande" }
+    ],
+    hideTypeInEditor: true,
+    defaultTypeKey: "own",
+    hideTypeInList: true,
+    omitTypeInOverviewLabel: true,
+    ids: {
+      editorCard: "savingsEditorCard",
+      editorTitle: "savingsEditorTitle",
+      editName: "savingsEditName",
+      paymentDayRow: "savingsPaymentDayRow",
+      editPaymentDay: "savingsEditPaymentDay",
+      editInterval: "savingsEditInterval",
+      firstDateLabel: "savingsFirstDateLabel",
+      editFirstDate: "savingsEditFirstDate",
+      endDateRow: "savingsEndDateRow",
+      editEndDate: "savingsEditEndDate",
+      editAmount: "savingsEditAmount",
+      deleteBtn: "savingsDeleteBtn",
+      saveBtn: "savingsSaveBtn",
+      cancelBtn: "savingsCancelEditorBtn",
+      note: "savingsNote",
+      listYear: "savingsListYear",
+      listMonth: "savingsListMonth",
+      listMount: "savingsListMount",
+      listMonthTitle: "savingsListMonthTitle",
+      monthTotal: "savingsMonthTotal",
+      addBtn: "savingsAddBtn"
+    },
+    labels: {
+      newItem: "Nytt sparande",
+      editItem: "Redigera sparande",
+      emptyMonth: "Inget spar denna månad.",
+      monthListTitlePrefix: "Sparbelopp",
+      nameRequiredHint: "Ange namn på spar.",
+      dateOnceHint: "Ange datum för spar.",
+      dateRecurringHint: "Ange första spar tillfälle.",
+      endDateHint: "Ogiltigt slutdatum för spar.",
+      firstDateOnce: "Spar datum",
+      firstDateRecurring: "Första spar tillfälle",
+      endDate: "Spar upphör (valfritt)"
     }
   }
 };
@@ -1036,7 +1098,8 @@ const ui = {
   tagged: {
     car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
-    children: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
+    children: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    savings: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
   }
 };
 
@@ -1166,6 +1229,7 @@ function computeTaggedCategoryMonthly(year, month, cat) {
   const items = [];
   let total = 0;
   const keyField = C.typeKeyField;
+  const omitType = Boolean(C.omitTypeInOverviewLabel);
   for (const exp of state.expenses || []) {
     if (exp.expenseCategory !== C.expenseCategory) continue;
     const typeKey = exp[keyField];
@@ -1179,8 +1243,9 @@ function computeTaggedCategoryMonthly(year, month, cat) {
       if (dt.getFullYear() !== Number(year) || dt.getMonth() + 1 !== Number(month)) continue;
       total += pAmt;
       const dateStr = dt.toLocaleDateString("sv-SE");
+      const label = omitType ? `${name} (${dateStr})` : `${typeLabel} · ${name} (${dateStr})`;
       items.push({
-        label: `${typeLabel} · ${name} (${dateStr})`,
+        label,
         amount: pAmt,
         expenseId: exp.id
       });
@@ -1966,6 +2031,7 @@ function computeMonthOverview(year, month) {
   const loans = computeSpecialLoansMonthly(year, month);
   // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
   const children = computeSpecialChildrenMonthly(year, month);
+  const savings = computeTaggedCategoryMonthly(year, month, "savings");
 
   const oneOffExpenses = (state.oneOff?.expenses?.[y]?.[m] || []).map((it) => ({
     id: it.id,
@@ -2029,7 +2095,7 @@ function computeMonthOverview(year, month) {
     );
   }, 0);
 
-  const specialsAmount = car.total + housing.total + loans.total + children.total;
+  const specialsAmount = car.total + housing.total + loans.total + children.total + savings.total;
   const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
 
   const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
@@ -2044,6 +2110,7 @@ function computeMonthOverview(year, month) {
     { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
     { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
     { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
+    { key: "savings", label: "Spar", amount: savings.total, color: "#eab308" },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
   ].filter((s) => s.amount > 0);
 
@@ -2066,6 +2133,7 @@ function computeMonthOverview(year, month) {
   for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
   for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
   for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
+  for (const it of savings.items) expensesRows.push({ group: "Spar", label: it.label, amount: it.amount });
   for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
 
   const incomesRows = [];
@@ -2323,7 +2391,14 @@ function updateTaggedEditorIntervalVisibility(cat) {
   const firstLbl = document.getElementById(ids.firstDateLabel);
   if (payDayRow) payDayRow.hidden = !recurring;
   if (endRow) endRow.hidden = !recurring;
-  if (firstLbl) firstLbl.textContent = recurring ? "Första betalningsdatum" : "Betalningsdatum";
+  if (firstLbl) {
+    const L = C.labels || {};
+    if (recurring) {
+      firstLbl.textContent = L.firstDateRecurring || "Första betalningsdatum";
+    } else {
+      firstLbl.textContent = L.firstDateOnce || "Betalningsdatum";
+    }
+  }
 }
 
 /** Gemensamma fält carPaymentDay / carFirstDate / carEndDate för alla taggade kategorier. */
@@ -2350,36 +2425,52 @@ function inferScheduleMetaFromExpense(exp) {
   return { firstDate, payDay, amount, endDate };
 }
 
-function getTaggedExpenseGroupsForMonth(year, month, cat) {
+function formatTaggedExpenseDateDisplaySv(isoDate) {
+  const dt = isoDate ? new Date(isoDate) : null;
+  if (!dt || Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function getTaggedExpenseRowsForMonth(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
-  const byType = new Map();
   const keyField = C.typeKeyField;
+  const rows = [];
   for (const exp of state.expenses || []) {
     if (exp.expenseCategory !== C.expenseCategory) continue;
+    const key = exp[keyField] || "other";
+    const typeLabel = getTaggedTypeLabel(cat, key);
+    const nameRaw = String(exp.name || "").trim();
+    const datesInMonth = [];
     let sum = 0;
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) sum += asNumber(p.amount);
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
+        const amt = asNumber(p.amount);
+        if (amt > 0 && p.date) datesInMonth.push(String(p.date));
+        sum += amt;
+      }
     }
     if (sum <= 0) continue;
-    const key = exp[keyField] || "other";
-    if (!byType.has(key)) byType.set(key, []);
-    byType.get(key).push({
+    datesInMonth.sort();
+    const dateIso = datesInMonth[0] || "";
+    let titleLine;
+    if (C.hideTypeInList) {
+      titleLine = nameRaw || "Sparande";
+    } else {
+      titleLine = nameRaw && nameRaw !== typeLabel ? `${typeLabel} ${nameRaw}`.trim() : typeLabel;
+    }
+    rows.push({
       expenseId: exp.id,
-      name: String(exp.name || "").trim() || getTaggedTypeLabel(cat, key),
-      amount: sum
+      titleLine,
+      amount: sum,
+      dateStr: formatTaggedExpenseDateDisplaySv(dateIso),
+      sortKey: dateIso || "9999-12-31"
     });
   }
-  const groups = [];
-  for (const t of C.types) {
-    const items = byType.get(t.key);
-    if (items && items.length) groups.push({ typeLabel: t.label, items });
-    byType.delete(t.key);
-  }
-  for (const [key, items] of byType) groups.push({ typeLabel: getTaggedTypeLabel(cat, key), items });
-  const total = groups.reduce((s, g) => s + g.items.reduce((a, it) => a + it.amount, 0), 0);
-  return { groups, total };
+  rows.sort((a, b) => String(a.sortKey).localeCompare(String(b.sortKey)) || a.titleLine.localeCompare(b.titleLine, "sv"));
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return { rows, total };
 }
 
 function renderTaggedExpenseListMount(cat) {
@@ -2395,34 +2486,30 @@ function renderTaggedExpenseListMount(cat) {
   const month = Number(u.listMonth);
   if (!Number.isFinite(year) || !Number.isFinite(month)) return;
 
-  if (titleEl) titleEl.textContent = `Utgifter ${monthName(month).toLowerCase()}`;
-  const { groups, total } = getTaggedExpenseGroupsForMonth(year, month, cat);
+  if (titleEl) {
+    const prefix = (C.labels && C.labels.monthListTitlePrefix) || "Utgifter";
+    titleEl.textContent = `${prefix} ${monthName(month).toLowerCase()}`;
+  }
+  const { rows, total } = getTaggedExpenseRowsForMonth(year, month, cat);
   mount.innerHTML = "";
 
-  if (groups.length === 0) {
-    mount.innerHTML = `<div class="car-list-empty">${escapeHtml(C.labels.emptyMonth)}</div>`;
+  if (rows.length === 0) {
+    mount.innerHTML = `<div class="tagged-expense-list-empty">${escapeHtml(C.labels.emptyMonth)}</div>`;
   } else {
-    for (const g of groups) {
-      const block = document.createElement("div");
-      block.className = "car-type-block";
-      for (const it of g.items) {
-        const row = document.createElement("div");
-        row.className = "car-expense-block";
-        row.innerHTML = `
-          <div class="car-expense-line1">
-            <span class="car-expense-type">${escapeHtml(g.typeLabel)}</span>
-            <span class="car-expense-amt">${escapeHtml(formatKr(it.amount))}</span>
-          </div>
-          <div class="car-expense-line2">
-            <span class="car-expense-name">${escapeHtml(it.name)}</span>
-            <button type="button" class="car-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(it.expenseId)}" aria-label="Redigera">
-              <span class="car-edit-pill" aria-hidden="true"></span>
-            </button>
-          </div>
-        `;
-        block.appendChild(row);
-      }
-      mount.appendChild(block);
+    for (const r of rows) {
+      const row = document.createElement("div");
+      row.className = "tagged-expense-preview-row";
+      row.innerHTML = `
+        <div class="tagged-expense-row-top">
+          <strong class="tagged-expense-title">${escapeHtml(r.titleLine)}</strong>
+          <strong class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</strong>
+        </div>
+        <div class="tagged-expense-row-meta">
+          <span class="tagged-expense-date">${escapeHtml(r.dateStr)}</span>
+          <button type="button" class="linklike tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}">Redigera</button>
+        </div>
+      `;
+      mount.appendChild(row);
     }
   }
 
@@ -2441,6 +2528,7 @@ function renderTaggedExpenseListMount(cat) {
     if (c === "car") renderCarPage();
     else if (c === "home") renderHomePage();
     else if (c === "children") renderChildrenPage();
+    else if (c === "savings") renderSavingsPage();
   };
 }
 
@@ -2479,7 +2567,7 @@ function renderTaggedCategoryPage(cat) {
 
   const editorCard = document.getElementById(ids.editorCard);
   const editorTitle = document.getElementById(ids.editorTitle);
-  const typeSel = document.getElementById(ids.editType);
+  const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
   const nameInp = document.getElementById(ids.editName);
   const payDayInp = document.getElementById(ids.editPaymentDay);
   const intervalSel = document.getElementById(ids.editInterval);
@@ -2504,16 +2592,19 @@ function renderTaggedCategoryPage(cat) {
 
   if (editorCard) editorCard.hidden = !u.editorOpen;
 
-  if (u.editorOpen && typeSel && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
+  if (u.editorOpen && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
     if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
 
     const kf = C.typeKeyField;
+    const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key || "own";
     if (editing) {
       const curKey = editing[kf];
-      typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
-      nameInp.value = editing.name || getTaggedTypeLabel(cat, curKey);
+      if (typeSel) {
+        typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
+      }
+      nameInp.value = editing.name || (C.hideTypeInEditor ? "" : getTaggedTypeLabel(cat, curKey));
       intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
       const inf = inferScheduleMetaFromExpense(editing);
       payDayInp.value = String(inf.payDay);
@@ -2521,9 +2612,11 @@ function renderTaggedCategoryPage(cat) {
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
       amtInp.value = inf.amount > 0 ? String(Math.round(inf.amount)) : "";
     } else {
-      const defType = C.types[0];
-      typeSel.value = defType.key;
-      nameInp.value = defType.label;
+      if (typeSel) {
+        const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
+        typeSel.value = defType.key;
+      }
+      nameInp.value = C.hideTypeInEditor ? "" : (C.types[0] ? C.types[0].label : "");
       intervalSel.value = "once";
       payDayInp.value = "25";
       const y = Number(u.listYear) || baseYear;
@@ -2548,6 +2641,7 @@ function renderTaggedCategoryPage(cat) {
     typeSel.setAttribute("data-tag-type-bound", cat);
     typeSel.addEventListener("change", () => {
       if (u.editingId) return;
+      if (C.hideTypeInEditor) return;
       const t = C.types.find((x) => x.key === typeSel.value);
       if (t && nameInp) nameInp.value = t.label;
     });
@@ -2560,26 +2654,39 @@ function saveTaggedCategoryFromEditor(cat) {
   const ids = C.ids;
   const u = ui.tagged[cat];
   const note = document.getElementById(ids.note);
-  const typeSel = document.getElementById(ids.editType);
+  const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
   const nameInp = document.getElementById(ids.editName);
   const payDayInp = document.getElementById(ids.editPaymentDay);
   const intervalSel = document.getElementById(ids.editInterval);
   const firstInp = document.getElementById(ids.editFirstDate);
   const endInp = document.getElementById(ids.editEndDate);
   const amtInp = document.getElementById(ids.editAmount);
-  if (!typeSel || !nameInp || !intervalSel || !firstInp || !amtInp) return;
+  if (!nameInp || !intervalSel || !firstInp || !amtInp) return;
 
   const name = (nameInp.value || "").trim();
+  const L = C.labels || {};
   if (!name) {
-    if (note) note.textContent = "Ange namn på utgift.";
+    if (note) note.textContent = L.nameRequiredHint || "Ange namn på utgift.";
     return;
   }
-  const typeKey = typeSel.value || C.types[0].key;
+  const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key;
+  let typeKey = typeSel?.value || defaultTypeKey;
+  if (u.editingId && C.hideTypeInEditor) {
+    const prev = (state.expenses || []).find((x) => x.id === u.editingId);
+    const pk = prev && prev[C.typeKeyField];
+    if (pk && C.types.some((t) => t.key === pk)) typeKey = pk;
+    else typeKey = defaultTypeKey;
+  }
   const interval = intervalSel.value || "once";
   const firstDateISO = (firstInp.value || "").trim();
   const firstParts = datePartsFromIso(firstDateISO);
   if (!firstParts) {
-    if (note) note.textContent = interval === "once" ? "Ange datum för betalning." : "Ange första betalningsdatum.";
+    if (note) {
+      note.textContent =
+        interval === "once"
+          ? L.dateOnceHint || "Ange datum för betalning."
+          : L.dateRecurringHint || "Ange första betalningsdatum.";
+    }
     return;
   }
   if (!isAllowedYear(firstParts.y)) {
@@ -2591,7 +2698,7 @@ function saveTaggedCategoryFromEditor(cat) {
   if (interval === "once") {
     endDateISO = "";
   } else if (endDateISO && !datePartsFromIso(endDateISO)) {
-    if (note) note.textContent = "Ogiltigt slutdatum för betalning.";
+    if (note) note.textContent = L.endDateHint || "Ogiltigt slutdatum för betalning.";
     return;
   }
   const amount = asNumber(amtInp.value);
@@ -2661,6 +2768,10 @@ function renderHomePage() {
 
 function renderChildrenPage() {
   renderTaggedCategoryPage("children");
+}
+
+function renderSavingsPage() {
+  renderTaggedCategoryPage("savings");
 }
 
 function saveCarExpenseFromEditor() {
@@ -4841,7 +4952,14 @@ function renderExpensesPage() {
 }
 
 function openExpenseCategoryOverlay(key) {
-  const map = { home: renderHomePage, loans: renderLoansPage, car: renderCarPage, food: renderFoodPage, children: renderChildrenPage, savings: null };
+  const map = {
+    home: renderHomePage,
+    loans: renderLoansPage,
+    car: renderCarPage,
+    food: renderFoodPage,
+    children: renderChildrenPage,
+    savings: renderSavingsPage
+  };
   if (map[key]) map[key]();
   const target = document.querySelector(`[data-expview="${key}"]`);
   if (!target) return;
@@ -5124,6 +5242,7 @@ function initActions() {
         if (cat === "car") renderCarPage();
         else if (cat === "home") renderHomePage();
         else if (cat === "children") renderChildrenPage();
+        else if (cat === "savings") renderSavingsPage();
         const editorCard = document.getElementById(ids.editorCard);
         if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -5142,12 +5261,14 @@ function initActions() {
         if (cat === "car") renderCarPage();
         else if (cat === "home") renderHomePage();
         else if (cat === "children") renderChildrenPage();
+        else if (cat === "savings") renderSavingsPage();
       });
     }
   };
   wireTaggedCategoryActions("car");
   wireTaggedCategoryActions("home");
   wireTaggedCategoryActions("children");
+  wireTaggedCategoryActions("savings");
 
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {

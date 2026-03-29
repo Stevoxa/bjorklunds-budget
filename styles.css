@@ -1549,21 +1549,10 @@ body.modal-open {
   }
 }
 
-/* Bil overlay — layout enligt mobilmockup (fullbredd filter + knappar) */
-.car-omkostnader-card .car-list-filters {
+/* Bil / Hem / Barn — omkostnadskort (matlik inner box + lista som matöversikt) */
+.car-omkostnader-add-row {
+  margin-top: 0;
   margin-bottom: 0;
-  gap: 14px;
-}
-
-.car-omkostnader-card .car-omkostnader-field {
-  font-size: 0.82rem;
-  letter-spacing: 0.01em;
-  gap: 8px;
-}
-
-.car-omkostnader-card .car-omkostnader-field select {
-  width: 100%;
-  min-width: 0;
 }
 
 .car-omkostnader-actions {
@@ -1573,8 +1562,8 @@ body.modal-open {
   margin-top: 12px;
 }
 
-.car-omkostnader-actions + .car-list-month-heading {
-  margin-top: 18px;
+.car-omkostnader-card > .car-omkostnader-add-row {
+  margin-top: 0;
 }
 
 .car-omkostnader-btn {
@@ -1582,124 +1571,139 @@ body.modal-open {
   font-weight: 600;
 }
 
-.car-list-month-heading {
-  font-size: 0.98rem;
-  font-weight: 600;
-  margin: 16px 0 10px;
-  color: var(--text);
+.tagged-omkostnader-preview {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
-.car-list-mount {
-  margin-top: 4px;
+.tagged-omkostnader-preview-title {
+  margin-bottom: 0;
 }
 
-.car-list-empty {
-  color: var(--muted);
-  font-size: 0.95rem;
-  padding: 8px 0;
+.tagged-omkostnader-title-rule {
+  margin-top: 10px;
+  border: none;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
 }
 
-.car-type-block {
-  border-top: 1px dashed color-mix(in srgb, var(--muted) 55%, transparent);
-  padding-top: 10px;
+.tagged-omkostnader-picker {
+  justify-content: flex-start;
   margin-top: 10px;
 }
 
-.car-type-block:first-child {
-  border-top: none;
-  padding-top: 0;
-  margin-top: 0;
-}
-
-.car-expense-block {
-  padding: 10px 0 12px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--muted) 55%, transparent);
-}
-
-.car-type-block .car-expense-block:last-child {
-  border-bottom: none;
-  padding-bottom: 4px;
-}
-
-.car-expense-line1 {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.car-expense-type {
+.tagged-omkostnader-picker label {
   flex: 1;
   min-width: 0;
 }
 
-.car-expense-amt {
-  flex-shrink: 0;
+.tagged-omkostnader-picker select {
+  width: 100%;
+  min-width: 0;
+}
+
+.tagged-omkostnader-month-heading {
+  margin: 14px 0 0;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tagged-expense-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 4px;
+}
+
+.tagged-expense-list-empty {
+  color: var(--muted);
+  font-size: 0.95rem;
+  padding: 10px 0 6px;
+}
+
+.tagged-expense-preview-row {
+  padding: 10px 0 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  font-size: clamp(0.82rem, 2.2vw + 0.55rem, 0.95rem);
   font-variant-numeric: tabular-nums;
 }
 
-.car-expense-line2 {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-top: 8px;
-  color: color-mix(in srgb, var(--muted) 92%, var(--text));
-  font-size: 0.88rem;
+.tagged-expense-preview-row:first-child {
+  border-top: none;
+  padding-top: 4px;
 }
 
-.car-expense-name {
+.tagged-expense-preview-row:last-child {
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+.tagged-expense-row-top {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.tagged-expense-title,
+.tagged-expense-amt {
+  font-weight: 750;
+  color: var(--text);
+}
+
+.tagged-expense-title {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.car-edit-btn {
+.tagged-expense-amt {
   flex-shrink: 0;
-  display: inline-flex;
+}
+
+.tagged-expense-row-meta {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  margin: -6px -4px -6px 0;
-  padding: 6px 10px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  box-shadow: none;
+  gap: 10px;
+  margin-top: 6px;
 }
 
-.car-edit-btn:hover .car-edit-pill,
-.car-edit-btn:focus-visible .car-edit-pill {
-  background: color-mix(in srgb, var(--text) 32%, transparent);
-  border-color: color-mix(in srgb, var(--muted) 65%, transparent);
-}
-
-.car-edit-btn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-.car-edit-pill {
-  display: block;
-  width: 7px;
-  height: 28px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--muted) 50%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
-}
-
-.car-month-total {
+.tagged-expense-date {
   font-style: italic;
-  margin-top: 14px;
-  margin-bottom: 4px;
-  color: var(--text);
+  font-size: 0.82em;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.tagged-expense-edit-btn {
+  flex-shrink: 0;
+  text-align: right;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: color-mix(in srgb, var(--primary) 72%, var(--text));
+  min-height: 44px;
+  padding: 8px 2px 8px 10px;
+  align-self: center;
+}
+
+.tagged-expense-edit-btn:hover {
+  color: var(--primary);
+}
+
+.tagged-omkostnader-total {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  font-style: italic;
+  color: var(--muted);
+  font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
 

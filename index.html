@@ -422,23 +422,26 @@
             </div>
 
             <div class="table-card car-omkostnader-card">
-              <div class="table-title">Bil omkostnader</div>
-              <div class="form-grid narrow car-list-filters">
-                <label class="field car-omkostnader-field">
-                  År
-                  <select id="carListYear"></select>
-                </label>
-                <label class="field car-omkostnader-field">
-                  Månad
-                  <select id="carListMonth"></select>
-                </label>
-              </div>
-              <div class="actions-row car-omkostnader-actions">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
                 <button class="secondary car-omkostnader-btn" id="carAddBtn" type="button">Lägg till</button>
               </div>
-              <h3 class="car-list-month-heading" id="carListMonthTitle">Utgifter</h3>
-              <div id="carListMount" class="car-list-mount"></div>
-              <p class="car-month-total" id="carMonthTotal"></p>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Bil omkostnader</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="carListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="carListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="carListMonthTitle">Utgifter</h3>
+                <div id="carListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="carMonthTotal"></p>
+              </div>
               <div class="actions-row car-omkostnader-actions">
                 <button class="secondary car-omkostnader-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
@@ -763,23 +766,26 @@
             </div>
 
             <div class="table-card car-omkostnader-card">
-              <div class="table-title">Barn omkostnader</div>
-              <div class="form-grid narrow car-list-filters">
-                <label class="field car-omkostnader-field">
-                  År
-                  <select id="childrenListYear"></select>
-                </label>
-                <label class="field car-omkostnader-field">
-                  Månad
-                  <select id="childrenListMonth"></select>
-                </label>
-              </div>
-              <div class="actions-row car-omkostnader-actions">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
                 <button class="secondary car-omkostnader-btn" id="childrenAddBtn" type="button">Lägg till</button>
               </div>
-              <h3 class="car-list-month-heading" id="childrenListMonthTitle">Utgifter</h3>
-              <div id="childrenListMount" class="car-list-mount"></div>
-              <p class="car-month-total" id="childrenMonthTotal"></p>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Barn omkostnader</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="childrenListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="childrenListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="childrenListMonthTitle">Utgifter</h3>
+                <div id="childrenListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
+              </div>
               <div class="actions-row car-omkostnader-actions">
                 <button class="secondary car-omkostnader-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
@@ -788,12 +794,72 @@
 
           <!-- SAVINGS -->
           <section class="exp-view exp-overlay" data-expview="savings" hidden>
-            <div class="table-card">
-              <div class="table-title">Spar</div>
-              <div class="note">Placeholder tills vi bygger spar-funktionen.</div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" type="button" data-exp-close>Spara</button>
+            <div class="table-card" id="savingsEditorCard" hidden>
+              <div class="table-title" id="savingsEditorTitle">Nytt sparande</div>
+              <div class="form-grid">
+                <label class="field">
+                  Namn på spar
+                  <input id="savingsEditName" type="text" autocomplete="off" />
+                </label>
+                <label class="field" id="savingsPaymentDayRow">
+                  Sparningsdag (dag i månaden)
+                  <input id="savingsEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                </label>
+                <label class="field">
+                  Sparintervall
+                  <select id="savingsEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span id="savingsFirstDateLabel">Spar datum</span>
+                  <input id="savingsEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="savingsEndDateRow">
+                  Spar upphör (valfritt)
+                  <input id="savingsEditEndDate" type="date" />
+                </label>
+                <label class="field">
+                  Belopp (kr)
+                  <input id="savingsEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="savingsSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="savingsCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="savingsNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
+                <button class="secondary car-omkostnader-btn" id="savingsAddBtn" type="button">Lägg till</button>
+              </div>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Sparöversikt</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="savingsListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="savingsListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="savingsListMonthTitle">Sparbelopp</h3>
+                <div id="savingsListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="savingsMonthTotal"></p>
+              </div>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
             </div>
           </section>
