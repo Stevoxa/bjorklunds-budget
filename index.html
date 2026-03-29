@@ -1199,18 +1199,34 @@
       </div>
       <div class="date-sheet-body">
         <div class="date-sheet-month-nav">
-          <button type="button" class="secondary btn-icon" id="dateSheetPrevMonth" aria-label="Föregående månad">
-            ‹
+          <button
+            type="button"
+            class="date-sheet-month-year-btn"
+            id="dateSheetMonthYearBtn"
+            aria-expanded="false"
+            aria-controls="dateSheetMonthPane"
+          >
+            <span class="date-sheet-month-year-label" id="dateSheetMonthLabel"></span>
+            <span class="date-sheet-month-year-chevron" id="dateSheetMonthYearChevron" aria-hidden="true">⌄</span>
           </button>
-          <div class="date-sheet-month-label" id="dateSheetMonthLabel"></div>
-          <button type="button" class="secondary btn-icon" id="dateSheetNextMonth" aria-label="Nästa månad">
-            ›
-          </button>
+          <div class="date-sheet-nav-arrows">
+            <button type="button" class="secondary btn-icon" id="dateSheetPrevMonth" aria-label="Föregående">
+              ‹
+            </button>
+            <button type="button" class="secondary btn-icon" id="dateSheetNextMonth" aria-label="Nästa">
+              ›
+            </button>
+          </div>
         </div>
-        <div class="date-sheet-weekdays" aria-hidden="true">
-          <span>må</span><span>ti</span><span>on</span><span>to</span><span>fr</span><span>lö</span><span>sö</span>
+        <div id="dateSheetDayPane" class="date-sheet-day-pane">
+          <div class="date-sheet-weekdays" aria-hidden="true">
+            <span>Mån</span><span>Tis</span><span>Ons</span><span>Tor</span><span>Fre</span><span>Lör</span><span>Sön</span>
+          </div>
+          <div class="date-sheet-grid" id="dateSheetGrid"></div>
         </div>
-        <div class="date-sheet-grid" id="dateSheetGrid"></div>
+        <div id="dateSheetMonthPane" class="date-sheet-month-pane" hidden>
+          <div class="date-sheet-month-picker-grid" id="dateSheetMonthPickerGrid"></div>
+        </div>
       </div>
       <footer class="date-sheet-footer">
         <button type="button" class="primary date-sheet-footer-ok" id="dateSheetOkBtn">Klar</button>

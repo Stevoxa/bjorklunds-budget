@@ -275,11 +275,31 @@ function monthFullyAfterMax(viewY, viewM, maxIso) {
   return start > maxIso;
 }
 
+function monthFullyOutOfRange(y, m, minIso, maxIso) {
+  const lastD = daysInMonth(y, m);
+  const start = isoDateFromParts(y, m, 1);
+  const end = isoDateFromParts(y, m, lastD);
+  if (minIso && end < minIso) return true;
+  if (maxIso && start > maxIso) return true;
+  return false;
+}
+
+function yearEntirelyOutOfRange(y, minIso, maxIso) {
+  if (!minIso && !maxIso) return false;
+  const yStart = `${y}-01-01`;
+  const yEnd = `${y}-12-31`;
+  if (minIso && yEnd < minIso) return true;
+  if (maxIso && yStart > maxIso) return true;
+  return false;
+}
+
 let dateSheetTargetInput = null;
 let dateSheetSnapshot = "";
 let dateSheetDraft = "";
 let dateSheetViewY = 0;
 let dateSheetViewM = 0;
+/** "days" | "months" — månadsvy öppnas via månad/år-raden */
+let dateSheetMode = "days";
 let dateSheetOpen = false;
 let dateSheetClosing = false;
 let dateSheetKeydownHandler = null;
@@ -318,7 +338,12 @@ function getDateSheetEls() {
     sheet: document.getElementById("dateSheet"),
     title: document.getElementById("dateSheetTitle"),
     grid: document.getElementById("dateSheetGrid"),
+    monthYearBtn: document.getElementById("dateSheetMonthYearBtn"),
     monthLabel: document.getElementById("dateSheetMonthLabel"),
+    monthChevron: document.getElementById("dateSheetMonthYearChevron"),
+    dayPane: document.getElementById("dateSheetDayPane"),
+    monthPane: document.getElementById("dateSheetMonthPane"),
+    monthPickerGrid: document.getElementById("dateSheetMonthPickerGrid"),
     prevBtn: document.getElementById("dateSheetPrevMonth"),
     nextBtn: document.getElementById("dateSheetNextMonth"),
     closeBtn: document.getElementById("dateSheetCloseBtn"),
@@ -345,12 +370,14 @@ function formatDateForSJDisplay(iso) {
   if (!parts) return "Välj datum";
   const d = new Date(parts.y, parts.m - 1, parts.d);
   if (Number.isNaN(d.getTime())) return "Välj datum";
-  const today = todayIsoLocal();
-  const datePart = d.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
-  if (iso === today) return `Idag ${datePart}`;
+  const currentY = new Date().getFullYear();
   const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
-  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-  return `${cap(wd)} ${datePart}`;
+  const capWd = wd ? wd.charAt(0).toUpperCase() + wd.slice(1) : "";
+  const monthLower = d.toLocaleDateString("sv-SE", { month: "long" }).toLowerCase();
+  if (parts.y === currentY) {
+    return `${capWd} ${parts.d} ${monthLower}`;
+  }
+  return `${capWd} ${parts.d} ${monthLower} ${parts.y}`;
 }
 
 function createCalendarIconSvg() {
@@ -506,6 +533,7 @@ function finalizeDateSheetClose(revert) {
   dateSheetOpen = false;
   dateSheetClosing = false;
   dateSheetTargetInput = null;
+  dateSheetMode = "days";
 }
 
 function closeDateSheetAnimated(revert) {
@@ -546,20 +574,134 @@ function closeDateSheet(revert) {
   closeDateSheetAnimated(revert);
 }
 
-function selectDateSheetDay(iso) {
+function commitDateSheetDayAndClose(iso) {
   const inp = dateSheetTargetInput;
   if (!inp) return;
   const minIso = inp.min || "";
   const maxIso = inp.max || "";
   if (minIso && iso < minIso) return;
   if (maxIso && iso > maxIso) return;
-  dateSheetDraft = iso;
-  const parts = datePartsFromIso(iso);
-  if (parts) {
-    dateSheetViewY = parts.y;
-    dateSheetViewM = parts.m;
+  const clamped = clampIsoToMinMax(iso, minIso, maxIso);
+  dateSheetDraft = clamped;
+  inp.value = clamped;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  inp.dispatchEvent(new Event("change", { bubbles: true }));
+  closeDateSheetAnimated(false);
+}
+
+function monthShortLabelSv(y, m) {
+  const s = new Date(y, m - 1, 1).toLocaleDateString("sv-SE", { month: "short" });
+  return s.replace(/\.\s*$/, "").trim();
+}
+
+function syncDateSheetPaneVisibility() {
+  const { dayPane, monthPane } = getDateSheetEls();
+  if (dayPane) {
+    dayPane.hidden = dateSheetMode !== "days";
+    dayPane.setAttribute("aria-hidden", dateSheetMode !== "days" ? "true" : "false");
   }
-  renderDateSheetMonth();
+  if (monthPane) {
+    monthPane.hidden = dateSheetMode !== "months";
+    monthPane.setAttribute("aria-hidden", dateSheetMode !== "months" ? "true" : "false");
+  }
+}
+
+function updateDateSheetMonthYearRow() {
+  const { monthYearBtn, monthLabel, monthChevron } = getDateSheetEls();
+  if (monthLabel) {
+    const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+    const longM = new Date(dateSheetViewY, dateSheetViewM - 1, 1).toLocaleDateString("sv-SE", { month: "long" });
+    monthLabel.textContent = `${cap(longM)} ${dateSheetViewY}`;
+  }
+  if (monthChevron) {
+    monthChevron.textContent = dateSheetMode === "months" ? "⌃" : "⌄";
+  }
+  if (monthYearBtn) {
+    monthYearBtn.setAttribute("aria-expanded", dateSheetMode === "months" ? "true" : "false");
+    monthYearBtn.title = dateSheetMode === "months" ? "Visa kalender" : "Välj månad";
+    monthYearBtn.classList.toggle("date-sheet-month-year-btn--open", dateSheetMode === "months");
+  }
+  const { prevBtn, nextBtn } = getDateSheetEls();
+  if (prevBtn) {
+    prevBtn.setAttribute("aria-label", dateSheetMode === "months" ? "Föregående år" : "Föregående månad");
+  }
+  if (nextBtn) {
+    nextBtn.setAttribute("aria-label", dateSheetMode === "months" ? "Nästa år" : "Nästa månad");
+  }
+}
+
+function syncDateSheetArrowDisabled() {
+  const { prevBtn, nextBtn } = getDateSheetEls();
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+  if (dateSheetMode === "months") {
+    if (prevBtn) prevBtn.disabled = yearEntirelyOutOfRange(dateSheetViewY - 1, minIso, maxIso);
+    if (nextBtn) nextBtn.disabled = yearEntirelyOutOfRange(dateSheetViewY + 1, minIso, maxIso);
+    return;
+  }
+  let py = dateSheetViewY;
+  let pm = dateSheetViewM - 1;
+  if (pm < 1) {
+    pm = 12;
+    py -= 1;
+  }
+  let ny = dateSheetViewY;
+  let nm = dateSheetViewM + 1;
+  if (nm > 12) {
+    nm = 1;
+    ny += 1;
+  }
+  if (prevBtn) prevBtn.disabled = monthFullyBeforeMin(py, pm, minIso);
+  if (nextBtn) nextBtn.disabled = monthFullyAfterMax(ny, nm, maxIso);
+}
+
+function renderDateSheetMonthPicker() {
+  const { monthPickerGrid } = getDateSheetEls();
+  if (!monthPickerGrid) return;
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+  const y = dateSheetViewY;
+  const dp = datePartsFromIso(dateSheetDraft);
+  const selectedM = dp && dp.y === y ? dp.m : null;
+
+  monthPickerGrid.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (let m = 1; m <= 12; m++) {
+    const disabled = monthFullyOutOfRange(y, m, minIso, maxIso);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-sheet-month-pick";
+    btn.textContent = monthShortLabelSv(y, m);
+    if (selectedM === m) btn.classList.add("date-sheet-month-pick--selected");
+    if (disabled) {
+      btn.disabled = true;
+      btn.classList.add("date-sheet-month-pick--disabled");
+    } else {
+      btn.addEventListener("click", () => {
+        dateSheetViewY = y;
+        dateSheetViewM = m;
+        let dayN = 1;
+        if (dp) dayN = Math.min(dp.d, daysInMonth(y, m));
+        let nextIso = isoDateFromParts(y, m, dayN);
+        nextIso = clampIsoToMinMax(nextIso, minIso, maxIso);
+        const np = datePartsFromIso(nextIso);
+        if (np) {
+          dateSheetViewY = np.y;
+          dateSheetViewM = np.m;
+          dateSheetDraft = nextIso;
+        }
+        dateSheetMode = "days";
+        renderDateSheetMonth();
+        const { okBtn, grid } = getDateSheetEls();
+        const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
+        (sel || okBtn)?.focus();
+      });
+    }
+    frag.appendChild(btn);
+  }
+  monthPickerGrid.appendChild(frag);
 }
 
 function applyDateSheetKlar() {
@@ -575,32 +717,22 @@ function applyDateSheetKlar() {
 }
 
 function renderDateSheetMonth() {
-  const { grid, monthLabel, prevBtn, nextBtn } = getDateSheetEls();
-  if (!grid || !monthLabel) return;
+  const { grid } = getDateSheetEls();
+  syncDateSheetPaneVisibility();
+  updateDateSheetMonthYearRow();
 
   const inp = dateSheetTargetInput;
   const minIso = inp?.min || "";
   const maxIso = inp?.max || "";
 
-  let py = dateSheetViewY;
-  let pm = dateSheetViewM - 1;
-  if (pm < 1) {
-    pm = 12;
-    py -= 1;
+  if (dateSheetMode === "months") {
+    renderDateSheetMonthPicker();
+    syncDateSheetArrowDisabled();
+    return;
   }
-  let ny = dateSheetViewY;
-  let nm = dateSheetViewM + 1;
-  if (nm > 12) {
-    nm = 1;
-    ny += 1;
-  }
-  if (prevBtn) prevBtn.disabled = monthFullyBeforeMin(py, pm, minIso);
-  if (nextBtn) nextBtn.disabled = monthFullyAfterMax(ny, nm, maxIso);
 
-  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
-  monthLabel.textContent = cap(
-    new Date(dateSheetViewY, dateSheetViewM - 1, 1).toLocaleDateString("sv-SE", { month: "long", year: "numeric" })
-  );
+  if (!grid) return;
+  syncDateSheetArrowDisabled();
 
   grid.innerHTML = "";
   const first = new Date(dateSheetViewY, dateSheetViewM - 1, 1);
@@ -636,7 +768,7 @@ function renderDateSheetMonth() {
       btn.disabled = true;
       btn.classList.add("date-sheet-day--disabled");
     } else {
-      btn.addEventListener("click", () => selectDateSheetDay(iso));
+      btn.addEventListener("click", () => commitDateSheetDayAndClose(iso));
     }
     frag.appendChild(btn);
   }
@@ -665,6 +797,8 @@ function openDateSheet(inputEl) {
     dateSheetViewY = d.getFullYear();
     dateSheetViewM = d.getMonth() + 1;
   }
+
+  dateSheetMode = "days";
 
   if (title) title.textContent = humanLabelForDateInput(inputEl);
 
@@ -921,7 +1055,7 @@ function initOverviewPeriodSheet() {
 }
 
 function initMobileDateSheetPicker() {
-  const { backdrop, closeBtn, okBtn, prevBtn, nextBtn, handle, sheet } = getDateSheetEls();
+  const { backdrop, closeBtn, okBtn, prevBtn, nextBtn, handle, sheet, monthYearBtn } = getDateSheetEls();
   if (!backdrop || !closeBtn || !okBtn) return;
 
   document.addEventListener(
@@ -968,8 +1102,19 @@ function initMobileDateSheetPicker() {
   closeBtn.addEventListener("click", () => closeDateSheetAnimated(true));
   okBtn.addEventListener("click", () => applyDateSheetKlar());
   attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
+
+  monthYearBtn?.addEventListener("click", () => {
+    dateSheetMode = dateSheetMode === "days" ? "months" : "days";
+    renderDateSheetMonth();
+  });
+
   if (prevBtn) {
     prevBtn.addEventListener("click", () => {
+      if (dateSheetMode === "months") {
+        dateSheetViewY -= 1;
+        renderDateSheetMonth();
+        return;
+      }
       if (dateSheetViewM <= 1) {
         dateSheetViewM = 12;
         dateSheetViewY -= 1;
@@ -981,6 +1126,11 @@ function initMobileDateSheetPicker() {
   }
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
+      if (dateSheetMode === "months") {
+        dateSheetViewY += 1;
+        renderDateSheetMonth();
+        return;
+      }
       if (dateSheetViewM >= 12) {
         dateSheetViewM = 1;
         dateSheetViewY += 1;

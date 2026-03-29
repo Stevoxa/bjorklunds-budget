@@ -2315,6 +2315,8 @@ html[data-theme="dark"] .period-sheet-backdrop {
   justify-content: space-between;
   gap: var(--space-3);
   width: 100%;
+  max-width: none;
+  align-self: stretch;
   min-height: 48px;
   padding: var(--space-2) var(--space-4);
   margin: 0;
@@ -2353,6 +2355,11 @@ html[data-theme="dark"] .period-sheet-backdrop {
   flex-shrink: 0;
   color: var(--muted);
   opacity: 0.92;
+}
+
+.form-grid > .field:has(.date-field-sj),
+.form-grid > label.field:has(.date-field-sj) {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 720px) {
@@ -2464,7 +2471,9 @@ html[data-theme="dark"] .period-sheet-backdrop {
 }
 
 .date-sheet-body {
-  padding: var(--space-3) var(--space-4) var(--space-5);
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -2473,16 +2482,127 @@ html[data-theme="dark"] .period-sheet-backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin-bottom: var(--space-3);
 }
 
-.date-sheet-month-label {
-  font-weight: 750;
-  font-size: 1.02rem;
-  text-align: center;
-  flex: 1;
+.date-sheet-month-year-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: var(--space-1) var(--space-2) var(--space-1) 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--radius-control);
+}
+
+.date-sheet-month-year-btn:hover {
+  color: color-mix(in srgb, var(--primary) 55%, var(--text));
+}
+
+.date-sheet-month-year-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.date-sheet-month-year-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date-sheet-month-year-chevron {
+  flex-shrink: 0;
+  font-size: 0.72em;
+  color: var(--muted);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.date-sheet-nav-arrows {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.date-sheet-month-pane {
+  margin-top: var(--space-1);
+}
+
+.date-sheet-month-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.date-sheet-month-pick {
+  position: relative;
+  min-height: 48px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 92%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.88rem;
+  line-height: 1.15;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-1);
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform 100ms var(--motion-ease);
+}
+
+.date-sheet-month-pick:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.date-sheet-month-pick:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.date-sheet-month-pick--selected {
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border));
+  color: var(--primary-ink);
+  font-weight: 800;
+}
+
+.date-sheet-month-pick--disabled,
+.date-sheet-month-pick:disabled {
+  opacity: 0.38;
+  color: var(--muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.date-sheet-month-pick--disabled::after,
+.date-sheet-month-pick:disabled::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 50%;
+  margin-top: -0.75px;
+  border-top: 1.5px solid currentColor;
+  transform: rotate(-34deg);
+  transform-origin: center;
+  pointer-events: none;
+  opacity: 0.9;
 }
 
 .date-sheet-weekdays {
@@ -2490,9 +2610,8 @@ html[data-theme="dark"] .period-sheet-backdrop {
   grid-template-columns: repeat(7, 1fr);
   gap: var(--space-1);
   margin-bottom: var(--space-2);
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: lowercase;
+  font-size: 0.72rem;
+  font-weight: 650;
   color: var(--muted);
   letter-spacing: 0.02em;
   text-align: center;
