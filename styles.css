@@ -2284,6 +2284,21 @@ html[data-theme="dark"] .period-sheet-backdrop {
   color: var(--text);
 }
 
+/* Månadsvy: ingen titelrad (fältetikett), bara månad/år + chevron som rubrik */
+.date-sheet--month-mode .date-sheet-chrome {
+  display: none;
+}
+
+.date-sheet--month-mode .date-sheet-body {
+  padding-top: var(--space-2);
+}
+
+.date-sheet--month-mode .date-sheet-month-year-btn {
+  font-size: 1.12rem;
+  color: var(--primary);
+  padding-top: var(--space-2);
+}
+
 .date-sheet-footer {
   flex-shrink: 0;
   padding: var(--space-3) var(--space-4);
@@ -2546,48 +2561,63 @@ html[data-theme="dark"] .period-sheet-backdrop {
 .date-sheet-month-picker-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-rows: repeat(4, auto);
+  gap: var(--space-3) var(--space-2);
+  align-items: center;
+  justify-items: center;
 }
 
+/* Ovalda månader: ren text mot bakgrund; endast vald får pill (SJ-lik) */
 .date-sheet-month-pick {
   position: relative;
-  min-height: 48px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--card-2) 92%, transparent);
-  color: var(--text);
-  font-weight: 650;
-  font-size: 0.88rem;
-  line-height: 1.15;
-  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 44px;
+  min-width: 0;
+  width: 100%;
+  max-width: 7.5rem;
+  margin: 0;
   padding: var(--space-2) var(--space-1);
-  transition:
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    transform 100ms var(--motion-ease);
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: 550;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: center;
+  transition: color var(--motion-fast) var(--motion-ease);
 }
 
-.date-sheet-month-pick:hover:not(:disabled) {
-  border-color: var(--border-strong);
+.date-sheet-month-pick:hover:not(:disabled):not(.date-sheet-month-pick--selected) {
+  color: color-mix(in srgb, var(--primary) 42%, var(--text));
 }
 
-.date-sheet-month-pick:active:not(:disabled) {
-  transform: scale(0.98);
+.date-sheet-month-pick:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
 }
 
 .date-sheet-month-pick--selected {
+  border-radius: 999px;
   background: var(--primary);
-  border-color: color-mix(in srgb, var(--primary) 70%, var(--border));
+  border: 1px solid color-mix(in srgb, var(--primary) 72%, var(--border));
   color: var(--primary-ink);
   font-weight: 800;
+  padding: var(--space-2) var(--space-4);
+  max-width: none;
+  width: auto;
+  min-width: min(100%, 5.5rem);
 }
 
 .date-sheet-month-pick--disabled,
 .date-sheet-month-pick:disabled {
-  opacity: 0.38;
+  opacity: 0.4;
   color: var(--muted);
   cursor: not-allowed;
-  transform: none;
 }
 
 .date-sheet-month-pick--disabled::after,

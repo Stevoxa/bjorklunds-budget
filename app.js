@@ -346,8 +346,6 @@ function getDateSheetEls() {
     monthPickerGrid: document.getElementById("dateSheetMonthPickerGrid"),
     prevBtn: document.getElementById("dateSheetPrevMonth"),
     nextBtn: document.getElementById("dateSheetNextMonth"),
-    closeBtn: document.getElementById("dateSheetCloseBtn"),
-    okBtn: document.getElementById("dateSheetOkBtn"),
     handle: document.getElementById("dateSheetHandle")
   };
 }
@@ -591,11 +589,13 @@ function commitDateSheetDayAndClose(iso) {
 
 function monthShortLabelSv(y, m) {
   const s = new Date(y, m - 1, 1).toLocaleDateString("sv-SE", { month: "short" });
-  return s.replace(/\.\s*$/, "").trim();
+  const t = s.replace(/\.\s*$/, "").trim();
+  if (!t) return t;
+  return t.charAt(0).toLocaleUpperCase("sv-SE") + t.slice(1);
 }
 
 function syncDateSheetPaneVisibility() {
-  const { dayPane, monthPane } = getDateSheetEls();
+  const { dayPane, monthPane, sheet } = getDateSheetEls();
   if (dayPane) {
     dayPane.hidden = dateSheetMode !== "days";
     dayPane.setAttribute("aria-hidden", dateSheetMode !== "days" ? "true" : "false");
@@ -603,6 +603,13 @@ function syncDateSheetPaneVisibility() {
   if (monthPane) {
     monthPane.hidden = dateSheetMode !== "months";
     monthPane.setAttribute("aria-hidden", dateSheetMode !== "months" ? "true" : "false");
+  }
+  if (sheet) {
+    sheet.classList.toggle("date-sheet--month-mode", dateSheetMode === "months");
+    sheet.setAttribute(
+      "aria-labelledby",
+      dateSheetMode === "months" ? "dateSheetMonthLabel" : "dateSheetTitle"
+    );
   }
 }
 
@@ -694,26 +701,14 @@ function renderDateSheetMonthPicker() {
         }
         dateSheetMode = "days";
         renderDateSheetMonth();
-        const { okBtn, grid } = getDateSheetEls();
+        const { grid, monthYearBtn } = getDateSheetEls();
         const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
-        (sel || okBtn)?.focus();
+        (sel || monthYearBtn)?.focus();
       });
     }
     frag.appendChild(btn);
   }
   monthPickerGrid.appendChild(frag);
-}
-
-function applyDateSheetKlar() {
-  const inp = dateSheetTargetInput;
-  if (!inp) return;
-  const minIso = inp.min || "";
-  const maxIso = inp.max || "";
-  const iso = clampIsoToMinMax(dateSheetDraft, minIso, maxIso);
-  inp.value = iso;
-  inp.dispatchEvent(new Event("input", { bubbles: true }));
-  inp.dispatchEvent(new Event("change", { bubbles: true }));
-  closeDateSheetAnimated(false);
 }
 
 function renderDateSheetMonth() {
@@ -777,7 +772,7 @@ function renderDateSheetMonth() {
 
 function openDateSheet(inputEl) {
   if (dateSheetOpen || periodSheetOpen || !inputEl || inputEl.type !== "date") return;
-  const { backdrop, sheet, title, okBtn, grid } = getDateSheetEls();
+  const { backdrop, sheet, title, grid, monthYearBtn } = getDateSheetEls();
   if (!backdrop || !sheet) return;
 
   inputEl.blur();
@@ -817,7 +812,7 @@ function openDateSheet(inputEl) {
       backdrop.classList.add("date-sheet-backdrop--visible");
       sheet.classList.add("date-sheet--visible");
       const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
-      (sel || okBtn)?.focus();
+      (sel || monthYearBtn)?.focus();
     });
   });
 
@@ -1055,8 +1050,8 @@ function initOverviewPeriodSheet() {
 }
 
 function initMobileDateSheetPicker() {
-  const { backdrop, closeBtn, okBtn, prevBtn, nextBtn, handle, sheet, monthYearBtn } = getDateSheetEls();
-  if (!backdrop || !closeBtn || !okBtn) return;
+  const { backdrop, prevBtn, nextBtn, handle, sheet, monthYearBtn } = getDateSheetEls();
+  if (!backdrop || !sheet) return;
 
   document.addEventListener(
     "pointerdown",
@@ -1099,13 +1094,19 @@ function initMobileDateSheetPicker() {
   );
 
   backdrop.addEventListener("click", () => closeDateSheetAnimated(true));
-  closeBtn.addEventListener("click", () => closeDateSheetAnimated(true));
-  okBtn.addEventListener("click", () => applyDateSheetKlar());
   attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
 
   monthYearBtn?.addEventListener("click", () => {
     dateSheetMode = dateSheetMode === "days" ? "months" : "days";
     renderDateSheetMonth();
+    if (dateSheetMode === "months") {
+      requestAnimationFrame(() => {
+        const first = document.querySelector(
+          "#dateSheetMonthPickerGrid .date-sheet-month-pick:not(:disabled)"
+        );
+        (first instanceof HTMLElement ? first : null)?.focus();
+      });
+    }
   });
 
   if (prevBtn) {
