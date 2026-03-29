@@ -2227,6 +2227,12 @@ html[data-theme="dark"] .period-sheet-backdrop {
   transform: translateY(0);
 }
 
+/* Datum- & månadskort: typografi nära SJ (system sans, tydlig hierarki) */
+.date-sheet {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
 .bottom-sheet-drag {
   touch-action: none;
   cursor: grab;
@@ -2294,7 +2300,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
 }
 
 .date-sheet--month-mode .date-sheet-month-year-btn {
-  font-size: 1.12rem;
+  font-size: 1.22rem;
   color: var(--primary);
   padding-top: var(--space-2);
 }
@@ -2497,24 +2503,25 @@ html[data-theme="dark"] .period-sheet-backdrop {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .date-sheet-month-year-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: 44px;
+  min-height: 48px;
   padding: var(--space-1) var(--space-2) var(--space-1) 0;
   margin: 0;
   border: none;
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-weight: 800;
-  font-size: 1.05rem;
-  letter-spacing: -0.02em;
+  font-weight: 700;
+  font-size: 1.22rem;
+  letter-spacing: -0.028em;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   text-align: left;
@@ -2558,16 +2565,17 @@ html[data-theme="dark"] .period-sheet-backdrop {
   margin-top: var(--space-1);
 }
 
+/* 3 rader × 4 kolumner (12 månader) enligt SJ month picker */
 .date-sheet-month-picker-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(4, auto);
-  gap: var(--space-3) var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(3, auto);
+  gap: var(--space-4) var(--space-2);
   align-items: center;
   justify-items: center;
 }
 
-/* Ovalda månader: ren text mot bakgrund; endast vald får pill (SJ-lik) */
+/* Ovalda månader: ren text mot bakgrund; endast vald får grön pill (SJ) */
 .date-sheet-month-pick {
   position: relative;
   appearance: none;
@@ -2575,7 +2583,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   min-height: 44px;
   min-width: 0;
   width: 100%;
-  max-width: 7.5rem;
+  max-width: none;
   margin: 0;
   padding: var(--space-2) var(--space-1);
   border: none;
@@ -2583,9 +2591,10 @@ html[data-theme="dark"] .period-sheet-backdrop {
   border-radius: 0;
   box-shadow: none;
   color: var(--text);
-  font-weight: 550;
-  font-size: 0.92rem;
-  line-height: 1.2;
+  font-weight: 500;
+  font-size: 0.98rem;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
   cursor: pointer;
   text-align: center;
   transition: color var(--motion-fast) var(--motion-ease);
@@ -2605,12 +2614,12 @@ html[data-theme="dark"] .period-sheet-backdrop {
   border-radius: 999px;
   background: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary) 72%, var(--border));
-  color: var(--primary-ink);
-  font-weight: 800;
-  padding: var(--space-2) var(--space-4);
+  color: #ffffff;
+  font-weight: 900;
+  padding: var(--space-2) var(--space-3);
   max-width: none;
   width: auto;
-  min-width: min(100%, 5.5rem);
+  min-width: min(100%, 4.75rem);
 }
 
 .date-sheet-month-pick--disabled,
@@ -2650,7 +2659,8 @@ html[data-theme="dark"] .period-sheet-backdrop {
 .date-sheet-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-1);
+  align-items: start;
 }
 
 .date-sheet-cell--empty {
@@ -2661,6 +2671,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   margin-inline: auto;
 }
 
+/* Dagtal: ingen "knapp" förrän vald (grön cirkel); annars text mot kortbakgrund (SJ) */
 .date-sheet-day {
   position: relative;
   display: flex;
@@ -2672,36 +2683,43 @@ html[data-theme="dark"] .period-sheet-backdrop {
   margin-inline: auto;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--card-2) 92%, transparent);
+  border: none;
+  background: transparent;
+  box-shadow: none;
   color: var(--text);
-  font-weight: 650;
-  font-size: 0.92rem;
+  font-weight: 500;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    transform 100ms var(--motion-ease);
+  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
-.date-sheet-day:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: color-mix(in srgb, var(--primary) 14%, var(--card-2));
+.date-sheet-day:hover:not(:disabled):not(.date-sheet-day--selected) {
+  color: color-mix(in srgb, var(--primary) 38%, var(--text));
 }
 
-.date-sheet-day:active:not(:disabled) {
-  transform: scale(0.96);
+.date-sheet-day:focus-visible:not(.date-sheet-day--selected) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.date-sheet-day:active:not(:disabled):not(.date-sheet-day--selected) {
+  opacity: 0.85;
 }
 
 .date-sheet-day--today:not(.date-sheet-day--selected) {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 48%, var(--border));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 52%, var(--border));
+  background: transparent;
 }
 
 .date-sheet-day--selected {
   background: var(--primary);
-  color: var(--primary-ink);
-  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
-  font-weight: 800;
+  color: #ffffff;
+  border: none;
+  box-shadow: none;
+  font-weight: 900;
 }
 
 .date-sheet-day--disabled,
