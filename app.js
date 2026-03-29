@@ -372,11 +372,19 @@ function canonicalizeExpenseRecord(raw) {
     meta.food = { ...meta.food, generated: true, legacyMatName: true };
   }
 
+  let origin = raw?.origin;
+  if (origin !== "system" && origin !== "user") {
+    if (category === "loans" && meta.loanId) origin = "system";
+    else if (meta.food?.generated || raw?.foodGenerated) origin = "system";
+    else origin = "user";
+  }
+
   const out = {
     id: raw?.id || uid(),
     name: String(raw?.name || "").trim(),
     category,
     interval: raw?.interval || "once",
+    origin,
     payments: normalizedPayments
   };
   if (subcategory != null && subcategory !== "") out.subcategory = String(subcategory);
@@ -495,6 +503,7 @@ function normalizeStateShape(state) {
   ensureExpenseIds(normalized);
   normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
+  regenerateMirroredLoanExpenses(normalized);
 
   return normalized;
 }
@@ -637,6 +646,10 @@ function isChildrenExpense(exp) {
 
 function isSavingsExpense(exp) {
   return Boolean(exp && exp.category === "savings");
+}
+
+function isMirroredLoanExpense(exp) {
+  return Boolean(exp && exp.category === "loans" && exp.metadata?.loanId);
 }
 
 function isTaggedOverviewExpense(exp) {
@@ -1998,25 +2011,26 @@ function normalizeLoanItem(rawLoan) {
   };
 }
 
-function getAllLoans() {
-  const root = state.special?.loans || {};
+function getAllLoansFromRoot(root) {
+  const loanRoot = root?.special?.loans || {};
   const out = [];
-  for (const v of Object.values(root)) {
+  for (const v of Object.values(loanRoot)) {
     if (Array.isArray(v)) {
       for (const item of v) out.push(normalizeLoanItem(item));
       continue;
     }
     if (v && typeof v === "object") {
-      // Legacy single-loan shape
-      out.push(normalizeLoanItem({
-        id: uid(),
-        name: "Lån",
-        bank: "",
-        principal: v.principal,
-        rate: v.rate,
-        amortization: v.amortization,
-        dueDay: 25
-      }));
+      out.push(
+        normalizeLoanItem({
+          id: uid(),
+          name: "Lån",
+          bank: "",
+          principal: v.principal,
+          rate: v.rate,
+          amortization: v.amortization,
+          dueDay: 25
+        })
+      );
     }
   }
   const seen = new Set();
@@ -2026,6 +2040,58 @@ function getAllLoans() {
     seen.add(key);
     return true;
   });
+}
+
+function getAllLoans() {
+  return getAllLoansFromRoot(state);
+}
+
+/** Tar bort speglade låneposter och bygger om från special.loans (masterdata). */
+function regenerateMirroredLoanExpenses(root) {
+  if (!root || !Array.isArray(root.expenses)) return;
+  root.expenses = root.expenses.filter((e) => !(e.category === "loans" && e.metadata?.loanId));
+  const loans = getAllLoansFromRoot(root);
+  for (const loan of loans) {
+    const months = enumerateLoanMonths(loan);
+    if (months.length === 0) continue;
+    const interest = getLoanInterestAmount(loan);
+    const amort = asNumber(loan.amortization);
+    const due = Math.max(1, Math.min(31, Math.floor(asNumber(loan.dueDay) || 25)));
+    const nm = String(loan.name || "").trim() || "Lån";
+    const loanMeta = { loanId: String(loan.id) };
+    const interestPayments = [];
+    const amortPayments = [];
+    for (const { year, month } of months) {
+      const d = clampDay(year, month, due);
+      const iso = `${year}-${pad2(month)}-${pad2(d)}`;
+      interestPayments.push({ id: uid(), date: iso, amount: interest });
+      amortPayments.push({ id: uid(), date: iso, amount: amort });
+    }
+    root.expenses.push(
+      canonicalizeExpenseRecord({
+        id: uid(),
+        name: `${nm} – Ränta`,
+        category: "loans",
+        subcategory: "interest",
+        interval: "monthly",
+        origin: "system",
+        metadata: { ...loanMeta },
+        payments: interestPayments
+      })
+    );
+    root.expenses.push(
+      canonicalizeExpenseRecord({
+        id: uid(),
+        name: `${nm} – Amortering`,
+        category: "loans",
+        subcategory: "amortization",
+        interval: "monthly",
+        origin: "system",
+        metadata: { ...loanMeta },
+        payments: amortPayments
+      })
+    );
+  }
 }
 
 function persistAllLoans(loans) {
@@ -2048,6 +2114,7 @@ function persistAllLoans(loans) {
       };
     })
   };
+  regenerateMirroredLoanExpenses(state);
 }
 
 function ymValue(y, m) {
@@ -2098,13 +2165,36 @@ function getLoanTotalPayment(loan) {
   return getLoanInterestAmount(loan) + asNumber(loan.amortization);
 }
 
-function computeSpecialLoansMonthly(year, month) {
-  const loans = getAllLoans();
-  const items = loans
-    .filter((loan) => enumerateLoanMonths(loan).some((x) => x.year === Number(year) && x.month === Number(month)))
-    .map((loan) => ({ label: `${loan.name}${loan.bank ? ` (${loan.bank})` : ""}`, amount: getLoanTotalPayment(loan) }));
-  const total = items.reduce((sum, it) => sum + asNumber(it.amount), 0);
-  return { total, items };
+function overviewTableGroupForExpense(exp) {
+  const c = exp.category || "other";
+  if (c === "food" && !isMatLikeExpense(exp)) return "Utgifter";
+  const map = {
+    car: "Bil",
+    home: "Hem",
+    children: "Barn",
+    savings: "Spar",
+    loans: "Lån",
+    one_off: "Enstaka utgifter",
+    food: "Mat"
+  };
+  return map[c] || "Utgifter";
+}
+
+function overviewTableLabelForPayment(exp, dt) {
+  const dateStr = dt.toLocaleDateString("sv-SE");
+  const cfgS = TAGGED_CATEGORY_CONFIG.savings;
+  if (exp.category === "savings" && cfgS?.omitTypeInOverviewLabel) {
+    const name = String(exp.name || "").trim() || getTaggedTypeLabel("savings", exp.subcategory || "own");
+    return `${name} (${dateStr})`;
+  }
+  const cat = exp.category;
+  if (cat === "car" || cat === "home" || cat === "children") {
+    const key = exp.subcategory || "other";
+    const tl = getTaggedTypeLabel(cat, key);
+    const name = String(exp.name || "").trim() || tl;
+    return `${tl} · ${name} (${dateStr})`;
+  }
+  return `${exp.name || "Utgift"} (${dateStr})`;
 }
 
 function computeRecurringMonthlyItems(items) {
@@ -2112,13 +2202,6 @@ function computeRecurringMonthlyItems(items) {
 }
 
 function computeMonthOverview(year, month) {
-  const car = computeSpecialCarMonthly(year, month);
-  const housing = computeSpecialHousingMonthly(year, month);
-  const loans = computeSpecialLoansMonthly(year, month);
-  // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
-  const children = computeSpecialChildrenMonthly(year, month);
-  const savings = computeTaggedCategoryMonthly(year, month, "savings");
-
   const sumPaymentsInMonth = (payments) =>
     (Array.isArray(payments) ? payments : []).reduce((s, p) => {
       const amt = asNumber(p.amount);
@@ -2129,111 +2212,76 @@ function computeMonthOverview(year, month) {
       return s;
     }, 0);
 
-  const oneOffExpensesAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (exp.category !== "one_off") return sum;
-    return sum + sumPaymentsInMonth(exp.payments);
-  }, 0);
-
   const oneOffIncomesAmount = (state.incomes || []).reduce((sum, inc) => {
     if (inc.category !== "one_off") return sum;
     return sum + sumPaymentsInMonth(inc.payments);
   }, 0);
 
-  const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (isTaggedOverviewExpense(exp)) return sum;
-    if (exp.category === "one_off") return sum;
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        const py = dt.getFullYear();
-        const pm = dt.getMonth() + 1;
-        if (py === year && pm === month) return s + amt;
-        return s;
-      }, 0)
-    );
-  }, 0);
+  const seg = {
+    other: 0,
+    mat: 0,
+    car: 0,
+    home: 0,
+    children: 0,
+    savings: 0,
+    loans: 0,
+    one_off: 0
+  };
 
-  const foodGeneratedAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (!isMatLikeExpense(exp)) return sum;
+  const expensesRows = [];
+  for (const exp of state.expenses || []) {
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
-        return s;
-      }, 0)
-    );
-  }, 0);
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
+
+      const cat = exp.category || "other";
+      if (isMatLikeExpense(exp)) seg.mat += amt;
+      else if (cat === "car") seg.car += amt;
+      else if (cat === "home") seg.home += amt;
+      else if (cat === "children") seg.children += amt;
+      else if (cat === "savings") seg.savings += amt;
+      else if (cat === "loans") seg.loans += amt;
+      else if (cat === "one_off") seg.one_off += amt;
+      else seg.other += amt;
+
+      expensesRows.push({
+        group: overviewTableGroupForExpense(exp),
+        label: overviewTableLabelForPayment(exp, dt),
+        amount: amt,
+        _sortT: dt.getTime()
+      });
+    }
+  }
+
+  expensesRows.sort((a, b) => a._sortT - b._sortT || String(a.label).localeCompare(String(b.label), "sv"));
+  const expensesRowsClean = expensesRows.map(({ group, label, amount }) => ({ group, label, amount }));
+
+  const oneOffExpensesAmount = seg.one_off;
+  const plannedExpensesAmount =
+    seg.other + seg.mat + seg.car + seg.home + seg.children + seg.savings + seg.loans + seg.one_off;
 
   const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
     if (inc.category === "one_off") return sum;
     return sum + sumPaymentsInMonth(inc.payments);
   }, 0);
 
-  const specialsAmount = car.total + housing.total + loans.total + children.total + savings.total;
-
   const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
-  const plannedExpensesAmount = expensePaymentsAmount + specialsAmount + oneOffExpensesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
-  // Diagramsegment: återkommande + special + enstaka
   const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, expensePaymentsAmount - foodGeneratedAmount), color: "#8b5cf6" },
-    { key: "foodGenerated", label: "Mat", amount: foodGeneratedAmount, color: "#f97316" },
-    { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
-    { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
-    { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
-    { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
-    { key: "savings", label: "Spar", amount: savings.total, color: "#eab308" },
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: "#8b5cf6" },
+    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: "#f97316" },
+    { key: "car", label: "Bil", amount: seg.car, color: "#3b82f6" },
+    { key: "housing", label: "Hem", amount: seg.home, color: "#06b6d4" },
+    { key: "loans", label: "Lån", amount: seg.loans, color: "#6366f1" },
+    { key: "children", label: "Barn", amount: seg.children, color: "#22c55e" },
+    { key: "savings", label: "Spar", amount: seg.savings, color: "#eab308" },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
   ].filter((s) => s.amount > 0);
-
-  // Tabellen: bryt ner utgifter och intäkter
-  const expensesRows = [];
-  for (const exp of state.expenses || []) {
-    if (isTaggedOverviewExpense(exp)) continue;
-    if (exp.category === "one_off") continue;
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    for (const p of payments) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      const group = isMatLikeExpense(exp) ? "Mat" : "Utgifter";
-      expensesRows.push({ group, label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
-    }
-  }
-  for (const exp of state.expenses || []) {
-    if (exp.category !== "one_off") continue;
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    for (const p of payments) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      expensesRows.push({
-        group: "Enstaka utgifter",
-        label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`,
-        amount: amt
-      });
-    }
-  }
-  for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
-  for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
-  for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
-  for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
-  for (const it of savings.items) expensesRows.push({ group: "Spar", label: it.label, amount: it.amount });
 
   const incomesRows = [];
   for (const inc of state.incomes || []) {
@@ -2271,7 +2319,7 @@ function computeMonthOverview(year, month) {
     }
   }
 
-  return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
+  return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows: expensesRowsClean, incomesRows };
 }
 
 function drawExpenseChart(svgEl, overview) {
@@ -4545,9 +4593,6 @@ function expenseYearsForFilter() {
       years.add(String(dt.getFullYear()));
     }
   }
-  for (const loan of getAllLoans()) {
-    for (const ym of enumerateLoanMonths(loan)) years.add(String(ym.year));
-  }
   const cur = currentYearMonth().year;
   years.add(String(cur - 1));
   years.add(String(cur));
@@ -4589,30 +4634,10 @@ function buildExpensePaymentRowsForList(yearFilter) {
         date: dt,
         amount: amt,
         isFoodPayment: isMatLikeExpense(exp),
+        isLoanMirror: isMirroredLoanExpense(exp),
+        loanId: exp.metadata?.loanId,
         foodYear: exp?.metadata?.food?.year ?? exp?.foodYear,
         foodWeekKey: exp?.metadata?.food?.weekKey ?? exp?.foodWeekKey
-      });
-    }
-  }
-  for (const loan of getAllLoans()) {
-    const total = getLoanTotalPayment(loan);
-    if (total <= 0) continue;
-    for (const ym of enumerateLoanMonths(loan)) {
-      if (yearFilter !== "all" && String(ym.year) !== String(yearFilter)) continue;
-      if (monthFilter !== "all" && Number(monthFilter) !== ym.month) continue;
-      const dd = clampDay(ym.year, ym.month, Math.max(1, Math.min(31, asNumber(loan.dueDay) || 25)));
-      const iso = `${ym.year}-${pad2(ym.month)}-${pad2(dd)}`;
-      const dt = new Date(iso);
-      if (Number.isNaN(dt.getTime())) continue;
-      rows.push({
-        expenseId: `loan:${loan.id}`,
-        paymentId: `loan:${loan.id}:${ym.year}-${pad2(ym.month)}`,
-        name: `Lån - ${loan.name || "Lån"}`,
-        isoDate: iso,
-        date: dt,
-        amount: total,
-        isLoanPayment: true,
-        loanId: loan.id
       });
     }
   }
@@ -4743,11 +4768,11 @@ function renderExpensesList() {
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
       r.name
     )}${r.isFoodPayment ? ` <span class="badge badge-food" aria-label="Systemgenererad">Mat</span>` : ""}</button></td>
-      <td><button class="linklike truncate" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td><button class="linklike truncate" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
     )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
       <td class="right">${formatKr(r.amount)}</td>
-      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
     )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} aria-label="Redigera">✎</button></td>
     `;
@@ -4767,6 +4792,10 @@ function renderExpensesList() {
       const iso = btn.getAttribute("data-edit-expense-iso");
       const row = rows.find((r) => String(r.expenseId) === String(expenseId) && (!paymentId || String(r.paymentId) === String(paymentId)));
       if (row?.isFoodPayment) return openFoodOverlayForExpenseRow(row);
+      if (row?.isLoanMirror && row.loanId) {
+        openExpenseCategoryOverlay("loans");
+        return openLoanEditor(String(row.loanId));
+      }
       openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
     };
   });
@@ -4825,6 +4854,12 @@ function openExpenseOverlay(expenseId, opts = {}) {
   requireEl("expenseEditorNote").textContent = "";
   requireEl("expenseDeleteBtn").hidden = !editing;
   const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
+  if (isMirroredLoanExpense(exp)) {
+    closeExpenseOverlay();
+    openExpenseCategoryOverlay("loans");
+    openLoanEditor(String(exp.metadata.loanId));
+    return;
+  }
   if (isMatLikeExpense(exp)) {
     // Food is system-generated; redirect to Mat.
     closeExpenseOverlay();
@@ -5492,6 +5527,7 @@ function initActions() {
           name: `Mat v.${wk.weekNumber}`,
           category: "food",
           interval: "once",
+          origin: "system",
           metadata: {
             food: {
               generated: true,
