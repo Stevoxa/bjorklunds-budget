@@ -1,23 +1,24 @@
-/* Design tokens — Björklunds Budget (nordisk premium PWA, dark-first) */
+/* Design tokens — Björklunds Budget (SJ-inspirerad palett: signaturgrön #255F33, ljusa ytor med grön underton) */
 :root {
-  --bg: #f4f1eb;
+  --bg: #f3f6f4;
   --card: #ffffff;
-  --card-2: #f0ebe3;
-  --text: #0c1118;
-  --muted: #5c6570;
-  --border: rgba(12, 17, 24, 0.1);
-  --border-strong: rgba(12, 17, 24, 0.16);
+  --card-2: #eaf0ec;
+  --text: #141a16;
+  --muted: #5c6660;
+  --border: rgba(20, 26, 22, 0.11);
+  --border-strong: rgba(20, 26, 22, 0.18);
 
-  --primary: #0d9488;
-  --primary-ink: #f8fafc;
-  --secondary: rgba(12, 17, 24, 0.06);
-  --danger: #c24133;
-  --success: #15803d;
-  --warning: #b45309;
+  /* SJ varumärkesgrön */
+  --primary: #255f33;
+  --primary-ink: #ffffff;
+  --secondary: rgba(20, 26, 22, 0.07);
+  --danger: #b71c1c;
+  --success: #1b5e20;
+  --warning: #e65100;
 
-  --focus: rgba(13, 148, 136, 0.45);
-  --shadow-sm: 0 1px 2px rgba(12, 17, 24, 0.05), 0 4px 12px rgba(12, 17, 24, 0.06);
-  --shadow-lg: 0 12px 40px rgba(12, 17, 24, 0.1), 0 4px 12px rgba(12, 17, 24, 0.05);
+  --focus: rgba(37, 95, 51, 0.42);
+  --shadow-sm: 0 1px 2px rgba(20, 26, 22, 0.06), 0 4px 14px rgba(20, 26, 22, 0.07);
+  --shadow-lg: 0 12px 40px rgba(20, 26, 22, 0.1), 0 4px 14px rgba(20, 26, 22, 0.06);
   --shadow: var(--shadow-lg);
 
   --radius-card: 18px;
@@ -33,24 +34,25 @@
 }
 
 html[data-theme="dark"] {
-  --bg: #070a0f;
-  --card: #101722;
-  --card-2: #151d2a;
-  --text: #f2f4f7;
-  --muted: #8b95a5;
-  --border: rgba(242, 244, 247, 0.08);
-  --border-strong: rgba(242, 244, 247, 0.14);
+  --bg: #0c120f;
+  --card: #141d18;
+  --card-2: #1a2620;
+  --text: #eef2ed;
+  --muted: #9aaa9f;
+  --border: rgba(238, 242, 237, 0.09);
+  --border-strong: rgba(238, 242, 237, 0.16);
 
-  --primary: #2dd4bf;
-  --primary-ink: #04120f;
-  --secondary: rgba(242, 244, 247, 0.08);
-  --danger: #f87171;
-  --success: #4ade80;
-  --warning: #fbbf24;
+  /* Ljusare grön på mörk bakgrund (läsbar CTA) */
+  --primary: #6fcf7e;
+  --primary-ink: #08120a;
+  --secondary: rgba(238, 242, 237, 0.08);
+  --danger: #ff8a80;
+  --success: #81c784;
+  --warning: #ffb74d;
 
-  --focus: rgba(45, 212, 191, 0.42);
-  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 4px 20px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 20px 50px rgba(0, 0, 0, 0.55);
+  --focus: rgba(111, 207, 130, 0.45);
+  --shadow-sm: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 4px 22px rgba(0, 0, 0, 0.38);
+  --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 20px 50px rgba(0, 0, 0, 0.52);
   --shadow: var(--shadow-lg);
 }
 
@@ -325,7 +327,7 @@ html[data-theme="dark"] input[type="text"],
 html[data-theme="dark"] input[type="number"],
 html[data-theme="dark"] input[type="date"],
 html[data-theme="dark"] textarea {
-  background: color-mix(in srgb, var(--card) 92%, #000);
+  background: color-mix(in srgb, var(--card) 94%, #030806);
 }
 
 select:hover,
@@ -402,6 +404,36 @@ button:focus:not(:focus-visible) {
 
 .actions-row--flush {
   margin-top: 0;
+}
+
+.actions-row--between {
+  justify-content: space-between;
+}
+
+.actions-row--start {
+  justify-content: flex-start;
+  margin-top: var(--space-2);
+}
+
+.table-title.flush {
+  margin: 0;
+}
+
+.table-title.small.spacing-top {
+  margin-top: 10px;
+}
+
+.micro-note--tight {
+  margin-top: 4px;
+}
+
+.picker-row--food-preview {
+  justify-content: flex-start;
+  margin-top: var(--space-2);
+}
+
+.food-custody-week-cost-row {
+  margin-top: 10px;
 }
 
 .food-mat-save-actions {
@@ -590,7 +622,7 @@ button:focus:not(:focus-visible) {
   width: 12px;
   height: 12px;
   border-radius: 4px;
-  background: #999;
+  background: color-mix(in srgb, var(--primary) 45%, var(--muted));
 }
 
 .summary-row {
@@ -952,9 +984,9 @@ button:focus:not(:focus-visible) {
 }
 
 .badge-food {
-  background: color-mix(in srgb, #f97316 18%, transparent);
-  border-color: color-mix(in srgb, #f97316 40%, var(--border));
-  color: color-mix(in srgb, #f97316 85%, var(--text));
+  background: color-mix(in srgb, #e65100 16%, transparent);
+  border-color: color-mix(in srgb, #e65100 38%, var(--border));
+  color: color-mix(in srgb, #e65100 88%, var(--text));
 }
 
 .linklike.peek {

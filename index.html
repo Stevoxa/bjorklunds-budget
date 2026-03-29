@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#070a0f" />
+    <meta name="theme-color" content="#0c120f" />
     <link rel="manifest" href="manifest.webmanifest" />
     <title>Björklunds - Budget</title>
     <link rel="stylesheet" href="styles.css" />
@@ -106,9 +106,9 @@
 
           <div class="table-card">
             <div class="table-title">Intäkter</div>
-            <div class="picker-row" style="justify-content: space-between">
-              <div class="note" style="margin: 0">En rad per inbetalning (0 kr visas inte).</div>
-              <div class="picker-row" style="justify-content: flex-end">
+            <div class="filter-toolbar">
+              <div class="note">En rad per inbetalning (0 kr visas inte).</div>
+              <div class="picker-row">
                 <label>
                   År (filter)
                   <select id="incomeYearFilter"></select>
@@ -340,7 +340,7 @@
                     <tbody id="loansTableBody"></tbody>
                   </table>
                 </div>
-                <div class="actions-row" style="justify-content: space-between;">
+                <div class="actions-row actions-row--between">
                   <button class="primary" id="loanAddNewBtn" type="button">Lägg till nytt lån</button>
                   <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 </div>
@@ -543,14 +543,14 @@
                   <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
-                      <div class="table-title small" style="margin: 0;">Barn med växelvis boende</div>
-                      <div class="note micro-note" style="margin-top: 4px;">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
+                      <div class="table-title small flush">Barn med växelvis boende</div>
+                      <div class="note micro-note micro-note--tight">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
                     </div>
                     <button class="secondary btn-icon" type="button" id="foodKidsToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
                   <div id="foodKidsSection" hidden>
                     <div class="field-error" id="foodCustodyGlobalWarn" hidden></div>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
+                    <div class="actions-row actions-row--start">
                       <button class="secondary" type="button" id="foodAddCustodyPeriodBtn">Lägg till period</button>
                     </div>
                     <div id="foodCustodyEditor" class="food-period-card" hidden>
@@ -579,8 +579,8 @@
                           </select>
                         </label>
                       </div>
-                      <div class="note micro-note" style="margin-top: 4px;">Intervallet upprepas inom perioden. Perioder kortare än en hel cykel påverkar inte kostnaden.</div>
-                      <div class="table-title small" style="margin-top: 10px;">Hur många är borta i bortaveckor?</div>
+                      <div class="note micro-note micro-note--tight">Intervallet upprepas inom perioden. Perioder kortare än en hel cykel påverkar inte kostnaden.</div>
+                      <div class="table-title small spacing-top">Hur många är borta i bortaveckor?</div>
                       <div class="food-counter-grid">
                         <div class="food-counter-row">
                           <span>Tonåringar</span>
@@ -600,7 +600,7 @@
                         </div>
                       </div>
                       <div class="field-error" id="foodCustodyErrCounts" hidden></div>
-                      <div class="summary-row food-custody-week-cost-row" style="margin-top: 10px;"><span>Veckokostnad utan barn:</span><strong id="foodCustodyEditorWeekCost">—</strong></div>
+                      <div class="summary-row food-custody-week-cost-row"><span>Veckokostnad utan barn:</span><strong id="foodCustodyEditorWeekCost">—</strong></div>
                       <div id="foodCustodyExampleBlock" class="food-custody-example-block" hidden>
                         <div class="food-custody-example-title">Exempelveckor i perioden</div>
                         <div id="foodCustodyExampleWeeks" class="food-preview-list food-custody-example-weeks"></div>
@@ -619,13 +619,13 @@
                   <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
-                      <div class="table-title small" style="margin: 0;">När hushållets storlek förändras</div>
-                      <div class="note micro-note" style="margin-top: 4px;">Lägg till perioder när fler eller färre personer är i hushållet.</div>
+                      <div class="table-title small flush">När hushållets storlek förändras</div>
+                      <div class="note micro-note micro-note--tight">Lägg till perioder när fler eller färre personer är i hushållet.</div>
                     </div>
                     <button class="secondary btn-icon" type="button" id="foodHouseholdToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
                   <div id="foodHouseholdChangesSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
+                    <div class="actions-row actions-row--start">
                       <button class="secondary" type="button" id="foodAddHouseholdChangeBtn">Lägg till period</button>
                     </div>
                     <div id="foodHouseholdEditor" class="food-period-card" hidden>
@@ -650,13 +650,13 @@
                   <div class="food-advanced">
                   <div class="food-advanced-head">
                     <div>
-                      <div class="table-title small" style="margin: 0;">Perioder med annan kostnad</div>
-                      <div class="note micro-note" style="margin-top: 4px;">För veckor där matkostnaden är högre eller lägre än vanligt.</div>
+                      <div class="table-title small flush">Perioder med annan kostnad</div>
+                      <div class="note micro-note micro-note--tight">För veckor där matkostnaden är högre eller lägre än vanligt.</div>
                     </div>
                     <button class="secondary btn-icon" type="button" id="foodDeviationsToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
                   <div id="foodDeviationsSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
+                    <div class="actions-row actions-row--start">
                       <button class="secondary" type="button" id="foodAddDeviationBtn">Lägg till period</button>
                     </div>
                     <div id="foodDeviationEditor" class="food-period-card" hidden>
@@ -688,7 +688,7 @@
 
               <div class="food-preview">
                 <div class="table-title small">Matkostnad översikt</div>
-                <div class="picker-row" style="justify-content: flex-start; margin-top: 8px;">
+                <div class="picker-row picker-row--food-preview">
                   <label>
                     År
                     <select id="foodPreviewYear"></select>

@@ -1223,7 +1223,7 @@ function applyTheme() {
   const resolved = mode === "system" ? getSystemTheme() : mode;
   document.documentElement.dataset.theme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolved === "dark" ? "#070a0f" : "#0d9488");
+  if (meta) meta.setAttribute("content", resolved === "dark" ? "#0c120f" : "#255f33");
 }
 
 function initRouting() {
@@ -2274,15 +2274,16 @@ function computeMonthOverview(year, month) {
   const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
+  /* Diagramfärger: SJ-inspirerad palett (grön bas + tydliga accenter) */
   const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: "#8b5cf6" },
-    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: "#f97316" },
-    { key: "car", label: "Bil", amount: seg.car, color: "#3b82f6" },
-    { key: "housing", label: "Hem", amount: seg.home, color: "#06b6d4" },
-    { key: "loans", label: "Lån", amount: seg.loans, color: "#6366f1" },
-    { key: "children", label: "Barn", amount: seg.children, color: "#22c55e" },
-    { key: "savings", label: "Spar", amount: seg.savings, color: "#eab308" },
-    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: "#255f33" },
+    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: "#e65100" },
+    { key: "car", label: "Bil", amount: seg.car, color: "#1565c0" },
+    { key: "housing", label: "Hem", amount: seg.home, color: "#00897b" },
+    { key: "loans", label: "Lån", amount: seg.loans, color: "#5e35b1" },
+    { key: "children", label: "Barn", amount: seg.children, color: "#43a047" },
+    { key: "savings", label: "Spar", amount: seg.savings, color: "#f9a825" },
+    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#c62828" }
   ].filter((s) => s.amount > 0);
 
   const incomesRows = [];
@@ -2350,7 +2351,7 @@ function drawExpenseChart(svgEl, overview) {
   bg.setAttribute("width", String(totalBarW));
   bg.setAttribute("height", String(barH));
   bg.setAttribute("rx", "12");
-  bg.setAttribute("fill", "rgba(148,163,184,0.25)");
+  bg.setAttribute("fill", "rgba(37, 95, 51, 0.15)");
   svgEl.appendChild(bg);
 
   // Staplad segmentbar (summa = plannedExpenses)
@@ -2382,7 +2383,7 @@ function drawExpenseChart(svgEl, overview) {
   remBg.setAttribute("width", String(totalBarW));
   remBg.setAttribute("height", String(barH));
   remBg.setAttribute("rx", "12");
-  remBg.setAttribute("fill", "rgba(148,163,184,0.18)");
+  remBg.setAttribute("fill", "rgba(37, 95, 51, 0.12)");
   svgEl.appendChild(remBg);
 
   const remAmount = Math.max(0, remaining);
@@ -2393,7 +2394,7 @@ function drawExpenseChart(svgEl, overview) {
   remRect.setAttribute("width", String(remW));
   remRect.setAttribute("height", String(barH));
   remRect.setAttribute("rx", "12");
-  remRect.setAttribute("fill", remaining >= 0 ? "#22c55e" : "#ef4444");
+  remRect.setAttribute("fill", remaining >= 0 ? "#43a047" : "#d32f2f");
   svgEl.appendChild(remRect);
 
   // Labels
