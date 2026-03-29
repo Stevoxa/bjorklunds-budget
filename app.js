@@ -193,6 +193,8 @@ function showDebugToast(message) {
   if (!el) return;
   el.hidden = false;
   el.textContent = String(message || "Okänt fel");
+  el.classList.remove("debug-toast--success", "debug-toast--info");
+  el.classList.add("debug-toast--error");
 }
 
 function requireEl(id) {
@@ -1221,7 +1223,7 @@ function applyTheme() {
   const resolved = mode === "system" ? getSystemTheme() : mode;
   document.documentElement.dataset.theme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolved === "dark" ? "#0b1220" : "#2563eb");
+  if (meta) meta.setAttribute("content", resolved === "dark" ? "#070a0f" : "#0d9488");
 }
 
 function initRouting() {
@@ -2461,15 +2463,19 @@ function renderOverview() {
 
   document.getElementById("overviewIncome").textContent = formatKr(overview.incomeAmount);
   document.getElementById("overviewPlannedExpenses").textContent = formatKr(overview.plannedExpensesAmount);
-  document.getElementById("overviewRemaining").textContent = formatKr(overview.remaining);
+  const remainingEl = document.getElementById("overviewRemaining");
+  remainingEl.textContent = formatKr(overview.remaining);
+  remainingEl.classList.remove("summary-value--positive", "summary-value--negative");
+  remainingEl.classList.add(overview.remaining >= 0 ? "summary-value--positive" : "summary-value--negative");
 
   const callout = document.getElementById("remainingCallout");
+  callout.classList.remove("callout--positive", "callout--negative");
   if (overview.remaining >= 0) {
     callout.textContent = `Bra! Du har ${formatKr(overview.remaining)} kvar för övriga utgifter.`;
-    callout.style.borderColor = "rgba(34,197,94,0.35)";
+    callout.classList.add("callout--positive");
   } else {
     callout.textContent = `Varning! Du är beräknad att gå över med ${formatKr(Math.abs(overview.remaining))}.`;
-    callout.style.borderColor = "rgba(239,68,68,0.35)";
+    callout.classList.add("callout--negative");
   }
 
   drawExpenseChart(document.getElementById("expenseChart"), overview);

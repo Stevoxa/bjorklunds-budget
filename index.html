@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b1220" />
+    <meta name="theme-color" content="#070a0f" />
     <link rel="manifest" href="manifest.webmanifest" />
     <title>Björklunds - Budget</title>
     <link rel="stylesheet" href="styles.css" />
@@ -23,7 +23,7 @@
         <section class="view" data-view="overview">
           <div class="view-header">
             <h2>Översikt</h2>
-            <div class="picker-row">
+            <div class="period-picker picker-row" role="group" aria-label="Välj period">
               <label>
                 År
                 <select id="overviewYear"></select>
@@ -99,7 +99,7 @@
         <section class="view" data-view="incomes">
           <div class="view-header">
             <h2>Intäkter</h2>
-            <div class="actions-row" style="margin-top: 0">
+            <div class="actions-row actions-row--flush">
               <button class="primary" id="openIncomeOverlayBtn" type="button">Lägg till</button>
             </div>
           </div>
@@ -153,16 +153,16 @@
           </div>
 
           <div>
-            <div class="actions-row" style="margin-top: 0">
+            <div class="actions-row actions-row--flush">
               <button class="primary" id="openExpenseOverlayBtn" type="button">Lägg till</button>
             </div>
           </div>
 
           <div class="table-card">
             <div class="table-title">Utgifter</div>
-            <div class="picker-row" style="justify-content: space-between">
-              <div class="note" style="margin: 0">En rad per utbetalning (0 kr visas inte).</div>
-              <div class="picker-row" style="justify-content: flex-end">
+            <div class="filter-toolbar">
+              <div class="note">En rad per utbetalning (0 kr visas inte).</div>
+              <div class="picker-row">
                 <label>
                   År (filter)
                   <select id="expenseYearFilter"></select>
@@ -893,7 +893,7 @@
             </div>
           </div>
 
-          <div class="table-card" style="margin-top: 14px;">
+          <div class="table-card settings-food-card">
             <div class="table-title">Matplanering</div>
             <div class="form-grid narrow">
               <label class="field">
@@ -1041,7 +1041,7 @@
             </label>
           </div>
 
-          <div class="table-card compact" style="box-shadow: none">
+          <div class="table-card compact surface-nested">
             <div class="table-title small">Inbetalningar</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Inbetalningar">
@@ -1129,7 +1129,7 @@
             </label>
           </div>
 
-          <div class="table-card compact" style="box-shadow: none">
+          <div class="table-card compact surface-nested">
             <div class="table-title small">Utbetalningar</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Utgiftsutbetalningar">
