@@ -211,6 +211,13 @@ function getSystemTheme() {
   }
 }
 
+/** Effektivt tema för UI som redan satt `html[data-theme]` (fallback: system). */
+function resolvedDocumentTheme() {
+  const t = document.documentElement?.dataset?.theme;
+  if (t === "dark" || t === "light") return t;
+  return getSystemTheme();
+}
+
 function getDefaultState() {
   const currentYear = new Date().getFullYear();
   return {
@@ -1224,6 +1231,21 @@ function applyTheme() {
   document.documentElement.dataset.theme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute("content", resolved === "dark" ? "#0c120f" : "#255f33");
+}
+
+function initSystemThemeListener() {
+  try {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      if ((state.themeMode || "system") !== "system") return;
+      applyTheme();
+      renderOverviewIfOnOverview();
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  } catch {
+    /* ignore */
+  }
 }
 
 function initRouting() {
@@ -2334,6 +2356,21 @@ function drawExpenseChart(svgEl, overview) {
   svgEl.setAttribute("width", String(W));
   svgEl.setAttribute("height", String(H));
 
+  const dark = resolvedDocumentTheme() === "dark";
+  const chartUi = dark
+    ? {
+        trackMain: "rgba(111, 207, 130, 0.14)",
+        trackRem: "rgba(238, 242, 237, 0.08)",
+        remPos: "#81c784",
+        remNeg: "#ff8a80"
+      }
+    : {
+        trackMain: "rgba(37, 95, 51, 0.15)",
+        trackRem: "rgba(37, 95, 51, 0.12)",
+        remPos: "#43a047",
+        remNeg: "#d32f2f"
+      };
+
   const expenses = Math.max(0, overview.plannedExpensesAmount);
   const income = Math.max(0, overview.incomeAmount);
   const remaining = overview.remaining;
@@ -2351,7 +2388,7 @@ function drawExpenseChart(svgEl, overview) {
   bg.setAttribute("width", String(totalBarW));
   bg.setAttribute("height", String(barH));
   bg.setAttribute("rx", "12");
-  bg.setAttribute("fill", "rgba(37, 95, 51, 0.15)");
+  bg.setAttribute("fill", chartUi.trackMain);
   svgEl.appendChild(bg);
 
   // Staplad segmentbar (summa = plannedExpenses)
@@ -2383,7 +2420,7 @@ function drawExpenseChart(svgEl, overview) {
   remBg.setAttribute("width", String(totalBarW));
   remBg.setAttribute("height", String(barH));
   remBg.setAttribute("rx", "12");
-  remBg.setAttribute("fill", "rgba(37, 95, 51, 0.12)");
+  remBg.setAttribute("fill", chartUi.trackRem);
   svgEl.appendChild(remBg);
 
   const remAmount = Math.max(0, remaining);
@@ -2394,7 +2431,7 @@ function drawExpenseChart(svgEl, overview) {
   remRect.setAttribute("width", String(remW));
   remRect.setAttribute("height", String(barH));
   remRect.setAttribute("rx", "12");
-  remRect.setAttribute("fill", remaining >= 0 ? "#43a047" : "#d32f2f");
+  remRect.setAttribute("fill", remaining >= 0 ? chartUi.remPos : chartUi.remNeg);
   svgEl.appendChild(remRect);
 
   // Labels
@@ -5817,6 +5854,7 @@ function initRoot() {
   try {
     state = loadState();
     applyTheme();
+    initSystemThemeListener();
     initRouting();
     initActions();
     registerServiceWorker();
