@@ -339,38 +339,74 @@
 
           <!-- CAR -->
           <section class="exp-view exp-overlay" data-expview="car" hidden>
-            <div class="table-card">
-              <div class="table-title">Bil</div>
+            <div class="table-card" id="carEditorCard" hidden>
+              <div class="table-title" id="carEditorTitle">Ny bilutgift</div>
               <div class="form-grid">
                 <label class="field">
-                  Ägandeform
-                  <select id="carOwnership">
-                    <option value="owned">Ägd</option>
-                    <option value="leased">Leasing</option>
+                  Typ
+                  <select id="carEditType"></select>
+                </label>
+                <label class="field">
+                  Namn på utgift
+                  <input id="carEditName" type="text" autocomplete="off" />
+                </label>
+                <label class="field" id="carPaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="carEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                </label>
+                <label class="field">
+                  Betalningsintervall
+                  <select id="carEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
                   </select>
                 </label>
                 <label class="field">
-                  Försäkring (kr/mån)
-                  <input id="carInsurance" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="carFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="carEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="carEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="carEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Drivmedel (kr/mån)
-                  <input id="carFuel" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="carEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="carSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="carCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="carNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="table-title">Bil omkostnader</div>
+              <div class="form-grid car-list-filters">
+                <label class="field">
+                  År
+                  <select id="carListYear"></select>
                 </label>
                 <label class="field">
-                  Parkering (kr/mån)
-                  <input id="carParking" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field" id="carLeasingField">
-                  Leasing/kontrakt (kr/mån)
-                  <input id="carLeasing" type="number" inputmode="decimal" min="0" step="1" />
+                  Månad
+                  <select id="carListMonth"></select>
                 </label>
               </div>
               <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="carSaveBtn" type="button">Spara bilkostnader</button>
+                <button class="secondary" id="carAddBtn" type="button">Lägg till</button>
               </div>
-              <div class="note" id="carNote"></div>
+              <h3 class="car-list-month-heading" id="carListMonthTitle">Utgifter</h3>
+              <div id="carListMount" class="car-list-mount"></div>
+              <p class="car-month-total" id="carMonthTotal"></p>
+              <div class="actions-row">
+                <button class="secondary stretch" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 

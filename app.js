@@ -356,6 +356,7 @@ function normalizeStateShape(state) {
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
   migrateLegacyExpenses(normalized);
+  migrateLegacyCarSpecialToExpenses(normalized);
   ensureExpenseIds(normalized);
   normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
@@ -440,6 +441,14 @@ function ensureExpenseIds(root) {
       if (exp.foodPlanningDate) out.foodPlanningDate = String(exp.foodPlanningDate);
       if (Array.isArray(exp.foodLabels)) out.foodLabels = exp.foodLabels.map((x) => String(x));
     }
+    if (exp?.expenseCategory === "car") {
+      out.expenseCategory = "car";
+      if (exp.carTypeKey) out.carTypeKey = String(exp.carTypeKey);
+      const cpd = Math.floor(asNumber(exp.carPaymentDay));
+      if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) out.carPaymentDay = cpd;
+      if (exp.carFirstDate) out.carFirstDate = String(exp.carFirstDate);
+      if (exp.carEndDate != null) out.carEndDate = String(exp.carEndDate || "");
+    }
     return out;
   });
 }
@@ -487,6 +496,147 @@ function isMatLikeExpense(exp) {
   if (!exp) return false;
   if (exp.foodGenerated) return true;
   return /^Mat v\.\d+$/i.test(String(exp.name || "").trim());
+}
+
+/** Bilutgifter sparas som vanliga state.expenses med expenseCategory "car" + carTypeKey. */
+const CAR_EXPENSE_TYPES = [
+  { key: "insurance", label: "Försäkring" },
+  { key: "leasing", label: "Leasing avgift" },
+  { key: "road_tax", label: "Trafikskatt" },
+  { key: "inspection", label: "Besiktning" },
+  { key: "parking_fee", label: "Parkeringsavgift" },
+  { key: "fuel", label: "Drivmedel" },
+  { key: "electricity", label: "El" },
+  { key: "car_wash", label: "Biltvätt" },
+  { key: "tolls", label: "Vägavgifter" },
+  { key: "ferry", label: "Färjeavgifter" }
+];
+
+function isCarExpense(exp) {
+  return Boolean(exp && exp.expenseCategory === "car");
+}
+
+function getCarTypeLabel(carTypeKey) {
+  const k = String(carTypeKey || "");
+  const row = CAR_EXPENSE_TYPES.find((t) => t.key === k);
+  return row ? row.label : k || "Bil";
+}
+
+function migrateLegacyCarSpecialToExpenses(root) {
+  const car = root?.special?.car;
+  if (!car || typeof car !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(car)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = car[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const entries = [];
+    const ins = asNumber(cfg.insurance);
+    if (ins > 0) entries.push({ carTypeKey: "insurance", name: "Försäkring", amt: ins });
+    const fuel = asNumber(cfg.fuel);
+    if (fuel > 0) entries.push({ carTypeKey: "fuel", name: "Drivmedel", amt: fuel });
+    const park = asNumber(cfg.parking);
+    if (park > 0) entries.push({ carTypeKey: "parking_fee", name: "Parkeringsavgift", amt: park });
+    const leased = (cfg.ownership || "owned") === "leased";
+    const lease = asNumber(cfg.leasing);
+    if (leased && lease > 0) entries.push({ carTypeKey: "leasing", name: "Leasing avgift", amt: lease });
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const e of entries) {
+      const payments = Array.from({ length: 12 }, (_, i) => ({
+        id: uid(),
+        date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
+        amount: e.amt
+      }));
+      root.expenses.push({
+        id: uid(),
+        name: e.name,
+        interval: "monthly",
+        payments,
+        expenseCategory: "car",
+        carTypeKey: e.carTypeKey,
+        carPaymentDay: payDay,
+        carFirstDate: `${year}-01-${pad2(payDay)}`,
+        carEndDate: ""
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.ownership;
+    delete cfg.insurance;
+    delete cfg.fuel;
+    delete cfg.parking;
+    delete cfg.leasing;
+  }
+}
+
+/** Bygger betalningslista inom appens tillåtna år (föregående/nu/nästa). */
+function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDay, amount }) {
+  const amt = Math.max(0, asNumber(amount));
+  if (amt <= 0) return [];
+
+  const firstParts = datePartsFromIso(firstDateISO);
+  if (!firstParts) return [];
+
+  const firstTime = new Date(firstParts.y, firstParts.m - 1, firstParts.d).getTime();
+  let endTime = null;
+  if (endDateISO && String(endDateISO).trim()) {
+    const ep = datePartsFromIso(endDateISO);
+    if (ep) endTime = new Date(ep.y, ep.m - 1, ep.d).getTime();
+  }
+  if (endTime !== null && endTime < firstTime) return [];
+
+  const payDay = Math.max(1, Math.min(31, Math.floor(asNumber(paymentDay) || firstParts.d)));
+  const ys = getSelectableAppYears();
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const out = [];
+
+  if (interval === "once") {
+    if (!isAllowedYear(firstParts.y)) return [];
+    const dd = clampDay(firstParts.y, firstParts.m, firstParts.d);
+    out.push({ id: uid(), date: `${firstParts.y}-${pad2(firstParts.m)}-${pad2(dd)}`, amount: amt });
+    return out;
+  }
+
+  let y = firstParts.y;
+  let m = firstParts.m;
+  let first = true;
+  for (let i = 0; i < 400; i++) {
+    const d = first ? firstParts.d : payDay;
+    const dd = clampDay(y, m, d);
+    const t = new Date(y, m - 1, dd).getTime();
+    if (endTime !== null && t > endTime) break;
+    if (t >= firstTime && y >= minY && y <= maxY && isAllowedYear(y)) {
+      out.push({ id: uid(), date: `${y}-${pad2(m)}-${pad2(dd)}`, amount: amt });
+    }
+    first = false;
+    if (interval === "monthly") {
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    } else if (interval === "quarterly") {
+      m += 3;
+      while (m > 12) {
+        m -= 12;
+        y += 1;
+      }
+    } else if (interval === "yearly") {
+      y += 1;
+    } else break;
+
+    if (y > maxY + 2) break;
+  }
+  return out;
 }
 
 function migrateLegacyIncomes(root) {
@@ -588,7 +738,11 @@ const ui = {
   loanEditorOpen: false,
   editLoanId: null,
   loanCopySourceName: null,
-  foodScrollWeekKey: null
+  foodScrollWeekKey: null,
+  carListYear: null,
+  carListMonth: null,
+  carEditorOpen: false,
+  carEditingExpenseId: null
 };
 
 function loadState() {
@@ -712,15 +866,29 @@ function weeksToMonthlyCount(perWeek) {
   return Math.max(0, Math.round(x * WEEKS_PER_MONTH));
 }
 
-function computeSpecialCarMonthly(year) {
-  const config = state.special.car[String(year)] || {};
-  const items = [
-    { label: "Försäkring", amount: asNumber(config.insurance) },
-    { label: "Drivmedel", amount: asNumber(config.fuel) },
-    { label: "Parkering", amount: asNumber(config.parking) },
-    { label: "Leasing/kontrakt", amount: asNumber(config.leasing) }
-  ];
-  const total = items.reduce((s, it) => s + it.amount, 0);
+function computeSpecialCarMonthly(year, month) {
+  const items = [];
+  let total = 0;
+  for (const exp of state.expenses || []) {
+    if (!isCarExpense(exp)) continue;
+    const typeLabel = getCarTypeLabel(exp.carTypeKey);
+    const name = String(exp.name || "").trim() || typeLabel;
+    for (const p of exp.payments || []) {
+      const pAmt = asNumber(p.amount);
+      if (pAmt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== Number(year) || dt.getMonth() + 1 !== Number(month)) continue;
+      total += pAmt;
+      const dateStr = dt.toLocaleDateString("sv-SE");
+      items.push({
+        label: `${typeLabel} · ${name} (${dateStr})`,
+        amount: pAmt,
+        carTypeKey: exp.carTypeKey,
+        expenseId: exp.id
+      });
+    }
+  }
   return { total, items };
 }
 
@@ -1517,7 +1685,7 @@ function computeMonthOverview(year, month) {
   const y = String(year);
   const m = monthKey(month);
 
-  const car = computeSpecialCarMonthly(year);
+  const car = computeSpecialCarMonthly(year, month);
   const housing = computeSpecialHousingMonthly(year);
   const loans = computeSpecialLoansMonthly(year, month);
   // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
@@ -1535,6 +1703,7 @@ function computeMonthOverview(year, month) {
   }));
 
   const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
+    if (isCarExpense(exp)) return sum;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     return (
       sum +
@@ -1605,6 +1774,7 @@ function computeMonthOverview(year, month) {
   // Tabellen: bryt ner utgifter och intäkter
   const expensesRows = [];
   for (const exp of state.expenses || []) {
+    if (isCarExpense(exp)) continue;
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     for (const p of payments) {
       const amt = asNumber(p.amount);
@@ -1855,18 +2025,326 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
-function renderCarPage() {
-  const year = ui.expensesYear;
-  const config = state.special.car[String(year)] || {};
-  document.getElementById("carOwnership").value = config.ownership || "owned";
-  document.getElementById("carInsurance").value = asNumber(config.insurance);
-  document.getElementById("carFuel").value = asNumber(config.fuel);
-  document.getElementById("carParking").value = asNumber(config.parking);
-  document.getElementById("carLeasing").value = asNumber(config.leasing);
+function applyCarOverlayDateBounds() {
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  document.querySelectorAll('[data-expview="car"] input[type="date"]').forEach((inp) => {
+    inp.min = min;
+    inp.max = max;
+  });
+}
 
-  const leased = (config.ownership || "owned") === "leased";
-  const leasingField = document.getElementById("carLeasingField");
-  if (leasingField) leasingField.hidden = !leased;
+function updateCarEditorIntervalVisibility() {
+  const interval = document.getElementById("carEditInterval")?.value || "once";
+  const recurring = interval !== "once";
+  const payDayRow = document.getElementById("carPaymentDayRow");
+  const endRow = document.getElementById("carEndDateRow");
+  const firstLbl = document.getElementById("carFirstDateLabel");
+  if (payDayRow) payDayRow.hidden = !recurring;
+  if (endRow) endRow.hidden = !recurring;
+  if (firstLbl) firstLbl.textContent = recurring ? "Första betalningsdatum" : "Betalningsdatum";
+}
+
+function inferCarMetaFromExpense(exp) {
+  const pts = (exp.payments || [])
+    .filter((p) => asNumber(p.amount) > 0 && p.date)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const first = pts[0];
+  const second = pts[1];
+  let payDay = exp.carPaymentDay;
+  if (payDay == null || payDay === "") {
+    const p2 = second?.date ? datePartsFromIso(second.date) : null;
+    if (p2) payDay = p2.d;
+  }
+  if (payDay == null || payDay === "") {
+    const p1 = first?.date ? datePartsFromIso(first.date) : null;
+    payDay = p1?.d ?? 25;
+  }
+  payDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDay)) || 25));
+  const firstDate = exp.carFirstDate || first?.date || "";
+  const amount = first ? asNumber(first.amount) : 0;
+  const endDate = exp.carEndDate != null && exp.carEndDate !== undefined ? String(exp.carEndDate) : "";
+  return { firstDate, payDay, amount, endDate };
+}
+
+function getCarExpenseGroupsForMonth(year, month) {
+  const byType = new Map();
+  for (const exp of state.expenses || []) {
+    if (!isCarExpense(exp)) continue;
+    let sum = 0;
+    for (const p of exp.payments || []) {
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) sum += asNumber(p.amount);
+    }
+    if (sum <= 0) continue;
+    const key = exp.carTypeKey || "other";
+    if (!byType.has(key)) byType.set(key, []);
+    byType.get(key).push({
+      expenseId: exp.id,
+      name: String(exp.name || "").trim() || getCarTypeLabel(key),
+      amount: sum
+    });
+  }
+  const groups = [];
+  for (const t of CAR_EXPENSE_TYPES) {
+    const items = byType.get(t.key);
+    if (items && items.length) groups.push({ typeLabel: t.label, items });
+    byType.delete(t.key);
+  }
+  for (const [key, items] of byType) groups.push({ typeLabel: getCarTypeLabel(key), items });
+  const total = groups.reduce((s, g) => s + g.items.reduce((a, it) => a + it.amount, 0), 0);
+  return { groups, total };
+}
+
+function renderCarExpenseListMount() {
+  const mount = document.getElementById("carListMount");
+  const totalEl = document.getElementById("carMonthTotal");
+  const titleEl = document.getElementById("carListMonthTitle");
+  if (!mount) return;
+
+  const year = Number(ui.carListYear);
+  const month = Number(ui.carListMonth);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return;
+
+  if (titleEl) titleEl.textContent = `Utgifter ${monthName(month).toLowerCase()}`;
+  const { groups, total } = getCarExpenseGroupsForMonth(year, month);
+  mount.innerHTML = "";
+
+  if (groups.length === 0) {
+    mount.innerHTML = `<div class="car-list-empty">Inga bilutgifter denna månad.</div>`;
+  } else {
+    for (const g of groups) {
+      const block = document.createElement("div");
+      block.className = "car-type-block";
+      for (const it of g.items) {
+        const row = document.createElement("div");
+        row.className = "car-expense-block";
+        row.innerHTML = `
+          <div class="car-expense-line1">
+            <span class="car-expense-type">${escapeHtml(g.typeLabel)}</span>
+            <span class="car-expense-amt">${escapeHtml(formatKr(it.amount))}</span>
+          </div>
+          <div class="car-expense-line2">
+            <span class="car-expense-name">${escapeHtml(it.name)}</span>
+            <button type="button" class="icon-btn car-edit-btn" data-car-edit-id="${escapeHtml(it.expenseId)}" aria-label="Redigera">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+          </div>
+        `;
+        block.appendChild(row);
+      }
+      mount.appendChild(block);
+    }
+  }
+
+  if (totalEl) {
+    totalEl.textContent = total > 0 ? `Totalt denna månad: ${formatKr(total)}` : "";
+  }
+
+  mount.onclick = (e) => {
+    const btn = e.target.closest("[data-car-edit-id]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-car-edit-id");
+    if (!id) return;
+    ui.carEditingExpenseId = id;
+    ui.carEditorOpen = true;
+    renderCarPage();
+  };
+}
+
+function renderCarPage() {
+  const listYearSel = document.getElementById("carListYear");
+  const listMonthSel = document.getElementById("carListMonth");
+  const cur = currentYearMonth();
+  const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
+  const appYears = getSelectableAppYears();
+  if (ui.carListYear == null || !Number.isFinite(Number(ui.carListYear)) || !appYears.includes(Number(ui.carListYear))) {
+    ui.carListYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  }
+  if (ui.carListMonth == null || !Number.isFinite(Number(ui.carListMonth)) || ui.carListMonth < 1 || ui.carListMonth > 12) {
+    ui.carListMonth = cur.month;
+  }
+
+  if (listYearSel) {
+    setYear3Options(listYearSel, ui.carListYear);
+    listYearSel.onchange = () => {
+      ui.carListYear = Number(listYearSel.value);
+      renderCarExpenseListMount();
+    };
+  }
+  if (listMonthSel) {
+    setMonthOptions(listMonthSel, ui.carListMonth);
+    listMonthSel.onchange = () => {
+      ui.carListMonth = Number(listMonthSel.value);
+      renderCarExpenseListMount();
+    };
+  }
+
+  const editorCard = document.getElementById("carEditorCard");
+  const editorTitle = document.getElementById("carEditorTitle");
+  const typeSel = document.getElementById("carEditType");
+  const nameInp = document.getElementById("carEditName");
+  const payDayInp = document.getElementById("carEditPaymentDay");
+  const intervalSel = document.getElementById("carEditInterval");
+  const firstInp = document.getElementById("carEditFirstDate");
+  const endInp = document.getElementById("carEditEndDate");
+  const amtInp = document.getElementById("carEditAmount");
+  const delBtn = document.getElementById("carDeleteBtn");
+  const saveBtn = document.getElementById("carSaveBtn");
+  const note = document.getElementById("carNote");
+
+  if (typeSel && typeSel.options.length === 0) {
+    for (const t of CAR_EXPENSE_TYPES) {
+      const opt = document.createElement("option");
+      opt.value = t.key;
+      opt.textContent = t.label;
+      typeSel.appendChild(opt);
+    }
+  }
+
+  const editingId = ui.carEditingExpenseId;
+  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && isCarExpense(x)) : null;
+
+  if (editorCard) editorCard.hidden = !ui.carEditorOpen;
+
+  if (ui.carEditorOpen && typeSel && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
+    if (editorTitle) editorTitle.textContent = editing ? "Redigera bilutgift" : "Ny bilutgift";
+    if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
+    if (delBtn) delBtn.hidden = !editing;
+
+    if (editing) {
+      typeSel.value = CAR_EXPENSE_TYPES.some((t) => t.key === editing.carTypeKey) ? editing.carTypeKey : CAR_EXPENSE_TYPES[0].key;
+      nameInp.value = editing.name || getCarTypeLabel(editing.carTypeKey);
+      intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
+      const inf = inferCarMetaFromExpense(editing);
+      payDayInp.value = String(inf.payDay);
+      firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
+      endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
+      amtInp.value = inf.amount > 0 ? String(Math.round(inf.amount)) : "";
+    } else {
+      const defType = CAR_EXPENSE_TYPES[0];
+      typeSel.value = defType.key;
+      nameInp.value = defType.label;
+      intervalSel.value = "once";
+      payDayInp.value = "25";
+      const y = Number(ui.carListYear) || baseYear;
+      const m = Number(ui.carListMonth) || cur.month;
+      const d = clampDay(y, m, 25);
+      firstInp.value = `${y}-${pad2(m)}-${pad2(d)}`;
+      endInp.value = "";
+      amtInp.value = "";
+    }
+    updateCarEditorIntervalVisibility();
+    if (note) note.textContent = "";
+    applyCarOverlayDateBounds();
+  }
+
+  renderCarExpenseListMount();
+
+  if (intervalSel && !intervalSel._carBound) {
+    intervalSel._carBound = true;
+    intervalSel.addEventListener("change", updateCarEditorIntervalVisibility);
+  }
+  if (typeSel && !typeSel._carBound) {
+    typeSel._carBound = true;
+    typeSel.addEventListener("change", () => {
+      if (ui.carEditingExpenseId) return;
+      const t = CAR_EXPENSE_TYPES.find((x) => x.key === typeSel.value);
+      if (t && nameInp) nameInp.value = t.label;
+    });
+  }
+}
+
+function saveCarExpenseFromEditor() {
+  const note = document.getElementById("carNote");
+  const typeSel = document.getElementById("carEditType");
+  const nameInp = document.getElementById("carEditName");
+  const payDayInp = document.getElementById("carEditPaymentDay");
+  const intervalSel = document.getElementById("carEditInterval");
+  const firstInp = document.getElementById("carEditFirstDate");
+  const endInp = document.getElementById("carEditEndDate");
+  const amtInp = document.getElementById("carEditAmount");
+  if (!typeSel || !nameInp || !intervalSel || !firstInp || !amtInp) return;
+
+  const name = (nameInp.value || "").trim();
+  if (!name) {
+    if (note) note.textContent = "Ange namn på utgift.";
+    return;
+  }
+  const carTypeKey = typeSel.value || CAR_EXPENSE_TYPES[0].key;
+  const interval = intervalSel.value || "once";
+  const firstDateISO = (firstInp.value || "").trim();
+  const firstParts = datePartsFromIso(firstDateISO);
+  if (!firstParts) {
+    if (note) note.textContent = interval === "once" ? "Ange datum för betalning." : "Ange första betalningsdatum.";
+    return;
+  }
+  if (!isAllowedYear(firstParts.y)) {
+    if (note) note.textContent = "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).";
+    return;
+  }
+  const paymentDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDayInp?.value) || 25)));
+  let endDateISO = (endInp?.value || "").trim();
+  if (interval === "once") {
+    endDateISO = "";
+  } else if (endDateISO && !datePartsFromIso(endDateISO)) {
+    if (note) note.textContent = "Ogiltigt slutdatum för betalning.";
+    return;
+  }
+  const amount = asNumber(amtInp.value);
+  if (amount <= 0) {
+    if (note) note.textContent = "Ange belopp större än noll.";
+    return;
+  }
+  const payments = buildCarExpensePayments({
+    interval,
+    firstDateISO,
+    endDateISO,
+    paymentDay,
+    amount
+  });
+  if (!payments.length) {
+    if (note)
+      note.textContent =
+        "Inga betalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum.";
+    return;
+  }
+  const base = {
+    name,
+    interval,
+    payments,
+    expenseCategory: "car",
+    carTypeKey,
+    carPaymentDay: interval === "once" ? firstParts.d : paymentDay,
+    carFirstDate: firstDateISO,
+    carEndDate: endDateISO
+  };
+  if (ui.carEditingExpenseId) {
+    const idx = (state.expenses || []).findIndex((x) => x.id === ui.carEditingExpenseId);
+    if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], ...base, id: state.expenses[idx].id };
+  } else {
+    state.expenses.push({ id: uid(), ...base });
+  }
+  saveState();
+  if (note) note.textContent = "";
+  ui.carEditorOpen = false;
+  ui.carEditingExpenseId = null;
+  renderCarPage();
+  renderOverviewIfOnOverview();
+  renderExpensesList();
+}
+
+function deleteCarExpenseFromEditor() {
+  if (!ui.carEditingExpenseId) return;
+  state.expenses = (state.expenses || []).filter((x) => x.id !== ui.carEditingExpenseId);
+  saveState();
+  ui.carEditorOpen = false;
+  ui.carEditingExpenseId = null;
+  renderCarPage();
+  renderOverviewIfOnOverview();
+  renderExpensesList();
 }
 
 function renderHomePage() {
@@ -3817,6 +4295,21 @@ function openExpenseOverlay(expenseId, opts = {}) {
     });
     return;
   }
+  if (isCarExpense(exp)) {
+    closeExpenseOverlay();
+    ui.carEditingExpenseId = expenseId;
+    ui.carEditorOpen = true;
+    const p0 = exp?.payments?.[0];
+    if (p0?.date) {
+      const d = new Date(p0.date);
+      if (!Number.isNaN(d.getTime())) {
+        ui.carListYear = d.getFullYear();
+        ui.carListMonth = d.getMonth() + 1;
+      }
+    }
+    openExpenseCategoryOverlay("car");
+    return;
+  }
   requireEl("expenseNameInput").value = exp?.name || "";
   requireEl("expenseIntervalSelect").value = exp?.interval || "once";
   ui.expenseEditorPayments = Array.isArray(exp?.payments)
@@ -4056,6 +4549,8 @@ function closeExpenseCategoryOverlay() {
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
   closeLoanEditor();
   hideConfirmDeleteLoanModal();
+  ui.carEditorOpen = false;
+  ui.carEditingExpenseId = null;
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }
@@ -4309,28 +4804,30 @@ function hideConfirmDeleteLoanModal() {
 
 function initActions() {
   // CAR
-  document.getElementById("carOwnership").onchange = () => {
-    const leased = document.getElementById("carOwnership").value === "leased";
-    const leasingField = document.getElementById("carLeasingField");
-    if (leasingField) leasingField.hidden = !leased;
-  };
-
-  document.getElementById("carSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.car[String(year)] = {
-      ownership: document.getElementById("carOwnership").value || "owned",
-      insurance: asNumber(document.getElementById("carInsurance").value),
-      fuel: asNumber(document.getElementById("carFuel").value),
-      parking: asNumber(document.getElementById("carParking").value),
-      leasing: asNumber(document.getElementById("carLeasing").value)
-    };
-    saveState();
-    const note = document.getElementById("carNote");
-    note.textContent = "Bil-kostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderCarPage();
-    closeExpenseCategoryOverlay();
-  });
+  const carAddBtn = document.getElementById("carAddBtn");
+  if (carAddBtn) {
+    carAddBtn.addEventListener("click", () => {
+      ui.carEditingExpenseId = null;
+      ui.carEditorOpen = true;
+      renderCarPage();
+      const editorCard = document.getElementById("carEditorCard");
+      if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+  const carSaveBtn = document.getElementById("carSaveBtn");
+  if (carSaveBtn) carSaveBtn.addEventListener("click", () => saveCarExpenseFromEditor());
+  const carDeleteBtn = document.getElementById("carDeleteBtn");
+  if (carDeleteBtn) carDeleteBtn.addEventListener("click", () => deleteCarExpenseFromEditor());
+  const carCancelEditorBtn = document.getElementById("carCancelEditorBtn");
+  if (carCancelEditorBtn) {
+    carCancelEditorBtn.addEventListener("click", () => {
+      ui.carEditorOpen = false;
+      ui.carEditingExpenseId = null;
+      const note = document.getElementById("carNote");
+      if (note) note.textContent = "";
+      renderCarPage();
+    });
+  }
 
   // HOME
   document.getElementById("homeSaveBtn").addEventListener("click", () => {
