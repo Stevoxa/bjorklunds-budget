@@ -23,7 +23,7 @@
         <section class="view" data-view="overview">
           <div class="view-header">
             <h2>Översikt</h2>
-            <div class="period-picker picker-row" role="group" aria-label="Välj period">
+            <div class="period-picker picker-row" data-overview-period="" role="group" aria-label="Välj period">
               <label>
                 År
                 <select id="overviewYear"></select>
@@ -1188,11 +1188,11 @@
       hidden
       aria-hidden="true"
     >
-      <div class="date-sheet-handle" aria-hidden="true"></div>
+      <div class="date-sheet-handle bottom-sheet-drag" id="dateSheetHandle" aria-hidden="true"></div>
       <div class="date-sheet-header">
         <button type="button" class="secondary date-sheet-cancel" id="dateSheetCancelBtn">Avbryt</button>
         <div class="date-sheet-title" id="dateSheetTitle">Välj datum</div>
-        <span class="date-sheet-header-spacer" aria-hidden="true"></span>
+        <button type="button" class="primary date-sheet-ok" id="dateSheetOkBtn">Klar</button>
       </div>
       <div class="date-sheet-body">
         <div class="date-sheet-month-nav">
@@ -1208,6 +1208,30 @@
           <span>må</span><span>ti</span><span>on</span><span>to</span><span>fr</span><span>lö</span><span>sö</span>
         </div>
         <div class="date-sheet-grid" id="dateSheetGrid"></div>
+      </div>
+    </div>
+
+    <div class="period-sheet-backdrop" id="periodSheetBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="period-sheet"
+      id="periodSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="periodSheetTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle bottom-sheet-drag" id="periodSheetHandle" aria-hidden="true"></div>
+      <div class="date-sheet-header">
+        <button type="button" class="secondary date-sheet-cancel" id="periodSheetCancelBtn">Avbryt</button>
+        <div class="date-sheet-title" id="periodSheetTitle">Välj period</div>
+        <button type="button" class="primary date-sheet-ok" id="periodSheetOkBtn">Klar</button>
+      </div>
+      <div class="date-sheet-body">
+        <div class="period-sheet-section-label">År</div>
+        <div id="periodSheetYears" class="period-sheet-chips"></div>
+        <div class="period-sheet-section-label">Månad</div>
+        <div id="periodSheetMonths" class="period-sheet-month-grid"></div>
       </div>
     </div>
 

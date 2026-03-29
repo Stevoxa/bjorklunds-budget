@@ -2178,29 +2178,31 @@ button.stretch {
   border-top: 1px dashed var(--border);
 }
 
-/* —— Mobil datum-sheet (bottom sheet, SJ-lik) —— */
-.date-sheet-backdrop {
+/* —— Bottom sheets: datum + period (SJ-lik: sheet + dimmad backdrop, Klar/Avbryt) —— */
+.date-sheet-backdrop,
+.period-sheet-backdrop {
   position: fixed;
   inset: 0;
   z-index: 95;
   background: rgba(4, 10, 6, 0.48);
-  animation: date-sheet-backdrop-in 200ms var(--motion-ease) both;
+  opacity: 0;
+  transition: opacity 240ms var(--motion-ease);
+  pointer-events: none;
 }
 
-html[data-theme="dark"] .date-sheet-backdrop {
+html[data-theme="dark"] .date-sheet-backdrop,
+html[data-theme="dark"] .period-sheet-backdrop {
   background: rgba(0, 0, 0, 0.58);
 }
 
-@keyframes date-sheet-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.date-sheet-backdrop--visible,
+.period-sheet-backdrop--visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
-.date-sheet {
+.date-sheet,
+.period-sheet {
   position: fixed;
   left: 0;
   right: 0;
@@ -2215,12 +2217,23 @@ html[data-theme="dark"] .date-sheet-backdrop {
   display: flex;
   flex-direction: column;
   transform: translateY(108%);
-  transition: transform 240ms var(--motion-ease);
+  transition: transform 260ms var(--motion-ease);
   padding-bottom: env(safe-area-inset-bottom);
+  will-change: transform;
 }
 
-.date-sheet--visible {
+.date-sheet--visible,
+.period-sheet--visible {
   transform: translateY(0);
+}
+
+.bottom-sheet-drag {
+  touch-action: none;
+  cursor: grab;
+}
+
+.bottom-sheet-drag:active {
+  cursor: grabbing;
 }
 
 .date-sheet-handle {
@@ -2257,8 +2270,100 @@ html[data-theme="dark"] .date-sheet-backdrop {
   line-height: 1.25;
 }
 
-.date-sheet-header-spacer {
-  min-width: 76px;
+.date-sheet-ok {
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  font-size: 0.86rem;
+  font-weight: 750;
+  justify-self: end;
+}
+
+.period-sheet-section-label {
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+  margin: var(--space-2) 0 var(--space-2);
+}
+
+.period-sheet-section-label:first-of-type {
+  margin-top: 0;
+}
+
+.period-sheet-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.period-sheet-chip {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform 100ms var(--motion-ease);
+}
+
+.period-sheet-chip:hover {
+  border-color: var(--border-strong);
+}
+
+.period-sheet-chip:active {
+  transform: scale(0.97);
+}
+
+.period-sheet-chip--selected {
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border));
+  color: var(--primary-ink);
+  font-weight: 800;
+}
+
+.period-sheet-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.period-sheet-month-btn {
+  min-height: 48px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 92%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.82rem;
+  line-height: 1.15;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-1);
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform 100ms var(--motion-ease);
+}
+
+.period-sheet-month-btn:hover {
+  border-color: var(--border-strong);
+}
+
+.period-sheet-month-btn:active {
+  transform: scale(0.98);
+}
+
+.period-sheet-month-btn--selected {
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 70%, var(--border));
+  color: var(--primary-ink);
+  font-weight: 800;
 }
 
 .date-sheet-body {
@@ -2348,7 +2453,7 @@ html[data-theme="dark"] .date-sheet-backdrop {
   transform: none;
 }
 
-body.date-sheet-open {
+body.app-bottom-sheet-open {
   overflow: hidden;
   touch-action: none;
 }
@@ -2376,7 +2481,9 @@ body.date-sheet-open {
   .modal-backdrop,
   .exp-overlay,
   .date-sheet,
-  .date-sheet-backdrop {
+  .period-sheet,
+  .date-sheet-backdrop,
+  .period-sheet-backdrop {
     transition: none !important;
     animation: none !important;
   }

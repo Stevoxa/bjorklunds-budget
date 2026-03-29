@@ -280,7 +280,36 @@ let dateSheetDraft = "";
 let dateSheetViewY = 0;
 let dateSheetViewM = 0;
 let dateSheetOpen = false;
+let dateSheetClosing = false;
 let dateSheetKeydownHandler = null;
+
+let periodSheetOpen = false;
+let periodSheetClosing = false;
+let periodSheetDraftY = 0;
+let periodSheetDraftM = 0;
+let periodSheetSnapY = 0;
+let periodSheetSnapM = 0;
+let periodSheetKeydownHandler = null;
+
+let appBottomSheetLockDepth = 0;
+
+function prefersReducedMotionUI() {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function pushAppBottomSheetScrollLock() {
+  appBottomSheetLockDepth += 1;
+  if (appBottomSheetLockDepth === 1) document.body.classList.add("app-bottom-sheet-open");
+}
+
+function popAppBottomSheetScrollLock() {
+  appBottomSheetLockDepth = Math.max(0, appBottomSheetLockDepth - 1);
+  if (appBottomSheetLockDepth === 0) document.body.classList.remove("app-bottom-sheet-open");
+}
 
 function getDateSheetEls() {
   return {
@@ -291,7 +320,19 @@ function getDateSheetEls() {
     monthLabel: document.getElementById("dateSheetMonthLabel"),
     prevBtn: document.getElementById("dateSheetPrevMonth"),
     nextBtn: document.getElementById("dateSheetNextMonth"),
-    cancelBtn: document.getElementById("dateSheetCancelBtn")
+    cancelBtn: document.getElementById("dateSheetCancelBtn"),
+    okBtn: document.getElementById("dateSheetOkBtn"),
+    handle: document.getElementById("dateSheetHandle")
+  };
+}
+
+function getPeriodSheetEls() {
+  return {
+    backdrop: document.getElementById("periodSheetBackdrop"),
+    sheet: document.getElementById("periodSheet"),
+    cancelBtn: document.getElementById("periodSheetCancelBtn"),
+    okBtn: document.getElementById("periodSheetOkBtn"),
+    handle: document.getElementById("periodSheetHandle")
   };
 }
 
@@ -304,44 +345,100 @@ function humanLabelForDateInput(inp) {
   return t || inp.getAttribute("aria-label") || "Välj datum";
 }
 
-function closeDateSheet(revert) {
-  if (!dateSheetOpen) return;
+function finalizeDateSheetClose(revert) {
   const inp = dateSheetTargetInput;
-  const { backdrop, sheet } = getDateSheetEls();
   if (inp && revert) {
     inp.value = dateSheetSnapshot;
     inp.dispatchEvent(new Event("input", { bubbles: true }));
     inp.dispatchEvent(new Event("change", { bubbles: true }));
   }
+  const { backdrop, sheet } = getDateSheetEls();
   if (backdrop) {
     backdrop.hidden = true;
+    backdrop.classList.remove("date-sheet-backdrop--visible");
     backdrop.setAttribute("aria-hidden", "true");
   }
   if (sheet) {
-    sheet.classList.remove("date-sheet--visible");
     sheet.hidden = true;
+    sheet.classList.remove("date-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
     sheet.setAttribute("aria-hidden", "true");
   }
-  document.body.classList.remove("date-sheet-open");
   if (dateSheetKeydownHandler) {
     document.removeEventListener("keydown", dateSheetKeydownHandler, true);
     dateSheetKeydownHandler = null;
   }
+  popAppBottomSheetScrollLock();
   dateSheetOpen = false;
+  dateSheetClosing = false;
   dateSheetTargetInput = null;
 }
 
-function commitDateSheetIso(iso) {
+function closeDateSheetAnimated(revert) {
+  if (!dateSheetOpen) return;
+  if (dateSheetClosing) return;
+  dateSheetClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getDateSheetEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    dateSheetClosing = false;
+    finalizeDateSheetClose(revert);
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("date-sheet--visible");
+    backdrop?.classList.remove("date-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("date-sheet--visible");
+  backdrop?.classList.remove("date-sheet-backdrop--visible");
+}
+
+function closeDateSheet(revert) {
+  closeDateSheetAnimated(revert);
+}
+
+function selectDateSheetDay(iso) {
   const inp = dateSheetTargetInput;
   if (!inp) return;
   const minIso = inp.min || "";
   const maxIso = inp.max || "";
   if (minIso && iso < minIso) return;
   if (maxIso && iso > maxIso) return;
+  dateSheetDraft = iso;
+  const parts = datePartsFromIso(iso);
+  if (parts) {
+    dateSheetViewY = parts.y;
+    dateSheetViewM = parts.m;
+  }
+  renderDateSheetMonth();
+}
+
+function applyDateSheetKlar() {
+  const inp = dateSheetTargetInput;
+  if (!inp) return;
+  const minIso = inp.min || "";
+  const maxIso = inp.max || "";
+  const iso = clampIsoToMinMax(dateSheetDraft, minIso, maxIso);
   inp.value = iso;
   inp.dispatchEvent(new Event("input", { bubbles: true }));
   inp.dispatchEvent(new Event("change", { bubbles: true }));
-  closeDateSheet(false);
+  closeDateSheetAnimated(false);
 }
 
 function renderDateSheetMonth() {
@@ -406,7 +503,7 @@ function renderDateSheetMonth() {
       btn.disabled = true;
       btn.classList.add("date-sheet-day--disabled");
     } else {
-      btn.addEventListener("click", () => commitDateSheetIso(iso));
+      btn.addEventListener("click", () => selectDateSheetDay(iso));
     }
     frag.appendChild(btn);
   }
@@ -414,8 +511,8 @@ function renderDateSheetMonth() {
 }
 
 function openDateSheet(inputEl) {
-  if (dateSheetOpen || !inputEl || inputEl.type !== "date") return;
-  const { backdrop, sheet, title } = getDateSheetEls();
+  if (dateSheetOpen || periodSheetOpen || !inputEl || inputEl.type !== "date") return;
+  const { backdrop, sheet, title, okBtn, grid } = getDateSheetEls();
   if (!backdrop || !sheet) return;
 
   inputEl.blur();
@@ -443,26 +540,256 @@ function openDateSheet(inputEl) {
   backdrop.setAttribute("aria-hidden", "false");
   sheet.hidden = false;
   sheet.setAttribute("aria-hidden", "false");
-  document.body.classList.add("date-sheet-open");
-  const { cancelBtn: closeFocusBtn } = getDateSheetEls();
-  requestAnimationFrame(() => {
-    sheet.classList.add("date-sheet--visible");
-    closeFocusBtn?.focus();
-  });
+  backdrop.classList.remove("date-sheet-backdrop--visible");
+  sheet.classList.remove("date-sheet--visible");
+  pushAppBottomSheetScrollLock();
   dateSheetOpen = true;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("date-sheet-backdrop--visible");
+      sheet.classList.add("date-sheet--visible");
+      const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
+      (sel || okBtn)?.focus();
+    });
+  });
 
   dateSheetKeydownHandler = (ev) => {
     if (ev.key === "Escape") {
       ev.preventDefault();
-      closeDateSheet(true);
+      closeDateSheetAnimated(true);
     }
   };
   document.addEventListener("keydown", dateSheetKeydownHandler, true);
 }
 
+function attachBottomSheetDragDismiss(handleEl, sheetEl, onDismiss) {
+  if (!handleEl || !sheetEl) return;
+  let startY = 0;
+  let dragging = false;
+  let activeId = null;
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragging = true;
+    startY = e.clientY;
+    activeId = e.pointerId;
+    sheetEl.style.transition = "none";
+    try {
+      handleEl.setPointerCapture(e.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+  });
+  handleEl.addEventListener("pointermove", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    const dy = Math.max(0, e.clientY - startY);
+    sheetEl.style.transform = `translateY(${dy}px)`;
+  });
+  handleEl.addEventListener("pointerup", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    dragging = false;
+    const dy = e.clientY - startY;
+    sheetEl.style.removeProperty("transition");
+    sheetEl.style.removeProperty("transform");
+    activeId = null;
+    try {
+      handleEl.releasePointerCapture(e.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+    if (dy > 72) onDismiss();
+  });
+  handleEl.addEventListener("pointercancel", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    dragging = false;
+    sheetEl.style.removeProperty("transition");
+    sheetEl.style.removeProperty("transform");
+    activeId = null;
+  });
+}
+
+function finalizePeriodSheetClose() {
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.classList.remove("period-sheet-backdrop--visible");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.classList.remove("period-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  if (periodSheetKeydownHandler) {
+    document.removeEventListener("keydown", periodSheetKeydownHandler, true);
+    periodSheetKeydownHandler = null;
+  }
+  popAppBottomSheetScrollLock();
+  periodSheetOpen = false;
+  periodSheetClosing = false;
+}
+
+function closePeriodSheetAnimated() {
+  if (!periodSheetOpen) return;
+  if (periodSheetClosing) return;
+  periodSheetClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getPeriodSheetEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    periodSheetClosing = false;
+    finalizePeriodSheetClose();
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("period-sheet--visible");
+    backdrop?.classList.remove("period-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("period-sheet--visible");
+  backdrop?.classList.remove("period-sheet-backdrop--visible");
+}
+
+function renderPeriodSheetContent() {
+  const yearsHost = document.getElementById("periodSheetYears");
+  const monthsHost = document.getElementById("periodSheetMonths");
+  if (!yearsHost || !monthsHost) return;
+  yearsHost.innerHTML = "";
+  for (const y of getAvailableYears()) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "period-sheet-chip";
+    if (y === periodSheetDraftY) b.classList.add("period-sheet-chip--selected");
+    b.textContent = String(y);
+    b.addEventListener("click", () => {
+      periodSheetDraftY = y;
+      renderPeriodSheetContent();
+    });
+    yearsHost.appendChild(b);
+  }
+  monthsHost.innerHTML = "";
+  for (let m = 1; m <= 12; m++) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "period-sheet-month-btn";
+    if (m === periodSheetDraftM) b.classList.add("period-sheet-month-btn--selected");
+    const full = monthName(m);
+    b.textContent = full.length > 4 ? `${full.slice(0, 3)}.` : full;
+    b.addEventListener("click", () => {
+      periodSheetDraftM = m;
+      renderPeriodSheetContent();
+    });
+    monthsHost.appendChild(b);
+  }
+}
+
+function applyPeriodSheetKlar() {
+  const yearSel = document.getElementById("overviewYear");
+  const monthSel = document.getElementById("overviewMonth");
+  if (!yearSel || !monthSel) return;
+  yearSel.value = String(periodSheetDraftY);
+  monthSel.value = String(periodSheetDraftM);
+  yearSel.dispatchEvent(new Event("change", { bubbles: true }));
+  monthSel.dispatchEvent(new Event("change", { bubbles: true }));
+  closePeriodSheetAnimated();
+}
+
+function openOverviewPeriodSheet() {
+  if (dateSheetOpen || periodSheetOpen) return;
+  const yearSel = document.getElementById("overviewYear");
+  const monthSel = document.getElementById("overviewMonth");
+  const { backdrop, sheet, okBtn } = getPeriodSheetEls();
+  if (!yearSel || !monthSel || !backdrop || !sheet) return;
+
+  const cur = currentYearMonth();
+  periodSheetDraftY = Number(yearSel.value);
+  periodSheetDraftM = Number(monthSel.value);
+  if (!Number.isFinite(periodSheetDraftY)) periodSheetDraftY = cur.year;
+  if (!Number.isFinite(periodSheetDraftM) || periodSheetDraftM < 1 || periodSheetDraftM > 12) periodSheetDraftM = cur.month;
+  periodSheetSnapY = periodSheetDraftY;
+  periodSheetSnapM = periodSheetDraftM;
+
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      okBtn?.focus();
+    });
+  });
+
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function initOverviewPeriodSheet() {
+  const wrap = document.querySelector("[data-overview-period]");
+  const { backdrop, cancelBtn, okBtn, handle, sheet } = getPeriodSheetEls();
+  if (!wrap || !backdrop || !cancelBtn || !okBtn) return;
+
+  wrap.addEventListener(
+    "pointerdown",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLSelectElement)) return;
+      if (!isDateSheetViewport()) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    true
+  );
+
+  wrap.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLSelectElement)) return;
+      if (!isDateSheetViewport()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openOverviewPeriodSheet();
+    },
+    true
+  );
+
+  backdrop.addEventListener("click", () => closePeriodSheetAnimated());
+  cancelBtn.addEventListener("click", () => closePeriodSheetAnimated());
+  okBtn.addEventListener("click", () => applyPeriodSheetKlar());
+  attachBottomSheetDragDismiss(handle, sheet, () => closePeriodSheetAnimated());
+}
+
 function initMobileDateSheetPicker() {
-  const { backdrop, cancelBtn, prevBtn, nextBtn } = getDateSheetEls();
-  if (!backdrop || !cancelBtn) return;
+  const { backdrop, cancelBtn, okBtn, prevBtn, nextBtn, handle, sheet } = getDateSheetEls();
+  if (!backdrop || !cancelBtn || !okBtn) return;
 
   document.addEventListener(
     "pointerdown",
@@ -504,8 +831,10 @@ function initMobileDateSheetPicker() {
     true
   );
 
-  backdrop.addEventListener("click", () => closeDateSheet(true));
-  cancelBtn.addEventListener("click", () => closeDateSheet(true));
+  backdrop.addEventListener("click", () => closeDateSheetAnimated(true));
+  cancelBtn.addEventListener("click", () => closeDateSheetAnimated(true));
+  okBtn.addEventListener("click", () => applyDateSheetKlar());
+  attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
   if (prevBtn) {
     prevBtn.addEventListener("click", () => {
       if (dateSheetViewM <= 1) {
@@ -6167,6 +6496,7 @@ function initRoot() {
     applyTheme();
     initSystemThemeListener();
     initMobileDateSheetPicker();
+    initOverviewPeriodSheet();
     initRouting();
     initActions();
     registerServiceWorker();
