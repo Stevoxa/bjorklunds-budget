@@ -2178,6 +2178,188 @@ button.stretch {
   border-top: 1px dashed var(--border);
 }
 
+/* —— Mobil datum-sheet (bottom sheet, SJ-lik) —— */
+.date-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  background: rgba(4, 10, 6, 0.48);
+  animation: date-sheet-backdrop-in 200ms var(--motion-ease) both;
+}
+
+html[data-theme="dark"] .date-sheet-backdrop {
+  background: rgba(0, 0, 0, 0.58);
+}
+
+@keyframes date-sheet-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.date-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 96;
+  max-height: min(88vh, 560px);
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  transform: translateY(108%);
+  transition: transform 240ms var(--motion-ease);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.date-sheet--visible {
+  transform: translateY(0);
+}
+
+.date-sheet-handle {
+  width: 40px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  margin: var(--space-2) auto 0;
+  flex-shrink: 0;
+}
+
+.date-sheet-header {
+  display: grid;
+  grid-template-columns: minmax(76px, auto) 1fr minmax(76px, auto);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.date-sheet-cancel {
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  font-size: 0.86rem;
+  justify-self: start;
+}
+
+.date-sheet-title {
+  font-weight: 800;
+  font-size: 0.96rem;
+  letter-spacing: -0.03em;
+  text-align: center;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.date-sheet-header-spacer {
+  min-width: 76px;
+}
+
+.date-sheet-body {
+  padding: var(--space-3) var(--space-4) var(--space-5);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.date-sheet-month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.date-sheet-month-label {
+  font-weight: 750;
+  font-size: 1.02rem;
+  text-align: center;
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.date-sheet-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: lowercase;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.date-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--space-2);
+}
+
+.date-sheet-cell--empty {
+  min-height: 44px;
+}
+
+.date-sheet-day {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--card-2) 92%, transparent);
+  color: var(--text);
+  font-weight: 650;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform 100ms var(--motion-ease);
+}
+
+.date-sheet-day:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: color-mix(in srgb, var(--primary) 14%, var(--card-2));
+}
+
+.date-sheet-day:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.date-sheet-day--today:not(.date-sheet-day--selected) {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 48%, var(--border));
+}
+
+.date-sheet-day--selected {
+  background: var(--primary);
+  color: var(--primary-ink);
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  font-weight: 800;
+}
+
+.date-sheet-day--disabled,
+.date-sheet-day:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  transform: none;
+}
+
+body.date-sheet-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+@media (max-width: 720px) {
+  input[type="date"] {
+    cursor: pointer;
+    caret-color: transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bottom-nav a,
   .primary,
@@ -2192,7 +2374,9 @@ button.stretch {
   .data-table tbody tr,
   .modal,
   .modal-backdrop,
-  .exp-overlay {
+  .exp-overlay,
+  .date-sheet,
+  .date-sheet-backdrop {
     transition: none !important;
     animation: none !important;
   }

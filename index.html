@@ -1178,6 +1178,39 @@
       </div>
     </div>
 
+    <div class="date-sheet-backdrop" id="dateSheetBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="date-sheet"
+      id="dateSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dateSheetTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle" aria-hidden="true"></div>
+      <div class="date-sheet-header">
+        <button type="button" class="secondary date-sheet-cancel" id="dateSheetCancelBtn">Avbryt</button>
+        <div class="date-sheet-title" id="dateSheetTitle">Välj datum</div>
+        <span class="date-sheet-header-spacer" aria-hidden="true"></span>
+      </div>
+      <div class="date-sheet-body">
+        <div class="date-sheet-month-nav">
+          <button type="button" class="secondary btn-icon" id="dateSheetPrevMonth" aria-label="Föregående månad">
+            ‹
+          </button>
+          <div class="date-sheet-month-label" id="dateSheetMonthLabel"></div>
+          <button type="button" class="secondary btn-icon" id="dateSheetNextMonth" aria-label="Nästa månad">
+            ›
+          </button>
+        </div>
+        <div class="date-sheet-weekdays" aria-hidden="true">
+          <span>må</span><span>ti</span><span>on</span><span>to</span><span>fr</span><span>lö</span><span>sö</span>
+        </div>
+        <div class="date-sheet-grid" id="dateSheetGrid"></div>
+      </div>
+    </div>
+
     <script type="module" src="app.js"></script>
   </body>
 </html>

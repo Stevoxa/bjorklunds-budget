@@ -218,6 +218,318 @@ function resolvedDocumentTheme() {
   return getSystemTheme();
 }
 
+/**
+ * SJ.se-liknande diagramsegment: ljusa mättade färger, mörkläge med högre luminans/kontrast.
+ * (Komplement till varumärkesgrön #255f33.)
+ */
+const CHART_SEGMENT_PALETTE = {
+  recurringExpenses: { light: "#255f33", dark: "#8edb9a" },
+  foodGenerated: { light: "#e65100", dark: "#ffb74d" },
+  car: { light: "#005fa3", dark: "#90caf9" },
+  housing: { light: "#00695c", dark: "#80cbc4" },
+  loans: { light: "#6a1b9a", dark: "#ce93d8" },
+  children: { light: "#2e7d32", dark: "#a5d6a7" },
+  savings: { light: "#f59e0b", dark: "#ffe082" },
+  oneOffExpenses: { light: "#c62828", dark: "#ffab91" }
+};
+
+function chartSegmentHex(key) {
+  const pair = CHART_SEGMENT_PALETTE[key];
+  if (!pair) return resolvedDocumentTheme() === "dark" ? "#b0bec5" : "#607d8b";
+  return resolvedDocumentTheme() === "dark" ? pair.dark : pair.light;
+}
+
+const DATE_SHEET_MQ = "(max-width: 720px)";
+
+function isDateSheetViewport() {
+  try {
+    return window.matchMedia(DATE_SHEET_MQ).matches;
+  } catch {
+    return false;
+  }
+}
+
+function todayIsoLocal() {
+  const d = new Date();
+  return isoDateFromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
+function clampIsoToMinMax(iso, minIso, maxIso) {
+  let v = iso;
+  if (minIso && v < minIso) v = minIso;
+  if (maxIso && v > maxIso) v = maxIso;
+  return v;
+}
+
+function monthFullyBeforeMin(viewY, viewM, minIso) {
+  if (!minIso) return false;
+  const lastD = daysInMonth(viewY, viewM);
+  const end = isoDateFromParts(viewY, viewM, lastD);
+  return end < minIso;
+}
+
+function monthFullyAfterMax(viewY, viewM, maxIso) {
+  if (!maxIso) return false;
+  const start = isoDateFromParts(viewY, viewM, 1);
+  return start > maxIso;
+}
+
+let dateSheetTargetInput = null;
+let dateSheetSnapshot = "";
+let dateSheetDraft = "";
+let dateSheetViewY = 0;
+let dateSheetViewM = 0;
+let dateSheetOpen = false;
+let dateSheetKeydownHandler = null;
+
+function getDateSheetEls() {
+  return {
+    backdrop: document.getElementById("dateSheetBackdrop"),
+    sheet: document.getElementById("dateSheet"),
+    title: document.getElementById("dateSheetTitle"),
+    grid: document.getElementById("dateSheetGrid"),
+    monthLabel: document.getElementById("dateSheetMonthLabel"),
+    prevBtn: document.getElementById("dateSheetPrevMonth"),
+    nextBtn: document.getElementById("dateSheetNextMonth"),
+    cancelBtn: document.getElementById("dateSheetCancelBtn")
+  };
+}
+
+function humanLabelForDateInput(inp) {
+  const lab = inp.closest("label");
+  if (!lab) return inp.getAttribute("aria-label") || "Välj datum";
+  const clone = lab.cloneNode(true);
+  clone.querySelectorAll("input, button, select, textarea").forEach((n) => n.remove());
+  const t = clone.textContent.replace(/\s+/g, " ").trim();
+  return t || inp.getAttribute("aria-label") || "Välj datum";
+}
+
+function closeDateSheet(revert) {
+  if (!dateSheetOpen) return;
+  const inp = dateSheetTargetInput;
+  const { backdrop, sheet } = getDateSheetEls();
+  if (inp && revert) {
+    inp.value = dateSheetSnapshot;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    sheet.classList.remove("date-sheet--visible");
+    sheet.hidden = true;
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  document.body.classList.remove("date-sheet-open");
+  if (dateSheetKeydownHandler) {
+    document.removeEventListener("keydown", dateSheetKeydownHandler, true);
+    dateSheetKeydownHandler = null;
+  }
+  dateSheetOpen = false;
+  dateSheetTargetInput = null;
+}
+
+function commitDateSheetIso(iso) {
+  const inp = dateSheetTargetInput;
+  if (!inp) return;
+  const minIso = inp.min || "";
+  const maxIso = inp.max || "";
+  if (minIso && iso < minIso) return;
+  if (maxIso && iso > maxIso) return;
+  inp.value = iso;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  inp.dispatchEvent(new Event("change", { bubbles: true }));
+  closeDateSheet(false);
+}
+
+function renderDateSheetMonth() {
+  const { grid, monthLabel, prevBtn, nextBtn } = getDateSheetEls();
+  if (!grid || !monthLabel) return;
+
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+
+  let py = dateSheetViewY;
+  let pm = dateSheetViewM - 1;
+  if (pm < 1) {
+    pm = 12;
+    py -= 1;
+  }
+  let ny = dateSheetViewY;
+  let nm = dateSheetViewM + 1;
+  if (nm > 12) {
+    nm = 1;
+    ny += 1;
+  }
+  if (prevBtn) prevBtn.disabled = monthFullyBeforeMin(py, pm, minIso);
+  if (nextBtn) nextBtn.disabled = monthFullyAfterMax(ny, nm, maxIso);
+
+  const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+  monthLabel.textContent = cap(
+    new Date(dateSheetViewY, dateSheetViewM - 1, 1).toLocaleDateString("sv-SE", { month: "long", year: "numeric" })
+  );
+
+  grid.innerHTML = "";
+  const first = new Date(dateSheetViewY, dateSheetViewM - 1, 1);
+  const startPad = (first.getDay() + 6) % 7;
+  const dim = daysInMonth(dateSheetViewY, dateSheetViewM);
+  const today = todayIsoLocal();
+
+  const frag = document.createDocumentFragment();
+  const totalCells = Math.ceil((startPad + dim) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const dayNum = i - startPad + 1;
+    if (dayNum < 1 || dayNum > dim) {
+      const empty = document.createElement("div");
+      empty.className = "date-sheet-cell date-sheet-cell--empty";
+      empty.setAttribute("aria-hidden", "true");
+      frag.appendChild(empty);
+      continue;
+    }
+
+    const iso = isoDateFromParts(dateSheetViewY, dateSheetViewM, dayNum);
+    let disabled = false;
+    if (minIso && iso < minIso) disabled = true;
+    if (maxIso && iso > maxIso) disabled = true;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-sheet-day";
+    btn.textContent = String(dayNum);
+    if (iso === dateSheetDraft) btn.classList.add("date-sheet-day--selected");
+    if (iso === today) btn.classList.add("date-sheet-day--today");
+    if (disabled) {
+      btn.disabled = true;
+      btn.classList.add("date-sheet-day--disabled");
+    } else {
+      btn.addEventListener("click", () => commitDateSheetIso(iso));
+    }
+    frag.appendChild(btn);
+  }
+  grid.appendChild(frag);
+}
+
+function openDateSheet(inputEl) {
+  if (dateSheetOpen || !inputEl || inputEl.type !== "date") return;
+  const { backdrop, sheet, title } = getDateSheetEls();
+  if (!backdrop || !sheet) return;
+
+  inputEl.blur();
+  dateSheetTargetInput = inputEl;
+  dateSheetSnapshot = inputEl.value || "";
+  const minIso = inputEl.min || "";
+  const maxIso = inputEl.max || "";
+  let draft = dateSheetSnapshot || todayIsoLocal();
+  draft = clampIsoToMinMax(draft, minIso, maxIso);
+  dateSheetDraft = draft;
+  const parts = datePartsFromIso(draft);
+  if (parts) {
+    dateSheetViewY = parts.y;
+    dateSheetViewM = parts.m;
+  } else {
+    const d = new Date();
+    dateSheetViewY = d.getFullYear();
+    dateSheetViewM = d.getMonth() + 1;
+  }
+
+  if (title) title.textContent = humanLabelForDateInput(inputEl);
+
+  renderDateSheetMonth();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  document.body.classList.add("date-sheet-open");
+  const { cancelBtn: closeFocusBtn } = getDateSheetEls();
+  requestAnimationFrame(() => {
+    sheet.classList.add("date-sheet--visible");
+    closeFocusBtn?.focus();
+  });
+  dateSheetOpen = true;
+
+  dateSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeDateSheet(true);
+    }
+  };
+  document.addEventListener("keydown", dateSheetKeydownHandler, true);
+}
+
+function initMobileDateSheetPicker() {
+  const { backdrop, cancelBtn, prevBtn, nextBtn } = getDateSheetEls();
+  if (!backdrop || !cancelBtn) return;
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    },
+    true
+  );
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openDateSheet(t);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "focus",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      t.blur();
+      openDateSheet(t);
+    },
+    true
+  );
+
+  backdrop.addEventListener("click", () => closeDateSheet(true));
+  cancelBtn.addEventListener("click", () => closeDateSheet(true));
+  if (prevBtn) {
+    prevBtn.addEventListener("click", () => {
+      if (dateSheetViewM <= 1) {
+        dateSheetViewM = 12;
+        dateSheetViewY -= 1;
+      } else {
+        dateSheetViewM -= 1;
+      }
+      renderDateSheetMonth();
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+      if (dateSheetViewM >= 12) {
+        dateSheetViewM = 1;
+        dateSheetViewY += 1;
+      } else {
+        dateSheetViewM += 1;
+      }
+      renderDateSheetMonth();
+    });
+  }
+}
+
 function getDefaultState() {
   const currentYear = new Date().getFullYear();
   return {
@@ -2296,16 +2608,15 @@ function computeMonthOverview(year, month) {
   const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
   const remaining = incomeAmount - plannedExpensesAmount;
 
-  /* Diagramfärger: SJ-inspirerad palett (grön bas + tydliga accenter) */
   const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: "#255f33" },
-    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: "#e65100" },
-    { key: "car", label: "Bil", amount: seg.car, color: "#1565c0" },
-    { key: "housing", label: "Hem", amount: seg.home, color: "#00897b" },
-    { key: "loans", label: "Lån", amount: seg.loans, color: "#5e35b1" },
-    { key: "children", label: "Barn", amount: seg.children, color: "#43a047" },
-    { key: "savings", label: "Spar", amount: seg.savings, color: "#f9a825" },
-    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#c62828" }
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: chartSegmentHex("recurringExpenses") },
+    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: chartSegmentHex("foodGenerated") },
+    { key: "car", label: "Bil", amount: seg.car, color: chartSegmentHex("car") },
+    { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
+    { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
+    { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
+    { key: "savings", label: "Spar", amount: seg.savings, color: chartSegmentHex("savings") },
+    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
   ].filter((s) => s.amount > 0);
 
   const incomesRows = [];
@@ -5855,6 +6166,7 @@ function initRoot() {
     state = loadState();
     applyTheme();
     initSystemThemeListener();
+    initMobileDateSheetPicker();
     initRouting();
     initActions();
     registerServiceWorker();
