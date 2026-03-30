@@ -238,7 +238,7 @@
             <div class="table-card" id="homeEditorCard" hidden>
               <div class="table-title" id="homeEditorTitle">Ny hemutgift</div>
               <div class="bb-error-summary" id="homeErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid">
+              <div class="form-grid narrow">
                 <label class="field">
                   Typ
                   <select id="homeEditType"></select>
@@ -247,6 +247,7 @@
                   Namn på utgift
                   <input id="homeEditName" type="text" autocomplete="off" list="homeEditNameList" />
                   <datalist id="homeEditNameList"></datalist>
+                  <div class="field-error" id="homeErrName" hidden></div>
                 </label>
                 <label class="field" id="homePaymentDayRow">
                   Betalningsdag (dag i månaden)
@@ -264,46 +265,56 @@
                 <label class="field">
                   <span id="homeFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
                   <input id="homeEditFirstDate" type="date" />
+                  <div class="field-error" id="homeErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="homeEndDateRow">
                   Betalning upphör (valfritt)
                   <input id="homeEditEndDate" type="date" />
+                  <div class="field-error" id="homeErrEndDate" hidden></div>
                 </label>
                 <label class="field">
                   Belopp (kr)
                   <input id="homeEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                  <div class="field-error" id="homeErrAmount" hidden></div>
                 </label>
               </div>
-              <div class="actions-row car-editor-actions-primary">
+              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                 <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
                 <button class="primary" id="homeSaveBtn" type="button">Lägg till</button>
-              </div>
-              <div class="actions-row car-editor-actions-cancel">
-                <button class="secondary stretch" id="homeCancelEditorBtn" type="button">Avbryt</button>
+                <button class="secondary" id="homeCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="homeNote"></div>
             </div>
 
             <div class="table-card car-omkostnader-card">
-              <div class="table-title">Hem omkostnader</div>
-              <div class="form-grid narrow car-list-filters">
-                <label class="field car-omkostnader-field">
-                  År
-                  <select id="homeListYear"></select>
-                </label>
-                <label class="field car-omkostnader-field">
-                  Månad
-                  <select id="homeListMonth"></select>
-                </label>
+              <div class="food-mat-panel-top">
+                <button
+                  type="button"
+                  class="food-mat-panel-back"
+                  data-exp-close
+                  aria-label="Tillbaka till Utgifter"
+                >Utgifter</button>
               </div>
-              <div class="actions-row car-omkostnader-actions">
+              <div class="table-title">Hem</div>
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
                 <button class="secondary car-omkostnader-btn" id="homeAddBtn" type="button">Lägg till</button>
               </div>
-              <h3 class="car-list-month-heading" id="homeListMonthTitle">Utgifter</h3>
-              <div id="homeListMount" class="car-list-mount"></div>
-              <p class="car-month-total" id="homeMonthTotal"></p>
-              <div class="exp-app-bar">
-                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Hem omkostnader</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="homeListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="homeListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="homeListMonthTitle">Utgifter</h3>
+                <div id="homeListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="homeMonthTotal"></p>
               </div>
             </div>
           </section>
@@ -424,7 +435,7 @@
             <div class="table-card" id="carEditorCard" hidden>
               <div class="table-title" id="carEditorTitle">Ny bilutgift</div>
               <div class="bb-error-summary" id="carErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid">
+              <div class="form-grid narrow">
                 <label class="field">
                   Typ
                   <select id="carEditType"></select>
@@ -433,6 +444,7 @@
                   Namn på utgift
                   <input id="carEditName" type="text" autocomplete="off" list="carEditNameList" />
                   <datalist id="carEditNameList"></datalist>
+                  <div class="field-error" id="carErrName" hidden></div>
                 </label>
                 <label class="field" id="carPaymentDayRow">
                   Betalningsdag (dag i månaden)
@@ -450,27 +462,37 @@
                 <label class="field">
                   <span id="carFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
                   <input id="carEditFirstDate" type="date" />
+                  <div class="field-error" id="carErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="carEndDateRow">
                   Betalning upphör (valfritt)
                   <input id="carEditEndDate" type="date" />
+                  <div class="field-error" id="carErrEndDate" hidden></div>
                 </label>
                 <label class="field">
                   Belopp (kr)
                   <input id="carEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                  <div class="field-error" id="carErrAmount" hidden></div>
                 </label>
               </div>
-              <div class="actions-row car-editor-actions-primary">
+              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                 <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
                 <button class="primary" id="carSaveBtn" type="button">Lägg till</button>
-              </div>
-              <div class="actions-row car-editor-actions-cancel">
-                <button class="secondary stretch" id="carCancelEditorBtn" type="button">Avbryt</button>
+                <button class="secondary" id="carCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="carNote"></div>
             </div>
 
             <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button
+                  type="button"
+                  class="food-mat-panel-back"
+                  data-exp-close
+                  aria-label="Tillbaka till Utgifter"
+                >Utgifter</button>
+              </div>
+              <div class="table-title">Bil</div>
               <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
                 <button class="secondary car-omkostnader-btn" id="carAddBtn" type="button">Lägg till</button>
               </div>
@@ -490,9 +512,6 @@
                 <h3 class="tagged-omkostnader-month-heading" id="carListMonthTitle">Utgifter</h3>
                 <div id="carListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="carMonthTotal"></p>
-              </div>
-              <div class="exp-app-bar">
-                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
             </div>
           </section>
@@ -930,7 +949,7 @@
             <div class="table-card" id="childrenEditorCard" hidden>
               <div class="table-title" id="childrenEditorTitle">Ny barnutgift</div>
               <div class="bb-error-summary" id="childrenErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid">
+              <div class="form-grid narrow">
                 <label class="field">
                   Typ
                   <select id="childrenEditType"></select>
@@ -939,6 +958,7 @@
                   Namn på utgift
                   <input id="childrenEditName" type="text" autocomplete="off" list="childrenEditNameList" />
                   <datalist id="childrenEditNameList"></datalist>
+                  <div class="field-error" id="childrenErrName" hidden></div>
                 </label>
                 <label class="field" id="childrenPaymentDayRow">
                   Betalningsdag (dag i månaden)
@@ -956,27 +976,37 @@
                 <label class="field">
                   <span id="childrenFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
                   <input id="childrenEditFirstDate" type="date" />
+                  <div class="field-error" id="childrenErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="childrenEndDateRow">
                   Betalning upphör (valfritt)
                   <input id="childrenEditEndDate" type="date" />
+                  <div class="field-error" id="childrenErrEndDate" hidden></div>
                 </label>
                 <label class="field">
                   Belopp (kr)
                   <input id="childrenEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                  <div class="field-error" id="childrenErrAmount" hidden></div>
                 </label>
               </div>
-              <div class="actions-row car-editor-actions-primary">
+              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                 <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
                 <button class="primary" id="childrenSaveBtn" type="button">Lägg till</button>
-              </div>
-              <div class="actions-row car-editor-actions-cancel">
-                <button class="secondary stretch" id="childrenCancelEditorBtn" type="button">Avbryt</button>
+                <button class="secondary" id="childrenCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="childrenNote"></div>
             </div>
 
             <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button
+                  type="button"
+                  class="food-mat-panel-back"
+                  data-exp-close
+                  aria-label="Tillbaka till Utgifter"
+                >Utgifter</button>
+              </div>
+              <div class="table-title">Barn</div>
               <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
                 <button class="secondary car-omkostnader-btn" id="childrenAddBtn" type="button">Lägg till</button>
               </div>
@@ -996,9 +1026,6 @@
                 <h3 class="tagged-omkostnader-month-heading" id="childrenListMonthTitle">Utgifter</h3>
                 <div id="childrenListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
-              </div>
-              <div class="exp-app-bar">
-                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
             </div>
           </section>

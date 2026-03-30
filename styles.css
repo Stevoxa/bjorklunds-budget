@@ -3247,6 +3247,18 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   justify-content: center;
 }
 
+/* Hem / Bil / Barn: samma knapprad som Mat (Spara, Avbryt i kolumn) */
+.tagged-category-editor-actions {
+  margin-top: var(--space-4);
+}
+
+/* Samma luft som Mat mellan intro och notchade ytor */
+.exp-overlay[data-expview="home"],
+.exp-overlay[data-expview="car"],
+.exp-overlay[data-expview="children"] {
+  --bb-notched-panel-margin-extra: 14px;
+}
+
 button.stretch {
   flex: 1;
   min-width: 0;

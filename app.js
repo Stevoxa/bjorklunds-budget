@@ -4905,6 +4905,7 @@ function renderTaggedCategoryPage(cat) {
 
   const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
   if (summaryId) hideErrorSummaryById(summaryId);
+  if (!u.editorOpen) clearTaggedEditorInlineErrors(cat);
 
   const listYearSel = document.getElementById(ids.listYear);
   const listMonthSel = document.getElementById(ids.listMonth);
@@ -5017,6 +5018,55 @@ function renderTaggedCategoryPage(cat) {
   }
 }
 
+function taggedCategoryHasInlineFieldErrors(cat) {
+  return cat === "car" || cat === "home" || cat === "children";
+}
+
+function clearTaggedEditorInlineErrors(cat) {
+  if (!taggedCategoryHasInlineFieldErrors(cat)) return;
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  for (const suf of ["Name", "FirstDate", "EndDate", "Amount"]) {
+    const el = document.getElementById(`${cat}Err${suf}`);
+    if (el) {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+  for (const id of [C.ids.editName, C.ids.editFirstDate, C.ids.editEndDate, C.ids.editAmount]) {
+    const inp = document.getElementById(id);
+    if (inp) {
+      inp.classList.remove("input-invalid");
+      inp.setAttribute("aria-invalid", "false");
+    }
+  }
+}
+
+function setTaggedEditorInlineError(cat, field, msg) {
+  if (!taggedCategoryHasInlineFieldErrors(cat) || !msg) return;
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const suf = field === "name" ? "Name" : field === "firstDate" ? "FirstDate" : field === "endDate" ? "EndDate" : "Amount";
+  const errEl = document.getElementById(`${cat}Err${suf}`);
+  const inpId =
+    field === "name"
+      ? C.ids.editName
+      : field === "firstDate"
+        ? C.ids.editFirstDate
+        : field === "endDate"
+          ? C.ids.editEndDate
+          : C.ids.editAmount;
+  const inp = document.getElementById(inpId);
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.hidden = false;
+  }
+  if (inp) {
+    inp.classList.add("input-invalid");
+    inp.setAttribute("aria-invalid", "true");
+  }
+}
+
 function saveTaggedCategoryFromEditor(cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   if (!C) return;
@@ -5026,6 +5076,7 @@ function saveTaggedCategoryFromEditor(cat) {
   const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
   const summaryEl = summaryId ? document.getElementById(summaryId) : null;
   hideErrorSummaryByEl(summaryEl);
+  clearTaggedEditorInlineErrors(cat);
   const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
   const nameInp = document.getElementById(ids.editName);
   const payDayInp = document.getElementById(ids.editPaymentDay);
@@ -5041,6 +5092,7 @@ function saveTaggedCategoryFromEditor(cat) {
   if (!name) {
     const msg = L.nameRequiredHint || "Ange namn på utgift.";
     if (note) note.textContent = msg;
+    setTaggedEditorInlineError(cat, "name", msg);
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editName }]);
     return;
   }
@@ -5056,21 +5108,19 @@ function saveTaggedCategoryFromEditor(cat) {
   const firstDateISO = (firstInp.value || "").trim();
   const firstParts = datePartsFromIso(firstDateISO);
   if (!firstParts) {
-    if (note) {
-      const msg =
-        interval === "once"
-          ? L.dateOnceHint || "Ange datum för betalning."
-          : L.dateRecurringHint || "Ange första betalningsdatum.";
-      note.textContent = msg;
-      renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
-      return;
-    }
-    renderErrorSummary(summaryEl, [{ label: "Ange datum för betalning.", jumpId: ids.editFirstDate }]);
+    const msg =
+      interval === "once"
+        ? L.dateOnceHint || "Ange datum för betalning."
+        : L.dateRecurringHint || "Ange första betalningsdatum.";
+    if (note) note.textContent = msg;
+    setTaggedEditorInlineError(cat, "firstDate", msg);
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
     return;
   }
   if (!isAllowedYear(firstParts.y)) {
     const msg = "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).";
     if (note) note.textContent = msg;
+    setTaggedEditorInlineError(cat, "firstDate", msg);
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
     return;
   }
@@ -5081,6 +5131,7 @@ function saveTaggedCategoryFromEditor(cat) {
   } else if (endDateISO && !datePartsFromIso(endDateISO)) {
     const msg = L.endDateHint || "Ogiltigt slutdatum för betalning.";
     if (note) note.textContent = msg;
+    setTaggedEditorInlineError(cat, "endDate", msg);
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editEndDate }]);
     return;
   }
@@ -5088,6 +5139,7 @@ function saveTaggedCategoryFromEditor(cat) {
   if (amount <= 0) {
     const msg = "Ange belopp större än noll.";
     if (note) note.textContent = msg;
+    setTaggedEditorInlineError(cat, "amount", msg);
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editAmount }]);
     return;
   }
@@ -5102,7 +5154,8 @@ function saveTaggedCategoryFromEditor(cat) {
     const msg =
       "Inga betalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum.";
     if (note) note.textContent = msg;
-    renderErrorSummary(summaryEl, [{ label: msg }]);
+    setTaggedEditorInlineError(cat, "firstDate", msg);
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
     return;
   }
   const prevRow = u.editingId ? (state.expenses || []).find((x) => x.id === u.editingId) : null;
@@ -5132,6 +5185,7 @@ function saveTaggedCategoryFromEditor(cat) {
   }
   saveState();
   if (note) note.textContent = "";
+  clearTaggedEditorInlineErrors(cat);
   u.editorOpen = false;
   u.editingId = null;
   renderTaggedCategoryPage(cat);
@@ -8443,6 +8497,7 @@ function initActions() {
         u.editingId = null;
         const note = document.getElementById(ids.note);
         if (note) note.textContent = "";
+        clearTaggedEditorInlineErrors(cat);
         if (cat === "car") renderCarPage();
         else if (cat === "home") renderHomePage();
         else if (cat === "children") renderChildrenPage();
