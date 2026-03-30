@@ -3194,19 +3194,10 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   color: var(--text);
 }
 
-/* Månadsvy: ingen titelrad (fältetikett), bara månad/år + chevron som rubrik */
-.date-sheet--month-mode .date-sheet-chrome {
-  display: none;
-}
-
-.date-sheet--month-mode .date-sheet-body {
-  padding-top: var(--space-2);
-}
-
+/* Månadsvy: samma topp (chrome) som dagvy så kortets totalhöjd blir konsekvent. */
 .date-sheet--month-mode .date-sheet-month-year-btn {
   font-size: 1.22rem;
   color: var(--primary);
-  padding-top: var(--space-2);
 }
 
 .date-sheet-footer {
