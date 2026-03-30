@@ -564,6 +564,7 @@ function syncDateSheetTillsvidareRow() {
   if (!show) return;
   tillsvidareSwitch.setAttribute("aria-checked", dateSheetTillsvidareOn ? "true" : "false");
   tillsvidareSwitch.classList.toggle("date-sheet-switch--on", dateSheetTillsvidareOn);
+  tillsvidareSwitch.setAttribute("aria-disabled", dateSheetTillsvidareOn ? "true" : "false");
 }
 
 function getPeriodSheetEls() {
@@ -788,12 +789,17 @@ function updateFoodMatHubTitles(draft) {
 
 let dateFieldRowResizeTimer = null;
 
-function formatDateRowDisplay(iso) {
-  if (!iso || typeof iso !== "string") return "Välj datum";
+function formatDateRowDisplay(iso, inp) {
+  const empty = !iso || typeof iso !== "string" || String(iso).trim() === "";
+  if (empty) {
+    if (inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear")) return "Tillsvidare";
+    return "Välj datum";
+  }
   const parts = datePartsFromIso(iso);
-  if (!parts) return "Välj datum";
+  if (!parts) return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
   const d = new Date(parts.y, parts.m - 1, parts.d);
-  if (Number.isNaN(d.getTime())) return "Välj datum";
+  if (Number.isNaN(d.getTime()))
+    return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
   const currentY = new Date().getFullYear();
   const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
   const capWd = wd ? wd.charAt(0).toUpperCase() + wd.slice(1) : "";
@@ -856,7 +862,7 @@ function syncDateFieldRow(inp) {
   if (!wrap) return;
   const tr = wrap.querySelector(".date-field-row-trigger");
   const val = wrap.querySelector(".date-field-row-value");
-  const shown = formatDateRowDisplay(inp.value);
+  const shown = formatDateRowDisplay(inp.value, inp);
   if (val) val.textContent = shown;
   if (tr) {
     tr.disabled = inp.disabled;
@@ -955,10 +961,12 @@ function initDateFieldRows() {
 }
 
 function humanLabelForDateInput(inp) {
+  const notch = inp.getAttribute("data-notch-label");
+  if (notch && String(notch).trim()) return String(notch).trim();
   const lab = inp.closest("label");
   if (!lab) return inp.getAttribute("aria-label") || "Välj datum";
   const clone = lab.cloneNode(true);
-  clone.querySelectorAll("input, button, select, textarea").forEach((n) => n.remove());
+  clone.querySelectorAll("input, button, select, textarea, .note").forEach((n) => n.remove());
   const t = clone.textContent.replace(/\s+/g, " ").trim();
   return t || inp.getAttribute("aria-label") || "Välj datum";
 }
@@ -977,6 +985,7 @@ function finalizeDateSheetClose(revert) {
   if (tillsvidareSwitch) {
     tillsvidareSwitch.setAttribute("aria-checked", "false");
     tillsvidareSwitch.classList.remove("date-sheet-switch--on");
+    tillsvidareSwitch.removeAttribute("aria-disabled");
   }
   if (backdrop) {
     backdrop.hidden = true;
@@ -2116,18 +2125,15 @@ function initMobileDateSheetPicker() {
     tvSw.addEventListener("click", (e) => {
       e.stopPropagation();
       if (!dateSheetOpen || !dateSheetTargetAllowsTillsvidare()) return;
-      if (!dateSheetTillsvidareOn) {
-        const inp = dateSheetTargetInput;
-        if (!inp || inp.disabled) return;
-        inp.value = "";
-        inp.dispatchEvent(new Event("input", { bubbles: true }));
-        inp.dispatchEvent(new Event("change", { bubbles: true }));
-        syncDateFieldRow(inp);
-        closeDateSheetAnimated(false);
-        return;
-      }
-      dateSheetTillsvidareOn = false;
-      syncDateSheetTillsvidareRow();
+      /* Endast manuellt läge "på" (tillsvidare). Av: bara genom att välja datum i kalendern. */
+      if (dateSheetTillsvidareOn) return;
+      const inp = dateSheetTargetInput;
+      if (!inp || inp.disabled) return;
+      inp.value = "";
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      inp.dispatchEvent(new Event("change", { bubbles: true }));
+      syncDateFieldRow(inp);
+      closeDateSheetAnimated(false);
     });
   }
 

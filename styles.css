@@ -3113,6 +3113,12 @@ html[data-theme="dark"] .period-sheet-backdrop {
   outline-offset: 3px;
 }
 
+/* På = tillsvidare: ingen manuell av-klick (bara datumval stänger av). */
+.date-sheet-switch--on {
+  pointer-events: none;
+  cursor: default;
+}
+
 .date-sheet-switch-track {
   position: relative;
   display: block;
