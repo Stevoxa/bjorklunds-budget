@@ -2521,6 +2521,14 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   column-gap: 12px;
 }
 
+/* Hushållsändring: lite mer luft mellan datumrader och stegare */
+#foodHouseholdEditor .food-mat-period-editor-content > .form-grid {
+  row-gap: 22px;
+}
+#foodHouseholdEditor .food-mat-period-editor-content .bb-notched-field--block .food-counter-grid {
+  gap: 14px;
+}
+
 .food-mat-period-editor-content > .form-grid + .note.micro-note--tight {
   margin-top: 14px;
   line-height: 1.45;

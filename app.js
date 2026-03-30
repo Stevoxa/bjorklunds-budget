@@ -3851,7 +3851,7 @@ function isHouseholdOverrideActive(config, date) {
   for (let i = changes.length - 1; i >= 0; i--) {
     const ch = changes[i];
     const s = parseDateISO(ch?.startDate);
-    const e = parseDateISO(ch?.endDate);
+    const e = getHouseholdChangeInclusiveEndDate(ch);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     return true;
@@ -3899,6 +3899,28 @@ function parseDateISO(s) {
   return d;
 }
 
+/** Inklusivt slutdatum för hushållsändring; tomt slut = tillsvidare (sista dagen i sista valbara matår). */
+function getHouseholdChangeInclusiveEndDate(ch) {
+  const s = parseDateISO(ch?.startDate);
+  if (!s) return null;
+  const endStr = ch?.endDate != null ? String(ch.endDate).trim() : "";
+  if (!endStr) {
+    const y = getFoodTillsVidareCapYear();
+    return parseDateISO(`${y}-12-31`);
+  }
+  return parseDateISO(endStr);
+}
+
+function isBadHouseholdChangeDateRange(p) {
+  const s = parseDateISO(p?.startDate);
+  if (!s) return true;
+  const endStr = p?.endDate != null ? String(p.endDate).trim() : "";
+  if (!endStr) return false;
+  const e = parseDateISO(endStr);
+  if (!e) return true;
+  return e.getTime() < s.getTime();
+}
+
 /** Kalenderdagar mellan två datum (lokala datum), DST-säkert. */
 function diffCalendarDays(a, b) {
   const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
@@ -3938,7 +3960,7 @@ function computeFoodDailyCost(config, date) {
   for (let i = changes.length - 1; i >= 0; i--) {
     const ch = changes[i];
     const s = parseDateISO(ch?.startDate);
-    const e = parseDateISO(ch?.endDate);
+    const e = getHouseholdChangeInclusiveEndDate(ch);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     const o = ch?.household || {};
@@ -5464,7 +5486,7 @@ function renderFoodPage() {
 
     // Disable save while errors exist (inline validation)
     const saveBtn = document.getElementById("foodSaveBtn");
-    const badRange = (p) => {
+    const badDeviationRange = (p) => {
       const s = parseDateISO(p?.startDate);
       const e = parseDateISO(p?.endDate);
       return !s || !e || e.getTime() < s.getTime();
@@ -5472,8 +5494,8 @@ function renderFoodPage() {
     let canSave = true;
     if (!custodyOk) canSave = false;
     if (auto) {
-      if ((d.householdChanges || []).some(badRange)) canSave = false;
-      if ((d.deviations || []).some(badRange)) canSave = false;
+      if ((d.householdChanges || []).some(isBadHouseholdChangeDateRange)) canSave = false;
+      if ((d.deviations || []).some(badDeviationRange)) canSave = false;
     }
     if (saveBtn) saveBtn.disabled = !canSave;
 
@@ -5482,9 +5504,10 @@ function renderFoodPage() {
       saveBlockMsg = "Växelvis boende: justera överlappande perioder innan du kan spara.";
     } else if (!custodyOk) {
       saveBlockMsg = "Växelvis: kontrollera periodernas datum och antal som är borta.";
-    } else if (auto && (d.householdChanges || []).some(badRange)) {
-      saveBlockMsg = "Ändrat hushåll: varje period behöver giltiga datum (till efter från).";
-    } else if (auto && (d.deviations || []).some(badRange)) {
+    } else if (auto && (d.householdChanges || []).some(isBadHouseholdChangeDateRange)) {
+      saveBlockMsg =
+        "Ändrat hushåll: ange startdatum; slutdatum ska vara samma eller efter start, eller lämna slut tomt (tillsvidare).";
+    } else if (auto && (d.deviations || []).some(badDeviationRange)) {
       saveBlockMsg = "Avvikande veckor: varje period behöver giltiga datum (till efter från).";
     }
     if (els.saveContext) {
@@ -5922,8 +5945,9 @@ function renderFoodPage() {
     list.innerHTML = sorted.map(({ ch, idx }) => {
       const sDt = parseDateISO(ch.startDate);
       const startText = sDt ? formatPlanningDateLongSv(sDt) : (ch.startDate || "-");
-      const eDt = parseDateISO(ch.endDate);
-      const endText = eDt ? formatPlanningDateLongSv(eDt) : (ch.endDate || "-");
+      const endStrRaw = ch.endDate && String(ch.endDate).trim();
+      const eDt = endStrRaw ? parseDateISO(ch.endDate) : null;
+      const endText = endStrRaw ? (eDt ? formatPlanningDateLongSv(eDt) : endStrRaw) : "tillsvidare";
       const range = `${escapeHtml(startText)} - ${escapeHtml(endText)}`;
       return `
         <button
@@ -5961,10 +5985,47 @@ function renderFoodPage() {
     if (!ch) {
       editor.hidden = true;
       if (addBtn) addBtn.disabled = false;
+      const sInp = document.getElementById("foodHhEditStart");
+      const eInp = document.getElementById("foodHhEditEnd");
+      if (sInp instanceof HTMLInputElement) {
+        sInp.value = "";
+        syncDateFieldRow(sInp);
+      }
+      if (eInp instanceof HTMLInputElement) {
+        eInp.value = "";
+        syncDateFieldRow(eInp);
+      }
+      const aInp = document.getElementById("foodHhEditAdults");
+      const tInp = document.getElementById("foodHhEditTeens");
+      const cInp = document.getElementById("foodHhEditChildren");
+      if (aInp instanceof HTMLInputElement) aInp.value = "";
+      if (tInp instanceof HTMLInputElement) tInp.value = "";
+      if (cInp instanceof HTMLInputElement) cInp.value = "";
+      ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+        const errEl = document.getElementById(id);
+        if (errEl) {
+          errEl.hidden = true;
+          errEl.textContent = "";
+        }
+      });
       return;
     }
     editor.hidden = false;
     if (addBtn) addBtn.disabled = true;
+    const hhBlockErr = document.getElementById("foodHouseholdError");
+    if (hhBlockErr) {
+      hhBlockErr.hidden = true;
+      hhBlockErr.textContent = "";
+    }
+    ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+      const errEl = document.getElementById(id);
+      if (errEl) {
+        errEl.hidden = true;
+        errEl.textContent = "";
+      }
+    });
+    document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
     document.getElementById("foodHhEditStart").value = ch.startDate || "";
     document.getElementById("foodHhEditEnd").value = ch.endDate || "";
     document.getElementById("foodHhEditAdults").value = asNumber(ch.household?.adults);
@@ -5990,7 +6051,7 @@ function renderFoodPage() {
     const target = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : householdEditorDraft;
     if (!target) return null;
     const startDate = document.getElementById("foodHhEditStart").value || "";
-    const endDate = document.getElementById("foodHhEditEnd").value || "";
+    const endDate = (document.getElementById("foodHhEditEnd").value || "").trim();
     target.startDate = startDate;
     target.endDate = endDate;
     target.household = {
@@ -6006,28 +6067,57 @@ function renderFoodPage() {
       hhErr.hidden = true;
       hhErr.textContent = "";
     }
+    document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
+    ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.hidden = true;
+        el.textContent = "";
+      }
+    });
+    hideErrorSummaryById("foodHouseholdErrorSummary");
     const next = readHouseholdEditor();
     if (!next) return;
     const s = parseDateISO(next.startDate);
-    const e = parseDateISO(next.endDate);
-    if (!s || !e) {
+    const endStr = next.endDate != null ? String(next.endDate).trim() : "";
+    if (!s) {
+      const startErr = document.getElementById("foodHhErrStart");
+      if (startErr) {
+        startErr.hidden = false;
+        startErr.textContent = "Ange när perioden börjar.";
+      }
       if (hhErr) {
         hhErr.hidden = false;
-        hhErr.textContent = "Ange både Från och Till.";
+        hhErr.textContent = "Ange när perioden börjar.";
       }
       document.getElementById("foodHhEditStart")?.classList.add("input-invalid");
-      document.getElementById("foodHhEditEnd")?.classList.add("input-invalid");
-      renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [{ label: "Ange både Från och Till.", jumpId: "foodHhEditStart" }]);
+      renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [
+        { label: "Ange när perioden börjar.", jumpId: "foodHhEditStart" }
+      ]);
       return;
     }
-    if (e.getTime() < s.getTime()) {
-      if (hhErr) {
-        hhErr.hidden = false;
-        hhErr.textContent = "Till måste vara samma eller efter Från.";
+    if (endStr) {
+      const e = parseDateISO(endStr);
+      if (!e || e.getTime() < s.getTime()) {
+        const endErrEl = document.getElementById("foodHhErrEnd");
+        if (endErrEl) {
+          endErrEl.hidden = false;
+          endErrEl.textContent = "Till måste vara samma eller efter från (eller lämna tomt för tillsvidare).";
+        }
+        if (hhErr) {
+          hhErr.hidden = false;
+          hhErr.textContent = "Till måste vara samma eller efter från (eller lämna tomt för tillsvidare).";
+        }
+        document.getElementById("foodHhEditEnd")?.classList.add("input-invalid");
+        renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [
+          {
+            label: "Till måste vara samma eller efter från (eller lämna tomt för tillsvidare).",
+            jumpId: "foodHhEditEnd"
+          }
+        ]);
+        return;
       }
-      document.getElementById("foodHhEditEnd")?.classList.add("input-invalid");
-      renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [{ label: "Till måste vara samma eller efter Från.", jumpId: "foodHhEditEnd" }]);
-      return;
     }
     if (editingHouseholdChangeIndex < 0) {
       ui.foodConfigDraft.householdChanges.push({
@@ -6057,6 +6147,13 @@ function renderFoodPage() {
     }
     document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
     document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
+    ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.hidden = true;
+        el.textContent = "";
+      }
+    });
     hideErrorSummaryById("foodHouseholdErrorSummary");
     renderHouseholdEditor();
     renderHouseholdChanges();
@@ -6076,6 +6173,15 @@ function renderFoodPage() {
         hhErr.hidden = true;
         hhErr.textContent = "";
       }
+      ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.hidden = true;
+          el.textContent = "";
+        }
+      });
+      document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+      document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
       hideErrorSummaryById("foodHouseholdErrorSummary");
       renderHouseholdEditor();
       renderHouseholdChanges();
@@ -6312,6 +6418,13 @@ function renderFoodPage() {
       hhErr.hidden = true;
       hhErr.textContent = "";
     }
+    ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.hidden = true;
+        el.textContent = "";
+      }
+    });
     document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
     document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
     hideErrorSummaryById("foodHouseholdErrorSummary");
@@ -8186,18 +8299,19 @@ function initActions() {
       return;
     }
     // basic date validation for household changes / deviations
-    const badRange = (p) => {
+    const badDeviationRangeSave = (p) => {
       const s = parseDateISO(p?.startDate);
       const e = parseDateISO(p?.endDate);
       return !s || !e || e.getTime() < s.getTime();
     };
-    if ((cfg.householdChanges || []).some(badRange)) {
-      const msg = "Ändrat hushåll: kontrollera datum (till måste vara efter från).";
+    if ((cfg.householdChanges || []).some(isBadHouseholdChangeDateRange)) {
+      const msg =
+        "Ändrat hushåll: kontrollera datum (start krävs; slut ska vara samma eller efter start, eller lämna slut tomt för tillsvidare).";
       document.getElementById("foodNote").textContent = msg;
       renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodHouseholdChangesSection" }]);
       return;
     }
-    if ((cfg.deviations || []).some(badRange)) {
+    if ((cfg.deviations || []).some(badDeviationRangeSave)) {
       const msg = "Avvikande veckor: kontrollera datum (till måste vara efter från).";
       document.getElementById("foodNote").textContent = msg;
       renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodDeviationsSection" }]);

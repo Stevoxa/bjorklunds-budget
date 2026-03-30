@@ -751,9 +751,16 @@
                       <div class="form-grid">
                         <label class="field">
                           <input id="foodHhEditStart" type="date" data-notch-label="När börjar perioden att gälla?" />
+                          <div class="field-error" id="foodHhErrStart" hidden></div>
                         </label>
                         <label class="field">
-                          <input id="foodHhEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
+                          <input
+                            id="foodHhEditEnd"
+                            type="date"
+                            data-notch-label="När slutar perioden att gälla?"
+                            data-date-clear
+                          />
+                          <div class="field-error" id="foodHhErrEnd" hidden></div>
                         </label>
                         <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Hushållets tillfälliga storlek">
                           <div class="bb-notched-field-legend">Hushållets tillfälliga storlek</div>
