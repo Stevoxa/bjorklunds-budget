@@ -1820,7 +1820,7 @@ function syncOverviewPeriodSummaryLabel() {
   if (!el || !ys || !ms) return;
   const y = ys.value;
   const m = Number(ms.value);
-  el.textContent = y && Number.isFinite(m) ? `${y} · ${monthName(m)}` : "—";
+  el.textContent = y && Number.isFinite(m) ? `${monthName(m)} ${y}` : "—";
 }
 
 function syncExpenseFilterSummaryLabel() {
@@ -1828,9 +1828,15 @@ function syncExpenseFilterSummaryLabel() {
   if (!el) return;
   const y = ui.expenseYearFilter || document.getElementById("expenseYearFilter")?.value || "all";
   const mo = ui.expenseMonthFilter || document.getElementById("expenseMonthFilter")?.value || "all";
-  const yPart = y === "all" ? "Alla år" : String(y);
-  const mPart = mo === "all" ? "alla månader" : monthName(Number(mo)).toLowerCase();
-  el.textContent = `${yPart} · ${mPart}`;
+  if (y === "all" && mo === "all") {
+    el.textContent = "Alla år, alla månader";
+  } else if (y === "all") {
+    el.textContent = `${monthName(Number(mo))} alla år`;
+  } else if (mo === "all") {
+    el.textContent = `Alla månader ${y}`;
+  } else {
+    el.textContent = `${monthName(Number(mo))} ${y}`;
+  }
 }
 
 function syncIncomeFilterSummaryLabel() {
@@ -1838,9 +1844,15 @@ function syncIncomeFilterSummaryLabel() {
   if (!el) return;
   const y = ui.incomeYearFilter || document.getElementById("incomeYearFilter")?.value || "all";
   const mo = ui.incomeMonthFilter || document.getElementById("incomeMonthFilter")?.value || "all";
-  const yPart = y === "all" ? "Alla år" : String(y);
-  const mPart = mo === "all" ? "alla månader" : monthName(Number(mo)).toLowerCase();
-  el.textContent = `${yPart} · ${mPart}`;
+  if (y === "all" && mo === "all") {
+    el.textContent = "Alla år, alla månader";
+  } else if (y === "all") {
+    el.textContent = `${monthName(Number(mo))} alla år`;
+  } else if (mo === "all") {
+    el.textContent = `Alla månader ${y}`;
+  } else {
+    el.textContent = `${monthName(Number(mo))} ${y}`;
+  }
 }
 
 function syncFoodPreviewSummaryLabel() {
@@ -1850,7 +1862,7 @@ function syncFoodPreviewSummaryLabel() {
   if (!el || !ys || !ms) return;
   const y = String(ui.foodPreviewYear || ys.value || "");
   const m = Number(ui.foodPreviewMonth || ms.value || 0);
-  el.textContent = y && Number.isFinite(m) && m >= 1 && m <= 12 ? `${y} · ${monthName(m)}` : "—";
+  el.textContent = y && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
 }
 
 function finalizeListPickerClose() {
