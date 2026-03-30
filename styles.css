@@ -488,6 +488,8 @@ button:focus:not(:focus-visible) {
   line-height: 1.45;
   font-style: italic;
   color: color-mix(in srgb, var(--muted) 80%, var(--text));
+  margin-top: 6px;
+  margin-bottom: var(--space-3);
 }
 
 .food-counter-actions input,
@@ -2065,10 +2067,10 @@ body.modal-open {
 }
 
 .food-calc-box {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
   display: grid;
   gap: 6px;
 }
