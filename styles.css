@@ -929,7 +929,7 @@ button:focus:not(:focus-visible) {
   position: absolute;
   top: 0;
   left: 16px;
-  transform: translateY(calc(-100% * 2 / 3));
+  transform: translateY(calc(-100% * 2 / 3 + 3px));
   padding: 0 10px;
   margin: 0;
   max-width: min(100%, calc(100% - 32px));
