@@ -942,7 +942,8 @@ button:focus:not(:focus-visible) {
 }
 
 .bb-notched-panel--list {
-  margin-top: var(--space-3);
+  /* form-grid gap (12px) + samma legend-reserv som --bb-notched-panel-margin-extra */
+  margin-top: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px));
 }
 
 .bb-notched-panel--list .food-preview-list {
@@ -2347,6 +2348,11 @@ body.modal-open {
   margin-bottom: calc(26px + var(--bb-notched-panel-margin-extra, 14px));
 }
 
+/* Matkostnad översikt m.m.: samma vertikala separation som form-grid gap + legend-reserv (Hushållet ↔ hubbar) */
+.exp-overlay[data-expview="food"] .table-card > .bb-notched-panel {
+  margin-top: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px));
+}
+
 .food-household-card {
   border: none;
   border-radius: 0;
@@ -2404,7 +2410,8 @@ body.modal-open {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 18px;
+  /* Luft till Matkostnad översikt: .table-card > .bb-notched-panel (mat-overlay) */
+  margin-bottom: 0;
 }
 
 .food-mat-period-hub {
