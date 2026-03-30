@@ -477,6 +477,8 @@ let listPickerKeydownHandler = null;
 
 /** Mat-overlay: fullskärms-underläge (pushState så systemets bakåt stänger panelen) */
 let foodMatSubHistoryDepth = 0;
+/** När mat-popstate just stängt underpanel: låt inte utgift-overlayns popstate stänga hela Mat. */
+let skipExpenseOverlayPopstateOnce = false;
 let expenseOverlayHistoryDepth = 0;
 
 function anyExpenseOverlayOpen() {
@@ -497,6 +499,10 @@ function closeExpenseCategoryOverlayFromUi() {
 
 function initExpenseOverlayHistory() {
   window.addEventListener("popstate", () => {
+    if (skipExpenseOverlayPopstateOnce) {
+      skipExpenseOverlayPopstateOnce = false;
+      return;
+    }
     // If a food subpanel is open, let the food handler consume the back.
     const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
     const foodPanelOpen =
@@ -699,6 +705,7 @@ function initFoodMatSubPanelHistory() {
     if (!panelOpen) return;
     if (foodMatSubHistoryDepth > 0) foodMatSubHistoryDepth -= 1;
     hideFoodMatSubPanelsUi();
+    skipExpenseOverlayPopstateOnce = true;
   });
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
