@@ -656,10 +656,12 @@
                           <div class="field-error" id="foodCustodyErrStart" hidden></div>
                         </label>
                         <label class="field">
-                          <div class="food-date-with-clear">
-                            <input id="foodCustodyEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
-                            <button class="secondary" type="button" id="foodCustodyClearEndBtn">Rensa</button>
-                          </div>
+                          <input
+                            id="foodCustodyEditEnd"
+                            type="date"
+                            data-notch-label="När slutar perioden att gälla?"
+                            data-date-clear
+                          />
                           <div class="note micro-note micro-note--tight">Om detta fält lämnas tomt tolkas det som att perioden gäller tillsvidare.</div>
                           <div class="field-error" id="foodCustodyErrEnd" hidden></div>
                         </label>

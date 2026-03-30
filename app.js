@@ -831,13 +831,77 @@ function createCalendarIconSvg() {
   return svg;
 }
 
+/** Liten X för rensning av valfritt slutdatum (visas bara när fältet har värde). */
+function createDateClearIconSvg() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "date-field-row-clear-icon");
+  svg.setAttribute("width", "18");
+  svg.setAttribute("height", "18");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("aria-hidden", "true");
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", "M6 6l12 12M18 6L6 18");
+  p.setAttribute("stroke", "currentColor");
+  p.setAttribute("stroke-width", "2");
+  p.setAttribute("stroke-linecap", "round");
+  svg.appendChild(p);
+  return svg;
+}
+
+function wireDateFieldRowClearButton(inp, clearBtn) {
+  clearBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (inp.disabled) return;
+    inp.value = "";
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+    syncDateFieldRow(inp);
+    if (isDateSheetViewport()) {
+      inp.closest(".date-field-row")?.querySelector(".date-field-row-trigger")?.focus();
+    } else {
+      inp.focus();
+    }
+  });
+}
+
+function createDateFieldRowClearButton(inp) {
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "date-field-row-clear";
+  clearBtn.setAttribute("aria-label", "Rensa datum");
+  clearBtn.setAttribute("title", "Rensa");
+  clearBtn.appendChild(createDateClearIconSvg());
+  wireDateFieldRowClearButton(inp, clearBtn);
+  return clearBtn;
+}
+
+/** Om `data-date-clear` finns: infoga X-knapp före kalendertriggern (idempotent). */
+function ensureDateFieldRowClearButton(inp) {
+  if (!(inp instanceof HTMLInputElement)) return;
+  if (!inp.hasAttribute("data-date-clear")) return;
+  const wrap = inp.closest(".date-field-row");
+  if (!wrap || wrap.querySelector(".date-field-row-clear")) return;
+  const trigger = wrap.querySelector(".date-field-row-trigger");
+  if (!trigger) return;
+  wrap.insertBefore(createDateFieldRowClearButton(inp), trigger);
+}
+
 function syncDateFieldRow(inp) {
   const wrap = inp.closest(".date-field-row");
   if (!wrap) return;
   const tr = wrap.querySelector(".date-field-row-trigger");
   const val = wrap.querySelector(".date-field-row-value");
+  const clearBtn = wrap.querySelector(".date-field-row-clear");
   const shown = formatDateRowDisplay(inp.value);
   if (val) val.textContent = shown;
+  if (clearBtn) {
+    const hasVal = Boolean(inp.value);
+    clearBtn.hidden = !hasVal;
+    clearBtn.disabled = inp.disabled;
+  }
   if (tr) {
     tr.disabled = inp.disabled;
     const base = humanLabelForDateInput(inp);
@@ -870,6 +934,7 @@ function enhanceAllDateFieldRows() {
     if (!(inp instanceof HTMLInputElement)) return;
     if (inp.hasAttribute("data-native-date")) return;
     if (inp.closest(".date-field-row")) {
+      ensureDateFieldRowClearButton(inp);
       syncDateFieldRow(inp);
       applyDateFieldRowTabState(inp);
       return;
@@ -888,6 +953,9 @@ function enhanceAllDateFieldRows() {
     btn.appendChild(valSpan);
     btn.appendChild(createCalendarIconSvg());
     wrap.appendChild(btn);
+    if (inp.hasAttribute("data-date-clear")) {
+      wrap.insertBefore(createDateFieldRowClearButton(inp), btn);
+    }
 
     const useNotched = true;
     if (useNotched && !wrap.closest(".bb-notched-field")) {
@@ -5114,6 +5182,10 @@ function renderFoodPage() {
     const delBtn = document.getElementById("foodCustodyEditDeleteBtn");
     if (delBtn) delBtn.hidden = editingCustodyIndex < 0;
     clearCustodyEditorFieldErrors();
+    const sInp = document.getElementById("foodCustodyEditStart");
+    const eInp = document.getElementById("foodCustodyEditEnd");
+    if (sInp instanceof HTMLInputElement) syncDateFieldRow(sInp);
+    if (eInp instanceof HTMLInputElement) syncDateFieldRow(eInp);
   };
 
   const renderCustodyPeriodsList = (custodyAccept) => {
@@ -5515,13 +5587,6 @@ function renderFoodPage() {
       draw();
     };
   }
-  document.getElementById("foodCustodyClearEndBtn").onclick = () => {
-    const e = document.getElementById("foodCustodyEditEnd");
-    if (e) e.value = "";
-    clearCustodyEditorFieldErrors();
-    hideErrorSummaryById("foodCustodyErrorSummary");
-    draw();
-  };
   document.getElementById("foodCustodyEditStart").oninput = () => {
     clearCustodyEditorFieldErrors();
     hideErrorSummaryById("foodCustodyErrorSummary");
