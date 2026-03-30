@@ -885,20 +885,19 @@ button:focus:not(:focus-visible) {
   padding-top: 18px;
   padding-bottom: 12px;
   border: none;
-  background: var(--card);
 }
 
 .bb-outline-field-btn--floating .bb-outline-field-label {
   position: absolute;
   top: 0;
   left: 14px;
-  transform: translateY(-50%);
+  transform: translateY(-58%);
   z-index: 2;
   padding: 0 8px;
   line-height: 1.2;
-  background: var(--card);
-  font-size: 0.78rem;
-  font-weight: 700;
+  background: var(--bb-notch-bg, var(--card));
+  font-size: 0.72rem;
+  font-weight: 650;
   text-transform: none;
   letter-spacing: 0;
   color: var(--muted);
@@ -920,9 +919,9 @@ button:focus:not(:focus-visible) {
   top: 0;
   left: var(--bb-notch-left, 16px);
   width: var(--bb-notch-width, 0px);
-  height: 12px;
-  transform: translateY(-6px);
-  background: var(--card);
+  height: 10px;
+  transform: translateY(-5px);
+  background: var(--bb-notch-bg, var(--card));
   border-radius: 999px;
   pointer-events: none;
 }

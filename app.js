@@ -751,6 +751,12 @@ function syncNotchedOutlineButtons() {
     const br = btn.getBoundingClientRect();
     const lr = lab.getBoundingClientRect();
     if (!br.width || !lr.width) return;
+    try {
+      const bg = getComputedStyle(btn).backgroundColor;
+      if (bg) btn.style.setProperty("--bb-notch-bg", bg);
+    } catch {
+      /* ignore */
+    }
     // Add a little extra space so border doesn't touch text.
     const pad = 10;
     let left = (lr.left - br.left) - pad;
