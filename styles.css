@@ -882,8 +882,9 @@ button:focus:not(:focus-visible) {
   position: relative;
   grid-template-rows: 1fr;
   row-gap: 0;
-  padding-top: 14px;
-  padding-bottom: 14px;
+  padding-top: 18px;
+  padding-bottom: 12px;
+  border: none;
 }
 
 .bb-outline-field-btn--floating .bb-outline-field-label {
@@ -891,20 +892,43 @@ button:focus:not(:focus-visible) {
   top: 0;
   left: 14px;
   transform: translateY(-50%);
+  z-index: 2;
   padding: 0 8px;
+  line-height: 1.2;
   background: color-mix(in srgb, var(--card) 92%, transparent);
-  /* Maskera bort border-linjen bakom labeln (legend/notch-känsla) */
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--card) 92%, transparent);
   font-size: 0.78rem;
-  font-weight: 650;
+  font-weight: 700;
   text-transform: none;
   letter-spacing: 0;
   color: var(--muted);
 }
 
+.bb-outline-field-btn--floating::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-strong);
+  pointer-events: none;
+}
+
+/* "Notch": maskera bort topplinjen bakom labeln (bredd mäts i JS) */
+.bb-outline-field-btn--floating::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--bb-notch-left, 16px);
+  width: var(--bb-notch-width, 0px);
+  height: 2px;
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  pointer-events: none;
+}
+
 .bb-outline-field-btn--floating .bb-outline-field-value {
   grid-row: 1;
   font-weight: 700;
+  padding-top: 2px;
 }
 
 .bb-outline-field-btn--floating .bb-outline-field-chev {
