@@ -2760,7 +2760,7 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   color: var(--danger);
   font-size: 0.875rem;
   font-weight: 400;
-  margin-top: 6px;
+  margin-top: 3px;
   margin-bottom: 6px;
   line-height: 1.45;
   letter-spacing: -0.006em;
@@ -2792,9 +2792,9 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M12 3.35 20.85 19.5H3.15L12 3.35z' stroke='%23ff8a80' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpath d='M12 10v4.25' stroke='%23ff8a80' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='17.65' r='1.15' fill='%23ff8a80'/%3E%3C/svg%3E");
 }
 
-/* Lite mer luft mellan fält och felrad i formulärgrid (SJ-liknande) */
+/* Mellan fält och felrad (något tätare mot tillhörande kontroll) */
 .form-grid label.field:has(> .field-error:not([hidden])) {
-  gap: 10px;
+  gap: 7px;
 }
 
 .bb-error-summary {
