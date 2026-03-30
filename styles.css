@@ -165,7 +165,7 @@ body {
   text-transform: uppercase;
 }
 
-/* Nedre menylayout: mörk platta, vit ikon ovanför etikett (designinspirerad tydlighet). */
+/* Nedre menylayout: mörk platta, vit ikon ovanför etikett. */
 .bottom-nav {
   position: fixed !important;
   left: 0;
@@ -820,7 +820,7 @@ button:focus:not(:focus-visible) {
   pointer-events: none !important;
 }
 
-/* Outlined field / period trigger (designinspirerad) */
+/* Outlined field / period trigger */
 .bb-outline-field-btn {
   box-sizing: border-box;
   display: grid;
@@ -1545,7 +1545,7 @@ tr.month-break td {
   animation: overlay-in var(--motion-fast) var(--motion-ease) both;
 }
 
-/* App bar (designinspirerad): tillbaka längst ner, följer vid scroll */
+/* App bar: tillbaka längst ner, följer vid scroll */
 .exp-app-bar {
   position: sticky;
   bottom: calc(-1 * env(safe-area-inset-bottom));
