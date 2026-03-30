@@ -883,7 +883,7 @@ button:focus:not(:focus-visible) {
 }
 
 .food-panel-title-row {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border);
 }
@@ -2303,12 +2303,13 @@ body.modal-open {
 
 /* Rubrik ovanför lista med sparade perioder (mat) */
 .food-period-list-title {
-  margin-top: 10px;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-top: 14px;
+  margin-bottom: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  font-weight: 750;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: color-mix(in srgb, var(--muted) 78%, var(--text));
 }
 
 .food-period-list {
