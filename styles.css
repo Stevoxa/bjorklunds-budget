@@ -550,7 +550,7 @@ button:focus:not(:focus-visible) {
 }
 
 .food-custody-week-cost-row {
-  margin-top: 10px;
+  margin-top: 18px;
 }
 
 .food-mat-save-actions {
@@ -2505,15 +2505,38 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
 }
 
 .food-mat-custody-editor-panel .food-mat-custody-editor-content {
-  padding-top: 2px;
+  padding-top: 4px;
 }
 
 .food-mat-panel-body .food-mat-custody-editor-content > .form-grid:first-child {
   margin-top: 2px;
 }
 
+/* Växelvis boende: luftigare vertikal rytm mellan fält, hjälptext, stegare och summering */
+.food-mat-custody-editor-content > .form-grid {
+  row-gap: 18px;
+  column-gap: 12px;
+}
+
+.food-mat-custody-editor-content > .form-grid + .note.micro-note--tight {
+  margin-top: 14px;
+  line-height: 1.45;
+}
+
 .food-mat-custody-editor-content > .note.micro-note--tight + .bb-notched-field--block {
-  margin-top: var(--space-3);
+  margin-top: 20px;
+}
+
+.food-mat-custody-editor-content .bb-notched-field--block .food-counter-grid {
+  gap: 12px;
+}
+
+.food-mat-custody-editor-content .food-custody-example-block {
+  margin-top: 16px;
+}
+
+.food-mat-custody-editor-content > .food-hh-editor-actions {
+  margin-top: 20px;
 }
 
 .food-mat-period-cards {
