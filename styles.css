@@ -938,8 +938,7 @@ button:focus:not(:focus-visible) {
   font-weight: 750;
   letter-spacing: -0.03em;
   color: var(--text);
-  /* Ingen solid fyllning: annars syns en "kortfärgad" ruta mot sidans/overlayens bakgrund ovanför kanten */
-  background: transparent;
+  background: var(--bb-notched-panel-bg);
 }
 
 .bb-notched-panel--list {
