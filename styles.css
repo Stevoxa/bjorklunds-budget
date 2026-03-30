@@ -2627,35 +2627,55 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
+  padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
   animation: overlay-in var(--motion-fast) var(--motion-ease) both;
 }
 
 .food-mat-panel-top {
   flex-shrink: 0;
-  padding-bottom: var(--space-3);
+  padding: calc(var(--space-3) + 4px) var(--space-4) calc(var(--space-4) + 2px);
   border-bottom: 1px solid var(--border);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .food-mat-panel-back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 var(--space-2) 0 0;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px 10px 12px;
   margin: 0;
   border: none;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--primary);
-  font: inherit;
+  font-family: inherit;
   font-weight: 750;
-  font-size: 1rem;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
   cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+
+.food-mat-panel-back::before {
+  content: "‹";
+  display: block;
+  flex-shrink: 0;
+  font-size: 1.65rem;
+  font-weight: 300;
+  line-height: 1;
+  transform: translateY(-0.06em);
 }
 
 .food-mat-panel-back:hover {
   color: color-mix(in srgb, var(--primary) 72%, var(--text));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.food-mat-panel-back:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus);
 }
 
 .food-mat-panel-body {
@@ -2746,24 +2766,27 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   letter-spacing: -0.006em;
 }
 
-/* Inline validering: ikon från icons/alert-triangle-mask.svg (samma 24-grid som kalender) */
+/* Inline validering: konturikon som kalendern (stroke 1.5), mask + var(--danger) */
 .field-error:not([hidden]) {
   display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
+  align-items: center;
+  gap: 10px;
 }
 
 .field-error:not([hidden])::before {
   content: "";
   display: block;
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  margin-top: 0.2em;
+  width: 24px;
+  height: 24px;
+  margin: 0;
   background-color: var(--danger);
-  /* Data-URI: extern mask-URL misslyckas i vissa webview / sökvägar; samma geometri som icons/alert-triangle-mask.svg */
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 3.25 20.75 19.5H3.25L12 3.25z'/%3E%3Crect x='10.85' y='9.25' width='2.3' height='5.5' rx='1.15' fill='%23fff'/%3E%3Ccircle cx='12' cy='17.6' r='1.35' fill='%23fff'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 3.25 20.75 19.5H3.25L12 3.25z'/%3E%3Crect x='10.85' y='9.25' width='2.3' height='5.5' rx='1.15' fill='%23fff'/%3E%3Ccircle cx='12' cy='17.6' r='1.35' fill='%23fff'/%3E%3C/svg%3E");
+  /*
+   * “Kontur” som kalendern: evenodd-yta (ram) + stapel + prick — fyllning maskar pålitligt (stroke i mask misslyckas i flera motorer).
+   * Samma 24-grid som calendar-outline.
+   */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M12 3.35 20.85 19.5H3.15L12 3.35zm0 2.55L6.35 17.35h11.3L12 5.9z'/%3E%3Crect x='10.88' y='9.4' width='2.24' height='5.35' rx='1.12' fill='%23fff'/%3E%3Ccircle cx='12' cy='17.65' r='1.15' fill='%23fff'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' fill-rule='evenodd' d='M12 3.35 20.85 19.5H3.15L12 3.35zm0 2.55L6.35 17.35h11.3L12 5.9z'/%3E%3Crect x='10.88' y='9.4' width='2.24' height='5.35' rx='1.12' fill='%23fff'/%3E%3Ccircle cx='12' cy='17.65' r='1.15' fill='%23fff'/%3E%3C/svg%3E");
   -webkit-mask-size: contain;
   mask-size: contain;
   -webkit-mask-repeat: no-repeat;
