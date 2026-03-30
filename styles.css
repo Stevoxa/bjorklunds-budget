@@ -941,6 +941,22 @@ button:focus:not(:focus-visible) {
   background: var(--bb-notched-panel-bg);
 }
 
+.bb-notched-panel--list {
+  margin-top: var(--space-3);
+}
+
+.bb-notched-panel--list .food-preview-list {
+  padding-bottom: 0;
+}
+
+.bb-notched-panel--list .food-period-bb-row {
+  padding: 12px 0;
+}
+
+.bb-notched-panel--list .food-period-bb-row:last-child {
+  border-bottom: none;
+}
+
 .bb-notched-field--list {
   margin-top: var(--space-3);
 }
@@ -2541,7 +2557,8 @@ body.modal-open {
   margin-top: 2px;
 }
 
-.food-period-card > .note.micro-note--tight + .bb-notched-field--block {
+.food-period-card > .note.micro-note--tight + .bb-notched-field--block,
+.food-period-card > .note.micro-note--tight + .bb-notched-panel {
   margin-top: var(--space-3);
 }
 
