@@ -743,39 +743,7 @@ function initFoodMatSwipeBack() {
   });
 }
 
-let notchSyncTimer = null;
-function syncNotchedOutlineButtons() {
-  document.querySelectorAll(".bb-outline-field-btn--floating").forEach((btn) => {
-    const lab = btn.querySelector(".bb-outline-field-label");
-    if (!lab) return;
-    const br = btn.getBoundingClientRect();
-    const lr = lab.getBoundingClientRect();
-    if (!br.width || !lr.width) return;
-    try {
-      const bg = getComputedStyle(btn).backgroundColor;
-      if (bg) btn.style.setProperty("--bb-notch-bg", bg);
-    } catch {
-      /* ignore */
-    }
-    // Add a little extra space so border doesn't touch text.
-    const pad = 10;
-    let left = (lr.left - br.left) - pad;
-    let width = lr.width + pad * 2;
-    left = Math.max(10, Math.min(left, br.width - 10));
-    width = Math.max(0, Math.min(width, br.width - left - 10));
-    btn.style.setProperty("--bb-notch-left", `${left.toFixed(1)}px`);
-    btn.style.setProperty("--bb-notch-width", `${width.toFixed(1)}px`);
-  });
-}
-
-function initNotchedOutlineSync() {
-  const run = () => {
-    if (notchSyncTimer) clearTimeout(notchSyncTimer);
-    notchSyncTimer = setTimeout(() => syncNotchedOutlineButtons(), 0);
-  };
-  run();
-  window.addEventListener("resize", run, { passive: true });
-}
+// Notched outline is implemented with markup/CSS (no JS sync needed).
 
 function updateFoodMatHubTitles(draft) {
   const custodyN = (draft?.custodyPeriods || []).filter((p) => p?.startDate && String(p.startDate).trim()).length;
@@ -4955,7 +4923,6 @@ function renderFoodPage() {
   if (previewMonthSel) setMonthOptions(previewMonthSel, previewMonth);
   if (previewMonthSel) previewMonthSel.onchange = () => renderFoodPage();
   syncFoodPreviewSummaryLabel();
-  syncNotchedOutlineButtons();
   const foodWindowLabel = `${getSelectableAppYears()[0]}–${getSelectableAppYears()[2]}`;
   const cfg = getSharedFoodConfig();
   const periodsCopy = Array.isArray(cfg.custodyPeriods)
@@ -8380,7 +8347,6 @@ function initRoot() {
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
     initExpenseOverlayHistory();
-    initNotchedOutlineSync();
     initRouting();
     initActions();
     registerServiceWorker();

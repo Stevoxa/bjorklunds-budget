@@ -534,17 +534,19 @@
                     </div>
 
                     <div class="field food-auto-only-field">
-                      <button
-                        type="button"
-                        class="bb-outline-field-btn bb-outline-field-btn--floating"
-                        id="foodScopeOpenBtn"
-                        aria-haspopup="dialog"
-                        aria-controls="listPickerSheet"
-                      >
-                        <span class="bb-outline-field-label">Vad ska räknas med?</span>
-                        <span class="bb-outline-field-value" id="foodScopeSummary">—</span>
-                        <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                      </button>
+                      <div class="bb-notched-field" role="group" aria-label="Vad ska räknas med?">
+                        <div class="bb-notched-field-legend">Vad ska räknas med?</div>
+                        <button
+                          type="button"
+                          class="bb-notched-field-btn"
+                          id="foodScopeOpenBtn"
+                          aria-haspopup="dialog"
+                          aria-controls="listPickerSheet"
+                        >
+                          <span class="bb-notched-field-value" id="foodScopeSummary">—</span>
+                          <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                        </button>
+                      </div>
                       <select id="foodScopeSelect" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                         <option value="groceries">Endast matvaror</option>
                         <option value="mixed">Matvaror + restaurang</option>

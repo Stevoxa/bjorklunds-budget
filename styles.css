@@ -877,80 +877,74 @@ button:focus:not(:focus-visible) {
   font-size: 0.85rem;
 }
 
-/* Variant: label "i linjen" (legend-känsla) + ikon-chevron */
-.bb-outline-field-btn--floating {
+/* Notched outline field (legend bryter ramen) */
+.bb-notched-field {
   position: relative;
-  grid-template-rows: 1fr;
-  row-gap: 0;
-  padding-top: 18px;
-  padding-bottom: 12px;
-  border: none;
+  width: 100%;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-strong);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
 }
 
-.bb-outline-field-btn--floating .bb-outline-field-label {
+.bb-notched-field-legend {
   position: absolute;
   top: 0;
   left: 14px;
-  transform: translateY(-58%);
-  z-index: 2;
+  transform: translateY(-50%);
   padding: 0 8px;
   line-height: 1.2;
-  background: var(--bb-notch-bg, var(--card));
   font-size: 0.72rem;
   font-weight: 650;
-  text-transform: none;
-  letter-spacing: 0;
   color: var(--muted);
+  background: var(--card);
 }
 
-.bb-outline-field-btn--floating::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--border-strong);
-  pointer-events: none;
+.bb-notched-field-btn {
+  width: 100%;
+  min-height: 52px;
+  padding: 18px var(--space-4) 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: inherit;
 }
 
-/* "Notch": maskera bort topplinjen bakom labeln (bredd mäts i JS) */
-.bb-outline-field-btn--floating::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: var(--bb-notch-left, 16px);
-  width: var(--bb-notch-width, 0px);
-  height: 10px;
-  transform: translateY(-5px);
-  background: var(--bb-notch-bg, var(--card));
-  border-radius: 999px;
-  pointer-events: none;
+.bb-notched-field-value {
+  min-width: 0;
+  font-weight: 750;
+  font-size: 1rem;
 }
 
-.bb-outline-field-btn--floating .bb-outline-field-value {
-  grid-row: 1;
-  font-weight: 700;
-  padding-top: 2px;
-}
-
-.bb-outline-field-btn--floating .bb-outline-field-chev {
-  grid-row: 1;
+.bb-notched-field-chev {
   width: 18px;
   height: 18px;
-  opacity: 0.8;
-  font-size: 0;
+  flex-shrink: 0;
+  opacity: 0.75;
   color: var(--muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.bb-outline-field-btn--floating .bb-outline-field-chev::before {
+.bb-notched-field-chev::before {
   content: "";
   width: 8px;
   height: 8px;
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg) translateY(-1px);
+}
+
+.bb-notched-field:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 .bb-filter-period-row {
