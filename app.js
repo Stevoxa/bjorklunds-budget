@@ -473,6 +473,40 @@ let listPickerKeydownHandler = null;
 
 /** Mat-overlay: fullskärms-underläge (pushState så systemets bakåt stänger panelen) */
 let foodMatSubHistoryDepth = 0;
+let expenseOverlayHistoryDepth = 0;
+
+function anyExpenseOverlayOpen() {
+  return Array.from(document.querySelectorAll(".exp-overlay")).some((el) => !el.hidden);
+}
+
+function closeExpenseCategoryOverlayFromHistory() {
+  closeExpenseCategoryOverlay({ fromHistory: true });
+}
+
+function closeExpenseCategoryOverlayFromUi() {
+  if (expenseOverlayHistoryDepth > 0) {
+    history.back();
+    return;
+  }
+  closeExpenseCategoryOverlay({ fromHistory: false });
+}
+
+function initExpenseOverlayHistory() {
+  window.addEventListener("popstate", () => {
+    // If a food subpanel is open, let the food handler consume the back.
+    const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+    const foodPanelOpen =
+      foodOverlay && !foodOverlay.hidden && Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+    if (foodPanelOpen) return;
+
+    if (!anyExpenseOverlayOpen()) {
+      expenseOverlayHistoryDepth = 0;
+      return;
+    }
+    if (expenseOverlayHistoryDepth > 0) expenseOverlayHistoryDepth -= 1;
+    closeExpenseCategoryOverlayFromHistory();
+  });
+}
 
 let appBottomSheetLockDepth = 0;
 
@@ -7541,7 +7575,7 @@ function renderExpensesPage() {
   });
 
   document.querySelectorAll("[data-exp-close]").forEach((btn) => {
-    btn.onclick = () => closeExpenseCategoryOverlay();
+    btn.onclick = () => closeExpenseCategoryOverlayFromUi();
   });
 
   renderExpensesSummaryPage();
@@ -7559,12 +7593,17 @@ function openExpenseCategoryOverlay(key) {
   if (map[key]) map[key]();
   const target = document.querySelector(`[data-expview="${key}"]`);
   if (!target) return;
+  const wasAnyOpen = anyExpenseOverlayOpen();
   target.hidden = false;
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
+  if (!wasAnyOpen) {
+    history.pushState({ expOverlay: true, key }, "");
+    expenseOverlayHistoryDepth += 1;
+  }
 }
 
-function closeExpenseCategoryOverlay() {
+function closeExpenseCategoryOverlay(opts = { fromHistory: false }) {
   resetFoodMatSubPanelsWhenFoodOverlayCloses();
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
   closeLoanEditor();
@@ -7575,6 +7614,10 @@ function closeExpenseCategoryOverlay() {
   }
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
+  if (!opts?.fromHistory && expenseOverlayHistoryDepth > 0) {
+    // Close initiated by UI: keep browser back consistent.
+    expenseOverlayHistoryDepth = Math.max(0, expenseOverlayHistoryDepth - 1);
+  }
 }
 
 function renderLoansPage() {
@@ -7987,7 +8030,7 @@ function initActions() {
     renderOverviewIfOnOverview();
     renderExpensesList();
     renderFoodPage();
-    closeExpenseCategoryOverlay();
+    closeExpenseCategoryOverlayFromUi();
   });
 
   // LOANS
@@ -8266,6 +8309,7 @@ function initRoot() {
     initOverviewPeriodSheet();
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
+    initExpenseOverlayHistory();
     initRouting();
     initActions();
     registerServiceWorker();
