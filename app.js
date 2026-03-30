@@ -860,8 +860,8 @@ function createCalendarIconSvg() {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
   svg.setAttribute("class", "date-field-row-icon");
-  svg.setAttribute("width", "22");
-  svg.setAttribute("height", "22");
+  svg.setAttribute("width", "24");
+  svg.setAttribute("height", "24");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("fill", "none");
   svg.setAttribute("aria-hidden", "true");
