@@ -461,7 +461,7 @@ let dateSheetKeydownHandler = null;
 
 let periodSheetOpen = false;
 let periodSheetClosing = false;
-/** @type {"overview"|"expenseFilter"|"incomeFilter"} */
+/** @type {"overview"|"expenseFilter"|"incomeFilter"|"foodPreview"} */
 let periodSheetKind = "overview";
 let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
@@ -611,6 +611,58 @@ function initFoodMatSubPanelHistory() {
   });
 }
 
+function initFoodMatSwipeBack() {
+  const overlays = document.querySelectorAll('.exp-overlay[data-expview="food"] .food-mat-panel');
+  overlays.forEach((panel) => {
+    let startX = 0;
+    let startY = 0;
+    let startT = 0;
+    let active = false;
+
+    panel.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (e.pointerType === "mouse") return;
+        if (!panel || panel.hidden) return;
+        startX = e.clientX;
+        startY = e.clientY;
+        startT = performance.now();
+        active = true;
+      },
+      { passive: true }
+    );
+
+    panel.addEventListener(
+      "pointermove",
+      (e) => {
+        if (!active) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        // Cancel if vertical scroll gesture dominates.
+        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
+      },
+      { passive: true }
+    );
+
+    const onEnd = (e) => {
+      if (!active) return;
+      active = false;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const dt = performance.now() - startT;
+      // Simple "back swipe": quick horizontal move right, not vertical.
+      if (dx > 80 && Math.abs(dy) < 40 && dt < 700) {
+        closeFoodMatSubPanelFromBackButton();
+      }
+    };
+
+    panel.addEventListener("pointerup", onEnd, { passive: true });
+    panel.addEventListener("pointercancel", () => {
+      active = false;
+    }, { passive: true });
+  });
+}
+
 function updateFoodMatHubTitles(draft) {
   const custodyN = (draft?.custodyPeriods || []).filter((p) => p?.startDate && String(p.startDate).trim()).length;
   const hhN = (draft?.householdChanges || []).length;
@@ -641,7 +693,7 @@ function formatDateRowDisplay(iso) {
   return `${capWd} ${parts.d} ${monthLower} ${parts.y}`;
 }
 
-/** Kalenderikon (egen geometri, designinspirerad: ringar, huvudlinje, tre prickar). Ska matcha icons/calendar-outline.svg */
+/** Kalenderikon (egen geometri: ringar, huvudlinje, tre prickar). Ska matcha icons/calendar-outline.svg */
 function createCalendarIconSvg() {
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
@@ -1372,6 +1424,7 @@ function closePeriodSheetAnimated() {
 
 function yearOptionsForPeriodSheet() {
   if (periodSheetKind === "overview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
+  if (periodSheetKind === "foodPreview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
   const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
   return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
 }
@@ -1395,7 +1448,7 @@ function renderPeriodSheetContent() {
   }
   monthsHost.innerHTML = "";
   const monthEntries = [];
-  if (periodSheetKind !== "overview") monthEntries.push({ v: "all", lab: "Alla" });
+  if (periodSheetKind !== "overview" && periodSheetKind !== "foodPreview") monthEntries.push({ v: "all", lab: "Alla" });
   for (let m = 1; m <= 12; m++) {
     const full = monthName(m);
     monthEntries.push({ v: String(m), lab: full.length > 6 ? `${full.slice(0, 3)}.` : full });
@@ -1423,6 +1476,15 @@ function commitPeriodSheetAndClose() {
       monthSel.value = periodSheetDraftMonthStr;
       yearSel.dispatchEvent(new Event("change", { bubbles: true }));
       monthSel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  } else if (periodSheetKind === "foodPreview") {
+    const ys = document.getElementById("foodPreviewYear");
+    const ms = document.getElementById("foodPreviewMonth");
+    if (ys && ms) {
+      ys.value = periodSheetDraftYearStr;
+      ms.value = periodSheetDraftMonthStr;
+      ys.dispatchEvent(new Event("change", { bubbles: true }));
+      ms.dispatchEvent(new Event("change", { bubbles: true }));
     }
   } else if (periodSheetKind === "expenseFilter") {
     const ys = document.getElementById("expenseYearFilter");
@@ -1484,6 +1546,45 @@ function openOverviewPeriodSheet() {
     });
   });
 
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function openFoodPreviewPeriodSheet() {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const ys = document.getElementById("foodPreviewYear");
+  const ms = document.getElementById("foodPreviewMonth");
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!ys || !ms || !backdrop || !sheet) return;
+  periodSheetKind = "foodPreview";
+  const cur = currentYearMonth();
+  let y = Number(ys.value || ui.foodPreviewYear);
+  let m = Number(ms.value || ui.foodPreviewMonth);
+  if (!Number.isFinite(y)) y = cur.year;
+  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+  periodSheetDraftYearStr = String(y);
+  periodSheetDraftMonthStr = String(m);
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
   periodSheetKeydownHandler = (ev) => {
     if (ev.key === "Escape") {
       ev.preventDefault();
@@ -1589,6 +1690,16 @@ function syncIncomeFilterSummaryLabel() {
   const yPart = y === "all" ? "Alla år" : String(y);
   const mPart = mo === "all" ? "alla månader" : monthName(Number(mo)).toLowerCase();
   el.textContent = `${yPart} · ${mPart}`;
+}
+
+function syncFoodPreviewSummaryLabel() {
+  const el = document.getElementById("foodPreviewSummary");
+  const ys = document.getElementById("foodPreviewYear");
+  const ms = document.getElementById("foodPreviewMonth");
+  if (!el || !ys || !ms) return;
+  const y = String(ui.foodPreviewYear || ys.value || "");
+  const m = Number(ui.foodPreviewMonth || ms.value || 0);
+  el.textContent = y && Number.isFinite(m) && m >= 1 && m <= 12 ? `${y} · ${monthName(m)}` : "—";
 }
 
 function finalizeListPickerClose() {
@@ -1728,6 +1839,7 @@ function initOverviewPeriodSheet() {
   document.getElementById("overviewPeriodOpenBtn")?.addEventListener("click", () => openOverviewPeriodSheet());
   document.getElementById("expenseFilterPeriodOpenBtn")?.addEventListener("click", () => openExpenseFilterPeriodSheet());
   document.getElementById("incomeFilterPeriodOpenBtn")?.addEventListener("click", () => openIncomeFilterPeriodSheet());
+  document.getElementById("foodPreviewPeriodOpenBtn")?.addEventListener("click", () => openFoodPreviewPeriodSheet());
 
   backdrop.addEventListener("click", () => closePeriodSheetAnimated());
   attachBottomSheetDragDismiss(handle, sheet, () => closePeriodSheetAnimated());
@@ -4711,6 +4823,7 @@ function renderFoodPage() {
   if (previewYearSel) previewYearSel.onchange = () => renderFoodPage();
   if (previewMonthSel) setMonthOptions(previewMonthSel, previewMonth);
   if (previewMonthSel) previewMonthSel.onchange = () => renderFoodPage();
+  syncFoodPreviewSummaryLabel();
   const foodWindowLabel = `${getSelectableAppYears()[0]}–${getSelectableAppYears()[2]}`;
   const cfg = getSharedFoodConfig();
   const periodsCopy = Array.isArray(cfg.custodyPeriods)
@@ -8106,6 +8219,7 @@ function initRoot() {
     initMobileDateSheetPicker();
     initOverviewPeriodSheet();
     initFoodMatSubPanelHistory();
+    initFoodMatSwipeBack();
     initRouting();
     initActions();
     registerServiceWorker();

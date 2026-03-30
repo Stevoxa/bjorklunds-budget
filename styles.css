@@ -893,6 +893,8 @@ button:focus:not(:focus-visible) {
   line-height: 1.1;
 }
 
+/* (food-period-list-title) definieras längre ned för mat-panelerna */
+
 .table-title-row .table-title {
   margin-bottom: 0;
 }
@@ -1947,7 +1949,7 @@ body.modal-open {
   padding-bottom: 2px;
 }
 
-/* designinspirerad lista för tillagda perioder (helt klickbar rad + streck-separatorer) */
+/* Lista för tillagda perioder (helt klickbar rad + streck-separatorer) */
 .food-period-bb-list {
   display: flex;
   flex-direction: column;
@@ -1990,7 +1992,8 @@ body.modal-open {
   flex: 1;
   min-width: 0;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .food-period-bb-row-meta {
@@ -2304,6 +2307,8 @@ body.modal-open {
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+  font-weight: 750;
+  font-size: 1rem;
 }
 
 .food-period-list {

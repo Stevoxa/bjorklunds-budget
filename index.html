@@ -618,7 +618,11 @@
                     <div class="field-error" id="foodCustodyGlobalWarn" hidden></div>
                     <div class="table-title-row food-panel-title-row">
                       <div class="table-title food-panel-appbar-title flush">Barn med växelvis boende</div>
-                      <button class="bb-icon-add-btn" type="button" id="foodAddCustodyPeriodBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
+                      <button type="button" class="bb-icon-add-btn" id="foodAddCustodyPeriodBtn" aria-label="Lägg till period">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                      </button>
                     </div>
                     <div id="foodCustodyEditor" class="food-period-card" hidden>
                       <div class="form-grid">
@@ -684,9 +688,9 @@
                         <div id="foodCustodyExampleWeeks" class="food-preview-list food-custody-example-weeks"></div>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
+                        <button class="primary" type="button" id="foodCustodyEditSaveBtn">Lägg till period</button>
                         <button class="danger" type="button" id="foodCustodyEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodCustodyEditCancelBtn">Avbryt</button>
-                        <button class="primary" type="button" id="foodCustodyEditSaveBtn">Lägg till period</button>
                       </div>
                     </div>
                     <div class="table-title small food-period-list-title" id="foodCustodyListTitle" hidden>Tillagda perioder</div>
@@ -705,7 +709,11 @@
                   <div id="foodHouseholdChangesSection">
                     <div class="table-title-row food-panel-title-row">
                       <div class="table-title food-panel-appbar-title flush">När hushållets storlek förändras</div>
-                      <button class="bb-icon-add-btn" type="button" id="foodAddHouseholdChangeBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
+                      <button type="button" class="bb-icon-add-btn" id="foodAddHouseholdChangeBtn" aria-label="Lägg till period">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                      </button>
                     </div>
                     <div id="foodHouseholdEditor" class="food-period-card" hidden>
                       <div class="form-grid">
@@ -716,9 +724,9 @@
                         <label class="field">Barn<input id="foodHhEditChildren" type="number" inputmode="numeric" min="0" step="1" /></label>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
+                        <button class="primary" type="button" id="foodHhEditSaveBtn">Lägg till period</button>
                         <button class="danger" type="button" id="foodHhEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodHhEditCancelBtn">Avbryt</button>
-                        <button class="primary" type="button" id="foodHhEditSaveBtn">Lägg till period</button>
                       </div>
                     </div>
                     <div class="table-title small food-period-list-title" id="foodHhListTitle" hidden>Tillagda perioder</div>
@@ -737,7 +745,11 @@
                   <div id="foodDeviationsSection">
                     <div class="table-title-row food-panel-title-row">
                       <div class="table-title food-panel-appbar-title flush">Perioder med annan kostnad</div>
-                      <button class="bb-icon-add-btn" type="button" id="foodAddDeviationBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
+                      <button type="button" class="bb-icon-add-btn" id="foodAddDeviationBtn" aria-label="Lägg till period">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                          <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        </svg>
+                      </button>
                     </div>
                     <div id="foodDeviationEditor" class="food-period-card" hidden>
                       <div class="form-grid">
@@ -754,9 +766,9 @@
                         </label>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
+                        <button class="primary" type="button" id="foodDevEditSaveBtn">Lägg till period</button>
                         <button class="danger" type="button" id="foodDevEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodDevEditCancelBtn">Avbryt</button>
-                        <button class="primary" type="button" id="foodDevEditSaveBtn">Lägg till period</button>
                       </div>
                     </div>
                     <div class="table-title small food-period-list-title" id="foodDevListTitle" hidden>Tillagda perioder</div>
@@ -771,15 +783,14 @@
               <div class="food-preview">
                 <div class="table-title small">Matkostnad översikt</div>
                 <div class="picker-row picker-row--food-preview">
-                  <label>
-                    År
-                    <select id="foodPreviewYear"></select>
-                  </label>
-                  <label>
-                    Månad
-                    <select id="foodPreviewMonth"></select>
-                  </label>
+                  <button type="button" class="bb-outline-field-btn" id="foodPreviewPeriodOpenBtn">
+                    <span class="bb-outline-field-label">År &amp; månad</span>
+                    <span class="bb-outline-field-value" id="foodPreviewSummary">—</span>
+                    <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                  </button>
                 </div>
+                <select id="foodPreviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="foodPreviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <div class="food-preview-summary">
                   <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
                   <div class="summary-row food-preview-summary-row"><span>Differens mellan veckor</span><strong id="foodPreviewWeekSpread">0kr</strong></div>
