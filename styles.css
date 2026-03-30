@@ -906,6 +906,41 @@ button:focus:not(:focus-visible) {
   padding: 14px 14px 12px;
 }
 
+/*
+ * Yttre notchad panel (stor rubrik). Test: Mat → Hushållet.
+ * Rubrik: ~2/3 ovanför kantlinjen, ~1/3 innanför (translateY -2/3 av egen höjd).
+ * --bb-notched-panel-margin-extra: extra luft ovanför panelen (halva värdet läggs i pad-top).
+ */
+.bb-notched-panel {
+  position: relative;
+  width: 100%;
+  grid-column: 1 / -1;
+  margin-top: 0;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-strong);
+  --bb-notched-panel-bg: color-mix(in srgb, var(--card) 92%, transparent);
+  --bb-notched-panel-pad-top: calc(14px + var(--bb-notched-panel-margin-extra, 14px) * 0.5);
+  background: var(--bb-notched-panel-bg);
+  padding: var(--bb-notched-panel-pad-top) 16px 14px;
+  box-sizing: border-box;
+}
+
+.bb-notched-panel-legend {
+  position: absolute;
+  top: 0;
+  left: 16px;
+  transform: translateY(calc(-100% * 2 / 3));
+  padding: 0 10px;
+  margin: 0;
+  max-width: min(100%, calc(100% - 32px));
+  line-height: 1.2;
+  font-size: 1.22rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  background: var(--bb-notched-panel-bg);
+}
+
 .bb-notched-field--list {
   margin-top: var(--space-3);
 }
@@ -1763,6 +1798,11 @@ tr.month-break td {
   margin-top: 0;
 }
 
+/* Mat: gemensam extra marginal för intro → notchad panel (Hushållet) */
+.exp-overlay[data-expview="food"] {
+  --bb-notched-panel-margin-extra: 14px;
+}
+
 .loan-date-row {
   grid-column: 1 / -1;
   display: grid;
@@ -2286,9 +2326,9 @@ body.modal-open {
   gap: 10px;
 }
 
-/* Mat-overlay: luft mellan intro och Hushållet-kortet */
-.food-intro-note {
-  margin-bottom: 26px;
+/* Mat-overlay: luft mellan intro och Hushållet-kortet (ökad i paritet med bb-notched-panel) */
+.exp-overlay[data-expview="food"] .food-intro-note {
+  margin-bottom: calc(26px + var(--bb-notched-panel-margin-extra, 14px));
 }
 
 .food-household-card {
