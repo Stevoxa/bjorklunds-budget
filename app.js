@@ -103,6 +103,49 @@ function setYear3Options(selectEl, selectedYear) {
   }
 }
 
+/** Kalenderår som appen använder i årväljare (mat m.m.): föregående, nuvarande, nästa. */
+function getSelectableAppYears() {
+  const cur = currentYearMonth().year;
+  return [cur - 1, cur, cur + 1];
+}
+
+/** Sista dag för öppet slut på växelvis inom appens datumfönster (samma som högsta valbara år). */
+function getFoodTillsVidareCapYear() {
+  const ys = getSelectableAppYears();
+  return ys[ys.length - 1];
+}
+
+function getFoodDateInputMinIso() {
+  const ys = getSelectableAppYears();
+  return `${ys[0]}-01-01`;
+}
+
+function getFoodDateInputMaxIso() {
+  const y = getFoodTillsVidareCapYear();
+  return `${y}-12-31`;
+}
+
+function applyFoodOverlayDateBounds() {
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  document.querySelectorAll('[data-expview="food"] input[type="date"]').forEach((inp) => {
+    inp.min = min;
+    inp.max = max;
+  });
+  refreshAllDateFieldRows();
+}
+
+function isGeneratedMatExpenseInSelectableWindow(exp) {
+  if (!isMatLikeExpense(exp)) return false;
+  const years = getSelectableAppYears();
+  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
+  if (Number.isFinite(fy)) return years.includes(fy);
+  const iso = exp.metadata?.food?.planningDate || exp.foodPlanningDate || exp?.payments?.[0]?.date;
+  if (!iso || typeof iso !== "string" || iso.length < 4) return false;
+  const py = Number(iso.slice(0, 4));
+  return Number.isFinite(py) && years.includes(py);
+}
+
 function setDayOptions(selectEl, selectedDay) {
   selectEl.innerHTML = "";
   for (let d = 1; d <= 31; d++) {
@@ -151,12 +194,169 @@ function showDebugToast(message) {
   if (!el) return;
   el.hidden = false;
   el.textContent = String(message || "Okänt fel");
+  el.classList.remove("debug-toast--success", "debug-toast--info");
+  el.classList.add("debug-toast--error");
 }
 
 function requireEl(id) {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Saknar element #${id} i DOM`);
   return el;
+}
+
+function hideErrorSummaryByEl(summaryEl) {
+  if (!summaryEl) return;
+  summaryEl.hidden = true;
+  summaryEl.textContent = "";
+}
+
+function renderErrorSummary(summaryEl, errors) {
+  if (!summaryEl) return;
+  const list = Array.isArray(errors) ? errors.filter(Boolean) : [];
+  if (list.length === 0) {
+    hideErrorSummaryByEl(summaryEl);
+    return;
+  }
+
+  const count = list.length;
+  const unit = count === 1 ? "sak" : "saker";
+
+  summaryEl.hidden = false;
+  summaryEl.textContent = "";
+  summaryEl.setAttribute("tabindex", "-1");
+
+  const title = document.createElement("div");
+  title.className = "bb-error-summary-title";
+  title.textContent = `Du behöver åtgärda ${count} ${unit}`;
+  summaryEl.appendChild(title);
+
+  const ul = document.createElement("div");
+  ul.className = "bb-error-summary-list";
+
+  list.slice(0, 6).forEach((err) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "bb-error-summary-item";
+
+    const left = document.createElement("div");
+    left.textContent = err.label || err.message || "Fel";
+
+    const chev = document.createElement("span");
+    chev.className = "bb-error-summary-item-chevron";
+    chev.textContent = "›";
+
+    btn.appendChild(left);
+    btn.appendChild(chev);
+
+    btn.onclick = () => {
+      const jumpId = err.jumpId;
+      const jumpSelector = err.jumpSelector;
+      let preopenFoodKind = (() => {
+        if (!jumpId) return null;
+        if (jumpId.startsWith("foodCustody") || jumpId === "foodCustodyPeriodsList") return "custody";
+        if (jumpId.startsWith("foodHh") || jumpId === "foodHouseholdChangesSection") return "household";
+        if (jumpId.startsWith("foodDev") || jumpId === "foodDeviationsSection") return "deviation";
+        return null;
+      })();
+
+      // Fallback: om jump är inne i en dold mat-panel, öppna den.
+      if (!preopenFoodKind) {
+        const targetProbe = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
+        const panel = targetProbe?.closest?.(".food-mat-panel");
+        if (panel?.id === "foodMatPanelCustody") preopenFoodKind = "custody";
+        if (panel?.id === "foodMatPanelHousehold") preopenFoodKind = "household";
+        if (panel?.id === "foodMatPanelDeviation") preopenFoodKind = "deviation";
+      }
+
+      const doJump = () => {
+        const t = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
+        if (!t) return;
+        try {
+          if (typeof t.focus === "function") t.focus({ preventScroll: true });
+        } catch {
+          // ignore focus options
+        }
+        t.scrollIntoView({ behavior: "smooth", block: "center" });
+      };
+
+      if (preopenFoodKind) {
+        openFoodMatSubPanel(preopenFoodKind);
+        queueMicrotask(doJump);
+      } else {
+        doJump();
+      }
+    };
+
+    ul.appendChild(btn);
+  });
+
+  summaryEl.appendChild(ul);
+
+  // Fokus ska ligga på felkortet och vara "i skärm" (inte första felraden).
+  queueMicrotask(() => {
+    try {
+      summaryEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      summaryEl.focus({ preventScroll: true });
+    } catch {
+      // ignore focus/scroll options
+    }
+  });
+}
+
+function hideErrorSummaryById(summaryId) {
+  const el = summaryId ? document.getElementById(summaryId) : null;
+  if (!el) return;
+  hideErrorSummaryByEl(el);
+}
+
+function dismissVisibleErrorSummariesForTarget(targetEl) {
+  if (!(targetEl instanceof Element)) return;
+
+  // Rensa inline-fel kopplade till fältet (vanligast: i samma label.field).
+  const label = targetEl.closest("label.field");
+  if (label) {
+    label.querySelectorAll(".field-error").forEach((errEl) => {
+      errEl.hidden = true;
+      errEl.textContent = "";
+    });
+  }
+
+  if (targetEl.classList?.contains("input-invalid")) {
+    targetEl.classList.remove("input-invalid");
+    targetEl.setAttribute("aria-invalid", "false");
+  }
+
+  // Håll det lokalt till samma overlay/panel som användaren interagerar med.
+  const container = targetEl.closest(
+    ".exp-overlay, .modal-body, .table-card, .content-card, .food-mat-panel"
+  );
+  const root = container || document;
+
+  root
+    .querySelectorAll(".bb-error-summary[role='alert']:not([hidden])")
+    .forEach((summaryEl) => hideErrorSummaryByEl(summaryEl));
+}
+
+// När användaren börjar skriva/ändra så ska error-kortet försvinna direkt.
+document.addEventListener(
+  "input",
+  (e) => dismissVisibleErrorSummariesForTarget(e.target),
+  { capture: true }
+);
+document.addEventListener(
+  "change",
+  (e) => dismissVisibleErrorSummariesForTarget(e.target),
+  { capture: true }
+);
+
+function paymentErrorJump({ idx, msg, kindPrefix }) {
+  const includes = (s) => String(msg || "").toLowerCase().includes(String(s).toLowerCase());
+  const i = idx == null ? 0 : idx;
+  if (includes("år")) return { label: "Fyll i år", jumpSelector: `[data-${kindPrefix}-pay-year="${i}"]` };
+  if (includes("månad")) return { label: "Fyll i månad", jumpSelector: `[data-${kindPrefix}-pay-month="${i}"]` };
+  if (includes("dag")) return { label: "Fyll i dag", jumpSelector: `[data-${kindPrefix}-pay-day="${i}"]` };
+  if (includes("belopp")) return { label: "Fyll i belopp", jumpSelector: `[data-${kindPrefix}-pay-amt="${i}"]` };
+  return { label: "Kontrollera datum", jumpSelector: `[data-${kindPrefix}-pay-amt="${i}"]` };
 }
 
 function getSystemTheme() {
@@ -167,10 +367,1531 @@ function getSystemTheme() {
   }
 }
 
+/** Effektivt tema för UI som redan satt `html[data-theme]` (fallback: system). */
+function resolvedDocumentTheme() {
+  const t = document.documentElement?.dataset?.theme;
+  if (t === "dark" || t === "light") return t;
+  return getSystemTheme();
+}
+
+/**
+ * Diagramfärger: ljusa mättade segment, mörkläge med högre luminans och kontrast.
+ * (Komplement till varumärkesgrön #255f33.)
+ */
+const CHART_SEGMENT_PALETTE = {
+  recurringExpenses: { light: "#255f33", dark: "#8edb9a" },
+  foodGenerated: { light: "#e65100", dark: "#ffb74d" },
+  car: { light: "#005fa3", dark: "#90caf9" },
+  housing: { light: "#00695c", dark: "#80cbc4" },
+  loans: { light: "#6a1b9a", dark: "#ce93d8" },
+  children: { light: "#2e7d32", dark: "#a5d6a7" },
+  savings: { light: "#f59e0b", dark: "#ffe082" },
+  oneOffExpenses: { light: "#c62828", dark: "#ffab91" }
+};
+
+function chartSegmentHex(key) {
+  const pair = CHART_SEGMENT_PALETTE[key];
+  if (!pair) return resolvedDocumentTheme() === "dark" ? "#b0bec5" : "#607d8b";
+  return resolvedDocumentTheme() === "dark" ? pair.dark : pair.light;
+}
+
+const DATE_SHEET_MQ = "(max-width: 720px)";
+
+function isDateSheetViewport() {
+  try {
+    return window.matchMedia(DATE_SHEET_MQ).matches;
+  } catch {
+    return false;
+  }
+}
+
+function todayIsoLocal() {
+  const d = new Date();
+  return isoDateFromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+}
+
+function clampIsoToMinMax(iso, minIso, maxIso) {
+  let v = iso;
+  if (minIso && v < minIso) v = minIso;
+  if (maxIso && v > maxIso) v = maxIso;
+  return v;
+}
+
+function monthFullyBeforeMin(viewY, viewM, minIso) {
+  if (!minIso) return false;
+  const lastD = daysInMonth(viewY, viewM);
+  const end = isoDateFromParts(viewY, viewM, lastD);
+  return end < minIso;
+}
+
+function monthFullyAfterMax(viewY, viewM, maxIso) {
+  if (!maxIso) return false;
+  const start = isoDateFromParts(viewY, viewM, 1);
+  return start > maxIso;
+}
+
+function monthFullyOutOfRange(y, m, minIso, maxIso) {
+  const lastD = daysInMonth(y, m);
+  const start = isoDateFromParts(y, m, 1);
+  const end = isoDateFromParts(y, m, lastD);
+  if (minIso && end < minIso) return true;
+  if (maxIso && start > maxIso) return true;
+  return false;
+}
+
+function yearEntirelyOutOfRange(y, minIso, maxIso) {
+  if (!minIso && !maxIso) return false;
+  const yStart = `${y}-01-01`;
+  const yEnd = `${y}-12-31`;
+  if (minIso && yEnd < minIso) return true;
+  if (maxIso && yStart > maxIso) return true;
+  return false;
+}
+
+let dateSheetTargetInput = null;
+let dateSheetSnapshot = "";
+let dateSheetDraft = "";
+let dateSheetViewY = 0;
+let dateSheetViewM = 0;
+/** "days" | "months" — månadsvy öppnas via månad/år-raden */
+let dateSheetMode = "days";
+let dateSheetOpen = false;
+let dateSheetClosing = false;
+let dateSheetKeydownHandler = null;
+
+let periodSheetOpen = false;
+let periodSheetClosing = false;
+/** @type {"overview"|"expenseFilter"|"incomeFilter"} */
+let periodSheetKind = "overview";
+let periodSheetDraftYearStr = "";
+let periodSheetDraftMonthStr = "";
+let periodSheetKeydownHandler = null;
+
+let listPickerOpen = false;
+let listPickerClosing = false;
+let listPickerKeydownHandler = null;
+
+/** Mat-overlay: fullskärms-underläge (pushState så systemets bakåt stänger panelen) */
+let foodMatSubHistoryDepth = 0;
+
+let appBottomSheetLockDepth = 0;
+
+function prefersReducedMotionUI() {
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function pushAppBottomSheetScrollLock() {
+  appBottomSheetLockDepth += 1;
+  if (appBottomSheetLockDepth === 1) document.body.classList.add("app-bottom-sheet-open");
+}
+
+function popAppBottomSheetScrollLock() {
+  appBottomSheetLockDepth = Math.max(0, appBottomSheetLockDepth - 1);
+  if (appBottomSheetLockDepth === 0) document.body.classList.remove("app-bottom-sheet-open");
+}
+
+function getDateSheetEls() {
+  return {
+    backdrop: document.getElementById("dateSheetBackdrop"),
+    sheet: document.getElementById("dateSheet"),
+    title: document.getElementById("dateSheetTitle"),
+    grid: document.getElementById("dateSheetGrid"),
+    monthYearBtn: document.getElementById("dateSheetMonthYearBtn"),
+    monthLabel: document.getElementById("dateSheetMonthLabel"),
+    monthChevron: document.getElementById("dateSheetMonthYearChevron"),
+    dayPane: document.getElementById("dateSheetDayPane"),
+    monthPane: document.getElementById("dateSheetMonthPane"),
+    monthPickerGrid: document.getElementById("dateSheetMonthPickerGrid"),
+    prevBtn: document.getElementById("dateSheetPrevMonth"),
+    nextBtn: document.getElementById("dateSheetNextMonth"),
+    handle: document.getElementById("dateSheetHandle")
+  };
+}
+
+function getPeriodSheetEls() {
+  return {
+    backdrop: document.getElementById("periodSheetBackdrop"),
+    sheet: document.getElementById("periodSheet"),
+    handle: document.getElementById("periodSheetHandle")
+  };
+}
+
+function getListPickerEls() {
+  return {
+    backdrop: document.getElementById("listPickerBackdrop"),
+    sheet: document.getElementById("listPickerSheet"),
+    title: document.getElementById("listPickerTitle"),
+    options: document.getElementById("listPickerOptions"),
+    handle: document.getElementById("listPickerHandle")
+  };
+}
+
+function hideFoodMatSubPanelsUi() {
+  document.querySelectorAll(".food-mat-panel").forEach((el) => {
+    el.hidden = true;
+    el.setAttribute("aria-hidden", "true");
+  });
+  const hub = document.getElementById("foodMatPeriodHub");
+  if (hub) {
+    hub.hidden = false;
+    hub.removeAttribute("aria-hidden");
+  }
+}
+
+function openFoodMatSubPanel(kind) {
+  const map = { custody: "foodMatPanelCustody", household: "foodMatPanelHousehold", deviation: "foodMatPanelDeviation" };
+  const id = map[kind];
+  if (!id) return;
+  const panel = document.getElementById(id);
+  const hub = document.getElementById("foodMatPeriodHub");
+  if (!panel || !hub) return;
+  const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+  if (!foodOverlay || foodOverlay.hidden) return;
+  const anyOpen = Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+  foodOverlay.querySelectorAll(".food-mat-panel").forEach((el) => {
+    el.hidden = true;
+    el.setAttribute("aria-hidden", "true");
+  });
+  hideErrorSummaryById("foodErrorSummary");
+  hideErrorSummaryById("foodCustodyErrorSummary");
+  hideErrorSummaryById("foodHouseholdErrorSummary");
+  hideErrorSummaryById("foodDeviationErrorSummary");
+  panel.hidden = false;
+  panel.removeAttribute("aria-hidden");
+  hub.hidden = true;
+  hub.setAttribute("aria-hidden", "true");
+  if (!anyOpen) {
+    history.pushState({ foodMatSub: true }, "");
+    foodMatSubHistoryDepth += 1;
+  }
+  queueMicrotask(() => panel.querySelector(".food-mat-panel-back")?.focus?.());
+}
+
+function closeFoodMatSubPanelFromBackButton() {
+  if (foodMatSubHistoryDepth <= 0) {
+    hideFoodMatSubPanelsUi();
+    return;
+  }
+  history.back();
+}
+
+function resetFoodMatSubPanelsWhenFoodOverlayCloses() {
+  hideFoodMatSubPanelsUi();
+  if (foodMatSubHistoryDepth > 0) {
+    foodMatSubHistoryDepth = 0;
+    history.back();
+  }
+}
+
+function initFoodMatSubPanelHistory() {
+  window.addEventListener("popstate", () => {
+    const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+    if (!foodOverlay || foodOverlay.hidden) {
+      foodMatSubHistoryDepth = 0;
+      hideFoodMatSubPanelsUi();
+      return;
+    }
+    const panelOpen = Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+    if (!panelOpen) return;
+    if (foodMatSubHistoryDepth > 0) foodMatSubHistoryDepth -= 1;
+    hideFoodMatSubPanelsUi();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+    if (!foodOverlay || foodOverlay.hidden) return;
+    const panelOpen = Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+    if (!panelOpen) return;
+    e.preventDefault();
+    closeFoodMatSubPanelFromBackButton();
+  });
+}
+
+function updateFoodMatHubTitles(draft) {
+  const custodyN = (draft?.custodyPeriods || []).filter((p) => p?.startDate && String(p.startDate).trim()).length;
+  const hhN = (draft?.householdChanges || []).length;
+  const devN = (draft?.deviations || []).length;
+  const tc = document.getElementById("foodHubTitleCustody");
+  const th = document.getElementById("foodHubTitleHousehold");
+  const td = document.getElementById("foodHubTitleDeviation");
+  if (tc) tc.classList.toggle("food-mat-hub-title--muted", custodyN === 0);
+  if (th) th.classList.toggle("food-mat-hub-title--muted", hhN === 0);
+  if (td) td.classList.toggle("food-mat-hub-title--muted", devN === 0);
+}
+
+let dateFieldRowResizeTimer = null;
+
+function formatDateRowDisplay(iso) {
+  if (!iso || typeof iso !== "string") return "Välj datum";
+  const parts = datePartsFromIso(iso);
+  if (!parts) return "Välj datum";
+  const d = new Date(parts.y, parts.m - 1, parts.d);
+  if (Number.isNaN(d.getTime())) return "Välj datum";
+  const currentY = new Date().getFullYear();
+  const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
+  const capWd = wd ? wd.charAt(0).toUpperCase() + wd.slice(1) : "";
+  const monthLower = d.toLocaleDateString("sv-SE", { month: "long" }).toLowerCase();
+  if (parts.y === currentY) {
+    return `${capWd} ${parts.d} ${monthLower}`;
+  }
+  return `${capWd} ${parts.d} ${monthLower} ${parts.y}`;
+}
+
+/** Kalenderikon (egen geometri, designinspirerad: ringar, huvudlinje, tre prickar). Ska matcha icons/calendar-outline.svg */
+function createCalendarIconSvg() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("class", "date-field-row-icon");
+  svg.setAttribute("width", "22");
+  svg.setAttribute("height", "22");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("aria-hidden", "true");
+
+  const rings = document.createElementNS(ns, "path");
+  rings.setAttribute("d", "M8.5 2.75V6M15.5 2.75V6");
+  rings.setAttribute("stroke", "currentColor");
+  rings.setAttribute("stroke-width", "1.5");
+  rings.setAttribute("stroke-linecap", "round");
+  svg.appendChild(rings);
+
+  const body = document.createElementNS(ns, "rect");
+  body.setAttribute("x", "3.75");
+  body.setAttribute("y", "6");
+  body.setAttribute("width", "16.5");
+  body.setAttribute("height", "15");
+  body.setAttribute("rx", "2");
+  body.setAttribute("stroke", "currentColor");
+  body.setAttribute("stroke-width", "1.5");
+  svg.appendChild(body);
+
+  const header = document.createElementNS(ns, "path");
+  header.setAttribute("d", "M4.5 10.25h15");
+  header.setAttribute("stroke", "currentColor");
+  header.setAttribute("stroke-width", "1.5");
+  header.setAttribute("stroke-linecap", "round");
+  svg.appendChild(header);
+
+  for (const cx of [9, 12, 15]) {
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", String(cx));
+    dot.setAttribute("cy", "17.25");
+    dot.setAttribute("r", "1.15");
+    dot.setAttribute("fill", "currentColor");
+    svg.appendChild(dot);
+  }
+
+  return svg;
+}
+
+function syncDateFieldRow(inp) {
+  const wrap = inp.closest(".date-field-row");
+  if (!wrap) return;
+  const tr = wrap.querySelector(".date-field-row-trigger");
+  const val = wrap.querySelector(".date-field-row-value");
+  const shown = formatDateRowDisplay(inp.value);
+  if (val) val.textContent = shown;
+  if (tr) {
+    tr.disabled = inp.disabled;
+    const base = humanLabelForDateInput(inp);
+    tr.setAttribute("aria-label", `${base}: ${shown}`);
+  }
+}
+
+function applyDateFieldRowTabState(inp) {
+  const wrap = inp.closest(".date-field-row");
+  if (!wrap) return;
+  const btn = wrap.querySelector(".date-field-row-trigger");
+  if (!btn) return;
+  if (isDateSheetViewport()) {
+    inp.tabIndex = -1;
+    btn.removeAttribute("tabindex");
+  } else {
+    inp.removeAttribute("tabindex");
+    btn.tabIndex = -1;
+  }
+}
+
+function refreshAllDateFieldRows() {
+  document.querySelectorAll(".date-field-row-native").forEach((el) => {
+    if (el instanceof HTMLInputElement) syncDateFieldRow(el);
+  });
+}
+
+function enhanceAllDateFieldRows() {
+  document.querySelectorAll('input[type="date"]').forEach((inp) => {
+    if (!(inp instanceof HTMLInputElement)) return;
+    if (inp.hasAttribute("data-native-date")) return;
+    if (inp.closest(".date-field-row")) {
+      syncDateFieldRow(inp);
+      applyDateFieldRowTabState(inp);
+      return;
+    }
+    const wrap = document.createElement("div");
+    wrap.className = "date-field-row";
+    inp.parentNode?.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+    inp.classList.add("date-field-row-native");
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-field-row-trigger";
+    const valSpan = document.createElement("span");
+    valSpan.className = "date-field-row-value";
+    btn.appendChild(valSpan);
+    btn.appendChild(createCalendarIconSvg());
+    wrap.appendChild(btn);
+
+    const onSync = () => syncDateFieldRow(inp);
+    inp.addEventListener("input", onSync);
+    inp.addEventListener("change", onSync);
+    onSync();
+    applyDateFieldRowTabState(inp);
+
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (inp.disabled) return;
+      if (isDateSheetViewport()) openDateSheet(inp);
+      else if (typeof inp.showPicker === "function") inp.showPicker();
+      else inp.focus();
+    });
+  });
+}
+
+function initDateFieldRows() {
+  enhanceAllDateFieldRows();
+  window.addEventListener("resize", () => {
+    clearTimeout(dateFieldRowResizeTimer);
+    dateFieldRowResizeTimer = setTimeout(() => {
+      document.querySelectorAll(".date-field-row-native").forEach((el) => {
+        if (!(el instanceof HTMLInputElement)) return;
+        applyDateFieldRowTabState(el);
+        syncDateFieldRow(el);
+      });
+    }, 120);
+  });
+}
+
+function humanLabelForDateInput(inp) {
+  const lab = inp.closest("label");
+  if (!lab) return inp.getAttribute("aria-label") || "Välj datum";
+  const clone = lab.cloneNode(true);
+  clone.querySelectorAll("input, button, select, textarea").forEach((n) => n.remove());
+  const t = clone.textContent.replace(/\s+/g, " ").trim();
+  return t || inp.getAttribute("aria-label") || "Välj datum";
+}
+
+function finalizeDateSheetClose(revert) {
+  const inp = dateSheetTargetInput;
+  if (inp && revert) {
+    inp.value = dateSheetSnapshot;
+    inp.dispatchEvent(new Event("input", { bubbles: true }));
+    inp.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  const { backdrop, sheet } = getDateSheetEls();
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.classList.remove("date-sheet-backdrop--visible");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.classList.remove("date-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  if (dateSheetKeydownHandler) {
+    document.removeEventListener("keydown", dateSheetKeydownHandler, true);
+    dateSheetKeydownHandler = null;
+  }
+  popAppBottomSheetScrollLock();
+  dateSheetOpen = false;
+  dateSheetClosing = false;
+  dateSheetTargetInput = null;
+  dateSheetMode = "days";
+}
+
+function closeDateSheetAnimated(revert) {
+  if (!dateSheetOpen) return;
+  if (dateSheetClosing) return;
+  dateSheetClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getDateSheetEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    dateSheetClosing = false;
+    finalizeDateSheetClose(revert);
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("date-sheet--visible");
+    backdrop?.classList.remove("date-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("date-sheet--visible");
+  backdrop?.classList.remove("date-sheet-backdrop--visible");
+}
+
+function closeDateSheet(revert) {
+  closeDateSheetAnimated(revert);
+}
+
+function commitDateSheetDayAndClose(iso) {
+  const inp = dateSheetTargetInput;
+  if (!inp) return;
+  const minIso = inp.min || "";
+  const maxIso = inp.max || "";
+  if (minIso && iso < minIso) return;
+  if (maxIso && iso > maxIso) return;
+  const clamped = clampIsoToMinMax(iso, minIso, maxIso);
+  dateSheetDraft = clamped;
+  inp.value = clamped;
+  inp.dispatchEvent(new Event("input", { bubbles: true }));
+  inp.dispatchEvent(new Event("change", { bubbles: true }));
+  closeDateSheetAnimated(false);
+}
+
+function monthShortLabelSv(y, m) {
+  const s = new Date(y, m - 1, 1).toLocaleDateString("sv-SE", { month: "short" });
+  const t = s.replace(/\.\s*$/, "").trim();
+  if (!t) return t;
+  return t.charAt(0).toLocaleUpperCase("sv-SE") + t.slice(1);
+}
+
+function syncDateSheetPaneVisibility() {
+  const { dayPane, monthPane, sheet } = getDateSheetEls();
+  if (dayPane) {
+    dayPane.hidden = dateSheetMode !== "days";
+    dayPane.setAttribute("aria-hidden", dateSheetMode !== "days" ? "true" : "false");
+  }
+  if (monthPane) {
+    monthPane.hidden = dateSheetMode !== "months";
+    monthPane.setAttribute("aria-hidden", dateSheetMode !== "months" ? "true" : "false");
+  }
+  if (sheet) {
+    sheet.classList.toggle("date-sheet--month-mode", dateSheetMode === "months");
+    sheet.setAttribute(
+      "aria-labelledby",
+      dateSheetMode === "months" ? "dateSheetMonthLabel" : "dateSheetTitle"
+    );
+  }
+}
+
+function updateDateSheetMonthYearRow() {
+  const { monthYearBtn, monthLabel, monthChevron } = getDateSheetEls();
+  if (monthLabel) {
+    const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+    const longM = new Date(dateSheetViewY, dateSheetViewM - 1, 1).toLocaleDateString("sv-SE", { month: "long" });
+    monthLabel.textContent = `${cap(longM)} ${dateSheetViewY}`;
+  }
+  if (monthChevron) {
+    monthChevron.textContent = dateSheetMode === "months" ? "⌃" : "⌄";
+  }
+  if (monthYearBtn) {
+    monthYearBtn.setAttribute("aria-expanded", dateSheetMode === "months" ? "true" : "false");
+    monthYearBtn.title = dateSheetMode === "months" ? "Visa kalender" : "Välj månad";
+    monthYearBtn.classList.toggle("date-sheet-month-year-btn--open", dateSheetMode === "months");
+  }
+  const { prevBtn, nextBtn } = getDateSheetEls();
+  if (prevBtn) {
+    prevBtn.setAttribute("aria-label", dateSheetMode === "months" ? "Föregående år" : "Föregående månad");
+  }
+  if (nextBtn) {
+    nextBtn.setAttribute("aria-label", dateSheetMode === "months" ? "Nästa år" : "Nästa månad");
+  }
+}
+
+function syncDateSheetArrowDisabled() {
+  const { prevBtn, nextBtn } = getDateSheetEls();
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+  if (dateSheetMode === "months") {
+    if (prevBtn) prevBtn.disabled = yearEntirelyOutOfRange(dateSheetViewY - 1, minIso, maxIso);
+    if (nextBtn) nextBtn.disabled = yearEntirelyOutOfRange(dateSheetViewY + 1, minIso, maxIso);
+    return;
+  }
+  let py = dateSheetViewY;
+  let pm = dateSheetViewM - 1;
+  if (pm < 1) {
+    pm = 12;
+    py -= 1;
+  }
+  let ny = dateSheetViewY;
+  let nm = dateSheetViewM + 1;
+  if (nm > 12) {
+    nm = 1;
+    ny += 1;
+  }
+  if (prevBtn) prevBtn.disabled = monthFullyBeforeMin(py, pm, minIso);
+  if (nextBtn) nextBtn.disabled = monthFullyAfterMax(ny, nm, maxIso);
+}
+
+function renderDateSheetMonthPicker() {
+  const { monthPickerGrid } = getDateSheetEls();
+  if (!monthPickerGrid) return;
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+  const y = dateSheetViewY;
+  const dp = datePartsFromIso(dateSheetDraft);
+  const selectedM = dp && dp.y === y ? dp.m : null;
+
+  monthPickerGrid.innerHTML = "";
+  const frag = document.createDocumentFragment();
+  for (let m = 1; m <= 12; m++) {
+    const disabled = monthFullyOutOfRange(y, m, minIso, maxIso);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-sheet-month-pick";
+    btn.textContent = monthShortLabelSv(y, m);
+    if (selectedM === m) {
+      btn.classList.add("date-sheet-month-pick--selected");
+      btn.setAttribute("aria-current", "true");
+    } else {
+      btn.removeAttribute("aria-current");
+    }
+    if (disabled) {
+      btn.disabled = true;
+      btn.classList.add("date-sheet-month-pick--disabled");
+    } else {
+      btn.addEventListener("click", () => {
+        dateSheetViewY = y;
+        dateSheetViewM = m;
+        let dayN = 1;
+        if (dp) dayN = Math.min(dp.d, daysInMonth(y, m));
+        let nextIso = isoDateFromParts(y, m, dayN);
+        nextIso = clampIsoToMinMax(nextIso, minIso, maxIso);
+        const np = datePartsFromIso(nextIso);
+        if (np) {
+          dateSheetViewY = np.y;
+          dateSheetViewM = np.m;
+          dateSheetDraft = nextIso;
+        }
+        dateSheetMode = "days";
+        renderDateSheetMonth();
+        const { grid, monthYearBtn } = getDateSheetEls();
+        const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
+        (sel || monthYearBtn)?.focus();
+      });
+    }
+    frag.appendChild(btn);
+  }
+  monthPickerGrid.appendChild(frag);
+}
+
+function calendarStepLeft(m, r, c) {
+  for (let nc = c - 1; nc >= 0; nc--) {
+    const b = m[r][nc];
+    if (b && !b.disabled) return b;
+  }
+  for (let nr = r - 1; nr >= 0; nr--) {
+    for (let nc = 6; nc >= 0; nc--) {
+      const b = m[nr][nc];
+      if (b && !b.disabled) return b;
+    }
+  }
+  return null;
+}
+
+function calendarStepRight(m, r, c) {
+  for (let nc = c + 1; nc <= 6; nc++) {
+    const b = m[r][nc];
+    if (b && !b.disabled) return b;
+  }
+  for (let nr = r + 1; nr < m.length; nr++) {
+    for (let nc = 0; nc <= 6; nc++) {
+      const b = m[nr][nc];
+      if (b && !b.disabled) return b;
+    }
+  }
+  return null;
+}
+
+function calendarStepUp(m, r, c) {
+  for (let nr = r - 1; nr >= 0; nr--) {
+    const b = m[nr][c];
+    if (b && !b.disabled) return b;
+  }
+  return null;
+}
+
+function calendarStepDown(m, r, c) {
+  for (let nr = r + 1; nr < m.length; nr++) {
+    const b = m[nr][c];
+    if (b && !b.disabled) return b;
+  }
+  return null;
+}
+
+function calendarFirstEnabledButton(m) {
+  for (let r = 0; r < m.length; r++) {
+    for (let c = 0; c < 7; c++) {
+      const b = m[r][c];
+      if (b && !b.disabled) return b;
+    }
+  }
+  return null;
+}
+
+function calendarLastEnabledButton(m) {
+  for (let r = m.length - 1; r >= 0; r--) {
+    for (let c = 6; c >= 0; c--) {
+      const b = m[r][c];
+      if (b && !b.disabled) return b;
+    }
+  }
+  return null;
+}
+
+function applyCalendarRovingTabindex(matrix) {
+  let selectedBtn = null;
+  for (let r = 0; r < matrix.length; r++) {
+    for (let c = 0; c < 7; c++) {
+      const b = matrix[r][c];
+      if (!b) continue;
+      if (b.disabled) {
+        b.tabIndex = -1;
+        continue;
+      }
+      if (b.classList.contains("date-sheet-day--selected")) selectedBtn = b;
+      b.tabIndex = -1;
+    }
+  }
+  const t = selectedBtn || calendarFirstEnabledButton(matrix);
+  if (t) t.tabIndex = 0;
+}
+
+function moveDateSheetDayFocus(fromBtn, toBtn) {
+  if (fromBtn && fromBtn !== toBtn) fromBtn.tabIndex = -1;
+  if (toBtn) {
+    toBtn.tabIndex = 0;
+    toBtn.focus();
+  }
+}
+
+function getDateSheetDayMatrix() {
+  const { grid } = getDateSheetEls();
+  const m = grid && grid.__dayMatrix;
+  return Array.isArray(m) ? m : null;
+}
+
+function handleDateSheetCalendarKeydown(ev) {
+  if (dateSheetMode !== "days") return;
+  const matrix = getDateSheetDayMatrix();
+  if (!matrix) return;
+  const t = ev.target;
+  if (!(t instanceof HTMLButtonElement) || !t.classList.contains("date-sheet-day")) return;
+  if (t.disabled) return;
+
+  const iso = t.dataset.isoDate;
+  const r = Number(t.dataset.gridR);
+  const c = Number(t.dataset.gridC);
+  if (!iso || !Number.isFinite(r) || !Number.isFinite(c)) return;
+
+  const k = ev.key;
+  if (k === "Enter" || k === " ") {
+    ev.preventDefault();
+    commitDateSheetDayAndClose(iso);
+    return;
+  }
+
+  if (k === "ArrowLeft" || k === "ArrowRight" || k === "ArrowUp" || k === "ArrowDown" || k === "Home" || k === "End") {
+    ev.preventDefault();
+    let next = null;
+    if (k === "ArrowLeft") next = calendarStepLeft(matrix, r, c);
+    else if (k === "ArrowRight") next = calendarStepRight(matrix, r, c);
+    else if (k === "ArrowUp") next = calendarStepUp(matrix, r, c);
+    else if (k === "ArrowDown") next = calendarStepDown(matrix, r, c);
+    else if (k === "Home") next = calendarFirstEnabledButton(matrix);
+    else if (k === "End") next = calendarLastEnabledButton(matrix);
+    if (next && next !== t) moveDateSheetDayFocus(t, next);
+  }
+}
+
+function renderDateSheetMonth() {
+  const { grid } = getDateSheetEls();
+  syncDateSheetPaneVisibility();
+  updateDateSheetMonthYearRow();
+
+  const inp = dateSheetTargetInput;
+  const minIso = inp?.min || "";
+  const maxIso = inp?.max || "";
+
+  if (dateSheetMode === "months") {
+    renderDateSheetMonthPicker();
+    syncDateSheetArrowDisabled();
+    return;
+  }
+
+  if (!grid) return;
+  syncDateSheetArrowDisabled();
+
+  grid.innerHTML = "";
+  const first = new Date(dateSheetViewY, dateSheetViewM - 1, 1);
+  const startPad = (first.getDay() + 6) % 7;
+  const dim = daysInMonth(dateSheetViewY, dateSheetViewM);
+  const today = todayIsoLocal();
+
+  const totalCells = Math.ceil((startPad + dim) / 7) * 7;
+  const matrix = [];
+  let rowIdx = 0;
+
+  for (let rowStart = 0; rowStart < totalCells; rowStart += 7) {
+    const rowEl = document.createElement("div");
+    rowEl.className = "date-sheet-week-row";
+    rowEl.setAttribute("role", "row");
+    const mrow = [null, null, null, null, null, null, null];
+
+    for (let col = 0; col < 7; col++) {
+      const i = rowStart + col;
+      const dayNum = i - startPad + 1;
+      const gcell = document.createElement("div");
+      gcell.className = "date-sheet-gcell";
+      gcell.setAttribute("role", "gridcell");
+
+      if (dayNum < 1 || dayNum > dim) {
+        gcell.classList.add("date-sheet-gcell--empty");
+        gcell.setAttribute("aria-hidden", "true");
+        rowEl.appendChild(gcell);
+        continue;
+      }
+
+      const iso = isoDateFromParts(dateSheetViewY, dateSheetViewM, dayNum);
+      let disabled = false;
+      if (minIso && iso < minIso) disabled = true;
+      if (maxIso && iso > maxIso) disabled = true;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "date-sheet-day";
+      btn.textContent = String(dayNum);
+      btn.dataset.isoDate = iso;
+      btn.dataset.gridR = String(rowIdx);
+      btn.dataset.gridC = String(col);
+      btn.setAttribute("aria-selected", iso === dateSheetDraft ? "true" : "false");
+      if (iso === dateSheetDraft) btn.classList.add("date-sheet-day--selected");
+      if (iso === today) btn.classList.add("date-sheet-day--today");
+      if (disabled) {
+        btn.disabled = true;
+        btn.classList.add("date-sheet-day--disabled");
+        btn.setAttribute("aria-disabled", "true");
+      } else {
+        btn.addEventListener("click", () => commitDateSheetDayAndClose(iso));
+      }
+      gcell.appendChild(btn);
+      mrow[col] = btn;
+      rowEl.appendChild(gcell);
+    }
+
+    matrix.push(mrow);
+    rowIdx += 1;
+    grid.appendChild(rowEl);
+  }
+
+  grid.__dayMatrix = matrix;
+  applyCalendarRovingTabindex(matrix);
+}
+
+function openDateSheet(inputEl) {
+  if (dateSheetOpen || periodSheetOpen || !inputEl || inputEl.type !== "date") return;
+  const { backdrop, sheet, title, grid, monthYearBtn } = getDateSheetEls();
+  if (!backdrop || !sheet) return;
+
+  inputEl.blur();
+  dateSheetTargetInput = inputEl;
+  dateSheetSnapshot = inputEl.value || "";
+  const minIso = inputEl.min || "";
+  const maxIso = inputEl.max || "";
+  let draft = dateSheetSnapshot || todayIsoLocal();
+  draft = clampIsoToMinMax(draft, minIso, maxIso);
+  dateSheetDraft = draft;
+  const parts = datePartsFromIso(draft);
+  if (parts) {
+    dateSheetViewY = parts.y;
+    dateSheetViewM = parts.m;
+  } else {
+    const d = new Date();
+    dateSheetViewY = d.getFullYear();
+    dateSheetViewM = d.getMonth() + 1;
+  }
+
+  dateSheetMode = "days";
+
+  if (title) title.textContent = humanLabelForDateInput(inputEl);
+
+  renderDateSheetMonth();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("date-sheet-backdrop--visible");
+  sheet.classList.remove("date-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  dateSheetOpen = true;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("date-sheet-backdrop--visible");
+      sheet.classList.add("date-sheet--visible");
+      const sel = grid?.querySelector(".date-sheet-day--selected:not(:disabled)");
+      (sel || monthYearBtn)?.focus();
+    });
+  });
+
+  dateSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeDateSheetAnimated(true);
+      return;
+    }
+    handleDateSheetCalendarKeydown(ev);
+  };
+  document.addEventListener("keydown", dateSheetKeydownHandler, true);
+}
+
+function attachBottomSheetDragDismiss(handleEl, sheetEl, onDismiss) {
+  if (!handleEl || !sheetEl) return;
+  let startY = 0;
+  let dragging = false;
+  let activeId = null;
+  handleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragging = true;
+    startY = e.clientY;
+    activeId = e.pointerId;
+    sheetEl.style.transition = "none";
+    try {
+      handleEl.setPointerCapture(e.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+  });
+  handleEl.addEventListener("pointermove", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    const dy = Math.max(0, e.clientY - startY);
+    sheetEl.style.transform = `translateY(${dy}px)`;
+  });
+  handleEl.addEventListener("pointerup", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    dragging = false;
+    const dy = e.clientY - startY;
+    sheetEl.style.removeProperty("transition");
+    sheetEl.style.removeProperty("transform");
+    activeId = null;
+    try {
+      handleEl.releasePointerCapture(e.pointerId);
+    } catch (_) {
+      /* ignore */
+    }
+    if (dy > 72) onDismiss();
+  });
+  handleEl.addEventListener("pointercancel", (e) => {
+    if (!dragging || e.pointerId !== activeId) return;
+    dragging = false;
+    sheetEl.style.removeProperty("transition");
+    sheetEl.style.removeProperty("transform");
+    activeId = null;
+  });
+}
+
+function finalizePeriodSheetClose() {
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.classList.remove("period-sheet-backdrop--visible");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.classList.remove("period-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  if (periodSheetKeydownHandler) {
+    document.removeEventListener("keydown", periodSheetKeydownHandler, true);
+    periodSheetKeydownHandler = null;
+  }
+  popAppBottomSheetScrollLock();
+  periodSheetOpen = false;
+  periodSheetClosing = false;
+}
+
+function closePeriodSheetAnimated() {
+  if (!periodSheetOpen) return;
+  if (periodSheetClosing) return;
+  periodSheetClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getPeriodSheetEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    periodSheetClosing = false;
+    finalizePeriodSheetClose();
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("period-sheet--visible");
+    backdrop?.classList.remove("period-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("period-sheet--visible");
+  backdrop?.classList.remove("period-sheet-backdrop--visible");
+}
+
+function yearOptionsForPeriodSheet() {
+  if (periodSheetKind === "overview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
+  const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
+  return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
+}
+
+function renderPeriodSheetContent() {
+  const yearsHost = document.getElementById("periodSheetYears");
+  const monthsHost = document.getElementById("periodSheetMonths");
+  if (!yearsHost || !monthsHost) return;
+  yearsHost.innerHTML = "";
+  for (const { v, lab } of yearOptionsForPeriodSheet()) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "period-sheet-chip";
+    if (v === periodSheetDraftYearStr) b.classList.add("period-sheet-chip--selected");
+    b.textContent = lab;
+    b.addEventListener("click", () => {
+      periodSheetDraftYearStr = v;
+      renderPeriodSheetContent();
+    });
+    yearsHost.appendChild(b);
+  }
+  monthsHost.innerHTML = "";
+  const monthEntries = [];
+  if (periodSheetKind !== "overview") monthEntries.push({ v: "all", lab: "Alla" });
+  for (let m = 1; m <= 12; m++) {
+    const full = monthName(m);
+    monthEntries.push({ v: String(m), lab: full.length > 6 ? `${full.slice(0, 3)}.` : full });
+  }
+  for (const { v, lab } of monthEntries) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "period-sheet-month-btn";
+    if (v === periodSheetDraftMonthStr) b.classList.add("period-sheet-month-btn--selected");
+    b.textContent = lab;
+    b.addEventListener("click", () => {
+      periodSheetDraftMonthStr = v;
+      commitPeriodSheetAndClose();
+    });
+    monthsHost.appendChild(b);
+  }
+}
+
+function commitPeriodSheetAndClose() {
+  if (periodSheetKind === "overview") {
+    const yearSel = document.getElementById("overviewYear");
+    const monthSel = document.getElementById("overviewMonth");
+    if (yearSel && monthSel) {
+      yearSel.value = periodSheetDraftYearStr;
+      monthSel.value = periodSheetDraftMonthStr;
+      yearSel.dispatchEvent(new Event("change", { bubbles: true }));
+      monthSel.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  } else if (periodSheetKind === "expenseFilter") {
+    const ys = document.getElementById("expenseYearFilter");
+    const ms = document.getElementById("expenseMonthFilter");
+    if (ys && ms) {
+      ys.value = periodSheetDraftYearStr;
+      ms.value = periodSheetDraftMonthStr;
+    }
+    ui.expenseYearFilter = periodSheetDraftYearStr;
+    ui.expenseMonthFilter = periodSheetDraftMonthStr;
+    syncExpenseFilterSummaryLabel();
+    renderExpensesList();
+  } else if (periodSheetKind === "incomeFilter") {
+    const ys = document.getElementById("incomeYearFilter");
+    const ms = document.getElementById("incomeMonthFilter");
+    if (ys && ms) {
+      ys.value = periodSheetDraftYearStr;
+      ms.value = periodSheetDraftMonthStr;
+    }
+    ui.incomeYearFilter = periodSheetDraftYearStr;
+    ui.incomeMonthFilter = periodSheetDraftMonthStr;
+    syncIncomeFilterSummaryLabel();
+    renderIncomesList();
+  }
+  closePeriodSheetAnimated();
+}
+
+function openOverviewPeriodSheet() {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const yearSel = document.getElementById("overviewYear");
+  const monthSel = document.getElementById("overviewMonth");
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!yearSel || !monthSel || !backdrop || !sheet) return;
+
+  periodSheetKind = "overview";
+  const cur = currentYearMonth();
+  let y = Number(yearSel.value);
+  let m = Number(monthSel.value);
+  if (!Number.isFinite(y)) y = cur.year;
+  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+  periodSheetDraftYearStr = String(y);
+  periodSheetDraftMonthStr = String(m);
+
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
+
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function openExpenseFilterPeriodSheet() {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const ys = document.getElementById("expenseYearFilter");
+  const ms = document.getElementById("expenseMonthFilter");
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!ys || !ms || !backdrop || !sheet) return;
+  periodSheetKind = "expenseFilter";
+  periodSheetDraftYearStr = String(ui.expenseYearFilter || ys.value || "all");
+  periodSheetDraftMonthStr = String(ui.expenseMonthFilter || ms.value || "all");
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function openIncomeFilterPeriodSheet() {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const ys = document.getElementById("incomeYearFilter");
+  const ms = document.getElementById("incomeMonthFilter");
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!ys || !ms || !backdrop || !sheet) return;
+  periodSheetKind = "incomeFilter";
+  periodSheetDraftYearStr = String(ui.incomeYearFilter || ys.value || "all");
+  periodSheetDraftMonthStr = String(ui.incomeMonthFilter || ms.value || "all");
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function syncOverviewPeriodSummaryLabel() {
+  const el = document.getElementById("overviewPeriodSummary");
+  const ys = document.getElementById("overviewYear");
+  const ms = document.getElementById("overviewMonth");
+  if (!el || !ys || !ms) return;
+  const y = ys.value;
+  const m = Number(ms.value);
+  el.textContent = y && Number.isFinite(m) ? `${y} · ${monthName(m)}` : "—";
+}
+
+function syncExpenseFilterSummaryLabel() {
+  const el = document.getElementById("expenseFilterSummary");
+  if (!el) return;
+  const y = ui.expenseYearFilter || document.getElementById("expenseYearFilter")?.value || "all";
+  const mo = ui.expenseMonthFilter || document.getElementById("expenseMonthFilter")?.value || "all";
+  const yPart = y === "all" ? "Alla år" : String(y);
+  const mPart = mo === "all" ? "alla månader" : monthName(Number(mo)).toLowerCase();
+  el.textContent = `${yPart} · ${mPart}`;
+}
+
+function syncIncomeFilterSummaryLabel() {
+  const el = document.getElementById("incomeFilterSummary");
+  if (!el) return;
+  const y = ui.incomeYearFilter || document.getElementById("incomeYearFilter")?.value || "all";
+  const mo = ui.incomeMonthFilter || document.getElementById("incomeMonthFilter")?.value || "all";
+  const yPart = y === "all" ? "Alla år" : String(y);
+  const mPart = mo === "all" ? "alla månader" : monthName(Number(mo)).toLowerCase();
+  el.textContent = `${yPart} · ${mPart}`;
+}
+
+function finalizeListPickerClose() {
+  const { backdrop, sheet } = getListPickerEls();
+  if (backdrop) {
+    backdrop.hidden = true;
+    backdrop.classList.remove("period-sheet-backdrop--visible");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.classList.remove("period-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  if (listPickerKeydownHandler) {
+    document.removeEventListener("keydown", listPickerKeydownHandler, true);
+    listPickerKeydownHandler = null;
+  }
+  popAppBottomSheetScrollLock();
+  listPickerOpen = false;
+  listPickerClosing = false;
+}
+
+function closeListPickerAnimated() {
+  if (!listPickerOpen) return;
+  if (listPickerClosing) return;
+  listPickerClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getListPickerEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    listPickerClosing = false;
+    finalizeListPickerClose();
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("period-sheet--visible");
+    backdrop?.classList.remove("period-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("period-sheet--visible");
+  backdrop?.classList.remove("period-sheet-backdrop--visible");
+}
+
+function openListPickerSheet({ title, options, currentValue, onSelect }) {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const { backdrop, sheet, title: titleEl, options: host, handle } = getListPickerEls();
+  if (!backdrop || !sheet || !titleEl || !host) return;
+  titleEl.textContent = title || "Välj";
+  host.innerHTML = "";
+  for (const opt of options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "list-picker-row";
+    b.setAttribute("role", "option");
+    b.dataset.value = String(opt.value);
+    const selected = String(opt.value) === String(currentValue);
+    if (selected) b.classList.add("list-picker-row--selected");
+    b.setAttribute("aria-selected", selected ? "true" : "false");
+
+    const label = document.createElement("span");
+    label.className = "list-picker-row-label";
+    label.textContent = opt.label;
+
+    const check = document.createElement("span");
+    check.className = "list-picker-row-check";
+    check.textContent = "✓";
+    check.setAttribute("aria-hidden", "true");
+
+    b.appendChild(label);
+    b.appendChild(check);
+    b.addEventListener("click", () => {
+      onSelect(String(opt.value));
+      closeListPickerAnimated();
+    });
+    host.appendChild(b);
+  }
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  listPickerOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      titleEl.focus();
+    });
+  });
+  listPickerKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeListPickerAnimated();
+    }
+  };
+  document.addEventListener("keydown", listPickerKeydownHandler, true);
+}
+
+function syncThemeModeSummaryLabel() {
+  const sel = document.getElementById("themeMode");
+  const el = document.getElementById("themeModeSummary");
+  if (!sel || !el) return;
+  const opt = sel.options[sel.selectedIndex];
+  el.textContent = opt ? opt.textContent : "";
+}
+
+function syncFoodWeekdaySummaryLabel() {
+  const sel = document.getElementById("foodPlanningWeekday");
+  const el = document.getElementById("foodWeekdaySummary");
+  if (!sel || !el) return;
+  const opt = sel.options[sel.selectedIndex];
+  el.textContent = opt ? opt.textContent : "";
+}
+
+function initOverviewPeriodSheet() {
+  const { backdrop, handle, sheet } = getPeriodSheetEls();
+  if (!backdrop || !sheet) return;
+
+  document.getElementById("overviewPeriodOpenBtn")?.addEventListener("click", () => openOverviewPeriodSheet());
+  document.getElementById("expenseFilterPeriodOpenBtn")?.addEventListener("click", () => openExpenseFilterPeriodSheet());
+  document.getElementById("incomeFilterPeriodOpenBtn")?.addEventListener("click", () => openIncomeFilterPeriodSheet());
+
+  backdrop.addEventListener("click", () => closePeriodSheetAnimated());
+  attachBottomSheetDragDismiss(handle, sheet, () => closePeriodSheetAnimated());
+
+  const lb = document.getElementById("listPickerBackdrop");
+  const ls = document.getElementById("listPickerSheet");
+  const lh = document.getElementById("listPickerHandle");
+  if (lb && ls && lh) {
+    lb.addEventListener("click", () => closeListPickerAnimated());
+    attachBottomSheetDragDismiss(lh, ls, () => closeListPickerAnimated());
+  }
+
+  document.getElementById("themeModeOpenBtn")?.addEventListener("click", () => {
+    const sel = document.getElementById("themeMode");
+    if (!sel) return;
+    const options = Array.from(sel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+    openListPickerSheet({
+      title: "Tema",
+      options,
+      currentValue: sel.value,
+      onSelect: (v) => {
+        sel.value = v;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        syncThemeModeSummaryLabel();
+      }
+    });
+  });
+
+  document.getElementById("foodWeekdayOpenBtn")?.addEventListener("click", () => {
+    const sel = document.getElementById("foodPlanningWeekday");
+    if (!sel) return;
+    const options = Array.from(sel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+    openListPickerSheet({
+      title: "Planeringsdag",
+      options,
+      currentValue: sel.value,
+      onSelect: (v) => {
+        sel.value = v;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        syncFoodWeekdaySummaryLabel();
+        saveState();
+      }
+    });
+  });
+}
+
+function refreshTaggedExpenseNameDatalist(cat, nameInputId) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const dl = document.getElementById(`${nameInputId}List`);
+  const inp = document.getElementById(nameInputId);
+  if (!dl || !inp) return;
+  const names = new Set();
+  for (const exp of state.expenses || []) {
+    if (exp.category !== C.category) continue;
+    const n = String(exp.name || "").trim();
+    if (n) names.add(n);
+  }
+  dl.innerHTML = "";
+  for (const n of Array.from(names).sort((a, b) => a.localeCompare(b, "sv"))) {
+    const o = document.createElement("option");
+    o.value = n;
+    dl.appendChild(o);
+  }
+}
+
+function initMobileDateSheetPicker() {
+  const { backdrop, prevBtn, nextBtn, handle, sheet, monthYearBtn } = getDateSheetEls();
+  if (!backdrop || !sheet) return;
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    },
+    true
+  );
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      openDateSheet(t);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "focus",
+    (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
+      if (!isDateSheetViewport()) return;
+      if (t.disabled || t.hasAttribute("data-native-date")) return;
+      t.blur();
+      openDateSheet(t);
+    },
+    true
+  );
+
+  backdrop.addEventListener("click", () => closeDateSheetAnimated(true));
+  attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
+
+  monthYearBtn?.addEventListener("click", () => {
+    dateSheetMode = dateSheetMode === "days" ? "months" : "days";
+    renderDateSheetMonth();
+    if (dateSheetMode === "months") {
+      requestAnimationFrame(() => {
+        const first = document.querySelector(
+          "#dateSheetMonthPickerGrid .date-sheet-month-pick:not(:disabled)"
+        );
+        (first instanceof HTMLElement ? first : null)?.focus();
+      });
+    }
+  });
+
+  if (prevBtn) {
+    prevBtn.addEventListener("click", () => {
+      if (dateSheetMode === "months") {
+        dateSheetViewY -= 1;
+        renderDateSheetMonth();
+        return;
+      }
+      if (dateSheetViewM <= 1) {
+        dateSheetViewM = 12;
+        dateSheetViewY -= 1;
+      } else {
+        dateSheetViewM -= 1;
+      }
+      renderDateSheetMonth();
+    });
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+      if (dateSheetMode === "months") {
+        dateSheetViewY += 1;
+        renderDateSheetMonth();
+        return;
+      }
+      if (dateSheetViewM >= 12) {
+        dateSheetViewM = 1;
+        dateSheetViewY += 1;
+      } else {
+        dateSheetViewM += 1;
+      }
+      renderDateSheetMonth();
+    });
+  }
+}
+
 function getDefaultState() {
   const currentYear = new Date().getFullYear();
   return {
-    version: 1,
+    version: 2,
     themeMode: "system", // system | light | dark
     settings: {
       backupIntervalDays: 30,
@@ -211,12 +1932,183 @@ function ensureOneOffList(root, year, monthIndex1to12) {
   return root[y][m];
 }
 
+function deepCloneJson(x) {
+  try {
+    return x == null ? x : JSON.parse(JSON.stringify(x));
+  } catch {
+    return {};
+  }
+}
+
+/** Flyttar gamla oneOff-buckets till incomes/expenses som vanliga rader (category one_off). */
+function migrateOneOffBucketsToLineItems(root) {
+  if (!root?.oneOff) return;
+  root.expenses = Array.isArray(root.expenses) ? root.expenses : [];
+  root.incomes = Array.isArray(root.incomes) ? root.incomes : [];
+  const exRoot = root.oneOff.expenses;
+  if (exRoot && typeof exRoot === "object") {
+    for (const yk of Object.keys(exRoot)) {
+      if (!/^\d{4}$/.test(yk)) continue;
+      const yo = exRoot[yk];
+      if (!yo || typeof yo !== "object") continue;
+      for (const mk of Object.keys(yo)) {
+        if (!/^\d{2}$/.test(mk)) continue;
+        const list = yo[mk];
+        if (!Array.isArray(list) || list.length === 0) continue;
+        for (const it of list) {
+          const amt = asNumber(it?.amount);
+          if (amt <= 0) continue;
+          const name = String(it?.name || "").trim() || "Enstaka utgift";
+          root.expenses.push({
+            id: uid(),
+            name,
+            category: "one_off",
+            interval: "once",
+            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }],
+            metadata: {}
+          });
+        }
+        yo[mk] = [];
+      }
+    }
+  }
+  const inRoot = root.oneOff.incomes;
+  if (inRoot && typeof inRoot === "object") {
+    for (const yk of Object.keys(inRoot)) {
+      if (!/^\d{4}$/.test(yk)) continue;
+      const yo = inRoot[yk];
+      if (!yo || typeof yo !== "object") continue;
+      for (const mk of Object.keys(yo)) {
+        if (!/^\d{2}$/.test(mk)) continue;
+        const list = yo[mk];
+        if (!Array.isArray(list) || list.length === 0) continue;
+        for (const it of list) {
+          const amt = asNumber(it?.amount);
+          if (amt <= 0) continue;
+          const name = String(it?.name || "").trim() || "Enstaka intäkt";
+          root.incomes.push({
+            id: uid(),
+            name,
+            category: "one_off",
+            interval: "once",
+            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }]
+          });
+        }
+        yo[mk] = [];
+      }
+    }
+  }
+}
+
+/** En post i expenses med category, valfri subcategory och metadata (schedule, food, …). */
+function canonicalizeExpenseRecord(raw) {
+  const payments = Array.isArray(raw?.payments) ? raw.payments : [];
+  const normalizedPayments = payments.map((p) => ({
+    id: p?.id || uid(),
+    date: p?.date || "",
+    amount: asNumber(p?.amount)
+  }));
+
+  let category = raw?.category || raw?.expenseCategory || "";
+  if (!category) {
+    if (raw?.foodGenerated) category = "food";
+    else if (/^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) category = "food";
+    else category = "other";
+  }
+
+  let subcategory = raw?.subcategory;
+  if (subcategory == null || subcategory === "") {
+    if (category === "car" && raw?.carTypeKey) subcategory = String(raw.carTypeKey);
+    else if (category === "home" && raw?.homeTypeKey) subcategory = String(raw.homeTypeKey);
+    else if (category === "children" && raw?.childrenTypeKey) subcategory = String(raw.childrenTypeKey);
+    else if (category === "savings" && raw?.savingsTypeKey) subcategory = String(raw.savingsTypeKey);
+  }
+  if (category === "savings" && (subcategory == null || subcategory === "")) subcategory = "own";
+
+  const meta =
+    typeof raw?.metadata === "object" && raw.metadata && !Array.isArray(raw.metadata) ? deepCloneJson(raw.metadata) : {};
+
+  const schedIn = meta.schedule && typeof meta.schedule === "object" ? { ...meta.schedule } : {};
+  if (raw?.carPaymentDay != null && schedIn.paymentDay == null) {
+    const cpd = Math.floor(asNumber(raw.carPaymentDay));
+    if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) schedIn.paymentDay = cpd;
+  }
+  if (raw?.carFirstDate && !schedIn.firstDate) schedIn.firstDate = String(raw.carFirstDate).slice(0, 10);
+  if (raw?.carEndDate !== undefined && raw?.carEndDate !== null && schedIn.endDate === undefined) {
+    schedIn.endDate = String(raw.carEndDate || "");
+  }
+  if (Object.keys(schedIn).length > 0) meta.schedule = schedIn;
+
+  const foodIn = meta.food && typeof meta.food === "object" ? { ...meta.food } : {};
+  if (raw?.foodGenerated) foodIn.generated = true;
+  if (raw?.foodYear != null && raw.foodYear !== "") foodIn.year = Number(raw.foodYear);
+  if (raw?.foodWeekKey) foodIn.weekKey = String(raw.foodWeekKey);
+  if (raw?.foodPlanningDate) foodIn.planningDate = String(raw.foodPlanningDate);
+  if (Array.isArray(raw?.foodLabels)) foodIn.labels = raw.foodLabels.map((x) => String(x));
+  if (Object.keys(foodIn).length > 0) meta.food = foodIn;
+
+  if (category === "food" && !meta.food?.generated && /^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) {
+    meta.food = { ...meta.food, generated: true, legacyMatName: true };
+  }
+
+  let origin = raw?.origin;
+  if (origin !== "system" && origin !== "user") {
+    if (category === "loans" && meta.loanId) origin = "system";
+    else if (meta.food?.generated || raw?.foodGenerated) origin = "system";
+    else origin = "user";
+  }
+
+  const out = {
+    id: raw?.id || uid(),
+    name: String(raw?.name || "").trim(),
+    category,
+    interval: raw?.interval || "once",
+    origin,
+    payments: normalizedPayments
+  };
+  if (subcategory != null && subcategory !== "") out.subcategory = String(subcategory);
+  if (Object.keys(meta).length > 0) out.metadata = meta;
+  return out;
+}
+
+/** En gemensam matkonfiguration (foodShared); migreras från första bästa årsnyckel under special.food. */
+function migrateSpecialFoodToSharedModel(root) {
+  const special = root?.special;
+  if (!special || typeof special !== "object") return;
+  if (special.foodShared?.config && typeof special.foodShared.config === "object") return;
+  const food = special.food;
+  if (!food || typeof food !== "object") return;
+  const cur = currentYearMonth().year;
+  const tryOrder = [String(cur), String(cur - 1), String(cur + 1)];
+  let pickedConfig = null;
+  for (const k of tryOrder) {
+    const e = food[k];
+    if (e && typeof e === "object" && e.config && typeof e.config === "object") {
+      pickedConfig = e.config;
+      break;
+    }
+  }
+  if (!pickedConfig) {
+    const keys = Object.keys(food).filter((k) => /^\d{4}$/.test(k)).sort();
+    for (const k of keys) {
+      const e = food[k];
+      if (e && e.config && typeof e.config === "object") {
+        pickedConfig = e.config;
+        break;
+      }
+    }
+  }
+  if (pickedConfig) {
+    special.foodShared = { config: JSON.parse(JSON.stringify(pickedConfig)), weeks: [] };
+  }
+}
+
 function normalizeStateShape(state) {
   const base = getDefaultState();
   if (!state || typeof state !== "object") return base;
 
   const normalized = { ...base, ...state };
-  normalized.version = 1;
+  normalized.version = 2;
 
   normalized.themeMode = ["system", "light", "dark"].includes(normalized.themeMode) ? normalized.themeMode : "system";
 
@@ -269,18 +2161,28 @@ function normalizeStateShape(state) {
       foodScope: ["groceries", "mixed", "all"].includes(mCfg.foodScope) ? mCfg.foodScope : "groceries",
       manualWeeklyCost: Math.max(0, asNumber(mCfg.manualWeeklyCost ?? 2800)),
       custodySchedule: normalizeCustodySchedule(mCfg.custodySchedule || mCfg.kidsSchedule),
+      custodyPeriods: migrateCustodyPeriodsFromStored(mCfg, Number(y)),
       householdChanges: Array.isArray(mCfg.householdChanges) ? mCfg.householdChanges : [],
       deviations: Array.isArray(mCfg.deviations) ? mCfg.deviations : []
     };
     normalized.special.food[y] = { config: cfg, weeks: [] };
   }
 
+  migrateSpecialFoodToSharedModel(normalized);
+
+  migrateOneOffBucketsToLineItems(normalized);
+
   migrateLegacyIncomes(normalized);
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
   migrateLegacyExpenses(normalized);
+  migrateLegacyCarSpecialToExpenses(normalized);
+  migrateLegacyHomeSpecialToExpenses(normalized);
+  migrateLegacyChildrenSpecialToExpenses(normalized);
   ensureExpenseIds(normalized);
+  normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
+  regenerateMirroredLoanExpenses(normalized);
 
   return normalized;
 }
@@ -333,6 +2235,7 @@ function ensureIncomeIds(root) {
       id: incomeId,
       name: String(inc?.name || "").trim(),
       interval: inc?.interval || "once",
+      category: String(inc?.category || "other").trim() || "other",
       payments: normalizedPayments
     };
   });
@@ -340,21 +2243,537 @@ function ensureIncomeIds(root) {
 
 function ensureExpenseIds(root) {
   if (!Array.isArray(root.expenses)) root.expenses = [];
-  root.expenses = root.expenses.map((exp) => {
-    const expenseId = exp?.id || uid();
-    const payments = Array.isArray(exp?.payments) ? exp.payments : [];
-    const normalizedPayments = payments.map((p) => ({
-      id: p?.id || uid(),
-      date: p?.date || "",
-      amount: asNumber(p?.amount)
-    }));
-    return {
-      id: expenseId,
-      name: String(exp?.name || "").trim(),
-      interval: exp?.interval || "once",
-      payments: normalizedPayments
-    };
+  root.expenses = root.expenses.map((exp) => canonicalizeExpenseRecord(exp));
+}
+
+function dedupeGeneratedFoodExpenses(expenses) {
+  if (!Array.isArray(expenses)) return expenses;
+  const seenWeek = new Set();
+  const seenLegacyDate = new Set();
+  return expenses.filter((exp) => {
+    const wk = exp?.metadata?.food?.weekKey || exp?.foodWeekKey;
+    const yFood = exp?.metadata?.food?.year ?? exp?.foodYear;
+    if (isMatLikeExpense(exp) && wk) {
+      const y = Number(yFood);
+      if (!Number.isFinite(y)) return true;
+      const k = `${y}|${wk}`;
+      if (seenWeek.has(k)) return false;
+      seenWeek.add(k);
+      return true;
+    }
+    const name = String(exp?.name || "").trim();
+    if (!/^Mat v\.\d+$/i.test(name)) return true;
+    const pts = Array.isArray(exp.payments) ? exp.payments : [];
+    if (pts.length !== 1) return true;
+    const iso = pts[0]?.date;
+    if (!iso) return true;
+    const legacyKey = `${iso}|${name.toLowerCase()}`;
+    if (seenLegacyDate.has(legacyKey)) return false;
+    seenLegacyDate.add(legacyKey);
+    return true;
   });
+}
+
+/** True om utgiften räknas som systemgenererad mat för ett visst kalenderår (inkl. äldre rader utan flaggor). */
+function isGeneratedMatExpenseForYear(exp, year) {
+  const y = Number(year);
+  if (!Number.isFinite(y)) return false;
+  if (!isMatLikeExpense(exp)) return false;
+  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
+  if (Number.isFinite(fy)) return fy === y;
+  const name = String(exp?.name || "").trim();
+  if (!/^Mat v\.\d+$/i.test(name)) return false;
+  const iso = exp?.payments?.[0]?.date;
+  if (!iso || typeof iso !== "string" || iso.length < 4) return false;
+  const py = Number(iso.slice(0, 4));
+  return Number.isFinite(py) && py === y;
+}
+
+function isMatLikeExpense(exp) {
+  if (!exp) return false;
+  if (exp.metadata?.food?.generated) return true;
+  if (exp.foodGenerated) return true;
+  if (exp.category === "food" && exp.metadata?.food?.generated) return true;
+  return /^Mat v\.\d+$/i.test(String(exp.name || "").trim());
+}
+
+/** Bilutgifter: category car + subcategory (typnyckel). */
+const CAR_EXPENSE_TYPES = [
+  { key: "insurance", label: "Försäkring" },
+  { key: "leasing", label: "Leasing avgift" },
+  { key: "road_tax", label: "Trafikskatt" },
+  { key: "inspection", label: "Besiktning" },
+  { key: "parking_fee", label: "Parkeringsavgift" },
+  { key: "fuel", label: "Drivmedel" },
+  { key: "electricity", label: "El" },
+  { key: "car_wash", label: "Biltvätt" },
+  { key: "tolls", label: "Vägavgifter" },
+  { key: "ferry", label: "Färjeavgifter" }
+];
+
+function isCarExpense(exp) {
+  return Boolean(exp && exp.category === "car");
+}
+
+function isHomeExpense(exp) {
+  return Boolean(exp && exp.category === "home");
+}
+
+function isChildrenExpense(exp) {
+  return Boolean(exp && exp.category === "children");
+}
+
+function isSavingsExpense(exp) {
+  return Boolean(exp && exp.category === "savings");
+}
+
+function isMirroredLoanExpense(exp) {
+  return Boolean(exp && exp.category === "loans" && exp.metadata?.loanId);
+}
+
+function isTaggedOverviewExpense(exp) {
+  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp) || isSavingsExpense(exp);
+}
+
+const HOME_EXPENSE_TYPES = [
+  { key: "rent", label: "Hyra" },
+  { key: "electricity", label: "El" },
+  { key: "water", label: "Vatten" },
+  { key: "garbage", label: "Sophämtning" },
+  { key: "internet", label: "Internet" },
+  { key: "parking_slot", label: "Parkeringsplats" },
+  { key: "streaming", label: "Streaming tjänst" },
+  { key: "digital_service", label: "Digitala tjänst" },
+  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "association_fee", label: "Föreningsavgift" },
+  { key: "bus_card", label: "Busskort" },
+  { key: "other", label: "Annan" }
+];
+
+const CHILDREN_EXPENSE_TYPES = [
+  { key: "clothes", label: "Kläder" },
+  { key: "bus_card", label: "Busskort" },
+  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "activity", label: "Aktivitet" },
+  { key: "pocket_money", label: "Månadspeng" },
+  { key: "birthday_gifts", label: "Födelsedagspresenter" },
+  { key: "christmas_gifts", label: "Julklappar" },
+  { key: "other", label: "Annan" }
+];
+
+/** Gemensam konfiguration för Bil / Hem / Barn (samma UI-flöde som Bil). */
+const TAGGED_CATEGORY_CONFIG = {
+  car: {
+    overlayKey: "car",
+    category: "car",
+    subcategoryField: "subcategory",
+    types: CAR_EXPENSE_TYPES,
+    ids: {
+      editorCard: "carEditorCard",
+      editorTitle: "carEditorTitle",
+      editType: "carEditType",
+      editName: "carEditName",
+      paymentDayRow: "carPaymentDayRow",
+      editPaymentDay: "carEditPaymentDay",
+      editInterval: "carEditInterval",
+      firstDateLabel: "carFirstDateLabel",
+      editFirstDate: "carEditFirstDate",
+      endDateRow: "carEndDateRow",
+      editEndDate: "carEditEndDate",
+      editAmount: "carEditAmount",
+      deleteBtn: "carDeleteBtn",
+      saveBtn: "carSaveBtn",
+      cancelBtn: "carCancelEditorBtn",
+      note: "carNote",
+      listYear: "carListYear",
+      listMonth: "carListMonth",
+      listMount: "carListMount",
+      listMonthTitle: "carListMonthTitle",
+      monthTotal: "carMonthTotal",
+      addBtn: "carAddBtn"
+    },
+    labels: {
+      newItem: "Ny bilutgift",
+      editItem: "Redigera bilutgift",
+      emptyMonth: "Inga bilutgifter denna månad."
+    }
+  },
+  home: {
+    overlayKey: "home",
+    category: "home",
+    subcategoryField: "subcategory",
+    types: HOME_EXPENSE_TYPES,
+    ids: {
+      editorCard: "homeEditorCard",
+      editorTitle: "homeEditorTitle",
+      editType: "homeEditType",
+      editName: "homeEditName",
+      paymentDayRow: "homePaymentDayRow",
+      editPaymentDay: "homeEditPaymentDay",
+      editInterval: "homeEditInterval",
+      firstDateLabel: "homeFirstDateLabel",
+      editFirstDate: "homeEditFirstDate",
+      endDateRow: "homeEndDateRow",
+      editEndDate: "homeEditEndDate",
+      editAmount: "homeEditAmount",
+      deleteBtn: "homeDeleteBtn",
+      saveBtn: "homeSaveBtn",
+      cancelBtn: "homeCancelEditorBtn",
+      note: "homeNote",
+      listYear: "homeListYear",
+      listMonth: "homeListMonth",
+      listMount: "homeListMount",
+      listMonthTitle: "homeListMonthTitle",
+      monthTotal: "homeMonthTotal",
+      addBtn: "homeAddBtn"
+    },
+    labels: {
+      newItem: "Ny hemutgift",
+      editItem: "Redigera hemutgift",
+      emptyMonth: "Inga hemomkostnader denna månad."
+    }
+  },
+  children: {
+    overlayKey: "children",
+    category: "children",
+    subcategoryField: "subcategory",
+    types: CHILDREN_EXPENSE_TYPES,
+    ids: {
+      editorCard: "childrenEditorCard",
+      editorTitle: "childrenEditorTitle",
+      editType: "childrenEditType",
+      editName: "childrenEditName",
+      paymentDayRow: "childrenPaymentDayRow",
+      editPaymentDay: "childrenEditPaymentDay",
+      editInterval: "childrenEditInterval",
+      firstDateLabel: "childrenFirstDateLabel",
+      editFirstDate: "childrenEditFirstDate",
+      endDateRow: "childrenEndDateRow",
+      editEndDate: "childrenEditEndDate",
+      editAmount: "childrenEditAmount",
+      deleteBtn: "childrenDeleteBtn",
+      saveBtn: "childrenSaveBtn",
+      cancelBtn: "childrenCancelEditorBtn",
+      note: "childrenNote",
+      listYear: "childrenListYear",
+      listMonth: "childrenListMonth",
+      listMount: "childrenListMount",
+      listMonthTitle: "childrenListMonthTitle",
+      monthTotal: "childrenMonthTotal",
+      addBtn: "childrenAddBtn"
+    },
+    labels: {
+      newItem: "Ny barnutgift",
+      editItem: "Redigera barnutgift",
+      emptyMonth: "Inga barnutgifter denna månad."
+    }
+  },
+  savings: {
+    overlayKey: "savings",
+    category: "savings",
+    subcategoryField: "subcategory",
+    types: [
+      { key: "own", label: "Eget sparande" },
+      { key: "system", label: "System Sparande" }
+    ],
+    hideTypeInEditor: true,
+    defaultTypeKey: "own",
+    hideTypeInList: true,
+    omitTypeInOverviewLabel: true,
+    ids: {
+      editorCard: "savingsEditorCard",
+      editorTitle: "savingsEditorTitle",
+      editName: "savingsEditName",
+      paymentDayRow: "savingsPaymentDayRow",
+      editPaymentDay: "savingsEditPaymentDay",
+      editInterval: "savingsEditInterval",
+      firstDateLabel: "savingsFirstDateLabel",
+      editFirstDate: "savingsEditFirstDate",
+      endDateRow: "savingsEndDateRow",
+      editEndDate: "savingsEditEndDate",
+      editAmount: "savingsEditAmount",
+      deleteBtn: "savingsDeleteBtn",
+      saveBtn: "savingsSaveBtn",
+      cancelBtn: "savingsCancelEditorBtn",
+      note: "savingsNote",
+      listYear: "savingsListYear",
+      listMonth: "savingsListMonth",
+      listMount: "savingsListMount",
+      listMonthTitle: "savingsListMonthTitle",
+      monthTotal: "savingsMonthTotal",
+      addBtn: "savingsAddBtn"
+    },
+    labels: {
+      newItem: "Nytt sparande",
+      editItem: "Redigera sparande",
+      emptyMonth: "Inget spar denna månad.",
+      monthListTitlePrefix: "Sparbelopp",
+      nameRequiredHint: "Ange namn på spar.",
+      dateOnceHint: "Ange datum för spar.",
+      dateRecurringHint: "Ange första spar tillfälle.",
+      endDateHint: "Ogiltigt slutdatum för spar.",
+      firstDateOnce: "Spar datum",
+      firstDateRecurring: "Första spar tillfälle",
+      endDate: "Spar upphör (valfritt)"
+    }
+  }
+};
+
+const TAGGED_CATEGORY_KEYS = Object.keys(TAGGED_CATEGORY_CONFIG);
+
+function getTaggedExpenseCategory(exp) {
+  const c = exp?.category;
+  if (c && TAGGED_CATEGORY_CONFIG[c]) return c;
+  return null;
+}
+
+function getTaggedTypeLabel(cat, typeKey) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return String(typeKey || "");
+  const k = String(typeKey || "");
+  const row = C.types.find((t) => t.key === k);
+  return row ? row.label : k || C.category;
+}
+
+function getCarTypeLabel(carTypeKey) {
+  return getTaggedTypeLabel("car", carTypeKey);
+}
+
+function migrateLegacyCarSpecialToExpenses(root) {
+  const car = root?.special?.car;
+  if (!car || typeof car !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(car)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = car[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const entries = [];
+    const ins = asNumber(cfg.insurance);
+    if (ins > 0) entries.push({ carTypeKey: "insurance", name: "Försäkring", amt: ins });
+    const fuel = asNumber(cfg.fuel);
+    if (fuel > 0) entries.push({ carTypeKey: "fuel", name: "Drivmedel", amt: fuel });
+    const park = asNumber(cfg.parking);
+    if (park > 0) entries.push({ carTypeKey: "parking_fee", name: "Parkeringsavgift", amt: park });
+    const leased = (cfg.ownership || "owned") === "leased";
+    const lease = asNumber(cfg.leasing);
+    if (leased && lease > 0) entries.push({ carTypeKey: "leasing", name: "Leasing avgift", amt: lease });
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const e of entries) {
+      const payments = Array.from({ length: 12 }, (_, i) => ({
+        id: uid(),
+        date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
+        amount: e.amt
+      }));
+      root.expenses.push({
+        id: uid(),
+        name: e.name,
+        interval: "monthly",
+        category: "car",
+        subcategory: e.carTypeKey,
+        metadata: {
+          schedule: {
+            paymentDay: payDay,
+            firstDate: `${year}-01-${pad2(payDay)}`,
+            endDate: ""
+          }
+        },
+        payments
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.ownership;
+    delete cfg.insurance;
+    delete cfg.fuel;
+    delete cfg.parking;
+    delete cfg.leasing;
+  }
+}
+
+function pushTaggedMonthlyExpense(root, { category, subcategory, name, year, amt, payDay = 25 }) {
+  const payments = Array.from({ length: 12 }, (_, i) => ({
+    id: uid(),
+    date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
+    amount: amt
+  }));
+  root.expenses.push({
+    id: uid(),
+    name,
+    interval: "monthly",
+    category,
+    subcategory,
+    metadata: {
+      schedule: {
+        paymentDay: payDay,
+        firstDate: `${year}-01-${pad2(payDay)}`,
+        endDate: ""
+      }
+    },
+    payments
+  });
+}
+
+function migrateLegacyHomeSpecialToExpenses(root) {
+  const home = root?.special?.home;
+  if (!home || typeof home !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(home)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = home[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const entries = [
+      ["rent", "Hyra", asNumber(cfg.rent)],
+      ["electricity", "El", asNumber(cfg.electricity)],
+      ["water", "Vatten", asNumber(cfg.water)],
+      ["garbage", "Sophämtning", asNumber(cfg.garbage)],
+      ["internet", "Internet", asNumber(cfg.internet)],
+      ["parking_slot", "Parkering", asNumber(cfg.parking)]
+    ].filter((x) => x[2] > 0);
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const [typeKey, name, amt] of entries) {
+      pushTaggedMonthlyExpense(root, {
+        category: "home",
+        subcategory: typeKey,
+        name,
+        amt,
+        year,
+        payDay
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.rent;
+    delete cfg.electricity;
+    delete cfg.water;
+    delete cfg.garbage;
+    delete cfg.internet;
+    delete cfg.parking;
+  }
+}
+
+function migrateLegacyChildrenSpecialToExpenses(root) {
+  const ch = root?.special?.children;
+  if (!ch || typeof ch !== "object" || !Array.isArray(root.expenses)) return;
+  for (const yk of Object.keys(ch)) {
+    if (!/^\d{4}$/.test(yk)) continue;
+    const cfg = ch[yk];
+    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
+    const year = Number(yk);
+    if (!isAllowedYear(year)) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const parties = Math.max(0, asNumber(cfg.kidsPartiesPerYear)) * asNumber(cfg.kidsPartyUnitCost);
+    const partiesMonthly = parties / 12;
+    const entries = [
+      ["clothes", "Kläder", asNumber(cfg.kidsClothesPerMonth)],
+      ["bus_card", "Busskort", asNumber(cfg.kidsBusCardPerMonth)],
+      ["mobile_plan", "Mobil abonnemang", asNumber(cfg.kidsPhonePerMonth)],
+      ["activity", "Aktivitet", asNumber(cfg.kidsActivitiesPerMonth)],
+      ["pocket_money", "Månadspeng", asNumber(cfg.kidsPocketMoneyPerMonth)]
+    ].filter((x) => x[2] > 0);
+    if (partiesMonthly > 0) entries.push(["other", "Kalas / partyn (migrerat)", partiesMonthly]);
+    if (entries.length === 0) {
+      cfg._legacyMigrated = true;
+      continue;
+    }
+    const payDay = 25;
+    for (const [typeKey, name, amt] of entries) {
+      pushTaggedMonthlyExpense(root, {
+        category: "children",
+        subcategory: typeKey,
+        name,
+        amt,
+        year,
+        payDay
+      });
+    }
+    cfg._legacyMigrated = true;
+    delete cfg.kidsClothesPerMonth;
+    delete cfg.kidsBusCardPerMonth;
+    delete cfg.kidsPhonePerMonth;
+    delete cfg.kidsActivitiesPerMonth;
+    delete cfg.kidsPocketMoneyPerMonth;
+    delete cfg.kidsPartiesPerYear;
+    delete cfg.kidsPartyUnitCost;
+  }
+}
+
+/** Bygger betalningslista inom appens tillåtna år (föregående/nu/nästa). */
+function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDay, amount }) {
+  const amt = Math.max(0, asNumber(amount));
+  if (amt <= 0) return [];
+
+  const firstParts = datePartsFromIso(firstDateISO);
+  if (!firstParts) return [];
+
+  const firstTime = new Date(firstParts.y, firstParts.m - 1, firstParts.d).getTime();
+  let endTime = null;
+  if (endDateISO && String(endDateISO).trim()) {
+    const ep = datePartsFromIso(endDateISO);
+    if (ep) endTime = new Date(ep.y, ep.m - 1, ep.d).getTime();
+  }
+  if (endTime !== null && endTime < firstTime) return [];
+
+  const payDay = Math.max(1, Math.min(31, Math.floor(asNumber(paymentDay) || firstParts.d)));
+  const ys = getSelectableAppYears();
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  const out = [];
+
+  if (interval === "once") {
+    if (!isAllowedYear(firstParts.y)) return [];
+    const dd = clampDay(firstParts.y, firstParts.m, firstParts.d);
+    out.push({ id: uid(), date: `${firstParts.y}-${pad2(firstParts.m)}-${pad2(dd)}`, amount: amt });
+    return out;
+  }
+
+  let y = firstParts.y;
+  let m = firstParts.m;
+  let first = true;
+  for (let i = 0; i < 400; i++) {
+    const d = first ? firstParts.d : payDay;
+    const dd = clampDay(y, m, d);
+    const t = new Date(y, m - 1, dd).getTime();
+    if (endTime !== null && t > endTime) break;
+    if (t >= firstTime && y >= minY && y <= maxY && isAllowedYear(y)) {
+      out.push({ id: uid(), date: `${y}-${pad2(m)}-${pad2(dd)}`, amount: amt });
+    }
+    first = false;
+    if (interval === "monthly") {
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    } else if (interval === "quarterly") {
+      m += 3;
+      while (m > 12) {
+        m -= 12;
+        y += 1;
+      }
+    } else if (interval === "yearly") {
+      y += 1;
+    } else break;
+
+    if (y > maxY + 2) break;
+  }
+  return out;
 }
 
 function migrateLegacyIncomes(root) {
@@ -441,7 +2860,7 @@ function migrateLegacyExpenses(root) {
 let state = null;
 const ui = {
   activeRoute: "overview",
-  // Översikt
+  // Analys (route "overview")
   overviewYear: null,
   overviewMonth: null,
   // Utgifter
@@ -456,7 +2875,13 @@ const ui = {
   loanEditorOpen: false,
   editLoanId: null,
   loanCopySourceName: null,
-  foodScrollWeekKey: null
+  foodScrollWeekKey: null,
+  tagged: {
+    car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    children: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    savings: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
+  }
 };
 
 function loadState() {
@@ -475,7 +2900,22 @@ function applyTheme() {
   const resolved = mode === "system" ? getSystemTheme() : mode;
   document.documentElement.dataset.theme = resolved;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", resolved === "dark" ? "#0b1220" : "#2563eb");
+  if (meta) meta.setAttribute("content", resolved === "dark" ? "#0c120f" : "#255f33");
+}
+
+function initSystemThemeListener() {
+  try {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      if ((state.themeMode || "system") !== "system") return;
+      applyTheme();
+      renderOverviewIfOnOverview();
+    };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  } catch {
+    /* ignore */
+  }
 }
 
 function initRouting() {
@@ -580,30 +3020,42 @@ function weeksToMonthlyCount(perWeek) {
   return Math.max(0, Math.round(x * WEEKS_PER_MONTH));
 }
 
-function computeSpecialCarMonthly(year) {
-  const config = state.special.car[String(year)] || {};
-  const items = [
-    { label: "Försäkring", amount: asNumber(config.insurance) },
-    { label: "Drivmedel", amount: asNumber(config.fuel) },
-    { label: "Parkering", amount: asNumber(config.parking) },
-    { label: "Leasing/kontrakt", amount: asNumber(config.leasing) }
-  ];
-  const total = items.reduce((s, it) => s + it.amount, 0);
+function computeTaggedCategoryMonthly(year, month, cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  const items = [];
+  let total = 0;
+  const keyField = C.subcategoryField || "subcategory";
+  const omitType = Boolean(C.omitTypeInOverviewLabel);
+  for (const exp of state.expenses || []) {
+    if (exp.category !== C.category) continue;
+    const typeKey = exp[keyField];
+    const typeLabel = getTaggedTypeLabel(cat, typeKey);
+    const name = String(exp.name || "").trim() || typeLabel;
+    for (const p of exp.payments || []) {
+      const pAmt = asNumber(p.amount);
+      if (pAmt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== Number(year) || dt.getMonth() + 1 !== Number(month)) continue;
+      total += pAmt;
+      const dateStr = dt.toLocaleDateString("sv-SE");
+      const label = omitType ? `${name} (${dateStr})` : `${typeLabel} · ${name} (${dateStr})`;
+      items.push({
+        label,
+        amount: pAmt,
+        expenseId: exp.id
+      });
+    }
+  }
   return { total, items };
 }
 
-function computeSpecialHousingMonthly(year) {
-  const config = state.special.home[String(year)] || {};
-  const items = [
-    { label: "Hyra", amount: asNumber(config.rent) },
-    { label: "El", amount: asNumber(config.electricity) },
-    { label: "Vatten", amount: asNumber(config.water) },
-    { label: "Sophämtning", amount: asNumber(config.garbage) },
-    { label: "Internet", amount: asNumber(config.internet) },
-    { label: "Parkering", amount: asNumber(config.parking) }
-  ];
-  const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items };
+function computeSpecialCarMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "car");
+}
+
+function computeSpecialHousingMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "home");
 }
 
 function computeSpecialFoodMonthly() {
@@ -611,85 +3063,257 @@ function computeSpecialFoodMonthly() {
   return { total: 0, items: [] };
 }
 
-function getFoodConfigForYear(year) {
-  const y = String(year);
-  const root = state.special?.food?.[y];
-  // New shape: { config, weeks }
-  if (root && typeof root === "object" && !Array.isArray(root) && (root.config || root.weeks)) {
-    const cfg = root.config || {};
-    return {
-      mode: cfg.mode === "manual" ? "manual" : "auto",
-      household: {
-        adults: Math.max(0, Math.floor(asNumber(cfg.household?.adults ?? 1))),
-        teens: Math.max(0, Math.floor(asNumber(cfg.household?.teens ?? 0))),
-        children: Math.max(0, Math.floor(asNumber(cfg.household?.children ?? 0)))
-      },
-      costLevel: ["budget", "normal", "high"].includes(cfg.costLevel) ? cfg.costLevel : "normal",
-      foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
-      manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
-      custodySchedule: normalizeCustodySchedule(cfg.custodySchedule || cfg.kidsSchedule),
-      householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
-      deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
-    };
-  }
-  // Legacy monthly shapes live here; we keep month-level reads for UI but Step 3 saves to year config
+function normalizeStoredFoodConfigObject(cfg) {
+  cfg = cfg && typeof cfg === "object" ? cfg : {};
+  const refY = currentYearMonth().year;
   return {
-    mode: "auto",
-    household: { adults: 1, teens: 0, children: 0 },
-    costLevel: "normal",
-    foodScope: "groceries",
-    manualWeeklyCost: 2800,
-    custodySchedule: normalizeCustodySchedule(null),
-    householdChanges: [],
-    deviations: []
+    mode: cfg.mode === "manual" ? "manual" : "auto",
+    household: {
+      adults: Math.max(0, Math.floor(asNumber(cfg.household?.adults ?? 1))),
+      teens: Math.max(0, Math.floor(asNumber(cfg.household?.teens ?? 0))),
+      children: Math.max(0, Math.floor(asNumber(cfg.household?.children ?? 0)))
+    },
+    costLevel: ["budget", "normal", "high"].includes(cfg.costLevel) ? cfg.costLevel : "normal",
+    foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
+    manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
+    custodySchedule: normalizeCustodySchedule(cfg.custodySchedule || cfg.kidsSchedule),
+    custodyPeriods: migrateCustodyPeriodsFromStored(cfg, refY),
+    foodBudgetYear: refY,
+    householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
+    deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
   };
+}
+
+/** Gemensam matinställning för appens tre år (special.foodShared). */
+function getSharedFoodConfig() {
+  let cfg = state.special?.foodShared?.config;
+  if (!cfg || typeof cfg !== "object") {
+    const cur = currentYearMonth().year;
+    const legacy =
+      state.special?.food?.[String(cur)]?.config ||
+      state.special?.food?.[String(cur - 1)]?.config ||
+      state.special?.food?.[String(cur + 1)]?.config;
+    cfg = legacy && typeof legacy === "object" ? legacy : {};
+  }
+  return normalizeStoredFoodConfigObject(cfg);
+}
+
+function getFoodConfigForYear(_year) {
+  return getSharedFoodConfig();
 }
 
 function normalizeCustodySchedule(input) {
   const cs = input && typeof input === "object" ? input : {};
   const legacy = input && typeof input === "object" && ("membersWhenPresent" in input || "periodEnd" in input);
   if (legacy) {
-    // Legacy model cannot be mapped safely to absence → disable by default.
     return {
-      type: cs.enabled ? "same" : "off",
-      alternating: { startDate: "", periodDays: 7, absent: { children: 0, teens: 0 }, costRemainingPct: 0 },
+      type: "off",
+      alternating: {
+        startDate: "",
+        ratioKey: "7-7",
+        awayDays: 7,
+        withDays: 7,
+        absent: { children: 0, teens: 0 }
+      },
       custom: []
     };
   }
-  const type = ["off", "same", "alternating", "custom"].includes(cs.type) ? cs.type : "off";
+  let type = ["off", "alternating"].includes(cs.type) ? cs.type : "off";
+  if (cs.type === "same" || cs.type === "custom") type = "off";
   const alt = cs.alternating && typeof cs.alternating === "object" ? cs.alternating : {};
+  let ratioKey = CUSTODY_RATIO_KEYS.includes(alt.ratioKey) ? alt.ratioKey : null;
+  if (!ratioKey) {
+    const pd = Number(alt.periodDays);
+    if (pd === 14) ratioKey = "14-14";
+    else ratioKey = "7-7";
+  }
+  const { awayDays, withDays } = parseCustodyRatioKey(ratioKey);
   return {
     type,
     alternating: {
       startDate: String(alt.startDate || ""),
-      periodDays: [7, 14].includes(Number(alt.periodDays)) ? Number(alt.periodDays) : 7,
+      ratioKey,
+      awayDays,
+      withDays,
       absent: {
         children: Math.max(0, Math.floor(asNumber(alt.absent?.children ?? 0))),
         teens: Math.max(0, Math.floor(asNumber(alt.absent?.teens ?? 0)))
-      },
-      costRemainingPct: Math.max(0, Math.min(100, Math.floor(asNumber(alt.costRemainingPct ?? 0))))
+      }
     },
-    custom: Array.isArray(cs.custom) ? cs.custom.map((p) => ({
-      startDate: String(p?.startDate || ""),
-      endDate: String(p?.endDate || ""),
-      absent: {
-        children: Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0))),
-        teens: Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)))
-      },
-      costRemainingPct: Math.max(0, Math.min(100, Math.floor(asNumber(p?.costRemainingPct ?? 0))))
-    })) : []
+    custom: []
   };
 }
 
-function setFoodYearModel(year, config, weeks) {
-  const y = String(year);
-  if (!state.special.food) state.special.food = {};
-  state.special.food[y] = { config: { ...config }, weeks: Array.isArray(weeks) ? weeks : [] };
+function normalizeCustodyPeriodEntry(p) {
+  if (!p || typeof p !== "object") {
+    return { startDate: "", endDate: "", ratioKey: "7-7", absent: { children: 0, teens: 0 } };
+  }
+  const rk = CUSTODY_RATIO_KEYS.includes(p.ratioKey) ? p.ratioKey : "7-7";
+  return {
+    startDate: String(p.startDate || ""),
+    endDate: String(p.endDate || ""),
+    ratioKey: rk,
+    absent: {
+      children: Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0))),
+      teens: Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)))
+    }
+  };
+}
+
+function migrateCustodyPeriodsFromStored(cfg, foodYear) {
+  if (Array.isArray(cfg?.custodyPeriods) && cfg.custodyPeriods.length > 0) {
+    return cfg.custodyPeriods.map(normalizeCustodyPeriodEntry);
+  }
+  const cs = cfg?.custodySchedule;
+  if (cs && cs.type === "alternating") {
+    const alt = cs.alternating || {};
+    if (alt.startDate) {
+      return [normalizeCustodyPeriodEntry({
+        startDate: alt.startDate,
+        endDate: "",
+        ratioKey: alt.ratioKey || "7-7",
+        absent: { children: alt.absent?.children ?? 0, teens: alt.absent?.teens ?? 0 }
+      })];
+    }
+  }
+  return [];
+}
+
+function getCustodyPeriodEffectiveEnd(period, foodBudgetYear) {
+  const endStr = period.endDate && String(period.endDate).trim();
+  if (endStr) {
+    const e = parseDateISO(endStr);
+    return e;
+  }
+  const y = getFoodTillsVidareCapYear();
+  const d = new Date(y, 11, 31);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function calendarRangesOverlapCustody(s1, e1, s2, e2) {
+  return diffCalendarDays(s1, e2) >= 0 && diffCalendarDays(s2, e1) >= 0;
+}
+
+function buildCustodyPeriodAcceptance(periods, foodBudgetYear) {
+  const arr = Array.isArray(periods) ? periods : [];
+  const sorted = arr
+    .map((p, origIdx) => ({ p: normalizeCustodyPeriodEntry(p), origIdx }))
+    .filter((x) => x.p.startDate)
+    .sort((a, b) => String(a.p.startDate).localeCompare(String(b.p.startDate)) || a.origIdx - b.origIdx);
+  const accepted = [];
+  const shadowedOrigIndices = new Set();
+  for (const { p, origIdx } of sorted) {
+    const s = parseDateISO(p.startDate);
+    if (!s) continue;
+    const e = getCustodyPeriodEffectiveEnd(p, foodBudgetYear);
+    if (!e) continue;
+    let overlaps = false;
+    for (const acc of accepted) {
+      if (calendarRangesOverlapCustody(s, e, acc.s, acc.e)) {
+        overlaps = true;
+        break;
+      }
+    }
+    if (overlaps) shadowedOrigIndices.add(origIdx);
+    else accepted.push({ s, e, p, origIdx });
+  }
+  return { accepted, shadowedOrigIndices };
+}
+
+function resolveCustodyPeriodForDate(config, date) {
+  const year = Number(config.foodBudgetYear) || new Date().getFullYear();
+  const { accepted } = buildCustodyPeriodAcceptance(config.custodyPeriods || [], year);
+  for (const acc of accepted) {
+    if (diffCalendarDays(acc.s, date) >= 0 && diffCalendarDays(date, acc.e) >= 0) return acc.p;
+  }
+  return null;
+}
+
+function getCustodyAbsenceForAlternatingPeriod(period, date, foodBudgetYear) {
+  const start = parseDateISO(period.startDate);
+  if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0 };
+  const effEnd = getCustodyPeriodEffectiveEnd(period, foodBudgetYear);
+  if (diffCalendarDays(start, date) < 0 || diffCalendarDays(date, effEnd) < 0) {
+    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  }
+  const { awayDays, withDays } = parseCustodyRatioKey(period.ratioKey);
+  const cycle = awayDays + withDays;
+  const span = diffCalendarDays(start, effEnd) + 1;
+  if (span < cycle) return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  const aC = Math.max(0, Math.floor(asNumber(period.absent?.children ?? 0)));
+  const aT = Math.max(0, Math.floor(asNumber(period.absent?.teens ?? 0)));
+  const diffDays = diffCalendarDays(start, date);
+  const mod = ((diffDays % cycle) + cycle) % cycle;
+  const absent = mod < awayDays;
+  return { valid: true, absent, absentChildren: aC, absentTeens: aT };
+}
+
+function syncCustodyPeriodsAbsentWithHousehold(draft, extraAbsentRef) {
+  const arr = draft.custodyPeriods;
+  const absents = [];
+  if (Array.isArray(arr)) arr.forEach((p) => absents.push(p.absent));
+  if (extraAbsentRef) absents.push(extraAbsentRef);
+  if (absents.length === 0) {
+    delete draft._custodyHhSnapGlobal;
+    return;
+  }
+  const baseC = Math.max(0, Math.floor(asNumber(draft.household?.children)));
+  const baseT = Math.max(0, Math.floor(asNumber(draft.household?.teens)));
+  if (!draft._custodyHhSnapGlobal) {
+    draft._custodyHhSnapGlobal = { c: baseC, t: baseT };
+    return;
+  }
+  const snap = draft._custodyHhSnapGlobal;
+  if (baseC !== snap.c) {
+    if (baseC > snap.c) {
+      absents.forEach((abs) => { abs.children = baseC; });
+    } else {
+      absents.forEach((abs) => { abs.children = Math.min(abs.children, baseC); });
+    }
+    snap.c = baseC;
+  }
+  if (baseT !== snap.t) {
+    if (baseT > snap.t) {
+      absents.forEach((abs) => { abs.teens = baseT; });
+    } else {
+      absents.forEach((abs) => { abs.teens = Math.min(abs.teens, baseT); });
+    }
+    snap.t = baseT;
+  }
+}
+
+function custodyPeriodEndDateValid(p) {
+  const s = parseDateISO(p.startDate);
+  if (!s) return false;
+  const endStr = p.endDate && String(p.endDate).trim();
+  if (!endStr) return true;
+  const e = parseDateISO(endStr);
+  if (!e) return false;
+  return diffCalendarDays(s, e) >= 1;
+}
+
+function setSharedFoodModel(config, weeks) {
+  if (!state.special.foodShared) state.special.foodShared = {};
+  state.special.foodShared.config = { ...config };
+  state.special.foodShared.weeks = Array.isArray(weeks) ? weeks : [];
+  if (state.special.food && typeof state.special.food === "object") {
+    for (const k of Object.keys(state.special.food)) {
+      if (/^\d{4}$/.test(k)) delete state.special.food[k];
+    }
+  }
 }
 
 const FOOD_LEVEL_FACTORS = { budget: 0.85, normal: 1.0, high: 1.2 };
 const FOOD_SCOPE_FACTORS = { groceries: 1.0, mixed: 1.2, all: 1.45 };
 const FOOD_BASE_COSTS = { adults: 850, teens: 950, children: 650 };
+
+const CUSTODY_RATIO_KEYS = ["3-3", "5-2", "2-5", "7-7", "14-14"];
+function parseCustodyRatioKey(key) {
+  const k = CUSTODY_RATIO_KEYS.includes(key) ? key : "7-7";
+  const [a, b] = k.split("-").map((x) => Math.max(1, Math.floor(asNumber(x))));
+  return { ratioKey: k, awayDays: a, withDays: b };
+}
 
 function getISOWeekInfo(date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -735,6 +3359,36 @@ function isoFromDate(d) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
+/** Planeringsdag för visning, t.ex. "31 januari 2026" */
+function formatPlanningDateLongSv(d) {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  const day = d.getDate();
+  const mon = (MONTH_NAMES[d.getMonth()] || "").toLowerCase();
+  return `${day} ${mon} ${d.getFullYear()}`;
+}
+
+/** ISO-veckas måndag–söndag, t.ex. "16 februari - 22 februari 2026" */
+function formatIsoWeekRangeLongSv(weekStart, weekEnd) {
+  if (!weekStart || !weekEnd || Number.isNaN(weekStart.getTime()) || Number.isNaN(weekEnd.getTime())) return "";
+  const y1 = weekStart.getFullYear();
+  const y2 = weekEnd.getFullYear();
+  const d1 = weekStart.getDate();
+  const m1 = (MONTH_NAMES[weekStart.getMonth()] || "").toLowerCase();
+  if (y1 === y2) {
+    const d2 = weekEnd.getDate();
+    const m2 = (MONTH_NAMES[weekEnd.getMonth()] || "").toLowerCase();
+    return `${d1} ${m1} - ${d2} ${m2} ${y2}`;
+  }
+  return `${formatPlanningDateLongSv(weekStart)} - ${formatPlanningDateLongSv(weekEnd)}`;
+}
+
+function foodConfigHasManualWeekAdjustments(config) {
+  const hasCustody = Array.isArray(config.custodyPeriods) && config.custodyPeriods.some((p) => p.startDate && String(p.startDate).trim());
+  const hasHH = Array.isArray(config.householdChanges) && config.householdChanges.length > 0;
+  const hasFac = Array.isArray(config.deviations) && config.deviations.some((d) => d.adjustmentType === "factor");
+  return hasCustody || hasHH || hasFac;
+}
+
 function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   // weekly override deviation
   let weekOverride = null;
@@ -754,15 +3408,33 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
   const labels = new Set();
   if (config.mode === "manual") labels.add("manuell");
 
-  // custody/absence labels
-  if (config.mode !== "manual" && config.custodySchedule?.type && config.custodySchedule.type !== "off" && config.custodySchedule.type !== "same") {
+  if (Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0) {
     const custodyLabel = getCustodyLabelForWeek(config, weekStart);
     if (custodyLabel) labels.add(custodyLabel);
   }
 
   let sumDaily = 0;
   if (config.mode === "manual") {
-    sumDaily = Math.max(0, asNumber(config.manualWeeklyCost));
+    const manualW = Math.max(0, asNumber(config.manualWeeklyCost));
+    if (!foodConfigHasManualWeekAdjustments(config)) {
+      sumDaily = manualW;
+    } else {
+      const cfgA = { ...config, mode: "auto" };
+      const cfgPlain = { ...config, mode: "auto", custodyPeriods: [], householdChanges: [], deviations: [] };
+      let autoWeek = 0;
+      let plainWeek = 0;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        autoWeek += computeFoodDailyCost(cfgA, day);
+        plainWeek += computeFoodDailyCost(cfgPlain, day);
+      }
+      sumDaily = plainWeek > 0 ? Math.round(manualW * (autoWeek / plainWeek)) : manualW;
+      for (let i = 0; i < 7; i++) {
+        const day = addDays(weekStart, i);
+        if (isHouseholdOverrideActive(config, day)) labels.add("ändrat hushåll");
+        if (isDeviationFactorActive(config, day)) labels.add("avvikelse");
+      }
+    }
   } else {
     let anyHhOverride = false;
     let anyDeviation = false;
@@ -834,10 +3506,28 @@ function getIsoWeekMondayFromDate(date) {
 
 function parseDateISO(s) {
   if (!s || typeof s !== "string") return null;
+  const t = s.trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (m) {
+    const y = Number(m[1]);
+    const mo = Number(m[2]) - 1;
+    const day = Number(m[3]);
+    const d = new Date(y, mo, day);
+    if (d.getFullYear() !== y || d.getMonth() !== mo || d.getDate() !== day) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
   const d = new Date(s);
   if (Number.isNaN(d.getTime())) return null;
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/** Kalenderdagar mellan två datum (lokala datum), DST-säkert. */
+function diffCalendarDays(a, b) {
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate());
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate());
+  return Math.round((ub - ua) / 86400000);
 }
 
 function addDays(date, days) {
@@ -853,35 +3543,10 @@ function isDateInRange(date, start, end) {
 }
 
 function getCustodyAbsenceForDate(config, date) {
-  const cs = config.custodySchedule;
-  if (!cs || cs.type === "off" || cs.type === "same") {
-    return { valid: true, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
-  }
-  if (cs.type === "alternating") {
-    const start = parseDateISO(cs.alternating?.startDate);
-    const periodDays = [7, 14].includes(Number(cs.alternating?.periodDays)) ? Number(cs.alternating?.periodDays) : 7;
-    if (!start) return { valid: false, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
-    const diffDays = Math.floor((date.getTime() - start.getTime()) / 86400000);
-    const mod = ((diffDays % (periodDays * 2)) + (periodDays * 2)) % (periodDays * 2);
-    const absent = mod >= 0 && mod < periodDays;
-    const aC = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.children ?? 0)));
-    const aT = Math.max(0, Math.floor(asNumber(cs.alternating?.absent?.teens ?? 0)));
-    const rem = Math.max(0, Math.min(100, Math.floor(asNumber(cs.alternating?.costRemainingPct ?? 0))));
-    return { valid: true, absent, absentChildren: aC, absentTeens: aT, costRemainingPct: rem };
-  }
-  const periods = Array.isArray(cs.custom) ? cs.custom : [];
-  for (let i = periods.length - 1; i >= 0; i--) {
-    const p = periods[i];
-    const s = parseDateISO(p?.startDate);
-    const e = parseDateISO(p?.endDate);
-    if (!s || !e) continue;
-    if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
-    const aC = Math.max(0, Math.floor(asNumber(p?.absent?.children ?? 0)));
-    const aT = Math.max(0, Math.floor(asNumber(p?.absent?.teens ?? 0)));
-    const rem = Math.max(0, Math.min(100, Math.floor(asNumber(p?.costRemainingPct ?? 0))));
-    return { valid: true, absent: true, absentChildren: aC, absentTeens: aT, costRemainingPct: rem };
-  }
-  return { valid: true, absent: false, absentChildren: 0, absentTeens: 0, costRemainingPct: 0 };
+  const year = Number(config.foodBudgetYear) || new Date().getFullYear();
+  const period = resolveCustodyPeriodForDate(config, date);
+  if (!period) return { valid: true, absent: false, absentChildren: 0, absentTeens: 0 };
+  return getCustodyAbsenceForAlternatingPeriod(period, date, year);
 }
 
 function computeFoodDailyCost(config, date) {
@@ -907,20 +3572,37 @@ function computeFoodDailyCost(config, date) {
     break;
   }
 
-  let base = adults * FOOD_BASE_COSTS.adults +
+  const base = adults * FOOD_BASE_COSTS.adults +
     teens * FOOD_BASE_COSTS.teens +
     children * FOOD_BASE_COSTS.children;
 
-  // Custody schedule: reduce baseline for absent children/teens
-  const abs = getCustodyAbsenceForDate(config, date);
-  if (abs.valid && abs.absent && (abs.absentChildren > 0 || abs.absentTeens > 0)) {
-    const aC = Math.min(Math.max(0, Math.floor(abs.absentChildren)), Math.max(0, Math.floor(children)));
-    const aT = Math.min(Math.max(0, Math.floor(abs.absentTeens)), Math.max(0, Math.floor(teens)));
-    const absentCost = aC * FOOD_BASE_COSTS.children + aT * FOOD_BASE_COSTS.teens;
-    const remainF = Math.max(0, Math.min(1, asNumber(abs.costRemainingPct) / 100));
-    base = base - absentCost + absentCost * remainF;
+  let daily;
+  const period =
+    Array.isArray(config.custodyPeriods) && config.custodyPeriods.length > 0
+      ? resolveCustodyPeriodForDate(config, date)
+      : null;
+  if (period) {
+    const abs = getCustodyAbsenceForAlternatingPeriod(period, date, Number(config.foodBudgetYear) || new Date().getFullYear());
+    const aC = Math.min(
+      Math.max(0, Math.floor(asNumber(period.absent?.children ?? 0))),
+      Math.max(0, Math.floor(children))
+    );
+    const aT = Math.min(
+      Math.max(0, Math.floor(asNumber(period.absent?.teens ?? 0))),
+      Math.max(0, Math.floor(teens))
+    );
+    const useReduced = abs.valid && abs.absent && (aC > 0 || aT > 0);
+    if (useReduced) {
+      const reducedBase = adults * FOOD_BASE_COSTS.adults +
+        Math.max(0, teens - aT) * FOOD_BASE_COSTS.teens +
+        Math.max(0, children - aC) * FOOD_BASE_COSTS.children;
+      daily = (reducedBase * levelF * scopeF) / 7;
+    } else {
+      daily = (base * levelF * scopeF) / 7;
+    }
+  } else {
+    daily = (base * levelF * scopeF) / 7;
   }
-  let daily = (base * levelF * scopeF) / 7;
 
   // Deviations: apply factor or weekly override (handled per-week in build)
   const devs = Array.isArray(config.deviations) ? config.deviations : [];
@@ -940,6 +3622,52 @@ function computeFoodDailyCost(config, date) {
   return daily; // daily
 }
 
+function computeFoodWeekTotalForWeekStart(config, weekStart) {
+  let sum = 0;
+  for (let i = 0; i < 7; i++) {
+    sum += computeFoodDailyCost(config, addDays(weekStart, i));
+  }
+  return Math.round(sum);
+}
+
+/**
+ * Veckosumma med endast den redigerade växelvis-perioden: grund utan växelvis/hushållsändringar/avvikelser,
+ * sedan enbart denna periods avväxling (autoläge direkt; manuellt = samma skalning som i huvudlogiken).
+ */
+function computeFoodWeekTotalCustodyEditorOnly(baseDraft, periodLive, weekStart) {
+  const p = normalizeCustodyPeriodEntry(periodLive);
+  if (!p.startDate || !String(p.startDate).trim()) return 0;
+  const budgetYear = Number(baseDraft.foodBudgetYear) || currentYearMonth().year;
+  const cfgPlain = {
+    ...baseDraft,
+    custodyPeriods: [],
+    householdChanges: [],
+    deviations: [],
+    foodBudgetYear: budgetYear
+  };
+  const cfgWithPeriod = {
+    ...cfgPlain,
+    custodyPeriods: [p],
+    foodBudgetYear: budgetYear
+  };
+  if (baseDraft.mode !== "manual") {
+    return computeFoodWeekTotalForWeekStart(cfgWithPeriod, weekStart);
+  }
+  const manualW = Math.max(0, asNumber(baseDraft.manualWeeklyCost));
+  const cfgAutoPlain = { ...cfgPlain, mode: "auto" };
+  const cfgAutoWith = { ...cfgWithPeriod, mode: "auto" };
+  let autoPlain = 0;
+  let autoWith = 0;
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(weekStart, i);
+    autoPlain += computeFoodDailyCost(cfgAutoPlain, day);
+    autoWith += computeFoodDailyCost(cfgAutoWith, day);
+  }
+  autoPlain = Math.round(autoPlain);
+  autoWith = Math.round(autoWith);
+  if (autoPlain <= 0) return Math.round(manualW);
+  return Math.max(0, Math.round((manualW * autoWith) / autoPlain));
+}
 
 function computeFoodWeeklyCost(config) {
   if (config.mode === "manual") return Math.max(0, asNumber(config.manualWeeklyCost));
@@ -952,23 +3680,8 @@ function computeFoodWeeklyCost(config) {
   return Math.round(base * levelF * scopeF);
 }
 
-function computeSpecialChildrenMonthly(year) {
-  const config = state.special.children[String(year)] || {};
-
-  const parties = Math.max(0, asNumber(config.kidsPartiesPerYear)) * asNumber(config.kidsPartyUnitCost);
-  const partiesMonthly = parties / 12;
-
-  const items = [
-    { label: "Kläder", amount: asNumber(config.kidsClothesPerMonth) },
-    { label: "Busskort", amount: asNumber(config.kidsBusCardPerMonth) },
-    { label: "Telefonabonnemang", amount: asNumber(config.kidsPhonePerMonth) },
-    { label: "Aktiviteter", amount: asNumber(config.kidsActivitiesPerMonth) },
-    { label: "Månadspeng", amount: asNumber(config.kidsPocketMoneyPerMonth) },
-    { label: "Andra barns kalas", amount: partiesMonthly }
-  ];
-
-  const total = items.reduce((s, it) => s + it.amount, 0);
-  return { total, items };
+function computeSpecialChildrenMonthly(year, month) {
+  return computeTaggedCategoryMonthly(year, month, "children");
 }
 
 function normalizeLoanItem(rawLoan) {
@@ -988,25 +3701,26 @@ function normalizeLoanItem(rawLoan) {
   };
 }
 
-function getAllLoans() {
-  const root = state.special?.loans || {};
+function getAllLoansFromRoot(root) {
+  const loanRoot = root?.special?.loans || {};
   const out = [];
-  for (const v of Object.values(root)) {
+  for (const v of Object.values(loanRoot)) {
     if (Array.isArray(v)) {
       for (const item of v) out.push(normalizeLoanItem(item));
       continue;
     }
     if (v && typeof v === "object") {
-      // Legacy single-loan shape
-      out.push(normalizeLoanItem({
-        id: uid(),
-        name: "Lån",
-        bank: "",
-        principal: v.principal,
-        rate: v.rate,
-        amortization: v.amortization,
-        dueDay: 25
-      }));
+      out.push(
+        normalizeLoanItem({
+          id: uid(),
+          name: "Lån",
+          bank: "",
+          principal: v.principal,
+          rate: v.rate,
+          amortization: v.amortization,
+          dueDay: 25
+        })
+      );
     }
   }
   const seen = new Set();
@@ -1016,6 +3730,58 @@ function getAllLoans() {
     seen.add(key);
     return true;
   });
+}
+
+function getAllLoans() {
+  return getAllLoansFromRoot(state);
+}
+
+/** Tar bort speglade låneposter och bygger om från special.loans (masterdata). */
+function regenerateMirroredLoanExpenses(root) {
+  if (!root || !Array.isArray(root.expenses)) return;
+  root.expenses = root.expenses.filter((e) => !(e.category === "loans" && e.metadata?.loanId));
+  const loans = getAllLoansFromRoot(root);
+  for (const loan of loans) {
+    const months = enumerateLoanMonths(loan);
+    if (months.length === 0) continue;
+    const interest = getLoanInterestAmount(loan);
+    const amort = asNumber(loan.amortization);
+    const due = Math.max(1, Math.min(31, Math.floor(asNumber(loan.dueDay) || 25)));
+    const nm = String(loan.name || "").trim() || "Lån";
+    const loanMeta = { loanId: String(loan.id) };
+    const interestPayments = [];
+    const amortPayments = [];
+    for (const { year, month } of months) {
+      const d = clampDay(year, month, due);
+      const iso = `${year}-${pad2(month)}-${pad2(d)}`;
+      interestPayments.push({ id: uid(), date: iso, amount: interest });
+      amortPayments.push({ id: uid(), date: iso, amount: amort });
+    }
+    root.expenses.push(
+      canonicalizeExpenseRecord({
+        id: uid(),
+        name: `${nm} – Ränta`,
+        category: "loans",
+        subcategory: "interest",
+        interval: "monthly",
+        origin: "system",
+        metadata: { ...loanMeta },
+        payments: interestPayments
+      })
+    );
+    root.expenses.push(
+      canonicalizeExpenseRecord({
+        id: uid(),
+        name: `${nm} – Amortering`,
+        category: "loans",
+        subcategory: "amortization",
+        interval: "monthly",
+        origin: "system",
+        metadata: { ...loanMeta },
+        payments: amortPayments
+      })
+    );
+  }
 }
 
 function persistAllLoans(loans) {
@@ -1038,6 +3804,7 @@ function persistAllLoans(loans) {
       };
     })
   };
+  regenerateMirroredLoanExpenses(state);
 }
 
 function ymValue(y, m) {
@@ -1088,13 +3855,36 @@ function getLoanTotalPayment(loan) {
   return getLoanInterestAmount(loan) + asNumber(loan.amortization);
 }
 
-function computeSpecialLoansMonthly(year, month) {
-  const loans = getAllLoans();
-  const items = loans
-    .filter((loan) => enumerateLoanMonths(loan).some((x) => x.year === Number(year) && x.month === Number(month)))
-    .map((loan) => ({ label: `${loan.name}${loan.bank ? ` (${loan.bank})` : ""}`, amount: getLoanTotalPayment(loan) }));
-  const total = items.reduce((sum, it) => sum + asNumber(it.amount), 0);
-  return { total, items };
+function overviewTableGroupForExpense(exp) {
+  const c = exp.category || "other";
+  if (c === "food" && !isMatLikeExpense(exp)) return "Utgifter";
+  const map = {
+    car: "Bil",
+    home: "Hem",
+    children: "Barn",
+    savings: "Spar",
+    loans: "Lån",
+    one_off: "Enstaka utgifter",
+    food: "Mat"
+  };
+  return map[c] || "Utgifter";
+}
+
+function overviewTableLabelForPayment(exp, dt) {
+  const dateStr = dt.toLocaleDateString("sv-SE");
+  const cfgS = TAGGED_CATEGORY_CONFIG.savings;
+  if (exp.category === "savings" && cfgS?.omitTypeInOverviewLabel) {
+    const name = String(exp.name || "").trim() || getTaggedTypeLabel("savings", exp.subcategory || "own");
+    return `${name} (${dateStr})`;
+  }
+  const cat = exp.category;
+  if (cat === "car" || cat === "home" || cat === "children") {
+    const key = exp.subcategory || "other";
+    const tl = getTaggedTypeLabel(cat, key);
+    const name = String(exp.name || "").trim() || tl;
+    return `${tl} · ${name} (${dateStr})`;
+  }
+  return `${exp.name || "Utgift"} (${dateStr})`;
 }
 
 function computeRecurringMonthlyItems(items) {
@@ -1102,95 +3892,32 @@ function computeRecurringMonthlyItems(items) {
 }
 
 function computeMonthOverview(year, month) {
-  const y = String(year);
-  const m = monthKey(month);
+  const sumPaymentsInMonth = (payments) =>
+    (Array.isArray(payments) ? payments : []).reduce((s, p) => {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) return s;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) return s;
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
+      return s;
+    }, 0);
 
-  const car = computeSpecialCarMonthly(year);
-  const housing = computeSpecialHousingMonthly(year);
-  const loans = computeSpecialLoansMonthly(year, month);
-  // Mat hanteras via foodGenerated-utgifter (egen kategori), inte som "special"-post.
-  const children = computeSpecialChildrenMonthly(year);
-
-  const oneOffExpenses = (state.oneOff?.expenses?.[y]?.[m] || []).map((it) => ({
-    id: it.id,
-    label: it.name,
-    amount: asNumber(it.amount)
-  }));
-  const oneOffIncomes = (state.oneOff?.incomes?.[y]?.[m] || []).map((it) => ({
-    id: it.id,
-    label: it.name,
-    amount: asNumber(it.amount)
-  }));
-
-  const expensePaymentsAmount = (state.expenses || []).reduce((sum, exp) => {
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        const py = dt.getFullYear();
-        const pm = dt.getMonth() + 1;
-        if (py === year && pm === month) return s + amt;
-        return s;
-      }, 0)
-    );
+  const oneOffIncomesAmount = (state.incomes || []).reduce((sum, inc) => {
+    if (inc.category !== "one_off") return sum;
+    return sum + sumPaymentsInMonth(inc.payments);
   }, 0);
 
-  const foodGeneratedAmount = (state.expenses || []).reduce((sum, exp) => {
-    if (!exp?.foodGenerated) return sum;
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
-        return s;
-      }, 0)
-    );
-  }, 0);
+  const seg = {
+    other: 0,
+    mat: 0,
+    car: 0,
+    home: 0,
+    children: 0,
+    savings: 0,
+    loans: 0,
+    one_off: 0
+  };
 
-  const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
-    const payments = Array.isArray(inc.payments) ? inc.payments : [];
-    return (
-      sum +
-      payments.reduce((s, p) => {
-        const amt = asNumber(p.amount);
-        if (amt <= 0) return s;
-        const dt = p.date ? new Date(p.date) : null;
-        if (!dt || Number.isNaN(dt.getTime())) return s;
-        const py = dt.getFullYear();
-        const pm = dt.getMonth() + 1;
-        if (py === year && pm === month) return s + amt;
-        return s;
-      }, 0)
-    );
-  }, 0);
-
-  const specialsAmount = car.total + housing.total + loans.total + children.total;
-  const oneOffExpensesAmount = oneOffExpenses.reduce((s, it) => s + it.amount, 0);
-
-  const incomeAmount = incomePaymentsAmount + oneOffIncomes.reduce((s, it) => s + it.amount, 0);
-  const plannedExpensesAmount = expensePaymentsAmount + specialsAmount + oneOffExpensesAmount;
-  const remaining = incomeAmount - plannedExpensesAmount;
-
-  // Diagramsegment: återkommande + special + enstaka
-  const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, expensePaymentsAmount - foodGeneratedAmount), color: "#8b5cf6" },
-    { key: "foodGenerated", label: "Mat", amount: foodGeneratedAmount, color: "#f97316" },
-    { key: "car", label: "Bil", amount: car.total, color: "#3b82f6" },
-    { key: "housing", label: "Hem", amount: housing.total, color: "#06b6d4" },
-    { key: "loans", label: "Lån", amount: loans.total, color: "#6366f1" },
-    { key: "children", label: "Barn", amount: children.total, color: "#22c55e" },
-    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: "#ef4444" }
-  ].filter((s) => s.amount > 0);
-
-  // Tabellen: bryt ner utgifter och intäkter
   const expensesRows = [];
   for (const exp of state.expenses || []) {
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
@@ -1200,18 +3927,55 @@ function computeMonthOverview(year, month) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      const group = exp?.foodGenerated ? "Mat" : "Utgifter";
-      expensesRows.push({ group, label: `${exp.name || "Utgift"} (${dt.toLocaleDateString("sv-SE")})`, amount: amt });
+
+      const cat = exp.category || "other";
+      if (isMatLikeExpense(exp)) seg.mat += amt;
+      else if (cat === "car") seg.car += amt;
+      else if (cat === "home") seg.home += amt;
+      else if (cat === "children") seg.children += amt;
+      else if (cat === "savings") seg.savings += amt;
+      else if (cat === "loans") seg.loans += amt;
+      else if (cat === "one_off") seg.one_off += amt;
+      else seg.other += amt;
+
+      expensesRows.push({
+        group: overviewTableGroupForExpense(exp),
+        label: overviewTableLabelForPayment(exp, dt),
+        amount: amt,
+        _sortT: dt.getTime()
+      });
     }
   }
-  for (const it of car.items) expensesRows.push({ group: "Bil", label: it.label, amount: it.amount });
-  for (const it of housing.items) expensesRows.push({ group: "Hem", label: it.label, amount: it.amount });
-  for (const it of loans.items) expensesRows.push({ group: "Lån", label: it.label, amount: it.amount });
-  for (const it of children.items) expensesRows.push({ group: "Barn", label: it.label, amount: it.amount });
-  for (const it of oneOffExpenses) expensesRows.push({ group: "Enstaka utgifter", label: it.label, amount: it.amount });
+
+  expensesRows.sort((a, b) => a._sortT - b._sortT || String(a.label).localeCompare(String(b.label), "sv"));
+  const expensesRowsClean = expensesRows.map(({ group, label, amount }) => ({ group, label, amount }));
+
+  const oneOffExpensesAmount = seg.one_off;
+  const plannedExpensesAmount =
+    seg.other + seg.mat + seg.car + seg.home + seg.children + seg.savings + seg.loans + seg.one_off;
+
+  const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
+    if (inc.category === "one_off") return sum;
+    return sum + sumPaymentsInMonth(inc.payments);
+  }, 0);
+
+  const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
+  const remaining = incomeAmount - plannedExpensesAmount;
+
+  const segments = [
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: chartSegmentHex("recurringExpenses") },
+    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: chartSegmentHex("foodGenerated") },
+    { key: "car", label: "Bil", amount: seg.car, color: chartSegmentHex("car") },
+    { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
+    { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
+    { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
+    { key: "savings", label: "Spar", amount: seg.savings, color: chartSegmentHex("savings") },
+    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
+  ].filter((s) => s.amount > 0);
 
   const incomesRows = [];
   for (const inc of state.incomes || []) {
+    if (inc.category === "one_off") continue;
     const payments = Array.isArray(inc.payments) ? inc.payments : [];
     for (const p of payments) {
       const amt = asNumber(p.amount);
@@ -1228,9 +3992,24 @@ function computeMonthOverview(year, month) {
       });
     }
   }
-  for (const it of oneOffIncomes) incomesRows.push({ group: "Enstaka intäkter", label: it.label, amount: it.amount });
+  for (const inc of state.incomes || []) {
+    if (inc.category !== "one_off") continue;
+    const payments = Array.isArray(inc.payments) ? inc.payments : [];
+    for (const p of payments) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
+      incomesRows.push({
+        group: "Enstaka intäkter",
+        label: `${inc.name || "Intäkt"} (${dt.toLocaleDateString("sv-SE")})`,
+        amount: amt
+      });
+    }
+  }
 
-  return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows, incomesRows };
+  return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows: expensesRowsClean, incomesRows };
 }
 
 function drawExpenseChart(svgEl, overview) {
@@ -1241,6 +4020,21 @@ function drawExpenseChart(svgEl, overview) {
   const H = 220;
   svgEl.setAttribute("width", String(W));
   svgEl.setAttribute("height", String(H));
+
+  const dark = resolvedDocumentTheme() === "dark";
+  const chartUi = dark
+    ? {
+        trackMain: "rgba(111, 207, 130, 0.14)",
+        trackRem: "rgba(238, 242, 237, 0.08)",
+        remPos: "#81c784",
+        remNeg: "#ff8a80"
+      }
+    : {
+        trackMain: "rgba(37, 95, 51, 0.15)",
+        trackRem: "rgba(37, 95, 51, 0.12)",
+        remPos: "#43a047",
+        remNeg: "#d32f2f"
+      };
 
   const expenses = Math.max(0, overview.plannedExpensesAmount);
   const income = Math.max(0, overview.incomeAmount);
@@ -1259,7 +4053,7 @@ function drawExpenseChart(svgEl, overview) {
   bg.setAttribute("width", String(totalBarW));
   bg.setAttribute("height", String(barH));
   bg.setAttribute("rx", "12");
-  bg.setAttribute("fill", "rgba(148,163,184,0.25)");
+  bg.setAttribute("fill", chartUi.trackMain);
   svgEl.appendChild(bg);
 
   // Staplad segmentbar (summa = plannedExpenses)
@@ -1291,7 +4085,7 @@ function drawExpenseChart(svgEl, overview) {
   remBg.setAttribute("width", String(totalBarW));
   remBg.setAttribute("height", String(barH));
   remBg.setAttribute("rx", "12");
-  remBg.setAttribute("fill", "rgba(148,163,184,0.18)");
+  remBg.setAttribute("fill", chartUi.trackRem);
   svgEl.appendChild(remBg);
 
   const remAmount = Math.max(0, remaining);
@@ -1302,7 +4096,7 @@ function drawExpenseChart(svgEl, overview) {
   remRect.setAttribute("width", String(remW));
   remRect.setAttribute("height", String(barH));
   remRect.setAttribute("rx", "12");
-  remRect.setAttribute("fill", remaining >= 0 ? "#22c55e" : "#ef4444");
+  remRect.setAttribute("fill", remaining >= 0 ? chartUi.remPos : chartUi.remNeg);
   svgEl.appendChild(remRect);
 
   // Labels
@@ -1372,15 +4166,19 @@ function renderOverview() {
 
   document.getElementById("overviewIncome").textContent = formatKr(overview.incomeAmount);
   document.getElementById("overviewPlannedExpenses").textContent = formatKr(overview.plannedExpensesAmount);
-  document.getElementById("overviewRemaining").textContent = formatKr(overview.remaining);
+  const remainingEl = document.getElementById("overviewRemaining");
+  remainingEl.textContent = formatKr(overview.remaining);
+  remainingEl.classList.remove("summary-value--positive", "summary-value--negative");
+  remainingEl.classList.add(overview.remaining >= 0 ? "summary-value--positive" : "summary-value--negative");
 
   const callout = document.getElementById("remainingCallout");
+  callout.classList.remove("callout--positive", "callout--negative");
   if (overview.remaining >= 0) {
     callout.textContent = `Bra! Du har ${formatKr(overview.remaining)} kvar för övriga utgifter.`;
-    callout.style.borderColor = "rgba(34,197,94,0.35)";
+    callout.classList.add("callout--positive");
   } else {
     callout.textContent = `Varning! Du är beräknad att gå över med ${formatKr(Math.abs(overview.remaining))}.`;
-    callout.style.borderColor = "rgba(239,68,68,0.35)";
+    callout.classList.add("callout--negative");
   }
 
   drawExpenseChart(document.getElementById("expenseChart"), overview);
@@ -1432,6 +4230,8 @@ function renderOverview() {
     tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(incTotal)}</strong></td>`;
     incBody.appendChild(tr);
   }
+
+  syncOverviewPeriodSummaryLabel();
 }
 
 function escapeHtml(text) {
@@ -1443,48 +4243,499 @@ function escapeHtml(text) {
     .replaceAll("'", "&#039;");
 }
 
-function renderCarPage() {
-  const year = ui.expensesYear;
-  const config = state.special.car[String(year)] || {};
-  document.getElementById("carOwnership").value = config.ownership || "owned";
-  document.getElementById("carInsurance").value = asNumber(config.insurance);
-  document.getElementById("carFuel").value = asNumber(config.fuel);
-  document.getElementById("carParking").value = asNumber(config.parking);
-  document.getElementById("carLeasing").value = asNumber(config.leasing);
+function applyTaggedOverlayDateBounds(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  document.querySelectorAll(`[data-expview="${C.overlayKey}"] input[type="date"]`).forEach((inp) => {
+    inp.min = min;
+    inp.max = max;
+  });
+  refreshAllDateFieldRows();
+}
 
-  const leased = (config.ownership || "owned") === "leased";
-  const leasingField = document.getElementById("carLeasingField");
-  if (leasingField) leasingField.hidden = !leased;
+function updateTaggedEditorIntervalVisibility(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const interval = document.getElementById(ids.editInterval)?.value || "once";
+  const recurring = interval !== "once";
+  const payDayRow = document.getElementById(ids.paymentDayRow);
+  const endRow = document.getElementById(ids.endDateRow);
+  const firstLbl = document.getElementById(ids.firstDateLabel);
+  if (payDayRow) payDayRow.hidden = !recurring;
+  if (endRow) endRow.hidden = !recurring;
+  if (firstLbl) {
+    const L = C.labels || {};
+    if (recurring) {
+      firstLbl.textContent = L.firstDateRecurring || "Första betalningsdatum";
+    } else {
+      firstLbl.textContent = L.firstDateOnce || "Betalningsdatum";
+    }
+  }
+}
+
+/** Läser schema från metadata.schedule (fallback: äldre platta fält under migrering). */
+function inferScheduleMetaFromExpense(exp) {
+  const pts = (exp.payments || [])
+    .filter((p) => asNumber(p.amount) > 0 && p.date)
+    .slice()
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  const first = pts[0];
+  const second = pts[1];
+  const sched = exp.metadata?.schedule || {};
+  let payDay = sched.paymentDay;
+  if (payDay == null || payDay === "") payDay = exp.carPaymentDay;
+  if (payDay == null || payDay === "") {
+    const p2 = second?.date ? datePartsFromIso(second.date) : null;
+    if (p2) payDay = p2.d;
+  }
+  if (payDay == null || payDay === "") {
+    const p1 = first?.date ? datePartsFromIso(first.date) : null;
+    payDay = p1?.d ?? 25;
+  }
+  payDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDay)) || 25));
+  let firstDate = sched.firstDate || exp.carFirstDate || first?.date || "";
+  const amount = first ? asNumber(first.amount) : 0;
+  let endDate = "";
+  if (sched.endDate !== undefined && sched.endDate !== null) endDate = String(sched.endDate);
+  else if (exp.carEndDate != null && exp.carEndDate !== undefined) endDate = String(exp.carEndDate);
+  return { firstDate, payDay, amount, endDate };
+}
+
+function formatTaggedExpenseDateDisplaySv(isoDate) {
+  const dt = isoDate ? new Date(isoDate) : null;
+  if (!dt || Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function getTaggedExpenseRowsForMonth(year, month, cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  const keyField = C.subcategoryField || "subcategory";
+  const rows = [];
+  for (const exp of state.expenses || []) {
+    if (exp.category !== C.category) continue;
+    const key = exp[keyField] || "other";
+    const typeLabel = getTaggedTypeLabel(cat, key);
+    const nameRaw = String(exp.name || "").trim();
+    const datesInMonth = [];
+    let sum = 0;
+    for (const p of exp.payments || []) {
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
+        const amt = asNumber(p.amount);
+        if (amt > 0 && p.date) datesInMonth.push(String(p.date));
+        sum += amt;
+      }
+    }
+    if (sum <= 0) continue;
+    datesInMonth.sort();
+    const dateIso = datesInMonth[0] || "";
+    let titleLine;
+    if (C.hideTypeInList) {
+      titleLine = nameRaw || "Sparande";
+    } else {
+      titleLine = nameRaw && nameRaw !== typeLabel ? `${typeLabel} ${nameRaw}`.trim() : typeLabel;
+    }
+    rows.push({
+      expenseId: exp.id,
+      titleLine,
+      amount: sum,
+      dateStr: formatTaggedExpenseDateDisplaySv(dateIso),
+      sortKey: dateIso || "9999-12-31"
+    });
+  }
+  rows.sort((a, b) => String(a.sortKey).localeCompare(String(b.sortKey)) || a.titleLine.localeCompare(b.titleLine, "sv"));
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return { rows, total };
+}
+
+function renderTaggedExpenseListMount(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  const ids = C.ids;
+  const mount = document.getElementById(ids.listMount);
+  const totalEl = document.getElementById(ids.monthTotal);
+  const titleEl = document.getElementById(ids.listMonthTitle);
+  if (!mount) return;
+
+  const u = ui.tagged[cat];
+  const year = Number(u.listYear);
+  const month = Number(u.listMonth);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return;
+
+  if (titleEl) {
+    const prefix = (C.labels && C.labels.monthListTitlePrefix) || "Utgifter";
+    titleEl.textContent = `${prefix} ${monthName(month).toLowerCase()}`;
+  }
+  const { rows, total } = getTaggedExpenseRowsForMonth(year, month, cat);
+  mount.innerHTML = "";
+
+  if (rows.length === 0) {
+    mount.innerHTML = `<div class="tagged-expense-list-empty">${escapeHtml(C.labels.emptyMonth)}</div>`;
+  } else {
+    for (const r of rows) {
+      const row = document.createElement("div");
+      row.className = "tagged-expense-preview-row";
+      row.innerHTML = `
+        <div class="tagged-expense-row-top">
+          <strong class="tagged-expense-title">${escapeHtml(r.titleLine)}</strong>
+          <strong class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</strong>
+        </div>
+        <div class="tagged-expense-row-meta">
+          <span class="tagged-expense-date">${escapeHtml(r.dateStr)}</span>
+          <button type="button" class="secondary btn-icon tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera">✎</button>
+        </div>
+      `;
+      mount.appendChild(row);
+    }
+  }
+
+  if (totalEl) {
+    totalEl.textContent = total > 0 ? `Totalt denna månad: ${formatKr(total)}` : "";
+  }
+
+  mount.onclick = (e) => {
+    const btn = e.target.closest("[data-tagged-edit-id]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-tagged-edit-id");
+    const c = btn.getAttribute("data-tagged-cat");
+    if (!id || !c || !TAGGED_CATEGORY_CONFIG[c]) return;
+    ui.tagged[c].editingId = id;
+    ui.tagged[c].editorOpen = true;
+    if (c === "car") renderCarPage();
+    else if (c === "home") renderHomePage();
+    else if (c === "children") renderChildrenPage();
+    else if (c === "savings") renderSavingsPage();
+  };
+}
+
+function renderTaggedCategoryPage(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.tagged[cat];
+
+  const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
+  if (summaryId) hideErrorSummaryById(summaryId);
+
+  const listYearSel = document.getElementById(ids.listYear);
+  const listMonthSel = document.getElementById(ids.listMonth);
+  const cur = currentYearMonth();
+  const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
+  const appYears = getSelectableAppYears();
+  if (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear))) {
+    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  }
+  if (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12) {
+    u.listMonth = cur.month;
+  }
+
+  if (listYearSel) {
+    setYear3Options(listYearSel, u.listYear);
+    listYearSel.onchange = () => {
+      u.listYear = Number(listYearSel.value);
+      renderTaggedExpenseListMount(cat);
+    };
+  }
+  if (listMonthSel) {
+    setMonthOptions(listMonthSel, u.listMonth);
+    listMonthSel.onchange = () => {
+      u.listMonth = Number(listMonthSel.value);
+      renderTaggedExpenseListMount(cat);
+    };
+  }
+
+  const editorCard = document.getElementById(ids.editorCard);
+  const editorTitle = document.getElementById(ids.editorTitle);
+  const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
+  const nameInp = document.getElementById(ids.editName);
+  const payDayInp = document.getElementById(ids.editPaymentDay);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
+  const delBtn = document.getElementById(ids.deleteBtn);
+  const saveBtn = document.getElementById(ids.saveBtn);
+  const note = document.getElementById(ids.note);
+
+  if (typeSel && typeSel.options.length === 0) {
+    for (const t of C.types) {
+      const opt = document.createElement("option");
+      opt.value = t.key;
+      opt.textContent = t.label;
+      typeSel.appendChild(opt);
+    }
+  }
+
+  const editingId = u.editingId;
+  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.category === C.category) : null;
+
+  if (editorCard) editorCard.hidden = !u.editorOpen;
+
+  if (u.editorOpen && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
+    if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
+    if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
+    if (delBtn) delBtn.hidden = !editing;
+
+    const kf = C.subcategoryField || "subcategory";
+    const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key || "own";
+    if (editing) {
+      const curKey = editing[kf];
+      if (typeSel) {
+        typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
+      }
+      nameInp.value = editing.name || (C.hideTypeInEditor ? "" : getTaggedTypeLabel(cat, curKey));
+      intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
+      const inf = inferScheduleMetaFromExpense(editing);
+      payDayInp.value = String(inf.payDay);
+      firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
+      endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
+      amtInp.value = inf.amount > 0 ? String(Math.round(inf.amount)) : "";
+    } else {
+      if (typeSel) {
+        const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
+        typeSel.value = defType.key;
+      }
+      nameInp.value = C.hideTypeInEditor ? "" : (C.types[0] ? C.types[0].label : "");
+      intervalSel.value = "once";
+      payDayInp.value = "25";
+      const y = Number(u.listYear) || baseYear;
+      const m = Number(u.listMonth) || cur.month;
+      const d = clampDay(y, m, 25);
+      firstInp.value = `${y}-${pad2(m)}-${pad2(d)}`;
+      endInp.value = "";
+      amtInp.value = "";
+    }
+    updateTaggedEditorIntervalVisibility(cat);
+    if (note) note.textContent = "";
+    applyTaggedOverlayDateBounds(cat);
+    refreshTaggedExpenseNameDatalist(cat, ids.editName);
+  }
+
+  renderTaggedExpenseListMount(cat);
+
+  if (intervalSel && intervalSel.getAttribute("data-tag-interval-bound") !== cat) {
+    intervalSel.setAttribute("data-tag-interval-bound", cat);
+    intervalSel.addEventListener("change", () => updateTaggedEditorIntervalVisibility(cat));
+  }
+  if (typeSel && typeSel.getAttribute("data-tag-type-bound") !== cat) {
+    typeSel.setAttribute("data-tag-type-bound", cat);
+    typeSel.addEventListener("change", () => {
+      if (u.editingId) return;
+      if (C.hideTypeInEditor) return;
+      const t = C.types.find((x) => x.key === typeSel.value);
+      if (t && nameInp) nameInp.value = t.label;
+    });
+  }
+}
+
+function saveTaggedCategoryFromEditor(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.tagged[cat];
+  const note = document.getElementById(ids.note);
+  const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
+  const summaryEl = summaryId ? document.getElementById(summaryId) : null;
+  hideErrorSummaryByEl(summaryEl);
+  const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
+  const nameInp = document.getElementById(ids.editName);
+  const payDayInp = document.getElementById(ids.editPaymentDay);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
+  if (!nameInp || !intervalSel || !firstInp || !amtInp) return;
+
+  const kf = C.subcategoryField || "subcategory";
+  const name = (nameInp.value || "").trim();
+  const L = C.labels || {};
+  if (!name) {
+    const msg = L.nameRequiredHint || "Ange namn på utgift.";
+    if (note) note.textContent = msg;
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editName }]);
+    return;
+  }
+  const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key;
+  let typeKey = typeSel?.value || defaultTypeKey;
+  if (u.editingId && C.hideTypeInEditor) {
+    const prev = (state.expenses || []).find((x) => x.id === u.editingId);
+    const pk = prev && prev[kf];
+    if (pk && C.types.some((t) => t.key === pk)) typeKey = pk;
+    else typeKey = defaultTypeKey;
+  }
+  const interval = intervalSel.value || "once";
+  const firstDateISO = (firstInp.value || "").trim();
+  const firstParts = datePartsFromIso(firstDateISO);
+  if (!firstParts) {
+    if (note) {
+      const msg =
+        interval === "once"
+          ? L.dateOnceHint || "Ange datum för betalning."
+          : L.dateRecurringHint || "Ange första betalningsdatum.";
+      note.textContent = msg;
+      renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
+      return;
+    }
+    renderErrorSummary(summaryEl, [{ label: "Ange datum för betalning.", jumpId: ids.editFirstDate }]);
+    return;
+  }
+  if (!isAllowedYear(firstParts.y)) {
+    const msg = "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).";
+    if (note) note.textContent = msg;
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
+    return;
+  }
+  const paymentDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDayInp?.value) || 25)));
+  let endDateISO = (endInp?.value || "").trim();
+  if (interval === "once") {
+    endDateISO = "";
+  } else if (endDateISO && !datePartsFromIso(endDateISO)) {
+    const msg = L.endDateHint || "Ogiltigt slutdatum för betalning.";
+    if (note) note.textContent = msg;
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editEndDate }]);
+    return;
+  }
+  const amount = asNumber(amtInp.value);
+  if (amount <= 0) {
+    const msg = "Ange belopp större än noll.";
+    if (note) note.textContent = msg;
+    renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editAmount }]);
+    return;
+  }
+  const payments = buildCarExpensePayments({
+    interval,
+    firstDateISO,
+    endDateISO,
+    paymentDay,
+    amount
+  });
+  if (!payments.length) {
+    const msg =
+      "Inga betalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum.";
+    if (note) note.textContent = msg;
+    renderErrorSummary(summaryEl, [{ label: msg }]);
+    return;
+  }
+  const prevRow = u.editingId ? (state.expenses || []).find((x) => x.id === u.editingId) : null;
+  const prevMeta =
+    prevRow && typeof prevRow.metadata === "object" && prevRow.metadata && !Array.isArray(prevRow.metadata)
+      ? deepCloneJson(prevRow.metadata)
+      : {};
+  prevMeta.schedule = {
+    paymentDay: interval === "once" ? firstParts.d : paymentDay,
+    firstDate: firstDateISO,
+    endDate: endDateISO
+  };
+  const base = {
+    name,
+    interval,
+    payments,
+    category: C.category,
+    metadata: prevMeta
+  };
+  base[kf] = typeKey;
+
+  if (u.editingId) {
+    const idx = (state.expenses || []).findIndex((x) => x.id === u.editingId);
+    if (idx >= 0) state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], ...base, id: state.expenses[idx].id });
+  } else {
+    state.expenses.push(canonicalizeExpenseRecord({ id: uid(), ...base }));
+  }
+  saveState();
+  if (note) note.textContent = "";
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedCategoryPage(cat);
+  renderOverviewIfOnOverview();
+  renderExpensesList();
+}
+
+function deleteTaggedCategoryFromEditor(cat) {
+  const u = ui.tagged[cat];
+  if (!u.editingId) return;
+  state.expenses = (state.expenses || []).filter((x) => x.id !== u.editingId);
+  saveState();
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedCategoryPage(cat);
+  renderOverviewIfOnOverview();
+  renderExpensesList();
+}
+
+function renderCarPage() {
+  renderTaggedCategoryPage("car");
 }
 
 function renderHomePage() {
-  const year = ui.expensesYear;
-  const config = state.special.home[String(year)] || {};
-  document.getElementById("homeRent").value = asNumber(config.rent);
-  document.getElementById("homeElectricity").value = asNumber(config.electricity);
-  document.getElementById("homeWater").value = asNumber(config.water);
-  document.getElementById("homeGarbage").value = asNumber(config.garbage);
-  document.getElementById("homeInternet").value = asNumber(config.internet);
-  document.getElementById("homeParking").value = asNumber(config.parking);
+  renderTaggedCategoryPage("home");
+}
+
+function renderChildrenPage() {
+  renderTaggedCategoryPage("children");
+}
+
+function renderSavingsPage() {
+  renderTaggedCategoryPage("savings");
+}
+
+function saveCarExpenseFromEditor() {
+  saveTaggedCategoryFromEditor("car");
+}
+
+function deleteCarExpenseFromEditor() {
+  deleteTaggedCategoryFromEditor("car");
 }
 
 function renderFoodPage() {
-  const yearSel = document.getElementById("expensesFoodYear");
-  const monthSel = document.getElementById("expensesFoodMonth");
-  const year = Number(yearSel?.value || ui.expensesYear || ui.overviewYear || currentYearMonth().year);
-  const month = Number(monthSel?.value || ui.expensesFoodMonth || currentYearMonth().month);
-  ui.expensesYear = year;
-  ui.expensesFoodMonth = month;
-  if (yearSel) setYear3Options(yearSel, year);
-  if (yearSel) yearSel.onchange = () => renderFoodPage();
-  if (monthSel) setMonthOptions(monthSel, month);
-  if (monthSel) monthSel.onchange = () => renderFoodPage();
-  const cfg = getFoodConfigForYear(year);
+  const foodNoteClear = document.getElementById("foodNote");
+  if (foodNoteClear) foodNoteClear.textContent = "";
+  hideErrorSummaryById("foodErrorSummary");
+  hideErrorSummaryById("foodCustodyErrorSummary");
+  hideErrorSummaryById("foodHouseholdErrorSummary");
+  hideErrorSummaryById("foodDeviationErrorSummary");
+
+  const previewYearSel = document.getElementById("foodPreviewYear");
+  const previewMonthSel = document.getElementById("foodPreviewMonth");
+  const cur = currentYearMonth();
+  if (ui.foodPreviewYear == null || !Number.isFinite(Number(ui.foodPreviewYear))) ui.foodPreviewYear = cur.year;
+  if (ui.foodPreviewMonth == null || !Number.isFinite(Number(ui.foodPreviewMonth))) ui.foodPreviewMonth = cur.month;
+  const previewYear = Number(previewYearSel?.value || ui.foodPreviewYear);
+  const previewMonth = Number(previewMonthSel?.value || ui.foodPreviewMonth);
+  ui.foodPreviewYear = previewYear;
+  ui.foodPreviewMonth = previewMonth;
+  ui.expensesFoodMonth = previewMonth;
+  if (previewYearSel) setYear3Options(previewYearSel, previewYear);
+  if (previewYearSel) previewYearSel.onchange = () => renderFoodPage();
+  if (previewMonthSel) setMonthOptions(previewMonthSel, previewMonth);
+  if (previewMonthSel) previewMonthSel.onchange = () => renderFoodPage();
+  const foodWindowLabel = `${getSelectableAppYears()[0]}–${getSelectableAppYears()[2]}`;
+  const cfg = getSharedFoodConfig();
+  const periodsCopy = Array.isArray(cfg.custodyPeriods)
+    ? cfg.custodyPeriods.map((p) => {
+      const n = normalizeCustodyPeriodEntry(p);
+      return { ...n, absent: { ...n.absent } };
+    })
+    : [];
   ui.foodConfigDraft = {
     ...cfg,
-    household: { ...cfg.household },
+    household: {
+      ...cfg.household
+    },
+    custodyPeriods: periodsCopy,
     custodySchedule: normalizeCustodySchedule(cfg.custodySchedule)
   };
+  delete ui.foodConfigDraft._custodyHhSnap;
+  updateFoodMatHubTitles(ui.foodConfigDraft);
+  if (periodsCopy.length > 0) {
+    const bc = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.children)));
+    const bt = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household.teens)));
+    ui.foodConfigDraft._custodyHhSnapGlobal = { c: bc, t: bt };
+  } else {
+    delete ui.foodConfigDraft._custodyHhSnapGlobal;
+  }
 
   const els = {
     autoSection: document.getElementById("foodAutoSection"),
@@ -1494,30 +4745,26 @@ function renderFoodPage() {
     childrenInput: document.getElementById("foodChildrenInput"),
     manualWeeklyInput: document.getElementById("foodManualWeeklyInput"),
     previewNormalWeek: document.getElementById("foodPreviewNormalWeek"),
-    previewMonthSum: document.getElementById("foodPreviewMonthSum"),
+    previewWeekSpread: document.getElementById("foodPreviewWeekSpread"),
+    previewWeekAvg: document.getElementById("foodPreviewWeekAvg"),
+    previewMonthTotal: document.getElementById("foodPreviewMonthTotal"),
     previewWeeks: document.getElementById("foodPreviewWeeks"),
+    previewWeeksTitle: document.getElementById("foodPreviewWeeksTitle"),
     calcBaseWeek: document.getElementById("foodCalcBaseWeek"),
     calcAdjustedWeek: document.getElementById("foodCalcAdjustedWeek"),
     calcFinalWeek: document.getElementById("foodCalcFinalWeek"),
     saveContext: document.getElementById("foodSaveContext"),
-    kidsAltSection: document.getElementById("foodKidsAltSection"),
-    kidsCustomSection: document.getElementById("foodKidsCustomSection"),
-    kidsAltStart: document.getElementById("foodKidsAltStartDate"),
-    kidsAltPeriodDays: document.getElementById("foodKidsAltPeriodDays"),
-    kidsAltChildrenInput: document.getElementById("foodKidsAltChildrenInput"),
-    kidsAltTeensInput: document.getElementById("foodKidsAltTeensInput"),
-    kidsAltCostRemainingPct: document.getElementById("foodKidsAltCostRemainingPct"),
-    kidsErr: document.getElementById("foodKidsError"),
-    kidsCustomErr: document.getElementById("foodKidsCustomError"),
-    kidsCustomList: document.getElementById("foodKidsCustomPeriodsList"),
-    kidsPreview: document.getElementById("foodKidsPreview"),
+    custodyGlobalWarn: document.getElementById("foodCustodyGlobalWarn"),
+    custodyList: document.getElementById("foodCustodyPeriodsList"),
+    custodyListTitle: document.getElementById("foodCustodyListTitle"),
+    custodyListError: document.getElementById("foodCustodyListError"),
+    custodyEditor: document.getElementById("foodCustodyEditor"),
+    custodyEditorWeekCost: document.getElementById("foodCustodyEditorWeekCost"),
+    custodyExampleBlock: document.getElementById("foodCustodyExampleBlock"),
+    custodyExampleWeeks: document.getElementById("foodCustodyExampleWeeks"),
     foodLevelHelp: document.getElementById("foodLevelHelp"),
     foodScopeHelp: document.getElementById("foodScopeHelp"),
-    hhToggle: document.getElementById("foodHouseholdToggleBtn"),
-    hhSection: document.getElementById("foodHouseholdChangesSection"),
     hhList: document.getElementById("foodHouseholdChangesList"),
-    devToggle: document.getElementById("foodDeviationsToggleBtn"),
-    devSection: document.getElementById("foodDeviationsSection"),
     devList: document.getElementById("foodDeviationsList"),
     warnEl: document.getElementById("foodNote")
   };
@@ -1528,13 +4775,190 @@ function renderFoodPage() {
     el.setAttribute("aria-pressed", active ? "true" : "false");
     el.classList.toggle("active", active);
   };
+  const setCustodyFieldErr = (el, msg) => {
+    if (!el) return;
+    if (msg) {
+      el.hidden = false;
+      el.textContent = msg;
+    } else {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  };
+
+  let editingCustodyIndex = -1;
+  let custodyEditorDraft = null;
+  let custodyEditorBackup = null;
+
+  const writeCustodyEditorAbsent = (key, rawValue) => {
+    const baseC = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const baseT = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    if (key === "children") {
+      const nv = Math.min(baseC, Math.max(0, Math.floor(asNumber(rawValue))));
+      if (editingCustodyIndex >= 0) {
+        const p = ui.foodConfigDraft.custodyPeriods?.[editingCustodyIndex];
+        if (p) {
+          if (!p.absent) p.absent = { children: 0, teens: 0 };
+          p.absent.children = nv;
+        }
+      } else if (custodyEditorDraft) {
+        if (!custodyEditorDraft.absent) custodyEditorDraft.absent = { children: 0, teens: 0 };
+        custodyEditorDraft.absent.children = nv;
+      }
+      const el = document.getElementById("foodCustodyEditChildrenInput");
+      if (el) el.value = String(nv);
+    } else {
+      const nv = Math.min(baseT, Math.max(0, Math.floor(asNumber(rawValue))));
+      if (editingCustodyIndex >= 0) {
+        const p = ui.foodConfigDraft.custodyPeriods?.[editingCustodyIndex];
+        if (p) {
+          if (!p.absent) p.absent = { children: 0, teens: 0 };
+          p.absent.teens = nv;
+        }
+      } else if (custodyEditorDraft) {
+        if (!custodyEditorDraft.absent) custodyEditorDraft.absent = { children: 0, teens: 0 };
+        custodyEditorDraft.absent.teens = nv;
+      }
+      const el = document.getElementById("foodCustodyEditTeensInput");
+      if (el) el.value = String(nv);
+    }
+  };
+
+  const readCustodyEditorFromDom = () => ({
+    startDate: document.getElementById("foodCustodyEditStart")?.value || "",
+    endDate: document.getElementById("foodCustodyEditEnd")?.value || "",
+    ratioKey: document.getElementById("foodCustodyEditRatio")?.value || "7-7",
+    absent: {
+      children: Math.max(0, Math.floor(asNumber(document.getElementById("foodCustodyEditChildrenInput")?.value))),
+      teens: Math.max(0, Math.floor(asNumber(document.getElementById("foodCustodyEditTeensInput")?.value)))
+    }
+  });
+
+  const clearCustodyEditorFieldErrors = () => {
+    setCustodyFieldErr(document.getElementById("foodCustodyErrStart"), "");
+    setCustodyFieldErr(document.getElementById("foodCustodyErrEnd"), "");
+    setCustodyFieldErr(document.getElementById("foodCustodyErrCounts"), "");
+    const st = document.getElementById("foodCustodyEditStart");
+    const end = document.getElementById("foodCustodyEditEnd");
+    const cInp = document.getElementById("foodCustodyEditChildrenInput");
+    const tInp = document.getElementById("foodCustodyEditTeensInput");
+    if (st) st.classList.remove("input-invalid");
+    if (end) end.classList.remove("input-invalid");
+    if (cInp) cInp.classList.remove("input-invalid");
+    if (tInp) tInp.classList.remove("input-invalid");
+  };
+
+  const renderCustodyEditor = () => {
+    const editor = els.custodyEditor;
+    if (!editor) return;
+    const arr = ui.foodConfigDraft.custodyPeriods || [];
+    const p = editingCustodyIndex >= 0 ? arr[editingCustodyIndex] : custodyEditorDraft;
+    const addBtn = document.getElementById("foodAddCustodyPeriodBtn");
+    if (!p) {
+      editor.hidden = true;
+      if (addBtn) addBtn.disabled = false;
+      return;
+    }
+    editor.hidden = false;
+    if (addBtn) addBtn.disabled = true;
+    document.getElementById("foodCustodyEditStart").value = p.startDate || "";
+    document.getElementById("foodCustodyEditEnd").value = p.endDate || "";
+    const ratioSel = document.getElementById("foodCustodyEditRatio");
+    const ratioSummaryEl = document.getElementById("foodCustodyEditRatioSummary");
+    if (ratioSel) ratioSel.value = p.ratioKey || "7-7";
+    if (ratioSummaryEl) {
+      const opt = ratioSel ? ratioSel.options[ratioSel.selectedIndex] : null;
+      ratioSummaryEl.textContent = opt ? opt.textContent : "—";
+    }
+    document.getElementById("foodCustodyEditChildrenInput").value = asNumber(p.absent?.children);
+    document.getElementById("foodCustodyEditTeensInput").value = asNumber(p.absent?.teens);
+
+    const saveBtn = document.getElementById("foodCustodyEditSaveBtn");
+    if (saveBtn) saveBtn.textContent = editingCustodyIndex >= 0 ? "Uppdatera period" : "Lägg till period";
+
+    const delBtn = document.getElementById("foodCustodyEditDeleteBtn");
+    if (delBtn) delBtn.hidden = editingCustodyIndex < 0;
+    clearCustodyEditorFieldErrors();
+  };
+
+  const renderCustodyPeriodsList = (custodyAccept) => {
+    const list = els.custodyList;
+    const arr = ui.foodConfigDraft.custodyPeriods || [];
+    if (els.custodyListTitle) els.custodyListTitle.hidden = arr.length === 0;
+    if (els.custodyListError) {
+      els.custodyListError.hidden = true;
+      els.custodyListError.textContent = "";
+    }
+    if (!list) return;
+    const custodyEditorEl = document.getElementById("foodCustodyEditor");
+    const lockCustodyLinks = Boolean(custodyEditorEl && !custodyEditorEl.hidden);
+    const sorted = arr.map((p, idx) => ({ p, idx })).sort(
+      (a, b) => String(a.p.startDate || "").localeCompare(String(b.p.startDate || "")) || a.idx - b.idx
+    );
+    list.innerHTML = sorted.map(({ p, idx }) => {
+      const shadow = custodyAccept.shadowedOrigIndices.has(idx);
+      const sDt = parseDateISO(p.startDate);
+      const startText = sDt ? formatPlanningDateLongSv(sDt) : (p.startDate || "-");
+      const endStr = p.endDate && String(p.endDate).trim() ? String(p.endDate).trim() : "";
+      const eDt = endStr ? parseDateISO(endStr) : null;
+      const endText = endStr ? (eDt ? formatPlanningDateLongSv(eDt) : endStr) : "tills vidare";
+      const range = `${escapeHtml(startText)} – ${escapeHtml(endText)}`;
+      const meta = shadow ? ` <span class="food-period-bb-row-meta">(överlapp — räknas ej)</span>` : "";
+      return `
+        <button
+          type="button"
+          class="food-period-bb-row ${shadow ? "food-period-bb-row--shadowed" : ""}"
+          data-custody-row="${idx}"
+          ${lockCustodyLinks ? "disabled" : ""}
+          aria-label="Redigera period ${range}"
+        >
+          <span class="food-period-bb-row-main">${range}</span>
+          ${meta}
+          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+        </button>
+      `;
+    }).join("");
+    list.querySelectorAll("[data-custody-row]").forEach((btn) => {
+      btn.onclick = () => {
+        if (lockCustodyLinks) return;
+        const i = Number(btn.getAttribute("data-custody-row"));
+        // Backup så att Avbryt inte lämnar kvar interimändringar i `ui.foodConfigDraft`.
+        custodyEditorBackup = JSON.parse(JSON.stringify(ui.foodConfigDraft.custodyPeriods?.[i] || null));
+        editingCustodyIndex = i;
+        custodyEditorDraft = null;
+        renderCustodyEditor();
+        draw();
+      };
+    });
+  };
+
   let draw = () => {
     const d = ui.foodConfigDraft;
+    d.foodBudgetYear = currentYearMonth().year;
+    const editorAbsentRef = custodyEditorDraft ? custodyEditorDraft.absent : null;
+    syncCustodyPeriodsAbsentWithHousehold(d, editorAbsentRef);
+    if (els.custodyEditor && !els.custodyEditor.hidden) {
+      if (editingCustodyIndex >= 0) {
+        const cur = (d.custodyPeriods || [])[editingCustodyIndex];
+        if (cur) {
+          const cInp = document.getElementById("foodCustodyEditChildrenInput");
+          const tInp = document.getElementById("foodCustodyEditTeensInput");
+          if (cInp) cInp.value = asNumber(cur.absent.children);
+          if (tInp) tInp.value = asNumber(cur.absent.teens);
+        }
+      } else if (custodyEditorDraft) {
+        const cInp = document.getElementById("foodCustodyEditChildrenInput");
+        const tInp = document.getElementById("foodCustodyEditTeensInput");
+        if (cInp) cInp.value = asNumber(custodyEditorDraft.absent.children);
+        if (tInp) tInp.value = asNumber(custodyEditorDraft.absent.teens);
+      }
+    }
     const auto = d.mode !== "manual";
-    if (els.autoSection) els.autoSection.hidden = !auto;
     if (els.manualSection) els.manualSection.hidden = auto;
     const autoOnly = document.getElementById("foodAutoOnlySection");
+    const autoCalc = document.getElementById("foodAutoCalcSection");
     if (autoOnly) autoOnly.hidden = !auto;
+    if (autoCalc) autoCalc.hidden = !auto;
     if (els.adultsInput) els.adultsInput.value = d.household.adults;
     if (els.teensInput) els.teensInput.value = d.household.teens;
     if (els.childrenInput) els.childrenInput.value = d.household.children;
@@ -1549,30 +4973,38 @@ function renderFoodPage() {
     setChipState("foodScopeMixedBtn", d.foodScope === "mixed");
     setChipState("foodScopeAllBtn", d.foodScope === "all");
 
-    // Custody schedule UI (absence)
-    const cs = normalizeCustodySchedule(d.custodySchedule);
-    d.custodySchedule = cs;
-    setChipState("foodKidsOffBtn", cs.type === "off");
-    setChipState("foodKidsSameBtn", cs.type === "same");
-    setChipState("foodKidsAltBtn", cs.type === "alternating");
-    setChipState("foodKidsCustomBtn", cs.type === "custom");
-    if (els.kidsAltSection) els.kidsAltSection.hidden = cs.type !== "alternating";
-    if (els.kidsCustomSection) els.kidsCustomSection.hidden = cs.type !== "custom";
-    if (els.kidsAltStart) els.kidsAltStart.value = cs.alternating.startDate || "";
-    if (els.kidsAltPeriodDays) els.kidsAltPeriodDays.value = String(cs.alternating.periodDays || 7);
-    if (els.kidsAltChildrenInput) els.kidsAltChildrenInput.value = asNumber(cs.alternating.absent?.children);
-    if (els.kidsAltTeensInput) els.kidsAltTeensInput.value = asNumber(cs.alternating.absent?.teens);
-    if (els.kidsAltCostRemainingPct) els.kidsAltCostRemainingPct.value = asNumber(cs.alternating.costRemainingPct);
-    if (els.kidsErr) {
-      els.kidsErr.hidden = true;
-      els.kidsErr.textContent = "";
+    const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
+    const custodyAccept = buildCustodyPeriodAcceptance(d.custodyPeriods || [], 0);
+    if (els.custodyGlobalWarn) {
+      if (custodyAccept.shadowedOrigIndices.size > 0) {
+        els.custodyGlobalWarn.hidden = false;
+        els.custodyGlobalWarn.textContent = "Minst två perioder överlappar. Den som börjar senare räknas inte — justera datumen innan du kan spara.";
+      } else {
+        els.custodyGlobalWarn.hidden = true;
+        els.custodyGlobalWarn.textContent = "";
+      }
     }
-    if (els.kidsCustomErr) {
-      els.kidsCustomErr.hidden = true;
-      els.kidsCustomErr.textContent = "";
-    }
+    renderCustodyPeriodsList(custodyAccept);
 
-    if (cs.type === "custom") renderCustodyCustomPeriods();
+    const edLive = readCustodyEditorFromDom();
+    const editorOpen = els.custodyEditor && !els.custodyEditor.hidden;
+    const aCed = Math.max(0, Math.floor(asNumber(edLive.absent.children)));
+    const aTed = Math.max(0, Math.floor(asNumber(edLive.absent.teens)));
+    const chMinBtn = document.getElementById("foodCustodyEditChildrenMinusBtn");
+    const chPlusBtn = document.getElementById("foodCustodyEditChildrenPlusBtn");
+    const teMinBtn = document.getElementById("foodCustodyEditTeensMinusBtn");
+    const tePlusBtn = document.getElementById("foodCustodyEditTeensPlusBtn");
+    if (editorOpen) {
+      if (chMinBtn) chMinBtn.disabled = baseChildren <= 0 || aCed <= 0;
+      if (chPlusBtn) chPlusBtn.disabled = baseChildren <= 0 || aCed >= baseChildren;
+      if (teMinBtn) teMinBtn.disabled = baseTeens <= 0 || aTed <= 0;
+      if (tePlusBtn) tePlusBtn.disabled = baseTeens <= 0 || aTed >= baseTeens;
+      const chi = document.getElementById("foodCustodyEditChildrenInput");
+      const tei = document.getElementById("foodCustodyEditTeensInput");
+      if (chi) chi.disabled = baseChildren <= 0;
+      if (tei) tei.disabled = baseTeens <= 0;
+    }
 
     // Helper texts (auto only)
     if (els.foodLevelHelp) {
@@ -1588,66 +5020,94 @@ function renderFoodPage() {
           : "All mat - All mat inklusive restaurang, take-away och spontanköp.");
     }
 
-    // Inline validation for custody schedule
     let custodyOk = true;
-    const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
-    const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
-    if (auto && cs.type === "alternating") {
-      const s = parseDateISO(cs.alternating.startDate);
-      if (!s) {
-        custodyOk = false;
-        if (els.kidsErr) {
-          els.kidsErr.hidden = false;
-          els.kidsErr.textContent = "Ange startdatum för varannan vecka.";
-        }
-      }
-      const aC = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.children)));
-      const aT = Math.max(0, Math.floor(asNumber(cs.alternating.absent?.teens)));
-      if (aC > baseChildren || aT > baseTeens) {
-        custodyOk = false;
-        if (els.kidsErr) {
-          els.kidsErr.hidden = false;
-          els.kidsErr.textContent = `Du kan inte ange fler borta än i hushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
-        }
+    const periods = d.custodyPeriods || [];
+    if (custodyAccept.shadowedOrigIndices.size > 0) custodyOk = false;
+    for (let i = 0; i < periods.length; i++) {
+      const p = normalizeCustodyPeriodEntry(periods[i]);
+      if (!p.startDate || !String(p.startDate).trim()) continue;
+      if (!custodyPeriodEndDateValid(p)) custodyOk = false;
+      if (p.absent.children > baseChildren || p.absent.teens > baseTeens) custodyOk = false;
+    }
+
+    if (els.custodyEditorWeekCost) {
+      const sEd = parseDateISO(edLive.startDate);
+      if (editorOpen && sEd) {
+        const ws = getIsoWeekMondayFromDate(sEd);
+        els.custodyEditorWeekCost.textContent = formatKr(
+          computeFoodWeekTotalCustodyEditorOnly(d, edLive, ws)
+        );
+      } else {
+        els.custodyEditorWeekCost.textContent = "—";
       }
     }
-    if (auto && cs.type === "custom") {
-      const badRange = (p) => {
-        const s = parseDateISO(p?.startDate);
-        const e = parseDateISO(p?.endDate);
-        return !s || !e || e.getTime() < s.getTime();
-      };
-      if ((cs.custom || []).some(badRange)) {
-        custodyOk = false;
-        if (els.kidsCustomErr) {
-          els.kidsCustomErr.hidden = false;
-          els.kidsCustomErr.textContent = "Kontrollera att alla perioder har giltiga datum (till måste vara samma eller efter från).";
+
+    if (els.custodyExampleBlock && els.custodyExampleWeeks) {
+      const sEx = parseDateISO(edLive.startDate);
+      if (editorOpen && sEx) {
+        els.custodyExampleBlock.hidden = false;
+        const pNorm = normalizeCustodyPeriodEntry(edLive);
+        const budgetYear = Number(d.foodBudgetYear) || currentYearMonth().year;
+        const effEnd = getCustodyPeriodEffectiveEnd(pNorm, budgetYear);
+        const periodStartMonday = getIsoWeekMondayFromDate(sEx);
+        const rows = [];
+        for (let i = 0; i < 24 && rows.length < 4; i++) {
+          const ws = addDays(periodStartMonday, i * 7);
+          const we = addDays(ws, 6);
+          if (ws.getTime() > effEnd.getTime()) break;
+          if (we.getTime() < sEx.getTime()) continue;
+          const total = computeFoodWeekTotalCustodyEditorOnly(d, edLive, ws);
+          const { week } = getISOWeekInfo(ws);
+          const rangeStr = formatIsoWeekRangeLongSv(ws, we);
+          rows.push({ week, total, rangeStr });
         }
-      }
-      const overAbsent = (p) => (asNumber(p?.absent?.children) > baseChildren) || (asNumber(p?.absent?.teens) > baseTeens);
-      if ((cs.custom || []).some(overAbsent)) {
-        custodyOk = false;
-        if (els.kidsCustomErr) {
-          els.kidsCustomErr.hidden = false;
-          els.kidsCustomErr.textContent = `Du kan inte ange fler borta än i hushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`;
-        }
+        els.custodyExampleWeeks.innerHTML = rows
+          .map(
+            (r) => `<div class="food-preview-week-block food-custody-example-week">
+  <div class="food-preview-week-top">
+    <strong class="food-preview-week-num">Vecka ${escapeHtml(String(r.week))}</strong>
+    <strong class="food-preview-week-total">${escapeHtml(formatKr(r.total))}</strong>
+  </div>
+  <div class="food-preview-week-range">${escapeHtml(r.rangeStr)}</div>
+</div>`
+          )
+          .join("");
+      } else {
+        els.custodyExampleBlock.hidden = true;
+        els.custodyExampleWeeks.innerHTML = "";
       }
     }
 
     // Disable save while errors exist (inline validation)
     const saveBtn = document.getElementById("foodSaveBtn");
+    const badRange = (p) => {
+      const s = parseDateISO(p?.startDate);
+      const e = parseDateISO(p?.endDate);
+      return !s || !e || e.getTime() < s.getTime();
+    };
     let canSave = true;
+    if (!custodyOk) canSave = false;
     if (auto) {
-      if (!custodyOk) canSave = false;
-      const badRange = (p) => {
-        const s = parseDateISO(p?.startDate);
-        const e = parseDateISO(p?.endDate);
-        return !s || !e || e.getTime() < s.getTime();
-      };
       if ((d.householdChanges || []).some(badRange)) canSave = false;
       if ((d.deviations || []).some(badRange)) canSave = false;
     }
     if (saveBtn) saveBtn.disabled = !canSave;
+
+    let saveBlockMsg = "";
+    if (custodyAccept.shadowedOrigIndices.size > 0) {
+      saveBlockMsg = "Växelvis boende: justera överlappande perioder innan du kan spara.";
+    } else if (!custodyOk) {
+      saveBlockMsg = "Växelvis: kontrollera periodernas datum och antal som är borta.";
+    } else if (auto && (d.householdChanges || []).some(badRange)) {
+      saveBlockMsg = "Ändrat hushåll: varje period behöver giltiga datum (till efter från).";
+    } else if (auto && (d.deviations || []).some(badRange)) {
+      saveBlockMsg = "Avvikande veckor: varje period behöver giltiga datum (till efter från).";
+    }
+    if (els.saveContext) {
+      els.saveContext.textContent = saveBlockMsg;
+      els.saveContext.classList.toggle("field-error", Boolean(saveBlockMsg));
+      els.saveContext.setAttribute("role", saveBlockMsg ? "alert" : "status");
+    }
 
     const normalWeekly = d.mode === "manual" ? Math.max(0, asNumber(d.manualWeeklyCost)) : computeFoodWeeklyCost(d);
     if (els.previewNormalWeek) els.previewNormalWeek.textContent = formatKr(normalWeekly);
@@ -1662,41 +5122,51 @@ function renderFoodPage() {
     if (els.calcBaseWeek) els.calcBaseWeek.textContent = formatKr(baseWeekly);
     if (els.calcAdjustedWeek) els.calcAdjustedWeek.textContent = formatKr(adjustedWeekly);
     if (els.calcFinalWeek) els.calcFinalWeek.textContent = formatKr(adjustedWeekly);
-    if (els.saveContext) els.saveContext.textContent = `Skapar ${getIsoWeeksForYear(year).length} veckor för ${year}.`;
+    const appYears = getSelectableAppYears();
     if (!els.previewWeeks) return;
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
-    const weeks = getIsoWeeksForYear(year).map((w) => {
-      const planningDate = addDays(w.weekStart, planningDay - 1);
-      const { amount, labels } = computeFoodWeekAmountAndLabels(d, w.weekStart, w.weekEnd);
-      return { ...w, planningDate, amount, labels };
-    });
-    const monthWeeks = weeks.filter((w) => w.planningDate.getMonth() + 1 === Number(month));
-    const monthSum = monthWeeks.reduce((s, w) => s + asNumber(w.amount), 0);
-    if (els.previewMonthSum) els.previewMonthSum.textContent = formatKr(monthSum);
-    els.previewWeeks.innerHTML = `
-      ${monthWeeks.map((w) => {
-        const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
-        const labelTxt = w.labels && w.labels.length ? ` (${escapeHtml(w.labels.join(", "))})` : "";
-        return `<div class="summary-row" data-food-week="${escapeHtml(wkKey)}"><span>v.${escapeHtml(String(w.week))} (${escapeHtml(isoFromDate(w.planningDate))})${labelTxt}</span><strong>${escapeHtml(formatKr(w.amount))}</strong></div>`;
-      }).join("")}
-    `;
-
-    // Barnschema local preview (next 4 weeks from today)
-    if (els.kidsPreview) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const startWeek = getIsoWeekMondayFromDate(today);
-      const previewWeeks = Array.from({ length: 4 }).map((_, i) => addDays(startWeek, i * 7));
-      els.kidsPreview.innerHTML = previewWeeks.map((ws) => {
-        const { week } = getISOWeekInfo(ws);
-        let label = "normal";
-        if (auto && cs.type !== "off" && cs.type !== "same") {
-          const custodyLabel = getCustodyLabelForWeek(d, ws);
-          if (custodyLabel) label = custodyLabel;
-        }
-        return `<div class="summary-row"><span>v.${escapeHtml(String(week))} (${escapeHtml(isoFromDate(ws))})</span><strong>${escapeHtml(label)}</strong></div>`;
-      }).join("");
+    const weeks = [];
+    for (const y of appYears) {
+      for (const w of getIsoWeeksForYear(y)) {
+        const planningDate = addDays(w.weekStart, planningDay - 1);
+        const { amount, labels } = computeFoodWeekAmountAndLabels(d, w.weekStart, w.weekEnd);
+        weeks.push({ ...w, planningDate, amount, labels });
+      }
     }
+    weeks.sort((a, b) => a.planningDate.getTime() - b.planningDate.getTime());
+    const monthWeeks = weeks.filter(
+      (w) => w.planningDate.getMonth() + 1 === Number(previewMonth) && w.planningDate.getFullYear() === Number(previewYear)
+    );
+    const monthSum = monthWeeks.reduce((s, w) => s + asNumber(w.amount), 0);
+    const amounts = monthWeeks.map((w) => Math.round(asNumber(w.amount)));
+    const spread =
+      amounts.length >= 2 ? Math.max(...amounts) - Math.min(...amounts) : 0;
+    const avg =
+      monthWeeks.length > 0 ? Math.round(monthSum / monthWeeks.length) : 0;
+    if (els.previewWeekSpread) els.previewWeekSpread.textContent = formatKr(spread);
+    if (els.previewWeekAvg) els.previewWeekAvg.textContent = formatKr(avg);
+    if (els.previewMonthTotal) {
+      els.previewMonthTotal.textContent = `Totalt denna månad: ${formatKr(monthSum)}`;
+    }
+    if (els.previewWeeksTitle) {
+      const m = Math.max(1, Math.min(12, Math.floor(Number(previewMonth)) || 1));
+      const monthLong = new Date(2000, m - 1, 1).toLocaleDateString("sv-SE", { month: "long" });
+      const cap = monthLong ? monthLong.charAt(0).toUpperCase() + monthLong.slice(1) : "";
+      els.previewWeeksTitle.textContent = cap ? `Veckor i ${cap}` : "Veckor";
+    }
+    els.previewWeeks.innerHTML = monthWeeks
+      .map((w) => {
+        const wkKey = `${w.isoYear}-W${pad2(w.week)}`;
+        const rangeStr = formatIsoWeekRangeLongSv(w.weekStart, w.weekEnd);
+        return `<div class="food-preview-week-block" data-food-week="${escapeHtml(wkKey)}">
+  <div class="food-preview-week-top">
+    <strong class="food-preview-week-num">Vecka ${escapeHtml(String(w.week))}</strong>
+    <strong class="food-preview-week-total">${escapeHtml(formatKr(w.amount))}</strong>
+  </div>
+  <div class="food-preview-week-range">${escapeHtml(rangeStr)}</div>
+</div>`;
+      })
+      .join("");
   };
 
   const setWarn = (msg) => {
@@ -1736,133 +5206,355 @@ function renderFoodPage() {
     draw();
   };
 
-  const bumpCustodyAltAbsent = (key, delta) => {
-    const maxAllowed = key === "children"
-      ? Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)))
-      : Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    const next = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.custodySchedule.alternating.absent[key]) + delta));
-    ui.foodConfigDraft.custodySchedule.alternating.absent[key] = Math.min(maxAllowed, next);
+  const bumpCustodyEditorAbsent = (key, delta) => {
+    const el = key === "children" ? document.getElementById("foodCustodyEditChildrenInput") : document.getElementById("foodCustodyEditTeensInput");
+    const cur = Math.max(0, Math.floor(asNumber(el?.value)));
+    writeCustodyEditorAbsent(key, cur + delta);
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
     draw();
   };
-  document.getElementById("foodKidsOffBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "off"; draw(); };
-  document.getElementById("foodKidsSameBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "same"; draw(); };
-  document.getElementById("foodKidsAltBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "alternating"; draw(); };
-  document.getElementById("foodKidsCustomBtn").onclick = () => { ui.foodConfigDraft.custodySchedule.type = "custom"; draw(); };
-  document.getElementById("foodKidsAltStartDate").onchange = () => { ui.foodConfigDraft.custodySchedule.alternating.startDate = document.getElementById("foodKidsAltStartDate").value || ""; draw(); };
-  document.getElementById("foodKidsAltPeriodDays").onchange = () => { ui.foodConfigDraft.custodySchedule.alternating.periodDays = Number(document.getElementById("foodKidsAltPeriodDays").value || 7); draw(); };
-  document.getElementById("foodKidsAltChildrenMinusBtn").onclick = () => bumpCustodyAltAbsent("children", -1);
-  document.getElementById("foodKidsAltChildrenPlusBtn").onclick = () => bumpCustodyAltAbsent("children", +1);
-  document.getElementById("foodKidsAltTeensMinusBtn").onclick = () => bumpCustodyAltAbsent("teens", -1);
-  document.getElementById("foodKidsAltTeensPlusBtn").onclick = () => bumpCustodyAltAbsent("teens", +1);
-  document.getElementById("foodKidsAltChildrenInput").oninput = () => {
-    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-    ui.foodConfigDraft.custodySchedule.alternating.absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltChildrenInput").value))));
-    draw();
-  };
-  document.getElementById("foodKidsAltTeensInput").oninput = () => {
-    const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    ui.foodConfigDraft.custodySchedule.alternating.absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(document.getElementById("foodKidsAltTeensInput").value))));
-    draw();
-  };
-  document.getElementById("foodKidsAltCostRemainingPct").oninput = () => { ui.foodConfigDraft.custodySchedule.alternating.costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(document.getElementById("foodKidsAltCostRemainingPct").value)))); draw(); };
-
-  function renderCustodyCustomPeriods() {
-    const list = els.kidsCustomList;
-    if (!list) return;
-    const arr = ui.foodConfigDraft.custodySchedule.custom || [];
-    const maxChildren = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-    const maxTeens = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-    list.innerHTML = arr.map((p, idx) => {
-      const title = `${escapeHtml(p.startDate || "")} – ${escapeHtml(p.endDate || "")}`;
-      return `
-        <div class="food-period-card" data-kc-idx="${idx}">
-          <div class="food-period-title">Period ${idx + 1}: ${title}</div>
-          <div class="form-grid">
-            <label class="field">Från<input type="date" data-kc-start="${idx}" value="${escapeHtml(p.startDate || "")}"/></label>
-            <label class="field">Till<input type="date" data-kc-end="${idx}" value="${escapeHtml(p.endDate || "")}"/></label>
-            <label class="field">Barn<input type="number" inputmode="numeric" min="0" max="${maxChildren}" step="1" data-kc-children="${idx}" value="${escapeHtml(String(p.absent?.children ?? 0))}"/></label>
-            <label class="field">Tonåringar<input type="number" inputmode="numeric" min="0" max="${maxTeens}" step="1" data-kc-teens="${idx}" value="${escapeHtml(String(p.absent?.teens ?? 0))}"/></label>
-            <label class="field">Kostnad kvar (%)<input type="number" inputmode="decimal" min="0" max="100" step="1" data-kc-rem="${idx}" value="${escapeHtml(String(p.costRemainingPct ?? 0))}"/></label>
-          </div>
-          <div class="food-period-actions">
-            <button class="danger" type="button" data-kc-del="${idx}">Ta bort</button>
-          </div>
-        </div>
-      `;
-    }).join("");
-    list.querySelectorAll("[data-kc-del]").forEach((btn) => btn.onclick = () => {
-      const i = Number(btn.getAttribute("data-kc-del"));
-      ui.foodConfigDraft.custodySchedule.custom.splice(i, 1);
-      renderCustodyCustomPeriods();
-      draw();
-    });
-    const bind = (sel, fn) => list.querySelectorAll(sel).forEach((el) => el.onchange = fn);
-    bind("[data-kc-start]", (e) => { const i = Number(e.target.getAttribute("data-kc-start")); ui.foodConfigDraft.custodySchedule.custom[i].startDate = e.target.value; draw(); });
-    bind("[data-kc-end]", (e) => { const i = Number(e.target.getAttribute("data-kc-end")); ui.foodConfigDraft.custodySchedule.custom[i].endDate = e.target.value; draw(); });
-    bind("[data-kc-children]", (e) => {
-      const i = Number(e.target.getAttribute("data-kc-children"));
-      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
-      ui.foodConfigDraft.custodySchedule.custom[i].absent.children = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
-      draw();
-    });
-    bind("[data-kc-teens]", (e) => {
-      const i = Number(e.target.getAttribute("data-kc-teens"));
-      const maxAllowed = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
-      ui.foodConfigDraft.custodySchedule.custom[i].absent.teens = Math.min(maxAllowed, Math.max(0, Math.floor(asNumber(e.target.value))));
-      draw();
-    });
-    bind("[data-kc-rem]", (e) => { const i = Number(e.target.getAttribute("data-kc-rem")); ui.foodConfigDraft.custodySchedule.custom[i].costRemainingPct = Math.max(0, Math.min(100, Math.floor(asNumber(e.target.value)))); draw(); });
-  }
-
-  document.getElementById("foodKidsAddCustomPeriodBtn").onclick = () => {
-    ui.foodConfigDraft.custodySchedule.custom = ui.foodConfigDraft.custodySchedule.custom || [];
-    ui.foodConfigDraft.custodySchedule.custom.push({
+  document.getElementById("foodAddCustodyPeriodBtn").onclick = () => {
+    const c = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const t = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    custodyEditorDraft = normalizeCustodyPeriodEntry({
       startDate: "",
       endDate: "",
-      absent: { children: 0, teens: 0 },
-      costRemainingPct: 0
+      ratioKey: "7-7",
+      absent: { children: c, teens: t }
     });
-    renderCustodyCustomPeriods();
+    editingCustodyIndex = -1;
+    custodyEditorBackup = null;
+    openFoodMatSubPanel("custody");
+    renderCustodyEditor();
+    draw();
+  };
+  document.getElementById("foodCustodyEditCancelBtn").onclick = () => {
+    const idxToRestore = editingCustodyIndex;
+    if (idxToRestore >= 0 && custodyEditorBackup && Array.isArray(ui.foodConfigDraft?.custodyPeriods)) {
+      ui.foodConfigDraft.custodyPeriods[idxToRestore] = custodyEditorBackup;
+    }
+    editingCustodyIndex = -1;
+    custodyEditorDraft = null;
+    custodyEditorBackup = null;
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodErrorSummary");
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    hideErrorSummaryById("foodHouseholdErrorSummary");
+    hideErrorSummaryById("foodDeviationErrorSummary");
+    renderCustodyEditor();
     draw();
   };
 
-  // Household changes section
-  const hhToggle = els.hhToggle;
-  const hhSection = els.hhSection;
-  if (hhToggle && hhSection) hhToggle.onclick = () => { hhSection.hidden = !hhSection.hidden; hhToggle.textContent = hhSection.hidden ? "▾" : "▴"; };
-  let editingHouseholdChangeIndex = -1;
-  let householdEditorDraft = null;
-  const renderHouseholdChanges = () => {
-    const list = els.hhList;
-    const arr = ui.foodConfigDraft.householdChanges || [];
-    const editor = document.getElementById("foodHouseholdEditor");
-    const listYearEl = document.getElementById("foodHhListYear");
-    const listTitleEl = document.getElementById("foodHhListTitle");
-    if (listYearEl) listYearEl.textContent = String(year);
-    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
-    if (!list || !editor) return;
-    const sorted = arr
-      .map((ch, idx) => ({ ch, idx }))
-      .sort((a, b) => String(a.ch.startDate || "").localeCompare(String(b.ch.startDate || "")));
-    list.innerHTML = sorted.map(({ ch, idx }) => {
-      const range = `${escapeHtml(ch.startDate || "-")} - ${escapeHtml(ch.endDate || "-")}`;
-      return `<div class="summary-row">
-        <span>${range}</span>
-        <strong><button class="icon-btn btn-icon" type="button" data-hh-edit="${idx}" aria-label="Redigera">✎</button> <button class="danger btn-icon" type="button" data-hh-del="${idx}" aria-label="Ta bort">X</button></strong>
-      </div>`;
-    }).join("");
-    list.querySelectorAll("[data-hh-del]").forEach((btn) => btn.onclick = () => {
-      const i = Number(btn.getAttribute("data-hh-del"));
-      ui.foodConfigDraft.householdChanges.splice(i, 1);
-      if (editingHouseholdChangeIndex === i) editingHouseholdChangeIndex = -1;
-      if (editingHouseholdChangeIndex > i) editingHouseholdChangeIndex -= 1;
+  const custodyDeleteBtn = document.getElementById("foodCustodyEditDeleteBtn");
+  if (custodyDeleteBtn) {
+    custodyDeleteBtn.onclick = () => {
+      if (editingCustodyIndex < 0) return;
+      const idxToDelete = editingCustodyIndex;
+      ui.foodConfigDraft.custodyPeriods.splice(idxToDelete, 1);
+      if (ui.foodConfigDraft.custodyPeriods.length === 0) delete ui.foodConfigDraft._custodyHhSnapGlobal;
+      editingCustodyIndex = -1;
+      custodyEditorDraft = null;
+      custodyEditorBackup = null;
+      clearCustodyEditorFieldErrors();
+      hideErrorSummaryById("foodCustodyErrorSummary");
+      renderCustodyEditor();
+      draw();
+    };
+  }
+  document.getElementById("foodCustodyClearEndBtn").onclick = () => {
+    const e = document.getElementById("foodCustodyEditEnd");
+    if (e) e.value = "";
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditStart").oninput = () => {
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditStart").onchange = () => {
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditEnd").oninput = () => {
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditEnd").onchange = () => {
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditRatio").onchange = () => {
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+
+  // Replace native select with bottom-sheet list picker (card-like).
+  const ratioOpenBtn = document.getElementById("foodCustodyEditRatioOpenBtn");
+  const ratioSel = document.getElementById("foodCustodyEditRatio");
+  const ratioSummaryEl = document.getElementById("foodCustodyEditRatioSummary");
+  if (ratioOpenBtn && ratioSel) {
+    ratioOpenBtn.onclick = () => {
+      const options = Array.from(ratioSel.options).map((opt) => ({ value: opt.value, label: opt.textContent }));
+      openListPickerSheet({
+        title: "Välj intervall",
+        options,
+        currentValue: ratioSel.value,
+        onSelect: (val) => {
+          ratioSel.value = val;
+          if (ratioSummaryEl) {
+            const opt = ratioSel.options[ratioSel.selectedIndex];
+            ratioSummaryEl.textContent = opt ? opt.textContent : "—";
+          }
+          ratioSel.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+    };
+  }
+  document.getElementById("foodCustodyEditChildrenMinusBtn").onclick = () => bumpCustodyEditorAbsent("children", -1);
+  document.getElementById("foodCustodyEditChildrenPlusBtn").onclick = () => bumpCustodyEditorAbsent("children", +1);
+  document.getElementById("foodCustodyEditTeensMinusBtn").onclick = () => bumpCustodyEditorAbsent("teens", -1);
+  document.getElementById("foodCustodyEditTeensPlusBtn").onclick = () => bumpCustodyEditorAbsent("teens", +1);
+  document.getElementById("foodCustodyEditChildrenInput").oninput = () => {
+    writeCustodyEditorAbsent("children", document.getElementById("foodCustodyEditChildrenInput").value);
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditTeensInput").oninput = () => {
+    writeCustodyEditorAbsent("teens", document.getElementById("foodCustodyEditTeensInput").value);
+    clearCustodyEditorFieldErrors();
+    hideErrorSummaryById("foodCustodyErrorSummary");
+    draw();
+  };
+  document.getElementById("foodCustodyEditSaveBtn").onclick = () => {
+    clearCustodyEditorFieldErrors();
+    const cErr = document.getElementById("foodCustodyErrCounts");
+    const next = normalizeCustodyPeriodEntry(readCustodyEditorFromDom());
+    const s = parseDateISO(next.startDate);
+    if (!s) {
+      setCustodyFieldErr(document.getElementById("foodCustodyErrStart"), "Ange startdatum.");
+      document.getElementById("foodCustodyEditStart")?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodCustodyErrorSummary"), [{ label: "Ange startdatum.", jumpId: "foodCustodyEditStart" }]);
+      return;
+    }
+    const endStr = next.endDate && String(next.endDate).trim();
+    if (endStr) {
+      const eDt = parseDateISO(endStr);
+      if (!eDt || diffCalendarDays(s, eDt) < 1) {
+        setCustodyFieldErr(document.getElementById("foodCustodyErrEnd"), "Slutdatum måste vara minst en kalenderdag efter start.");
+        document.getElementById("foodCustodyEditEnd")?.classList.add("input-invalid");
+        renderErrorSummary(document.getElementById("foodCustodyErrorSummary"), [
+          { label: "Slutdatum måste vara minst en kalenderdag efter start.", jumpId: "foodCustodyEditEnd" }
+        ]);
+        return;
+      }
+    }
+    const baseChildren = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+    if (next.absent.children > baseChildren || next.absent.teens > baseTeens) {
+      setCustodyFieldErr(cErr, `Du kan inte ange fler än i grundhushållet (barn: ${baseChildren}, tonåringar: ${baseTeens}).`);
+      const jumpId = next.absent.children > baseChildren ? "foodCustodyEditChildrenInput" : "foodCustodyEditTeensInput";
+      document.getElementById(jumpId)?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodCustodyErrorSummary"), [{ label: cErr?.textContent || "Kontrollera antal borta.", jumpId }]);
+      return;
+    }
+    ui.foodConfigDraft.custodyPeriods = ui.foodConfigDraft.custodyPeriods || [];
+    const tryAccept = (periods) => buildCustodyPeriodAcceptance(periods, 0);
+    let trial;
+    if (editingCustodyIndex >= 0) {
+      trial = ui.foodConfigDraft.custodyPeriods.map((p, i) => (i === editingCustodyIndex ? next : p));
+    } else {
+      trial = [...ui.foodConfigDraft.custodyPeriods, next];
+    }
+    const trialAccept = tryAccept(trial);
+    if (trialAccept.shadowedOrigIndices.size > 0) {
+      // Hitta vilken befintlig period som krockar mest relevant med den nya.
+      const eEff = getCustodyPeriodEffectiveEnd(next, 0);
+      const overlaps = trialAccept.accepted.filter((acc) => calendarRangesOverlapCustody(s, eEff, acc.s, acc.e));
+      const conflict = overlaps[0] || null;
+
+      const makeStartLabel = () => "Perioden överlappar en annan. Ändra den nya periodens startdatum >";
+      const makeEndLabel = () => "Perioden överlappar en annan. Ändra den nya periodens slutdatum >";
+
+      const actions = [];
+
+      if (conflict) {
+        const conflictEndInfinite = !String(conflict.p.endDate || "").trim();
+
+        if (conflictEndInfinite) {
+          // Befintlig period är [Datum X] - [Tills vidare]
+          if (diffCalendarDays(s, conflict.s) > 0) actions.push({ label: makeStartLabel(), jumpId: "foodCustodyEditStart", errId: "foodCustodyErrStart" });
+          else actions.push({ label: makeEndLabel(), jumpId: "foodCustodyEditEnd", errId: "foodCustodyErrEnd" });
+        } else {
+          // Befintlig period är [Datum X] - [Datum Y]
+          const newInsideExisting = diffCalendarDays(s, conflict.s) > 0 && diffCalendarDays(eEff, conflict.e) < 0;
+          if (newInsideExisting) {
+            actions.push(
+              { label: makeStartLabel(), jumpId: "foodCustodyEditStart", errId: "foodCustodyErrStart" },
+              { label: makeEndLabel(), jumpId: "foodCustodyEditEnd", errId: "foodCustodyErrEnd" }
+            );
+          } else if (diffCalendarDays(s, conflict.s) > 0) {
+            // Överlapp pga att nya perioden startar inuti/efter X
+            actions.push({ label: makeStartLabel(), jumpId: "foodCustodyEditStart", errId: "foodCustodyErrStart" });
+          } else {
+            // Överlapp pga att nya perioden slutar inuti/börjar före X
+            actions.push({ label: makeEndLabel(), jumpId: "foodCustodyEditEnd", errId: "foodCustodyErrEnd" });
+          }
+        }
+      }
+
+      // Visa inline-fel på de fält som föreslås justeras (försvinner när du börjar skriva).
+      for (const a of actions) {
+        setCustodyFieldErr(document.getElementById(a.errId), "Perioden överlappar en annan. Justera datumen.");
+        // Markerar det föreslagna fältet visuellt.
+        if (a.jumpId) document.getElementById(a.jumpId)?.classList.add("input-invalid");
+      }
+
+      renderErrorSummary(
+        document.getElementById("foodCustodyErrorSummary"),
+        actions.map(({ label, jumpId }) => ({ label, jumpId }))
+      );
+      return;
+    }
+    if (editingCustodyIndex >= 0) ui.foodConfigDraft.custodyPeriods[editingCustodyIndex] = next;
+    else ui.foodConfigDraft.custodyPeriods.push(next);
+    editingCustodyIndex = -1;
+    custodyEditorDraft = null;
+    custodyEditorBackup = null;
+    renderCustodyEditor();
+    draw();
+  };
+  document.getElementById("foodHubOpenCustody") &&
+    (document.getElementById("foodHubOpenCustody").onclick = () => {
+      const arr = ui.foodConfigDraft.custodyPeriods || [];
+      if (arr.length === 0) {
+        const c = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)));
+        const t = Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens)));
+        custodyEditorDraft = normalizeCustodyPeriodEntry({
+          startDate: "",
+          endDate: "",
+          ratioKey: "7-7",
+          absent: { children: c, teens: t }
+        });
+        editingCustodyIndex = -1;
+        custodyEditorBackup = null;
+      } else {
+        // När det finns tidigare perioder: håll editorn stängd tills man klickar "+" eller ✎.
+        editingCustodyIndex = -1;
+        custodyEditorDraft = null;
+        custodyEditorBackup = null;
+      }
+
+      openFoodMatSubPanel("custody");
+      renderCustodyEditor();
+      draw();
+    });
+  document.getElementById("foodHubOpenHousehold") &&
+    (document.getElementById("foodHubOpenHousehold").onclick = () => {
+      const arr = ui.foodConfigDraft.householdChanges || [];
+      if (arr.length === 0) {
+        householdEditorDraft = {
+          startDate: "",
+          endDate: "",
+          household: {
+            adults: Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.adults))),
+            teens: Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.teens))),
+            children: Math.max(0, Math.floor(asNumber(ui.foodConfigDraft.household?.children)))
+          }
+        };
+        editingHouseholdChangeIndex = -1;
+        householdEditorBackup = null;
+      } else {
+        editingHouseholdChangeIndex = -1;
+        householdEditorDraft = null;
+        householdEditorBackup = null;
+      }
+
+      openFoodMatSubPanel("household");
       renderHouseholdChanges();
       renderHouseholdEditor();
       draw();
     });
-    list.querySelectorAll("[data-hh-edit]").forEach((btn) => btn.onclick = () => {
-      editingHouseholdChangeIndex = Number(btn.getAttribute("data-hh-edit"));
-      renderHouseholdEditor();
+  document.getElementById("foodHubOpenDeviation") &&
+    (document.getElementById("foodHubOpenDeviation").onclick = () => {
+      const arr = ui.foodConfigDraft.deviations || [];
+      if (arr.length === 0) {
+        deviationEditorDraft = { startDate: "", endDate: "", adjustmentType: "factor", value: 1.2 };
+        editingDeviationIndex = -1;
+        deviationEditorBackup = null;
+      } else {
+        editingDeviationIndex = -1;
+        deviationEditorDraft = null;
+        deviationEditorBackup = null;
+      }
+
+      openFoodMatSubPanel("deviation");
+      renderDeviations();
+      renderDeviationEditor();
+      draw();
+    });
+  const foodMatBackCustody = document.getElementById("foodMatBackCustody");
+  const foodMatBackHousehold = document.getElementById("foodMatBackHousehold");
+  const foodMatBackDeviation = document.getElementById("foodMatBackDeviation");
+  if (foodMatBackCustody) foodMatBackCustody.onclick = () => closeFoodMatSubPanelFromBackButton();
+  if (foodMatBackHousehold) foodMatBackHousehold.onclick = () => closeFoodMatSubPanelFromBackButton();
+  if (foodMatBackDeviation) foodMatBackDeviation.onclick = () => closeFoodMatSubPanelFromBackButton();
+
+  // Household changes section
+  let editingHouseholdChangeIndex = -1;
+  let householdEditorDraft = null;
+  let householdEditorBackup = null;
+  const renderHouseholdChanges = () => {
+    const list = els.hhList;
+    const arr = ui.foodConfigDraft.householdChanges || [];
+    const editor = document.getElementById("foodHouseholdEditor");
+    const listTitleEl = document.getElementById("foodHhListTitle");
+    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
+    if (!list || !editor) return;
+    const isHhEditingLocked = () =>
+      Boolean(editor && !editor.hidden) || editingHouseholdChangeIndex >= 0 || householdEditorDraft != null;
+
+    const sorted = arr
+      .map((ch, idx) => ({ ch, idx }))
+      .sort((a, b) => String(a.ch.startDate || "").localeCompare(String(b.ch.startDate || "")));
+    list.innerHTML = sorted.map(({ ch, idx }) => {
+      const sDt = parseDateISO(ch.startDate);
+      const startText = sDt ? formatPlanningDateLongSv(sDt) : (ch.startDate || "-");
+      const eDt = parseDateISO(ch.endDate);
+      const endText = eDt ? formatPlanningDateLongSv(eDt) : (ch.endDate || "-");
+      const range = `${escapeHtml(startText)} - ${escapeHtml(endText)}`;
+      return `
+        <button
+          type="button"
+          class="food-period-bb-row"
+          data-hh-row="${idx}"
+          ${isHhEditingLocked() ? "disabled" : ""}
+          aria-label="Redigera period ${range}"
+        >
+          <span class="food-period-bb-row-main">${range}</span>
+          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+        </button>
+      `;
+    }).join("");
+
+    list.querySelectorAll("[data-hh-row]").forEach((btn) => {
+      btn.onclick = () => {
+        if (isHhEditingLocked()) return;
+        const i = Number(btn.getAttribute("data-hh-row"));
+        // Backup så Avbryt inte lämnar kvar interimändringar i `ui.foodConfigDraft`.
+        householdEditorBackup = JSON.parse(JSON.stringify(ui.foodConfigDraft.householdChanges?.[i] || null));
+        editingHouseholdChangeIndex = i;
+        householdEditorDraft = null;
+        renderHouseholdEditor();
+        draw();
+      };
     });
   };
   const renderHouseholdEditor = () => {
@@ -1870,16 +5562,25 @@ function renderFoodPage() {
     if (!editor) return;
     const arr = ui.foodConfigDraft.householdChanges || [];
     const ch = editingHouseholdChangeIndex >= 0 ? arr[editingHouseholdChangeIndex] : householdEditorDraft;
+    const addBtn = document.getElementById("foodAddHouseholdChangeBtn");
     if (!ch) {
       editor.hidden = true;
+      if (addBtn) addBtn.disabled = false;
       return;
     }
     editor.hidden = false;
+    if (addBtn) addBtn.disabled = true;
     document.getElementById("foodHhEditStart").value = ch.startDate || "";
     document.getElementById("foodHhEditEnd").value = ch.endDate || "";
     document.getElementById("foodHhEditAdults").value = asNumber(ch.household?.adults);
     document.getElementById("foodHhEditTeens").value = asNumber(ch.household?.teens);
     document.getElementById("foodHhEditChildren").value = asNumber(ch.household?.children);
+
+    const saveBtn = document.getElementById("foodHhEditSaveBtn");
+    if (saveBtn) saveBtn.textContent = editingHouseholdChangeIndex >= 0 ? "Uppdatera period" : "Lägg till period";
+
+    const delBtn = document.getElementById("foodHhEditDeleteBtn");
+    if (delBtn) delBtn.hidden = editingHouseholdChangeIndex < 0;
   };
   const readHouseholdEditor = () => {
     const arr = ui.foodConfigDraft.householdChanges || [];
@@ -1911,6 +5612,9 @@ function renderFoodPage() {
         hhErr.hidden = false;
         hhErr.textContent = "Ange både Från och Till.";
       }
+      document.getElementById("foodHhEditStart")?.classList.add("input-invalid");
+      document.getElementById("foodHhEditEnd")?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [{ label: "Ange både Från och Till.", jumpId: "foodHhEditStart" }]);
       return;
     }
     if (e.getTime() < s.getTime()) {
@@ -1918,6 +5622,8 @@ function renderFoodPage() {
         hhErr.hidden = false;
         hhErr.textContent = "Till måste vara samma eller efter Från.";
       }
+      document.getElementById("foodHhEditEnd")?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodHouseholdErrorSummary"), [{ label: "Till måste vara samma eller efter Från.", jumpId: "foodHhEditEnd" }]);
       return;
     }
     if (editingHouseholdChangeIndex < 0) {
@@ -1934,10 +5640,45 @@ function renderFoodPage() {
     draw();
   };
   document.getElementById("foodHhEditCancelBtn").onclick = () => {
+    const idxToRestore = editingHouseholdChangeIndex;
+    if (idxToRestore >= 0 && householdEditorBackup && Array.isArray(ui.foodConfigDraft?.householdChanges)) {
+      ui.foodConfigDraft.householdChanges[idxToRestore] = householdEditorBackup;
+    }
     editingHouseholdChangeIndex = -1;
     householdEditorDraft = null;
+    householdEditorBackup = null;
+    const hhErr = document.getElementById("foodHouseholdError");
+    if (hhErr) {
+      hhErr.hidden = true;
+      hhErr.textContent = "";
+    }
+    document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
+    hideErrorSummaryById("foodHouseholdErrorSummary");
     renderHouseholdEditor();
+    renderHouseholdChanges();
   };
+
+  const hhDeleteBtn = document.getElementById("foodHhEditDeleteBtn");
+  if (hhDeleteBtn) {
+    hhDeleteBtn.onclick = () => {
+      if (editingHouseholdChangeIndex < 0) return;
+      const idxToDelete = editingHouseholdChangeIndex;
+      ui.foodConfigDraft.householdChanges.splice(idxToDelete, 1);
+      editingHouseholdChangeIndex = -1;
+      householdEditorDraft = null;
+      householdEditorBackup = null;
+      const hhErr = document.getElementById("foodHouseholdError");
+      if (hhErr) {
+        hhErr.hidden = true;
+        hhErr.textContent = "";
+      }
+      hideErrorSummaryById("foodHouseholdErrorSummary");
+      renderHouseholdEditor();
+      renderHouseholdChanges();
+      draw();
+    };
+  }
   document.getElementById("foodAddHouseholdChangeBtn").onclick = () => {
     ui.foodConfigDraft.householdChanges = ui.foodConfigDraft.householdChanges || [];
     householdEditorDraft = {
@@ -1946,17 +5687,16 @@ function renderFoodPage() {
       household: { adults: ui.foodConfigDraft.household.adults, teens: ui.foodConfigDraft.household.teens, children: ui.foodConfigDraft.household.children }
     };
     editingHouseholdChangeIndex = -1;
-    if (hhSection.hidden) hhToggle.onclick();
+    householdEditorBackup = null;
+    openFoodMatSubPanel("household");
     renderHouseholdChanges();
     renderHouseholdEditor();
   };
 
   // Deviations section
-  const devToggle = els.devToggle;
-  const devSection = els.devSection;
-  if (devToggle && devSection) devToggle.onclick = () => { devSection.hidden = !devSection.hidden; devToggle.textContent = devSection.hidden ? "▾" : "▴"; };
   let editingDeviationIndex = -1;
   let deviationEditorDraft = null;
+  let deviationEditorBackup = null;
   const deviationPresetFromValue = (value) => {
     const v = Number(value);
     if (Math.abs(v - 0.8) < 0.0001) return "0.8";
@@ -1970,14 +5710,23 @@ function renderFoodPage() {
     if (!editor) return;
     const arr = ui.foodConfigDraft.deviations || [];
     const dv = editingDeviationIndex >= 0 ? arr[editingDeviationIndex] : deviationEditorDraft;
+    const addBtn = document.getElementById("foodAddDeviationBtn");
     if (!dv) {
       editor.hidden = true;
+      if (addBtn) addBtn.disabled = false;
       return;
     }
     editor.hidden = false;
+    if (addBtn) addBtn.disabled = true;
     document.getElementById("foodDevEditStart").value = dv.startDate || "";
     document.getElementById("foodDevEditEnd").value = dv.endDate || "";
     document.getElementById("foodDevEditPreset").value = deviationPresetFromValue(dv.value);
+
+    const saveBtn = document.getElementById("foodDevEditSaveBtn");
+    if (saveBtn) saveBtn.textContent = editingDeviationIndex >= 0 ? "Uppdatera period" : "Lägg till period";
+
+    const delBtn = document.getElementById("foodDevEditDeleteBtn");
+    if (delBtn) delBtn.hidden = editingDeviationIndex < 0;
   };
   const readDeviationEditor = () => {
     const arr = ui.foodConfigDraft.deviations || [];
@@ -1996,32 +5745,43 @@ function renderFoodPage() {
     const list = els.devList;
     const arr = ui.foodConfigDraft.deviations || [];
     const listTitleEl = document.getElementById("foodDevListTitle");
-    const listYearEl = document.getElementById("foodDevListYear");
     if (listTitleEl) listTitleEl.hidden = arr.length === 0;
-    if (listYearEl) listYearEl.textContent = String(year);
     if (!list) return;
+    const editor = document.getElementById("foodDeviationEditor");
+    const isDevEditingLocked = () =>
+      Boolean(editor && !editor.hidden) || editingDeviationIndex >= 0 || deviationEditorDraft != null;
     const sorted = arr
       .map((dv, idx) => ({ dv, idx }))
       .sort((a, b) => String(a.dv.startDate || "").localeCompare(String(b.dv.startDate || "")));
     list.innerHTML = sorted.map(({ dv, idx }) => {
-      const range = `${escapeHtml(dv.startDate || "-")} - ${escapeHtml(dv.endDate || "-")}`;
-      return `<div class="summary-row">
-        <span>${range}</span>
-        <strong><button class="icon-btn btn-icon" type="button" data-dev-edit="${idx}" aria-label="Redigera">✎</button> <button class="danger btn-icon" type="button" data-dev-del="${idx}" aria-label="Ta bort">X</button></strong>
-      </div>`;
+      const sDt = parseDateISO(dv.startDate);
+      const startText = sDt ? formatPlanningDateLongSv(sDt) : (dv.startDate || "-");
+      const eDt = parseDateISO(dv.endDate);
+      const endText = eDt ? formatPlanningDateLongSv(eDt) : (dv.endDate || "-");
+      const range = `${escapeHtml(startText)} - ${escapeHtml(endText)}`;
+      return `
+        <button
+          type="button"
+          class="food-period-bb-row"
+          data-dev-row="${idx}"
+          ${isDevEditingLocked() ? "disabled" : ""}
+          aria-label="Redigera period ${range}"
+        >
+          <span class="food-period-bb-row-main">${range}</span>
+          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+        </button>
+      `;
     }).join("");
-    list.querySelectorAll("[data-dev-del]").forEach((btn) => btn.onclick = () => {
-      const i = Number(btn.getAttribute("data-dev-del"));
-      ui.foodConfigDraft.deviations.splice(i, 1);
-      if (editingDeviationIndex === i) editingDeviationIndex = -1;
-      if (editingDeviationIndex > i) editingDeviationIndex -= 1;
-      renderDeviations();
-      renderDeviationEditor();
-      draw();
-    });
-    list.querySelectorAll("[data-dev-edit]").forEach((btn) => btn.onclick = () => {
-      editingDeviationIndex = Number(btn.getAttribute("data-dev-edit"));
-      renderDeviationEditor();
+    list.querySelectorAll("[data-dev-row]").forEach((btn) => {
+      btn.onclick = () => {
+        if (isDevEditingLocked()) return;
+        const i = Number(btn.getAttribute("data-dev-row"));
+        deviationEditorBackup = JSON.parse(JSON.stringify(ui.foodConfigDraft.deviations?.[i] || null));
+        editingDeviationIndex = i;
+        deviationEditorDraft = null;
+        renderDeviationEditor();
+        draw();
+      };
     });
   };
   document.getElementById("foodDevEditSaveBtn").onclick = () => {
@@ -2039,6 +5799,9 @@ function renderFoodPage() {
         devErr.hidden = false;
         devErr.textContent = "Ange både Från och Till.";
       }
+      document.getElementById("foodDevEditStart")?.classList.add("input-invalid");
+      document.getElementById("foodDevEditEnd")?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodDeviationErrorSummary"), [{ label: "Ange både Från och Till.", jumpId: "foodDevEditStart" }]);
       return;
     }
     if (e.getTime() < s.getTime()) {
@@ -2046,6 +5809,8 @@ function renderFoodPage() {
         devErr.hidden = false;
         devErr.textContent = "Till måste vara samma eller efter Från.";
       }
+      document.getElementById("foodDevEditEnd")?.classList.add("input-invalid");
+      renderErrorSummary(document.getElementById("foodDeviationErrorSummary"), [{ label: "Till måste vara samma eller efter Från.", jumpId: "foodDevEditEnd" }]);
       return;
     }
     if (editingDeviationIndex < 0) {
@@ -2063,19 +5828,91 @@ function renderFoodPage() {
     draw();
   };
   document.getElementById("foodDevEditCancelBtn").onclick = () => {
+    const idxToRestore = editingDeviationIndex;
+    if (idxToRestore >= 0 && deviationEditorBackup && Array.isArray(ui.foodConfigDraft?.deviations)) {
+      ui.foodConfigDraft.deviations[idxToRestore] = deviationEditorBackup;
+    }
     editingDeviationIndex = -1;
     deviationEditorDraft = null;
+    deviationEditorBackup = null;
+    const devErr = document.getElementById("foodDeviationsError");
+    if (devErr) {
+      devErr.hidden = true;
+      devErr.textContent = "";
+    }
+    document.getElementById("foodDevEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodDevEditEnd")?.classList.remove("input-invalid");
+    hideErrorSummaryById("foodDeviationErrorSummary");
     renderDeviationEditor();
+    renderDeviations();
   };
+
+  const devDeleteBtn = document.getElementById("foodDevEditDeleteBtn");
+  if (devDeleteBtn) {
+    devDeleteBtn.onclick = () => {
+      if (editingDeviationIndex < 0) return;
+      const idxToDelete = editingDeviationIndex;
+      ui.foodConfigDraft.deviations.splice(idxToDelete, 1);
+      editingDeviationIndex = -1;
+      deviationEditorDraft = null;
+      deviationEditorBackup = null;
+      const devErr = document.getElementById("foodDeviationsError");
+      if (devErr) {
+        devErr.hidden = true;
+        devErr.textContent = "";
+      }
+      hideErrorSummaryById("foodDeviationErrorSummary");
+      renderDeviationEditor();
+      renderDeviations();
+      draw();
+    };
+  }
   document.getElementById("foodAddDeviationBtn").onclick = () => {
     ui.foodConfigDraft.deviations = ui.foodConfigDraft.deviations || [];
     deviationEditorDraft = { startDate: "", endDate: "", adjustmentType: "factor", value: 1.2 };
     editingDeviationIndex = -1;
-    if (devSection.hidden) devToggle.onclick();
+    deviationEditorBackup = null;
+    openFoodMatSubPanel("deviation");
     renderDeviations();
     renderDeviationEditor();
   };
 
+  // Inline error försvinner när du börjar skriva/manipulera igen.
+  const dismissHhInlineErrors = () => {
+    const hhErr = document.getElementById("foodHouseholdError");
+    if (hhErr) {
+      hhErr.hidden = true;
+      hhErr.textContent = "";
+    }
+    document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
+    hideErrorSummaryById("foodHouseholdErrorSummary");
+  };
+  ["foodHhEditStart", "foodHhEditEnd", "foodHhEditAdults", "foodHhEditTeens", "foodHhEditChildren"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.oninput = () => dismissHhInlineErrors();
+    el.onchange = () => dismissHhInlineErrors();
+  });
+
+  const dismissDevInlineErrors = () => {
+    const devErr = document.getElementById("foodDeviationsError");
+    if (devErr) {
+      devErr.hidden = true;
+      devErr.textContent = "";
+    }
+    document.getElementById("foodDevEditStart")?.classList.remove("input-invalid");
+    document.getElementById("foodDevEditEnd")?.classList.remove("input-invalid");
+    hideErrorSummaryById("foodDeviationErrorSummary");
+  };
+  ["foodDevEditStart", "foodDevEditEnd", "foodDevEditPreset"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.oninput = () => dismissDevInlineErrors();
+    el.onchange = () => dismissDevInlineErrors();
+  });
+
+  renderCustodyEditor();
   renderHouseholdChanges();
   renderHouseholdEditor();
   renderDeviations();
@@ -2087,20 +5924,15 @@ function renderFoodPage() {
     if (w > 20000) setWarn("Varning: ovanligt hög veckokostnad.");
   };
   const originalDraw = draw;
-  const wrappedDraw = () => { originalDraw(); weeklyWarn(); };
+  const wrappedDraw = () => {
+    originalDraw();
+    weeklyWarn();
+    applyFoodOverlayDateBounds();
+    updateFoodMatHubTitles(ui.foodConfigDraft);
+  };
   // replace draw calls by wrappedDraw via function alias
   draw = wrappedDraw;
   draw();
-}
-
-function renderChildrenPage() {
-  const year = ui.expensesYear;
-  const config = state.special.children[String(year)] || {};
-  document.getElementById("kidsClothesPerMonth").value = asNumber(config.kidsClothesPerMonth);
-  document.getElementById("kidsActivitiesPerMonth").value = asNumber(config.kidsActivitiesPerMonth);
-  document.getElementById("kidsPocketMoneyPerMonth").value = asNumber(config.kidsPocketMoneyPerMonth);
-  document.getElementById("kidsPhonePerMonth").value = asNumber(config.kidsPhonePerMonth);
-  document.getElementById("kidsBusCardPerMonth").value = asNumber(config.kidsBusCardPerMonth);
 }
 
 function renderSettingsPage() {
@@ -2109,6 +5941,8 @@ function renderSettingsPage() {
   document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
+  syncThemeModeSummaryLabel();
+  syncFoodWeekdaySummaryLabel();
 }
 
 function renderRecurringTables() {
@@ -2178,10 +6012,11 @@ function renderRoute(route) {
       break;
     }
     case "add": {
-      document.getElementById("headerSubtitle").textContent = "Snabbtillägg";
+      renderQuickAddPage();
       break;
     }
     case "settings": {
+      requireEl("headerSubtitle").textContent = "Inställn.";
       const themeModeSel = document.getElementById("themeMode");
       if (themeModeSel) themeModeSel.value = state.themeMode || "system";
       document.getElementById("themeMode") &&
@@ -2189,6 +6024,7 @@ function renderRoute(route) {
         state.themeMode = themeModeSel.value;
         saveState();
         applyTheme();
+        syncThemeModeSummaryLabel();
       });
 
       renderSettingsPage();
@@ -2209,8 +6045,8 @@ function incomeYearsForFilter() {
   for (const inc of state.incomes || []) {
     for (const p of inc.payments || []) {
       if (!p?.date) continue;
-      const dt = new Date(p.date);
-      if (Number.isNaN(dt.getTime())) continue;
+      const dt = parseDateISO(String(p.date));
+      if (!dt) continue;
       years.add(String(dt.getFullYear()));
     }
   }
@@ -2265,8 +6101,8 @@ function buildIncomePaymentRowsForList(yearFilter) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
       const iso = p.date || "";
-      const dt = iso ? new Date(iso) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
+      const dt = iso ? parseDateISO(String(iso)) : null;
+      if (!dt) continue;
       const y = dt.getFullYear();
       if (yearFilter !== "all" && String(y) !== String(yearFilter)) continue;
       const mo = dt.getMonth() + 1;
@@ -2304,6 +6140,7 @@ function renderIncomesPage() {
     ui.incomeMonthFilter = monthFilterEl.value;
     renderIncomesList();
   };
+  syncIncomeFilterSummaryLabel();
 
   requireEl("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
 
@@ -2365,6 +6202,7 @@ function openIncomeOverlay(incomeId, opts = {}) {
   modal.dataset.mode = editing ? "edit" : "create";
   requireEl("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
   requireEl("incomeEditorNote").textContent = "";
+  hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeDeleteBtn").hidden = !editing;
 
   const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
@@ -2442,6 +6280,7 @@ function closeIncomeOverlay() {
   ui.incomeEditorPayments = null;
   ui.focusPaymentId = null;
   ui.focusPaymentDateISO = null;
+  hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeModalBackdrop").hidden = true;
   requireEl("incomeModal").hidden = true;
   delete requireEl("incomeModal").dataset.mode;
@@ -2482,6 +6321,128 @@ function parseIntOrNull(v) {
 function isAllowedYear(y) {
   const cur = currentYearMonth().year;
   return y === cur - 1 || y === cur || y === cur + 1;
+}
+
+/** Dagens datum i ISO om det ligger i appens tillåtna år, annars klampat mot min/max. */
+function defaultQuickAddDateIso() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  const d = now.getDate();
+  let iso = isoDateFromParts(y, m, d);
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  if (iso < min) return min;
+  if (iso > max) return max;
+  return iso;
+}
+
+function renderQuickAddPage() {
+  document.getElementById("headerSubtitle").textContent = "Snabbtillägg";
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  const defIso = defaultQuickAddDateIso();
+  const expDate = requireEl("addQuickExpenseDate");
+  const incDate = requireEl("addQuickIncomeDate");
+  expDate.min = min;
+  expDate.max = max;
+  incDate.min = min;
+  incDate.max = max;
+  expDate.value = defIso;
+  incDate.value = defIso;
+  requireEl("addQuickExpenseName").value = "";
+  requireEl("addQuickExpenseAmount").value = "";
+  requireEl("addQuickIncomeName").value = "";
+  requireEl("addQuickIncomeAmount").value = "";
+  requireEl("addQuickFeedback").textContent = "";
+  hideErrorSummaryById("addQuickErrorSummary");
+
+  requireEl("addQuickExpenseBtn").onclick = () => {
+    requireEl("addQuickFeedback").textContent = "";
+    saveQuickOneOffExpense();
+  };
+  requireEl("addQuickIncomeBtn").onclick = () => {
+    requireEl("addQuickFeedback").textContent = "";
+    saveQuickOneOffIncome();
+  };
+}
+
+function saveQuickOneOffExpense() {
+  const feedback = requireEl("addQuickFeedback");
+  const summaryEl = document.getElementById("addQuickErrorSummary");
+  if (summaryEl) hideErrorSummaryByEl(summaryEl);
+  const name = (requireEl("addQuickExpenseName").value || "").trim();
+  const amount = asNumber(requireEl("addQuickExpenseAmount").value);
+  const dateIso = (requireEl("addQuickExpenseDate").value || "").trim();
+  const errors = [];
+  if (!name) errors.push({ label: "Ange namn på utgift.", jumpId: "addQuickExpenseName" });
+  if (amount <= 0) errors.push({ label: "Ange belopp större än 0.", jumpId: "addQuickExpenseAmount" });
+  const parts = datePartsFromIso(dateIso);
+  if (!parts) {
+    errors.push({ label: "Välj ett giltigt datum.", jumpId: "addQuickExpenseDate" });
+  } else {
+    const row = { year: String(parts.y), month: pad2(parts.m), day: String(parts.d), amount };
+    const res = validateIncomePaymentParts(row);
+    if (!res.ok) errors.push({ label: res.message, jumpId: "addQuickExpenseDate" });
+  }
+  if (errors.length) {
+    feedback.textContent = "";
+    renderErrorSummary(summaryEl, errors);
+    return;
+  }
+  state.expenses.push(
+    canonicalizeExpenseRecord({
+      id: uid(),
+      name,
+      interval: "once",
+      category: "one_off",
+      payments: [{ id: uid(), date: dateIso, amount }]
+    })
+  );
+  saveState();
+  requireEl("addQuickExpenseName").value = "";
+  requireEl("addQuickExpenseAmount").value = "";
+  feedback.textContent = "Utgift sparad.";
+  renderExpensesList();
+  renderOverviewIfOnOverview();
+}
+
+function saveQuickOneOffIncome() {
+  const feedback = requireEl("addQuickFeedback");
+  const summaryEl = document.getElementById("addQuickErrorSummary");
+  if (summaryEl) hideErrorSummaryByEl(summaryEl);
+  const name = (requireEl("addQuickIncomeName").value || "").trim();
+  const amount = asNumber(requireEl("addQuickIncomeAmount").value);
+  const dateIso = (requireEl("addQuickIncomeDate").value || "").trim();
+  const errors = [];
+  if (!name) errors.push({ label: "Ange namn på intäkt.", jumpId: "addQuickIncomeName" });
+  if (amount <= 0) errors.push({ label: "Ange belopp större än 0.", jumpId: "addQuickIncomeAmount" });
+  const parts = datePartsFromIso(dateIso);
+  if (!parts) {
+    errors.push({ label: "Välj ett giltigt datum.", jumpId: "addQuickIncomeDate" });
+  } else {
+    const row = { year: String(parts.y), month: pad2(parts.m), day: String(parts.d), amount };
+    const res = validateIncomePaymentParts(row);
+    if (!res.ok) errors.push({ label: res.message, jumpId: "addQuickIncomeDate" });
+  }
+  if (errors.length) {
+    feedback.textContent = "";
+    renderErrorSummary(summaryEl, errors);
+    return;
+  }
+  state.incomes.push({
+    id: uid(),
+    name,
+    interval: "once",
+    category: "one_off",
+    payments: [{ id: uid(), date: dateIso, amount }]
+  });
+  saveState();
+  requireEl("addQuickIncomeName").value = "";
+  requireEl("addQuickIncomeAmount").value = "";
+  feedback.textContent = "Intäkt sparad.";
+  renderIncomesList();
+  renderOverviewIfOnOverview();
 }
 
 function validateIncomePaymentParts({ year, month, day, amount }) {
@@ -2724,9 +6685,12 @@ function saveIncomeFromOverlay() {
   const name = (document.getElementById("incomeNameInput").value || "").trim();
   const interval = document.getElementById("incomeIntervalSelect").value || "once";
   const note = document.getElementById("incomeEditorNote");
+  const summaryEl = document.getElementById("incomeErrorSummary");
+  if (summaryEl) hideErrorSummaryByEl(summaryEl);
 
   if (!name) {
-    note.textContent = "Ange namn på intäkt.";
+    note.textContent = "";
+    renderErrorSummary(summaryEl, [{ label: "Ange namn på intäkt.", jumpId: "incomeNameInput" }]);
     return;
   }
 
@@ -2739,13 +6703,20 @@ function saveIncomeFromOverlay() {
   }));
 
   // Validera: för rader med belopp > 0 måste år/månad/dag vara giltiga (ingen auto-korrigering)
-  for (const p of payments) {
-    if (asNumber(p.amount) <= 0) continue;
+  const errors = [];
+  payments.forEach((p, idx) => {
+    if (asNumber(p.amount) <= 0) return;
     const res = validateIncomePaymentParts(p);
     if (!res.ok) {
-      note.textContent = res.message;
-      return;
+      const jump = paymentErrorJump({ idx, msg: res.message, kindPrefix: "inc" });
+      errors.push({ label: jump.label, jumpSelector: jump.jumpSelector });
     }
+  });
+
+  if (errors.length > 0) {
+    note.textContent = "";
+    renderErrorSummary(summaryEl, errors);
+    return;
   }
 
   const storedPayments = payments.map((p) => {
@@ -2768,7 +6739,7 @@ function saveIncomeFromOverlay() {
       state.incomes[idx] = { ...state.incomes[idx], name, interval, payments: storedPayments };
     }
   } else {
-    state.incomes.push({ id: uid(), name, interval, payments: storedPayments });
+    state.incomes.push({ id: uid(), name, interval, category: "other", payments: storedPayments });
   }
 
   saveState();
@@ -2873,13 +6844,10 @@ function expenseYearsForFilter() {
   for (const exp of state.expenses || []) {
     for (const p of exp.payments || []) {
       if (!p?.date) continue;
-      const dt = new Date(p.date);
-      if (Number.isNaN(dt.getTime())) continue;
+      const dt = parseDateISO(String(p.date));
+      if (!dt) continue;
       years.add(String(dt.getFullYear()));
     }
-  }
-  for (const loan of getAllLoans()) {
-    for (const ym of enumerateLoanMonths(loan)) years.add(String(ym.year));
   }
   const cur = currentYearMonth().year;
   years.add(String(cur - 1));
@@ -2910,8 +6878,8 @@ function buildExpensePaymentRowsForList(yearFilter) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
       const iso = p.date || "";
-      const dt = iso ? new Date(iso) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
+      const dt = iso ? parseDateISO(String(iso)) : null;
+      if (!dt) continue;
       if (yearFilter !== "all" && String(dt.getFullYear()) !== String(yearFilter)) continue;
       if (monthFilter !== "all" && Number(monthFilter) !== dt.getMonth() + 1) continue;
       rows.push({
@@ -2921,31 +6889,11 @@ function buildExpensePaymentRowsForList(yearFilter) {
         isoDate: iso,
         date: dt,
         amount: amt,
-        isFoodPayment: Boolean(exp?.foodGenerated),
-        foodYear: exp?.foodYear,
-        foodWeekKey: exp?.foodWeekKey
-      });
-    }
-  }
-  for (const loan of getAllLoans()) {
-    const total = getLoanTotalPayment(loan);
-    if (total <= 0) continue;
-    for (const ym of enumerateLoanMonths(loan)) {
-      if (yearFilter !== "all" && String(ym.year) !== String(yearFilter)) continue;
-      if (monthFilter !== "all" && Number(monthFilter) !== ym.month) continue;
-      const dd = clampDay(ym.year, ym.month, Math.max(1, Math.min(31, asNumber(loan.dueDay) || 25)));
-      const iso = `${ym.year}-${pad2(ym.month)}-${pad2(dd)}`;
-      const dt = new Date(iso);
-      if (Number.isNaN(dt.getTime())) continue;
-      rows.push({
-        expenseId: `loan:${loan.id}`,
-        paymentId: `loan:${loan.id}:${ym.year}-${pad2(ym.month)}`,
-        name: `Lån - ${loan.name || "Lån"}`,
-        isoDate: iso,
-        date: dt,
-        amount: total,
-        isLoanPayment: true,
-        loanId: loan.id
+        isFoodPayment: isMatLikeExpense(exp),
+        isLoanMirror: isMirroredLoanExpense(exp),
+        loanId: exp.metadata?.loanId,
+        foodYear: exp?.metadata?.food?.year ?? exp?.foodYear,
+        foodWeekKey: exp?.metadata?.food?.weekKey ?? exp?.foodWeekKey
       });
     }
   }
@@ -2956,20 +6904,12 @@ function buildExpensePaymentRowsForList(yearFilter) {
 
 function openFoodOverlayForExpenseRow(row) {
   openExpenseCategoryOverlay("food");
-  const year = Number(row?.foodYear) || (row?.date ? row.date.getFullYear() : ui.expensesYear || currentYearMonth().year);
-  const month = row?.date ? row.date.getMonth() + 1 : (ui.expensesFoodMonth || currentYearMonth().month);
-  ui.expensesYear = year;
+  const year = Number(row?.foodYear) || (row?.date ? row.date.getFullYear() : ui.foodPreviewYear || currentYearMonth().year);
+  const month = row?.date ? row.date.getMonth() + 1 : (ui.foodPreviewMonth || ui.expensesFoodMonth || currentYearMonth().month);
+  ui.foodPreviewYear = year;
+  ui.foodPreviewMonth = month;
+  ui.expensesFoodMonth = month;
   ui.foodScrollWeekKey = row?.foodWeekKey || null;
-  const sel = document.getElementById("expensesFoodMonth");
-  const yearSel = document.getElementById("expensesFoodYear");
-  if (yearSel) {
-    setYear3Options(yearSel, year);
-    yearSel.value = String(year);
-  }
-  if (sel && month) {
-    sel.value = String(month);
-    ui.expensesFoodMonth = month;
-  }
   renderFoodPage();
   requestAnimationFrame(() => {
     const overlay = document.querySelector('[data-expview="food"]');
@@ -3005,6 +6945,7 @@ function renderExpensesSummaryPage() {
     ui.expenseMonthFilter = monthEl.value;
     renderExpensesList();
   };
+  syncExpenseFilterSummaryLabel();
 
   requireEl("openExpenseOverlayBtn").onclick = () => openExpenseOverlay(null);
   requireEl("expenseIntervalSelect").onchange = () => resetExpenseEditorRowsForInterval();
@@ -3084,11 +7025,11 @@ function renderExpensesList() {
       <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
       r.name
     )}${r.isFoodPayment ? ` <span class="badge badge-food" aria-label="Systemgenererad">Mat</span>` : ""}</button></td>
-      <td><button class="linklike truncate" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td><button class="linklike truncate" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
     )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
       <td class="right">${formatKr(r.amount)}</td>
-      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanPayment ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
+      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
       r.paymentId || ""
     )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} aria-label="Redigera">✎</button></td>
     `;
@@ -3108,6 +7049,10 @@ function renderExpensesList() {
       const iso = btn.getAttribute("data-edit-expense-iso");
       const row = rows.find((r) => String(r.expenseId) === String(expenseId) && (!paymentId || String(r.paymentId) === String(paymentId)));
       if (row?.isFoodPayment) return openFoodOverlayForExpenseRow(row);
+      if (row?.isLoanMirror && row.loanId) {
+        openExpenseCategoryOverlay("loans");
+        return openLoanEditor(String(row.loanId));
+      }
       openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
     };
   });
@@ -3164,16 +7109,46 @@ function openExpenseOverlay(expenseId, opts = {}) {
   modal.dataset.mode = editing ? "edit" : "create";
   requireEl("expenseModalTitle").textContent = editing ? "Redigera utgift" : "Ny utgift";
   requireEl("expenseEditorNote").textContent = "";
+  hideErrorSummaryById("expenseErrorSummary");
   requireEl("expenseDeleteBtn").hidden = !editing;
   const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
-  if (exp?.foodGenerated) {
+  if (isMirroredLoanExpense(exp)) {
+    closeExpenseOverlay();
+    openExpenseCategoryOverlay("loans");
+    openLoanEditor(String(exp.metadata.loanId));
+    return;
+  }
+  if (isMatLikeExpense(exp)) {
     // Food is system-generated; redirect to Mat.
     closeExpenseOverlay();
+    const p0 = exp?.payments?.[0];
     openFoodOverlayForExpenseRow({
-      date: exp?.payments?.[0]?.date ? new Date(exp.payments[0].date) : null,
-      foodYear: exp.foodYear,
-      foodWeekKey: exp.foodWeekKey
+      date: p0?.date ? new Date(p0.date) : null,
+      foodYear:
+        exp.metadata?.food?.year != null && exp.metadata?.food?.year !== ""
+          ? Number(exp.metadata.food.year)
+          : exp.foodYear != null && exp.foodYear !== ""
+            ? Number(exp.foodYear)
+            : undefined,
+      foodWeekKey: exp.metadata?.food?.weekKey || exp.foodWeekKey
     });
+    return;
+  }
+  const tagCat = getTaggedExpenseCategory(exp);
+  if (tagCat) {
+    closeExpenseOverlay();
+    const u = ui.tagged[tagCat];
+    u.editingId = expenseId;
+    u.editorOpen = true;
+    const p0 = exp?.payments?.[0];
+    if (p0?.date) {
+      const d = new Date(p0.date);
+      if (!Number.isNaN(d.getTime())) {
+        u.listYear = d.getFullYear();
+        u.listMonth = d.getMonth() + 1;
+      }
+    }
+    openExpenseCategoryOverlay(TAGGED_CATEGORY_CONFIG[tagCat].overlayKey);
     return;
   }
   requireEl("expenseNameInput").value = exp?.name || "";
@@ -3224,6 +7199,7 @@ function closeExpenseOverlay() {
   ui.expenseEditorPayments = null;
   ui.expenseFocusPaymentId = null;
   ui.expenseFocusPaymentDateISO = null;
+  hideErrorSummaryById("expenseErrorSummary");
   requireEl("expenseModalBackdrop").hidden = true;
   requireEl("expenseModal").hidden = true;
   delete requireEl("expenseModal").dataset.mode;
@@ -3345,18 +7321,28 @@ function saveExpenseFromOverlay() {
   const name = (requireEl("expenseNameInput").value || "").trim();
   const interval = requireEl("expenseIntervalSelect").value || "once";
   const note = requireEl("expenseEditorNote");
+  const summaryEl = document.getElementById("expenseErrorSummary");
+  if (summaryEl) hideErrorSummaryByEl(summaryEl);
+
   if (!name) {
-    note.textContent = "Ange namn på utgift.";
+    note.textContent = "";
+    renderErrorSummary(summaryEl, [{ label: "Ange namn på utgift.", jumpId: "expenseNameInput" }]);
     return;
   }
   const payments = (ui.expenseEditorPayments || []).map((p) => ({ id: p.id || uid(), year: p.year, month: p.month, day: p.day, amount: asNumber(p.amount) }));
-  for (const p of payments) {
-    if (asNumber(p.amount) <= 0) continue;
+  const errors = [];
+  payments.forEach((p, idx) => {
+    if (asNumber(p.amount) <= 0) return;
     const res = validateIncomePaymentParts(p);
     if (!res.ok) {
-      note.textContent = res.message;
-      return;
+      const jump = paymentErrorJump({ idx, msg: res.message, kindPrefix: "exp" });
+      errors.push({ label: jump.label, jumpSelector: jump.jumpSelector });
     }
+  });
+  if (errors.length > 0) {
+    note.textContent = "";
+    renderErrorSummary(summaryEl, errors);
+    return;
   }
   const stored = payments.map((p) => {
     const y = parseIntOrNull(p.year);
@@ -3368,9 +7354,10 @@ function saveExpenseFromOverlay() {
   });
   if (ui.editExpenseId) {
     const idx = (state.expenses || []).findIndex((x) => x.id === ui.editExpenseId);
-    if (idx >= 0) state.expenses[idx] = { ...state.expenses[idx], name, interval, payments: stored };
+    if (idx >= 0)
+      state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], name, interval, payments: stored, id: state.expenses[idx].id });
   } else {
-    state.expenses.push({ id: uid(), name, interval, payments: stored });
+    state.expenses.push(canonicalizeExpenseRecord({ id: uid(), name, interval, payments: stored, category: "other" }));
   }
   saveState();
   closeExpenseOverlay();
@@ -3381,16 +7368,6 @@ function saveExpenseFromOverlay() {
 function renderExpensesPage() {
   document.getElementById("headerSubtitle").textContent = "Utgifter";
   ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
-
-  const monthSel = document.getElementById("expensesFoodMonth");
-  if (monthSel) {
-    setMonthOptions(monthSel, ui.expensesFoodMonth || ui.overviewMonth || currentYearMonth().month);
-    monthSel.onchange = () => {
-      ui.expensesFoodMonth = Number(monthSel.value);
-      renderFoodPage();
-      renderOverviewIfOnOverview();
-    };
-  }
 
   // Ensure overlays start hidden
   document.querySelectorAll(".exp-overlay").forEach((el) => {
@@ -3412,7 +7389,14 @@ function renderExpensesPage() {
 }
 
 function openExpenseCategoryOverlay(key) {
-  const map = { home: renderHomePage, loans: renderLoansPage, car: renderCarPage, food: renderFoodPage, children: renderChildrenPage, savings: null };
+  const map = {
+    home: renderHomePage,
+    loans: renderLoansPage,
+    car: renderCarPage,
+    food: renderFoodPage,
+    children: renderChildrenPage,
+    savings: renderSavingsPage
+  };
   if (map[key]) map[key]();
   const target = document.querySelector(`[data-expview="${key}"]`);
   if (!target) return;
@@ -3422,9 +7406,14 @@ function openExpenseCategoryOverlay(key) {
 }
 
 function closeExpenseCategoryOverlay() {
+  resetFoodMatSubPanelsWhenFoodOverlayCloses();
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
   closeLoanEditor();
   hideConfirmDeleteLoanModal();
+  for (const k of TAGGED_CATEGORY_KEYS) {
+    ui.tagged[k].editorOpen = false;
+    ui.tagged[k].editingId = null;
+  }
   document.documentElement.classList.remove("modal-open");
   document.body.classList.remove("modal-open");
 }
@@ -3627,6 +7616,7 @@ function openLoanEditor(loanId = null) {
   if (copyBtn) copyBtn.hidden = !existing;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
+  hideErrorSummaryById("loanErrorSummary");
   renderLoanCopyNotice();
   renderLoanDateInlineError();
   updateLoanDerivedFields();
@@ -3642,6 +7632,7 @@ function closeLoanEditor() {
   ui.editLoanId = null;
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = true;
+  hideErrorSummaryById("loanErrorSummary");
   const actions = document.querySelector(".loan-editor-actions");
   if (actions) actions.dataset.mode = "create";
   document.getElementById("loanNameInput").value = "";
@@ -3678,55 +7669,66 @@ function hideConfirmDeleteLoanModal() {
 
 function initActions() {
   // CAR
-  document.getElementById("carOwnership").onchange = () => {
-    const leased = document.getElementById("carOwnership").value === "leased";
-    const leasingField = document.getElementById("carLeasingField");
-    if (leasingField) leasingField.hidden = !leased;
+  const wireTaggedCategoryActions = (cat) => {
+    const C = TAGGED_CATEGORY_CONFIG[cat];
+    if (!C) return;
+    const ids = C.ids;
+    const u = ui.tagged[cat];
+    const addBtn = document.getElementById(ids.addBtn);
+    if (addBtn) {
+      addBtn.addEventListener("click", () => {
+        u.editingId = null;
+        u.editorOpen = true;
+        if (cat === "car") renderCarPage();
+        else if (cat === "home") renderHomePage();
+        else if (cat === "children") renderChildrenPage();
+        else if (cat === "savings") renderSavingsPage();
+        const editorCard = document.getElementById(ids.editorCard);
+        if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    const saveBtn = document.getElementById(ids.saveBtn);
+    if (saveBtn) saveBtn.addEventListener("click", () => saveTaggedCategoryFromEditor(cat));
+    const delBtn = document.getElementById(ids.deleteBtn);
+    if (delBtn) delBtn.addEventListener("click", () => deleteTaggedCategoryFromEditor(cat));
+    const cancelBtn = document.getElementById(ids.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => {
+        u.editorOpen = false;
+        u.editingId = null;
+        const note = document.getElementById(ids.note);
+        if (note) note.textContent = "";
+        if (cat === "car") renderCarPage();
+        else if (cat === "home") renderHomePage();
+        else if (cat === "children") renderChildrenPage();
+        else if (cat === "savings") renderSavingsPage();
+      });
+    }
   };
-
-  document.getElementById("carSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.car[String(year)] = {
-      ownership: document.getElementById("carOwnership").value || "owned",
-      insurance: asNumber(document.getElementById("carInsurance").value),
-      fuel: asNumber(document.getElementById("carFuel").value),
-      parking: asNumber(document.getElementById("carParking").value),
-      leasing: asNumber(document.getElementById("carLeasing").value)
-    };
-    saveState();
-    const note = document.getElementById("carNote");
-    note.textContent = "Bil-kostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderCarPage();
-    closeExpenseCategoryOverlay();
-  });
-
-  // HOME
-  document.getElementById("homeSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.home[String(year)] = {
-      rent: asNumber(document.getElementById("homeRent").value),
-      electricity: asNumber(document.getElementById("homeElectricity").value),
-      water: asNumber(document.getElementById("homeWater").value),
-      garbage: asNumber(document.getElementById("homeGarbage").value),
-      internet: asNumber(document.getElementById("homeInternet").value),
-      parking: asNumber(document.getElementById("homeParking").value)
-    };
-    saveState();
-    document.getElementById("homeNote").textContent = "Hemkostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderHomePage();
-    closeExpenseCategoryOverlay();
-  });
+  wireTaggedCategoryActions("car");
+  wireTaggedCategoryActions("home");
+  wireTaggedCategoryActions("children");
+  wireTaggedCategoryActions("savings");
 
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
-    const year = Number(ui.expensesYear || ui.overviewYear || currentYearMonth().year);
-    const month = Number(ui.expensesFoodMonth || currentYearMonth().month);
-    const cfg = ui.foodConfigDraft ? { ...ui.foodConfigDraft, household: { ...ui.foodConfigDraft.household }, custodySchedule: normalizeCustodySchedule(ui.foodConfigDraft.custodySchedule) } : getFoodConfigForYear(year);
+    const appYears = getSelectableAppYears();
+    const cfg = ui.foodConfigDraft ? (() => {
+      const { _custodyHhSnapGlobal: _cg, _custodyHhSnap: _cs, ...rest } = ui.foodConfigDraft;
+      const custodyPeriods = (rest.custodyPeriods || []).map(normalizeCustodyPeriodEntry).filter((p) => p.startDate && String(p.startDate).trim());
+      return {
+        ...rest,
+        household: { ...rest.household },
+        custodyPeriods,
+        custodySchedule: normalizeCustodySchedule({ type: "off" }),
+        foodBudgetYear: currentYearMonth().year
+      };
+    })() : getSharedFoodConfig();
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
-      document.getElementById("foodNote").textContent = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
+      const msg = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
+      document.getElementById("foodNote").textContent = msg;
+      renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodAdultsInput" }]);
       return;
     }
     // basic date validation for household changes / deviations
@@ -3736,92 +7738,96 @@ function initActions() {
       return !s || !e || e.getTime() < s.getTime();
     };
     if ((cfg.householdChanges || []).some(badRange)) {
-      document.getElementById("foodNote").textContent = "Ändrat hushåll: kontrollera datum (till måste vara efter från).";
+      const msg = "Ändrat hushåll: kontrollera datum (till måste vara efter från).";
+      document.getElementById("foodNote").textContent = msg;
+      renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodHouseholdChangesSection" }]);
       return;
     }
     if ((cfg.deviations || []).some(badRange)) {
-      document.getElementById("foodNote").textContent = "Avvikande veckor: kontrollera datum (till måste vara efter från).";
+      const msg = "Avvikande veckor: kontrollera datum (till måste vara efter från).";
+      document.getElementById("foodNote").textContent = msg;
+      renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodDeviationsSection" }]);
       return;
     }
-    if (cfg.mode !== "manual") {
-      const cs = normalizeCustodySchedule(cfg.custodySchedule);
-      if (cs.type === "alternating") {
-        const s = parseDateISO(cs.alternating.startDate);
-        if (!s) {
-          document.getElementById("foodNote").textContent = "Barnschema: ange startdatum för varannan vecka.";
-          return;
-        }
+    const custodyForSave = cfg.custodyPeriods || [];
+    const custodyAccSave = buildCustodyPeriodAcceptance(custodyForSave, 0);
+    if (custodyAccSave.shadowedOrigIndices.size > 0) {
+      const msg = "Växelvis boende: justera överlappande perioder innan du sparar.";
+      document.getElementById("foodNote").textContent = msg;
+      renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodCustodyPeriodsList" }]);
+      openFoodMatSubPanel("custody");
+      return;
+    }
+    const baseChildren = Math.max(0, Math.floor(asNumber(cfg.household?.children)));
+    const baseTeens = Math.max(0, Math.floor(asNumber(cfg.household?.teens)));
+    for (const p of custodyForSave) {
+      const n = normalizeCustodyPeriodEntry(p);
+      if (!n.startDate || !String(n.startDate).trim()) continue;
+      if (!custodyPeriodEndDateValid(n)) {
+        const msg = "Växelvis: slutdatum måste vara minst en dag efter start, eller lämna slut tomt.";
+        document.getElementById("foodNote").textContent = msg;
+        renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodCustodyPeriodsList" }]);
+        return;
       }
-      if (cs.type === "custom") {
-        const badCustody = (p) => {
-          const s = parseDateISO(p?.startDate);
-          const e = parseDateISO(p?.endDate);
-          return !s || !e || e.getTime() < s.getTime();
-        };
-        if ((cs.custom || []).some(badCustody)) {
-          document.getElementById("foodNote").textContent = "Barnschema: kontrollera datum för perioder.";
-          return;
-        }
+      if (n.absent.children > baseChildren || n.absent.teens > baseTeens) {
+        const msg = "Växelvis: för många barn/tonåringar markerade som borta.";
+        document.getElementById("foodNote").textContent = msg;
+        renderErrorSummary(document.getElementById("foodErrorSummary"), [{ label: msg, jumpId: "foodKidsSection" }]);
+        return;
       }
     }
 
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
-    const weeks = getIsoWeeksForYear(year).map((w) => {
-      const planningDate = addDays(w.weekStart, planningDay - 1);
-      const { amount, labels } = computeFoodWeekAmountAndLabels(cfg, w.weekStart, w.weekEnd);
-      return {
-        isoYear: w.isoYear,
-        weekNumber: w.week,
-        weekStart: isoFromDate(w.weekStart),
-        weekEnd: isoFromDate(w.weekEnd),
-        planningDate: isoFromDate(planningDate),
-        amount,
-        labels
-      };
-    });
-
-    // Remove prior generated food posts for that year (single source of truth)
-    state.expenses = (state.expenses || []).filter((exp) => !(exp?.foodGenerated && Number(exp.foodYear) === Number(year)));
-
-    // Create one expense per week, full amount at planningDate
-    for (const wk of weeks) {
-      const id = uid();
-      state.expenses.push({
-        id,
-        name: `Mat v.${wk.weekNumber}`,
-        interval: "once",
-        foodGenerated: true,
-        foodYear: Number(year),
-        foodWeekKey: `${wk.isoYear}-W${pad2(wk.weekNumber)}`,
-        foodPlanningDate: wk.planningDate,
-        foodLabels: wk.labels,
-        payments: [{ id: uid(), date: wk.planningDate, amount: wk.amount }]
-      });
+    const weeks = [];
+    for (const foodYear of appYears) {
+      for (const w of getIsoWeeksForYear(foodYear)) {
+        const planningDate = addDays(w.weekStart, planningDay - 1);
+        const { amount, labels } = computeFoodWeekAmountAndLabels(cfg, w.weekStart, w.weekEnd);
+        weeks.push({
+          isoYear: w.isoYear,
+          weekNumber: w.week,
+          weekStart: isoFromDate(w.weekStart),
+          weekEnd: isoFromDate(w.weekEnd),
+          planningDate: isoFromDate(planningDate),
+          amount,
+          labels,
+          expenseFoodYear: foodYear
+        });
+      }
     }
 
-    setFoodYearModel(year, cfg, weeks);
+    state.expenses = (state.expenses || []).filter((exp) => !isGeneratedMatExpenseInSelectableWindow(exp));
+
+    for (const wk of weeks) {
+      const id = uid();
+      state.expenses.push(
+        canonicalizeExpenseRecord({
+          id,
+          name: `Mat v.${wk.weekNumber}`,
+          category: "food",
+          interval: "once",
+          origin: "system",
+          metadata: {
+            food: {
+              generated: true,
+              year: Number(wk.expenseFoodYear),
+              weekKey: `${wk.isoYear}-W${pad2(wk.weekNumber)}`,
+              planningDate: wk.planningDate,
+              labels: wk.labels
+            }
+          },
+          payments: [{ id: uid(), date: wk.planningDate, amount: wk.amount }]
+        })
+      );
+    }
+
+    setSharedFoodModel(cfg, weeks);
     saveState();
-    document.getElementById("foodNote").textContent = `Matkostnader sparade (${weeks.length} veckor) för ${year}.`;
+    const foodNoteOk = document.getElementById("foodNote");
+    if (foodNoteOk) foodNoteOk.textContent = "";
     renderOverviewIfOnOverview();
     renderExpensesList();
     renderFoodPage();
-    closeExpenseCategoryOverlay();
-  });
-
-  // CHILDREN
-  document.getElementById("kidsSaveBtn").addEventListener("click", () => {
-    const year = ui.expensesYear || currentYearMonth().year;
-    state.special.children[String(year)] = {
-      kidsClothesPerMonth: asNumber(document.getElementById("kidsClothesPerMonth").value),
-      kidsActivitiesPerMonth: asNumber(document.getElementById("kidsActivitiesPerMonth").value),
-      kidsPocketMoneyPerMonth: asNumber(document.getElementById("kidsPocketMoneyPerMonth").value),
-      kidsPhonePerMonth: asNumber(document.getElementById("kidsPhonePerMonth").value),
-      kidsBusCardPerMonth: asNumber(document.getElementById("kidsBusCardPerMonth").value)
-    };
-    saveState();
-    document.getElementById("kidsNote").textContent = "Barnkostnader sparade.";
-    renderOverviewIfOnOverview();
-    renderChildrenPage();
     closeExpenseCategoryOverlay();
   });
 
@@ -3905,10 +7911,22 @@ function initActions() {
     const loans = getAllLoans();
     const draft = getLoanDraftFromInputs();
     if (!draft.name) {
-      document.getElementById("loanNote").textContent = "Ange namn på lån.";
+      const summaryEl = document.getElementById("loanErrorSummary");
+      if (summaryEl) {
+        renderErrorSummary(summaryEl, [{ label: "Ange namn på lån.", jumpId: "loanNameInput" }]);
+      }
+      document.getElementById("loanNote").textContent = "";
       return;
     }
-    if (!renderLoanDateInlineError()) return;
+    const loanDateOk = renderLoanDateInlineError();
+    if (!loanDateOk) {
+      const summaryEl = document.getElementById("loanErrorSummary");
+      const msg = validateLoanDateRange(draft) || document.getElementById("loanDateError")?.textContent || "Kontrollera datum.";
+      const jumpId = msg.toLowerCase().includes("start") ? "loanStartYear" : msg.toLowerCase().includes("slut") ? "loanEndYear" : "loanEndYear";
+      if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId }]);
+      document.getElementById("loanNote").textContent = "";
+      return;
+    }
     const idx = loans.findIndex((x) => x.id === draft.id);
     if (idx >= 0) loans[idx] = draft;
     else loans.push(draft);
@@ -4083,6 +8101,11 @@ function initRoot() {
   try {
     state = loadState();
     applyTheme();
+    initSystemThemeListener();
+    initDateFieldRows();
+    initMobileDateSheetPicker();
+    initOverviewPeriodSheet();
+    initFoodMatSubPanelHistory();
     initRouting();
     initActions();
     registerServiceWorker();

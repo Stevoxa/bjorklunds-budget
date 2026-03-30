@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b1220" />
+    <meta name="theme-color" content="#0c120f" />
     <link rel="manifest" href="manifest.webmanifest" />
     <title>Björklunds - Budget</title>
     <link rel="stylesheet" href="styles.css" />
@@ -22,16 +22,15 @@
         <!-- OVERVIEW -->
         <section class="view" data-view="overview">
           <div class="view-header">
-            <h2>Översikt</h2>
-            <div class="picker-row">
-              <label>
-                År
-                <select id="overviewYear"></select>
-              </label>
-              <label>
-                Månad
-                <select id="overviewMonth"></select>
-              </label>
+            <h2>Analys</h2>
+            <div class="period-picker bb-period-wrap" data-overview-period="" role="group" aria-label="Välj period">
+              <button type="button" class="bb-outline-field-btn" id="overviewPeriodOpenBtn">
+                <span class="bb-outline-field-label">Period</span>
+                <span class="bb-outline-field-value" id="overviewPeriodSummary">—</span>
+                <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+              </button>
+              <select id="overviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <select id="overviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
           </div>
 
@@ -99,25 +98,28 @@
         <section class="view" data-view="incomes">
           <div class="view-header">
             <h2>Intäkter</h2>
-            <div class="actions-row" style="margin-top: 0">
-              <button class="primary" id="openIncomeOverlayBtn" type="button">Lägg till</button>
-            </div>
           </div>
 
           <div class="table-card">
-            <div class="table-title">Intäkter</div>
-            <div class="picker-row" style="justify-content: space-between">
-              <div class="note" style="margin: 0">En rad per inbetalning (0 kr visas inte).</div>
-              <div class="picker-row" style="justify-content: flex-end">
-                <label>
-                  År (filter)
-                  <select id="incomeYearFilter"></select>
-                </label>
-                <label>
-                  Månad (filter)
-                  <select id="incomeMonthFilter"></select>
-                </label>
+            <div class="table-title-row">
+              <div class="table-title">Intäkter</div>
+              <button type="button" class="bb-icon-add-btn" id="openIncomeOverlayBtn" aria-label="Lägg till intäkt">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div class="filter-toolbar">
+              <div class="note">En rad per inbetalning (0 kr visas inte).</div>
+              <div class="picker-row bb-filter-period-row">
+                <button type="button" class="bb-outline-field-btn" id="incomeFilterPeriodOpenBtn">
+                  <span class="bb-outline-field-label">År &amp; månad</span>
+                  <span class="bb-outline-field-value" id="incomeFilterSummary">—</span>
+                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                </button>
               </div>
+              <select id="incomeYearFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <select id="incomeMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
 
             <div class="table-wrap">
@@ -144,34 +146,70 @@
           </div>
 
           <div class="subnav" role="tablist" aria-label="Utgiftsområden">
-            <button class="subnav-btn" type="button" data-exp-overlay="home">Hem</button>
-            <button class="subnav-btn" type="button" data-exp-overlay="loans">Lån</button>
-            <button class="subnav-btn" type="button" data-exp-overlay="car">Bil</button>
-            <button class="subnav-btn" type="button" data-exp-overlay="food">Mat</button>
-            <button class="subnav-btn" type="button" data-exp-overlay="children">Barn</button>
-            <button class="subnav-btn" type="button" data-exp-overlay="savings">Spar</button>
-          </div>
-
-          <div>
-            <div class="actions-row" style="margin-top: 0">
-              <button class="primary" id="openExpenseOverlayBtn" type="button">Lägg till</button>
-            </div>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="home">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+              <span class="subnav-tile-label">Hem</span>
+            </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="loans">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 7h10v10H7V7Z" stroke="currentColor" stroke-width="1.5" />
+                <path d="M9 11h6M9 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <span class="subnav-tile-label">Lån</span>
+            </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="car">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 16 6.5 11h11L19 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M5.5 16h13v2h-13v-2ZM8 16v-2M16 16v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path d="M7 11l1.5-3h7L17 11" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+              <span class="subnav-tile-label">Bil</span>
+            </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="food">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M8 8c0-2 1.5-3.5 4-3.5s4 1.5 4 3.5-1 3-4 5c-3-2-4-3-4-5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                <path d="M12 13v6M9 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <span class="subnav-tile-label">Mat</span>
+            </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="children">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="1.5" />
+                <path d="M6.5 19c.8-2.5 2.8-4 5.5-4s4.7 1.5 5.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <span class="subnav-tile-label">Barn</span>
+            </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="savings">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path d="M8 16c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              </svg>
+              <span class="subnav-tile-label">Spar</span>
+            </button>
           </div>
 
           <div class="table-card">
-            <div class="table-title">Utgifter</div>
-            <div class="picker-row" style="justify-content: space-between">
-              <div class="note" style="margin: 0">En rad per utbetalning (0 kr visas inte).</div>
-              <div class="picker-row" style="justify-content: flex-end">
-                <label>
-                  År (filter)
-                  <select id="expenseYearFilter"></select>
-                </label>
-                <label>
-                  Månad (filter)
-                  <select id="expenseMonthFilter"></select>
-                </label>
+            <div class="table-title-row">
+              <div class="table-title">Utgifter</div>
+              <button type="button" class="bb-icon-add-btn" id="openExpenseOverlayBtn" aria-label="Lägg till utgift">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div class="filter-toolbar">
+              <div class="note">En rad per utbetalning (0 kr visas inte).</div>
+              <div class="picker-row bb-filter-period-row">
+                <button type="button" class="bb-outline-field-btn" id="expenseFilterPeriodOpenBtn">
+                  <span class="bb-outline-field-label">År &amp; månad</span>
+                  <span class="bb-outline-field-value" id="expenseFilterSummary">—</span>
+                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                </button>
               </div>
+              <select id="expenseYearFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <select id="expenseMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
             <div class="table-wrap">
               <table class="data-table income-payments-table" aria-label="Utgifter">
@@ -191,39 +229,76 @@
 
           <!-- HOME -->
           <section class="exp-view exp-overlay" data-expview="home" hidden>
-            <div class="table-card">
-              <div class="table-title">Hem</div>
+            <div class="table-card" id="homeEditorCard" hidden>
+              <div class="table-title" id="homeEditorTitle">Ny hemutgift</div>
+              <div class="bb-error-summary" id="homeErrorSummary" hidden role="alert" aria-live="polite"></div>
               <div class="form-grid">
                 <label class="field">
-                  Hyra (kr/mån)
-                  <input id="homeRent" type="number" inputmode="decimal" min="0" step="1" />
+                  Typ
+                  <select id="homeEditType"></select>
                 </label>
                 <label class="field">
-                  El (kr/mån)
-                  <input id="homeElectricity" type="number" inputmode="decimal" min="0" step="1" />
+                  Namn på utgift
+                  <input id="homeEditName" type="text" autocomplete="off" list="homeEditNameList" />
+                  <datalist id="homeEditNameList"></datalist>
+                </label>
+                <label class="field" id="homePaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="homeEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </label>
                 <label class="field">
-                  Vatten (kr/mån)
-                  <input id="homeWater" type="number" inputmode="decimal" min="0" step="1" />
+                  Betalningsintervall
+                  <select id="homeEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
                 </label>
                 <label class="field">
-                  Sophämtning (kr/mån)
-                  <input id="homeGarbage" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="homeFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="homeEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="homeEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="homeEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Internet (kr/mån)
-                  <input id="homeInternet" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Parkering (kr/mån)
-                  <input id="homeParking" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="homeEditAmount" type="number" inputmode="decimal" min="0" step="1" />
                 </label>
               </div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="homeSaveBtn" type="button">Spara hemkostnader</button>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="homeSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="homeCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="homeNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="table-title">Hem omkostnader</div>
+              <div class="form-grid narrow car-list-filters">
+                <label class="field car-omkostnader-field">
+                  År
+                  <select id="homeListYear"></select>
+                </label>
+                <label class="field car-omkostnader-field">
+                  Månad
+                  <select id="homeListMonth"></select>
+                </label>
+              </div>
+              <div class="actions-row car-omkostnader-actions">
+                <button class="secondary car-omkostnader-btn" id="homeAddBtn" type="button">Lägg till</button>
+              </div>
+              <h3 class="car-list-month-heading" id="homeListMonthTitle">Utgifter</h3>
+              <div id="homeListMount" class="car-list-mount"></div>
+              <p class="car-month-total" id="homeMonthTotal"></p>
+              <div class="exp-app-bar">
+                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 
@@ -236,6 +311,7 @@
               </div>
 
               <section id="loanEditorSection" hidden>
+                <div class="bb-error-summary" id="loanErrorSummary" hidden role="alert" aria-live="polite"></div>
                 <div class="form-grid">
                   <div class="loan-copy-notice" id="loanCopyNotice" hidden></div>
                   <label class="field">
@@ -305,7 +381,7 @@
                     <tbody id="loansTableBody"></tbody>
                   </table>
                 </div>
-                <div class="actions-row" style="justify-content: space-between;">
+                <div class="actions-row actions-row--between">
                   <button class="primary" id="loanAddNewBtn" type="button">Lägg till nytt lån</button>
                   <button class="secondary" type="button" data-exp-close>Avbryt</button>
                 </div>
@@ -339,38 +415,79 @@
 
           <!-- CAR -->
           <section class="exp-view exp-overlay" data-expview="car" hidden>
-            <div class="table-card">
-              <div class="table-title">Bil</div>
+            <div class="table-card" id="carEditorCard" hidden>
+              <div class="table-title" id="carEditorTitle">Ny bilutgift</div>
+              <div class="bb-error-summary" id="carErrorSummary" hidden role="alert" aria-live="polite"></div>
               <div class="form-grid">
                 <label class="field">
-                  Ägandeform
-                  <select id="carOwnership">
-                    <option value="owned">Ägd</option>
-                    <option value="leased">Leasing</option>
+                  Typ
+                  <select id="carEditType"></select>
+                </label>
+                <label class="field">
+                  Namn på utgift
+                  <input id="carEditName" type="text" autocomplete="off" list="carEditNameList" />
+                  <datalist id="carEditNameList"></datalist>
+                </label>
+                <label class="field" id="carPaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="carEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                </label>
+                <label class="field">
+                  Betalningsintervall
+                  <select id="carEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
                   </select>
                 </label>
                 <label class="field">
-                  Försäkring (kr/mån)
-                  <input id="carInsurance" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="carFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="carEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="carEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="carEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Drivmedel (kr/mån)
-                  <input id="carFuel" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field">
-                  Parkering (kr/mån)
-                  <input id="carParking" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-                <label class="field" id="carLeasingField">
-                  Leasing/kontrakt (kr/mån)
-                  <input id="carLeasing" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="carEditAmount" type="number" inputmode="decimal" min="0" step="1" />
                 </label>
               </div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="carSaveBtn" type="button">Spara bilkostnader</button>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="carSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="carCancelEditorBtn" type="button">Avbryt</button>
               </div>
               <div class="note" id="carNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
+                <button class="secondary car-omkostnader-btn" id="carAddBtn" type="button">Lägg till</button>
+              </div>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Bil omkostnader</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="carListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="carListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="carListMonthTitle">Utgifter</h3>
+                <div id="carListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="carMonthTotal"></p>
+              </div>
+              <div class="exp-app-bar">
+                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 
@@ -378,180 +495,217 @@
           <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
               <div class="table-title">Mat</div>
-              <div class="note" id="foodIntroText">
-                Du planerar mat per vecka för hela året. Månaden visar bara vilka veckor som hamnar där.
-              </div>
-              <div class="picker-row" style="justify-content: flex-start;">
-                <label>
-                  År
-                  <select id="expensesFoodYear"></select>
-                </label>
-                <label>
-                  Månad
-                  <select id="expensesFoodMonth"></select>
-                </label>
-              </div>
-              <div class="note" id="foodMonthHelp">
-                Månadssumma = summan av de veckor vars planeringsdag hamnar i månaden.
+              <div class="bb-error-summary" id="foodErrorSummary" hidden role="alert" aria-live="polite"></div>
+              <div class="note food-intro-note" id="foodIntroText">
+                Samma matinställning gäller för de tre år som appen använder (föregående, nuvarande och nästa år). När du sparas skapas en utgift per vecka för alla dessa år.
               </div>
 
               <div class="form-grid narrow">
-                <div id="foodAutoSection">
-                  <div class="table-title small">Hushåll (grundinställning)</div>
-                  <div class="note">
-                    Gäller för hela året. Under “Ändrat hushåll” kan du lägga perioder som avviker.
-                  </div>
-                  <div class="food-counter-grid">
-                    <div class="food-counter-row">
-                      <span>Vuxna</span>
-                      <div class="food-counter-actions">
-                        <button class="secondary" type="button" id="foodAdultsMinusBtn">-</button>
-                        <input id="foodAdultsInput" type="number" inputmode="numeric" min="0" step="1" />
-                        <button class="secondary" type="button" id="foodAdultsPlusBtn">+</button>
-                      </div>
-                    </div>
-                    <div class="food-counter-row">
-                      <span>Tonåringar</span>
-                      <div class="food-counter-actions">
-                        <button class="secondary" type="button" id="foodTeensMinusBtn">-</button>
-                        <input id="foodTeensInput" type="number" inputmode="numeric" min="0" step="1" />
-                        <button class="secondary" type="button" id="foodTeensPlusBtn">+</button>
-                      </div>
-                    </div>
-                    <div class="food-counter-row">
-                      <span>Barn</span>
-                      <div class="food-counter-actions">
-                        <button class="secondary" type="button" id="foodChildrenMinusBtn">-</button>
-                        <input id="foodChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                        <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <div class="food-household-card">
+                  <div class="table-title small food-household-title">Hushållet</div>
 
-                <div class="field">
-                  <span>Hur vill du ange matkostnaden?</span>
-                  <div class="chip-row">
-                    <button class="chip" type="button" id="foodModeAutoBtn">Beräkna automatiskt</button>
-                    <button class="chip" type="button" id="foodModeManualBtn">Ange själv</button>
-                  </div>
-                </div>
-
-                <div id="foodManualSection" hidden>
-                  <div class="table-title small">Belopp per vecka</div>
-                  <div class="food-manual-row">
-                    <button class="secondary" type="button" id="foodManualMinus500Btn" aria-label="Minska 500">-</button>
-                    <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
-                    <button class="secondary" type="button" id="foodManualPlus500Btn" aria-label="Öka 500">+</button>
-                  </div>
-                  <div class="note">Justera med 500kr per tryck. Övriga inställningar påverkar inte beloppet.</div>
-                </div>
-
-                <div id="foodAutoOnlySection">
-                  <div class="field">
-                    <span>Matnivå</span>
+                  <div class="field food-household-mode-field">
+                    <span>Hur vill du ange matkostnaden?</span>
                     <div class="chip-row">
-                      <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
-                      <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
-                      <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
-                    </div>
-                    <div class="note" id="foodLevelHelp"></div>
-                  </div>
-
-                  <div class="field">
-                    <span>Vad ska räknas med?</span>
-                    <div class="chip-row">
-                      <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
-                      <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
-                      <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
-                    </div>
-                    <div class="note" id="foodScopeHelp"></div>
-                  </div>
-                  <div class="food-calc-box">
-                    <div class="summary-row"><span>Bas utifran hushall</span><strong id="foodCalcBaseWeek">0kr</strong></div>
-                    <div class="summary-row"><span>Efter installningar</span><strong id="foodCalcAdjustedWeek">0kr</strong></div>
-                    <div class="summary-row"><span><strong>Beraknad veckokostnad</strong></span><strong id="foodCalcFinalWeek">0kr</strong></div>
-                  </div>
-
-                  <div class="food-advanced">
-                  <div class="table-title small">Barnschema</div>
-                  <div class="note">
-                    Utgå från hushållet ovan. Här anger du när barn eller tonåringar inte är hos dig.
-                  </div>
-                  <div class="field">
-                    <div class="chip-row">
-                      <button class="chip" type="button" id="foodKidsOffBtn">Av</button>
-                      <button class="chip" type="button" id="foodKidsSameBtn">Samma varje vecka</button>
-                      <button class="chip" type="button" id="foodKidsAltBtn">Varannan vecka</button>
-                      <button class="chip" type="button" id="foodKidsCustomBtn">Eget schema</button>
+                      <button class="chip" type="button" id="foodModeAutoBtn">Beräkna automatiskt</button>
+                      <button class="chip" type="button" id="foodModeManualBtn">Ange själv</button>
                     </div>
                   </div>
 
-                  <div id="foodKidsAltSection" hidden>
-                    <div class="form-grid">
-                      <label class="field">
-                        När börjar första veckan utan barn?
-                        <input id="foodKidsAltStartDate" type="date" />
-                      </label>
-                      <label class="field">
-                        Hur länge varar perioden?
-                        <select id="foodKidsAltPeriodDays">
-                          <option value="7">7 dagar</option>
-                          <option value="14">14 dagar</option>
-                        </select>
-                      </label>
+                  <div id="foodManualSection" class="food-manual-in-card" hidden>
+                    <div class="table-title small">Ange veckokostnad</div>
+                    <div class="food-manual-row">
+                      <button class="secondary" type="button" id="foodManualMinus500Btn" aria-label="Minska 500">-</button>
+                      <input id="foodManualWeeklyInput" type="number" inputmode="decimal" min="0" step="1" />
+                      <button class="secondary" type="button" id="foodManualPlus500Btn" aria-label="Öka 500">+</button>
                     </div>
-                    <div class="note">Upprepas automatiskt varannan vecka.</div>
-                    <div class="table-title small" style="margin-top: 10px;">Vilka är inte hos dig?</div>
+                    <div class="note">Justera med 500 kr per tryck.</div>
+                  </div>
+
+                  <div id="foodAutoOnlySection" class="food-auto-only-block" hidden>
+                    <div class="field food-auto-only-field">
+                      <span>Matnivå</span>
+                      <div class="chip-row">
+                        <button class="chip" type="button" id="foodLevelBudgetBtn">Budget</button>
+                        <button class="chip" type="button" id="foodLevelNormalBtn">Normal</button>
+                        <button class="chip" type="button" id="foodLevelHighBtn">Hög</button>
+                      </div>
+                      <div class="note" id="foodLevelHelp"></div>
+                    </div>
+
+                    <div class="field food-auto-only-field">
+                      <span>Vad ska räknas med?</span>
+                      <div class="chip-row">
+                        <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
+                        <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
+                        <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
+                      </div>
+                      <div class="note" id="foodScopeHelp"></div>
+                    </div>
+                  </div>
+
+                  <div id="foodAutoSection" class="food-household-size-box">
+                    <div class="table-title small food-household-size-title">Hushållets storlek</div>
                     <div class="food-counter-grid">
                       <div class="food-counter-row">
-                        <span>Barn</span>
+                        <span>Vuxna</span>
                         <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodKidsAltChildrenMinusBtn">-</button>
-                          <input id="foodKidsAltChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodKidsAltChildrenPlusBtn">+</button>
+                          <button class="secondary" type="button" id="foodAdultsMinusBtn">-</button>
+                          <input id="foodAdultsInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodAdultsPlusBtn">+</button>
                         </div>
                       </div>
                       <div class="food-counter-row">
                         <span>Tonåringar</span>
                         <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodKidsAltTeensMinusBtn">-</button>
-                          <input id="foodKidsAltTeensInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodKidsAltTeensPlusBtn">+</button>
+                          <button class="secondary" type="button" id="foodTeensMinusBtn">-</button>
+                          <input id="foodTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodTeensPlusBtn">+</button>
+                        </div>
+                      </div>
+                      <div class="food-counter-row">
+                        <span>Barn</span>
+                        <div class="food-counter-actions">
+                          <button class="secondary" type="button" id="foodChildrenMinusBtn">-</button>
+                          <input id="foodChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                          <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
                         </div>
                       </div>
                     </div>
-                    <div class="table-title small" style="margin-top: 10px;">Hur mycket av kostnaden ska vara kvar?</div>
-                    <label class="field">
-                      Kostnad kvar (%)
-                      <input id="foodKidsAltCostRemainingPct" type="number" inputmode="decimal" min="0" max="100" step="1" />
-                    </label>
-                    <div class="field-error" id="foodKidsError" hidden></div>
                   </div>
 
-                  <div id="foodKidsCustomSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
-                      <button class="secondary" type="button" id="foodKidsAddCustomPeriodBtn">Lägg till period</button>
+                  <div id="foodAutoCalcSection" class="food-auto-calc-section" hidden>
+                    <div class="food-calc-box">
+                      <div class="summary-row"><span>Bas utifran hushall</span><strong id="foodCalcBaseWeek">0kr</strong></div>
+                      <div class="summary-row"><span>Efter installningar</span><strong id="foodCalcAdjustedWeek">0kr</strong></div>
+                      <div class="summary-row"><span><strong>Beraknad veckokostnad</strong></span><strong id="foodCalcFinalWeek">0kr</strong></div>
                     </div>
-                    <div id="foodKidsCustomPeriodsList" class="food-period-list"></div>
-                    <div class="field-error" id="foodKidsCustomError" hidden></div>
                   </div>
-
-                  <div class="note" style="margin-top: 10px;">Preview (kommande veckor)</div>
-                  <div id="foodKidsPreview" class="food-preview-list"></div>
                 </div>
 
-                <div class="food-advanced">
-                  <div class="food-advanced-head">
-                    <div>
-                      <div class="table-title small" style="margin: 0;">När hushållet förändras</div>
-                      <div class="note micro-note" style="margin-top: 4px;">Lägg till perioder när fler eller färre personer är i hushållet.</div>
-                    </div>
-                    <button class="secondary btn-icon" type="button" id="foodHouseholdToggleBtn" aria-label="Visa/dölj">▾</button>
+                <div class="food-mat-period-cards">
+                  <div class="food-mat-period-hub" id="foodMatPeriodHub">
+                    <button type="button" class="food-mat-hub-card" id="foodHubOpenCustody">
+                      <div class="food-mat-hub-card-main">
+                        <div class="table-title small flush food-mat-hub-title food-mat-hub-title--muted" id="foodHubTitleCustody">Barn med växelvis boende</div>
+                        <div class="note micro-note micro-note--tight food-mat-hub-desc">Här anger du perioder då barn eller tonåringar inte bor hos dig</div>
+                      </div>
+                      <span class="food-mat-hub-chev" aria-hidden="true">⌄</span>
+                    </button>
+                    <button type="button" class="food-mat-hub-card" id="foodHubOpenHousehold">
+                      <div class="food-mat-hub-card-main">
+                        <div class="table-title small flush food-mat-hub-title food-mat-hub-title--muted" id="foodHubTitleHousehold">När hushållets storlek förändras</div>
+                        <div class="note micro-note micro-note--tight food-mat-hub-desc">Lägg till perioder när fler eller färre personer är i hushållet.</div>
+                      </div>
+                      <span class="food-mat-hub-chev" aria-hidden="true">⌄</span>
+                    </button>
+                    <button type="button" class="food-mat-hub-card" id="foodHubOpenDeviation">
+                      <div class="food-mat-hub-card-main">
+                        <div class="table-title small flush food-mat-hub-title food-mat-hub-title--muted" id="foodHubTitleDeviation">Perioder med annan kostnad</div>
+                        <div class="note micro-note micro-note--tight food-mat-hub-desc">För veckor där matkostnaden är högre eller lägre än vanligt.</div>
+                      </div>
+                      <span class="food-mat-hub-chev" aria-hidden="true">⌄</span>
+                    </button>
                   </div>
-                  <div id="foodHouseholdChangesSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
-                      <button class="secondary" type="button" id="foodAddHouseholdChangeBtn">Lägg till period</button>
+
+                  <div class="food-mat-panel" id="foodMatPanelCustody" hidden aria-hidden="true">
+                    <div class="food-mat-panel-top">
+                      <button type="button" class="food-mat-panel-back" id="foodMatBackCustody">‹ Mat</button>
+                    </div>
+                    <div class="food-mat-panel-body">
+                      <div class="bb-error-summary" id="foodCustodyErrorSummary" hidden role="alert" aria-live="polite"></div>
+                  <div id="foodKidsSection">
+                    <div class="field-error" id="foodCustodyGlobalWarn" hidden></div>
+                    <div class="table-title-row food-panel-title-row">
+                      <div class="table-title food-panel-appbar-title flush">Barn med växelvis boende</div>
+                      <button class="bb-icon-add-btn" type="button" id="foodAddCustodyPeriodBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
+                    </div>
+                    <div id="foodCustodyEditor" class="food-period-card" hidden>
+                      <div class="form-grid">
+                        <label class="field">
+                          När börjar perioden utan barn?
+                          <input id="foodCustodyEditStart" type="date" />
+                          <div class="field-error" id="foodCustodyErrStart" hidden></div>
+                        </label>
+                        <label class="field">
+                          När slutar växelvis boende? (lämna tomt för tills vidare)
+                          <div class="food-date-with-clear">
+                            <input id="foodCustodyEditEnd" type="date" />
+                            <button class="secondary" type="button" id="foodCustodyClearEndBtn">Rensa</button>
+                          </div>
+                          <div class="field-error" id="foodCustodyErrEnd" hidden></div>
+                        </label>
+                        <label class="field">
+                          Hur länge är de borta / hos dig?
+                          <button
+                            type="button"
+                            class="bb-outline-field-btn"
+                            id="foodCustodyEditRatioOpenBtn"
+                            aria-haspopup="dialog"
+                            aria-controls="listPickerSheet"
+                          >
+                            <span class="bb-outline-field-label">Intervall</span>
+                            <span class="bb-outline-field-value" id="foodCustodyEditRatioSummary">—</span>
+                            <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                          </button>
+                          <select id="foodCustodyEditRatio" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                            <option value="3-3">3/3 (3 dagar borta, 3 dagar hos dig)</option>
+                            <option value="5-2">5/2 (5 dagar borta, 2 dagar hos dig)</option>
+                            <option value="2-5">2/5 (2 dagar borta, 5 dagar hos dig)</option>
+                            <option value="7-7">7/7 (7 dagar borta, 7 dagar hos dig)</option>
+                            <option value="14-14">14/14 (14 dagar borta, 14 dagar hos dig)</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div class="note micro-note micro-note--tight">Intervallet upprepas inom perioden. Perioder kortare än en hel cykel påverkar inte kostnaden.</div>
+                      <div class="table-title small spacing-top">Hur många är borta i bortaveckor?</div>
+                      <div class="food-counter-grid">
+                        <div class="food-counter-row">
+                          <span>Tonåringar</span>
+                          <div class="food-counter-actions">
+                            <button class="secondary" type="button" id="foodCustodyEditTeensMinusBtn">-</button>
+                            <input id="foodCustodyEditTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                            <button class="secondary" type="button" id="foodCustodyEditTeensPlusBtn">+</button>
+                          </div>
+                        </div>
+                        <div class="food-counter-row">
+                          <span>Barn</span>
+                          <div class="food-counter-actions">
+                            <button class="secondary" type="button" id="foodCustodyEditChildrenMinusBtn">-</button>
+                            <input id="foodCustodyEditChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                            <button class="secondary" type="button" id="foodCustodyEditChildrenPlusBtn">+</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="field-error" id="foodCustodyErrCounts" hidden></div>
+                      <div class="summary-row food-custody-week-cost-row"><span>Veckokostnad utan barn:</span><strong id="foodCustodyEditorWeekCost">—</strong></div>
+                      <div id="foodCustodyExampleBlock" class="food-custody-example-block" hidden>
+                        <div class="food-custody-example-title">Exempelveckor i perioden</div>
+                        <div id="foodCustodyExampleWeeks" class="food-preview-list food-custody-example-weeks"></div>
+                      </div>
+                      <div class="actions-row food-hh-editor-actions">
+                        <button class="danger" type="button" id="foodCustodyEditDeleteBtn" hidden>Ta bort period</button>
+                        <button class="secondary" type="button" id="foodCustodyEditCancelBtn">Avbryt</button>
+                        <button class="primary" type="button" id="foodCustodyEditSaveBtn">Lägg till period</button>
+                      </div>
+                    </div>
+                    <div class="table-title small food-period-list-title" id="foodCustodyListTitle" hidden>Tillagda perioder</div>
+                    <div id="foodCustodyPeriodsList" class="food-preview-list food-period-bb-list"></div>
+                    <div class="field-error" id="foodCustodyListError" hidden></div>
+                  </div>
+                    </div>
+                  </div>
+
+                  <div class="food-mat-panel" id="foodMatPanelHousehold" hidden aria-hidden="true">
+                    <div class="food-mat-panel-top">
+                      <button type="button" class="food-mat-panel-back" id="foodMatBackHousehold">‹ Mat</button>
+                    </div>
+                    <div class="food-mat-panel-body">
+                      <div class="bb-error-summary" id="foodHouseholdErrorSummary" hidden role="alert" aria-live="polite"></div>
+                  <div id="foodHouseholdChangesSection">
+                    <div class="table-title-row food-panel-title-row">
+                      <div class="table-title food-panel-appbar-title flush">När hushållets storlek förändras</div>
+                      <button class="bb-icon-add-btn" type="button" id="foodAddHouseholdChangeBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
                     </div>
                     <div id="foodHouseholdEditor" class="food-period-card" hidden>
                       <div class="form-grid">
@@ -562,27 +716,28 @@
                         <label class="field">Barn<input id="foodHhEditChildren" type="number" inputmode="numeric" min="0" step="1" /></label>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
+                        <button class="danger" type="button" id="foodHhEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodHhEditCancelBtn">Avbryt</button>
-                        <button class="primary" type="button" id="foodHhEditSaveBtn">Spara</button>
+                        <button class="primary" type="button" id="foodHhEditSaveBtn">Lägg till period</button>
                       </div>
                     </div>
-                    <div class="table-title small" id="foodHhListTitle" style="margin-top: 10px;" hidden>Perioder med ändringar under <span id="foodHhListYear">-</span></div>
-                    <div id="foodHouseholdChangesList" class="food-preview-list"></div>
+                    <div class="table-title small food-period-list-title" id="foodHhListTitle" hidden>Tillagda perioder</div>
+                    <div id="foodHouseholdChangesList" class="food-preview-list food-period-bb-list"></div>
                     <div class="field-error" id="foodHouseholdError" hidden></div>
                   </div>
-                </div>
-
-                <div class="food-advanced">
-                  <div class="food-advanced-head">
-                    <div>
-                      <div class="table-title small" style="margin: 0;">Perioder med annan kostnad</div>
-                      <div class="note micro-note" style="margin-top: 4px;">För veckor där matkostnaden är högre eller lägre än vanligt.</div>
                     </div>
-                    <button class="secondary btn-icon" type="button" id="foodDeviationsToggleBtn" aria-label="Visa/dölj">▾</button>
                   </div>
-                  <div id="foodDeviationsSection" hidden>
-                    <div class="actions-row" style="justify-content: flex-start; margin-top: 8px;">
-                      <button class="secondary" type="button" id="foodAddDeviationBtn">Lägg till period</button>
+
+                  <div class="food-mat-panel" id="foodMatPanelDeviation" hidden aria-hidden="true">
+                    <div class="food-mat-panel-top">
+                      <button type="button" class="food-mat-panel-back" id="foodMatBackDeviation">‹ Mat</button>
+                    </div>
+                    <div class="food-mat-panel-body">
+                      <div class="bb-error-summary" id="foodDeviationErrorSummary" hidden role="alert" aria-live="polite"></div>
+                  <div id="foodDeviationsSection">
+                    <div class="table-title-row food-panel-title-row">
+                      <div class="table-title food-panel-appbar-title flush">Perioder med annan kostnad</div>
+                      <button class="bb-icon-add-btn" type="button" id="foodAddDeviationBtn" aria-label="Lägg till period" title="Lägg till period">+</button>
                     </div>
                     <div id="foodDeviationEditor" class="food-period-card" hidden>
                       <div class="form-grid">
@@ -599,29 +754,45 @@
                         </label>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
+                        <button class="danger" type="button" id="foodDevEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodDevEditCancelBtn">Avbryt</button>
-                        <button class="primary" type="button" id="foodDevEditSaveBtn">Spara</button>
+                        <button class="primary" type="button" id="foodDevEditSaveBtn">Lägg till period</button>
                       </div>
                     </div>
-                    <div class="table-title small" id="foodDevListTitle" style="margin-top: 10px;" hidden>Perioder med avvikande kostnad under <span id="foodDevListYear">-</span></div>
-                    <div id="foodDeviationsList" class="food-preview-list"></div>
+                    <div class="table-title small food-period-list-title" id="foodDevListTitle" hidden>Tillagda perioder</div>
+                    <div id="foodDeviationsList" class="food-preview-list food-period-bb-list"></div>
                     <div class="field-error" id="foodDeviationsError" hidden></div>
                   </div>
-                </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div class="food-preview">
-                <div class="table-title small">Preview</div>
-                <div class="summary-row"><span>Normal vecka</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
-                <div class="summary-row"><span>Månadssumma</span><strong id="foodPreviewMonthSum">0kr</strong></div>
-                <div class="note" style="margin-top: 6px;">Veckor i denna månad</div>
-                <div id="foodPreviewWeeks" class="food-preview-list"></div>
+                <div class="table-title small">Matkostnad översikt</div>
+                <div class="picker-row picker-row--food-preview">
+                  <label>
+                    År
+                    <select id="foodPreviewYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="foodPreviewMonth"></select>
+                  </label>
+                </div>
+                <div class="food-preview-summary">
+                  <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
+                  <div class="summary-row food-preview-summary-row"><span>Differens mellan veckor</span><strong id="foodPreviewWeekSpread">0kr</strong></div>
+                  <div class="summary-row food-preview-summary-row"><span>Snittkostnad per vecka</span><strong id="foodPreviewWeekAvg">0kr</strong></div>
+                </div>
+                <div class="note food-preview-weeks-heading" id="foodPreviewWeeksTitle"></div>
+                <div id="foodPreviewWeeks" class="food-preview-list food-preview-weeks"></div>
+                <div class="food-preview-month-total" id="foodPreviewMonthTotal"></div>
               </div>
-              <div class="note" id="foodSaveContext"></div>
-              <div class="actions-row">
+              <div class="note" id="foodSaveContext" role="status" aria-live="polite"></div>
+              <div class="actions-row food-mat-save-actions">
+                <button class="primary" id="foodSaveBtn" type="button">Spara</button>
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="foodSaveBtn" type="button">Spara matkostnader</button>
               </div>
               <div class="note" id="foodNote"></div>
             </div>
@@ -629,85 +800,260 @@
 
           <!-- CHILDREN -->
           <section class="exp-view exp-overlay" data-expview="children" hidden>
-            <div class="table-card">
-              <div class="table-title">Barn</div>
+            <div class="table-card" id="childrenEditorCard" hidden>
+              <div class="table-title" id="childrenEditorTitle">Ny barnutgift</div>
+              <div class="bb-error-summary" id="childrenErrorSummary" hidden role="alert" aria-live="polite"></div>
               <div class="form-grid">
                 <label class="field">
-                  Kläder (kr/mån)
-                  <input id="kidsClothesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Typ
+                  <select id="childrenEditType"></select>
                 </label>
                 <label class="field">
-                  Busskort (kr/mån)
-                  <input id="kidsBusCardPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Namn på utgift
+                  <input id="childrenEditName" type="text" autocomplete="off" list="childrenEditNameList" />
+                  <datalist id="childrenEditNameList"></datalist>
+                </label>
+                <label class="field" id="childrenPaymentDayRow">
+                  Betalningsdag (dag i månaden)
+                  <input id="childrenEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </label>
                 <label class="field">
-                  Telefonabonnemang (kr/mån)
-                  <input id="kidsPhonePerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Betalningsintervall
+                  <select id="childrenEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
                 </label>
                 <label class="field">
-                  Aktiviteter (kr/mån)
-                  <input id="kidsActivitiesPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  <span id="childrenFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
+                  <input id="childrenEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="childrenEndDateRow">
+                  Betalning upphör (valfritt)
+                  <input id="childrenEditEndDate" type="date" />
                 </label>
                 <label class="field">
-                  Månadspeng (kr/mån)
-                  <input id="kidsPocketMoneyPerMonth" type="number" inputmode="decimal" min="0" step="1" />
+                  Belopp (kr)
+                  <input id="childrenEditAmount" type="number" inputmode="decimal" min="0" step="1" />
                 </label>
               </div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" id="kidsSaveBtn" type="button">Spara barnkostnader</button>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="childrenSaveBtn" type="button">Lägg till</button>
               </div>
-              <div class="note" id="kidsNote"></div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="childrenCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="childrenNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
+                <button class="secondary car-omkostnader-btn" id="childrenAddBtn" type="button">Lägg till</button>
+              </div>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Barn omkostnader</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="childrenListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="childrenListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="childrenListMonthTitle">Utgifter</h3>
+                <div id="childrenListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
+              </div>
+              <div class="exp-app-bar">
+                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
+              </div>
             </div>
           </section>
 
           <!-- SAVINGS -->
           <section class="exp-view exp-overlay" data-expview="savings" hidden>
-            <div class="table-card">
-              <div class="table-title">Spar</div>
-              <div class="note">Placeholder tills vi bygger spar-funktionen.</div>
-              <div class="actions-row">
-                <button class="secondary" type="button" data-exp-close>Avbryt</button>
-                <button class="primary" type="button" data-exp-close>Spara</button>
+            <div class="table-card" id="savingsEditorCard" hidden>
+              <div class="table-title" id="savingsEditorTitle">Nytt sparande</div>
+              <div class="bb-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
+              <div class="form-grid">
+                <label class="field">
+                  Namn på spar
+                  <input id="savingsEditName" type="text" autocomplete="off" list="savingsEditNameList" />
+                  <datalist id="savingsEditNameList"></datalist>
+                </label>
+                <label class="field" id="savingsPaymentDayRow">
+                  Sparningsdag (dag i månaden)
+                  <input id="savingsEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                </label>
+                <label class="field">
+                  Sparintervall
+                  <select id="savingsEditInterval">
+                    <option value="once">Enskild</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span id="savingsFirstDateLabel">Spar datum</span>
+                  <input id="savingsEditFirstDate" type="date" />
+                </label>
+                <label class="field" id="savingsEndDateRow">
+                  Spar upphör (valfritt)
+                  <input id="savingsEditEndDate" type="date" />
+                </label>
+                <label class="field">
+                  Belopp (kr)
+                  <input id="savingsEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                </label>
+              </div>
+              <div class="actions-row car-editor-actions-primary">
+                <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="primary" id="savingsSaveBtn" type="button">Lägg till</button>
+              </div>
+              <div class="actions-row car-editor-actions-cancel">
+                <button class="secondary stretch" id="savingsCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="savingsNote"></div>
+            </div>
+
+            <div class="table-card car-omkostnader-card">
+              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
+                <button class="secondary car-omkostnader-btn" id="savingsAddBtn" type="button">Lägg till</button>
+              </div>
+              <div class="tagged-omkostnader-preview">
+                <div class="table-title tagged-omkostnader-preview-title">Sparöversikt</div>
+                <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
+                <div class="picker-row tagged-omkostnader-picker">
+                  <label>
+                    År
+                    <select id="savingsListYear"></select>
+                  </label>
+                  <label>
+                    Månad
+                    <select id="savingsListMonth"></select>
+                  </label>
+                </div>
+                <h3 class="tagged-omkostnader-month-heading" id="savingsListMonthTitle">Sparbelopp</h3>
+                <div id="savingsListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="savingsMonthTotal"></p>
+              </div>
+              <div class="exp-app-bar">
+                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
             </div>
           </section>
         </section>
 
-        <!-- ADD (placeholder) -->
+        <!-- ADD: enstaka poster utan fullständig redigerare -->
         <section class="view" data-view="add">
           <div class="view-header">
             <h2>Snabbtillägg</h2>
           </div>
+          <p class="note add-quick-lead">
+            Lägg till en engångsutgift eller engångsintäkt. Posterna räknas som enstaka i översikten.
+          </p>
+
           <div class="table-card">
-            <div class="note">Placeholder: här bygger vi senare en snabbfunktion för att lägga till en utgiftspost.</div>
+            <div class="table-title">Enstaka utgift</div>
+            <div class="bb-error-summary" id="addQuickErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="form-grid narrow">
+              <label class="field">
+                Namn
+                <input id="addQuickExpenseName" type="text" maxlength="80" autocomplete="off" placeholder="T.ex. Reparation" />
+              </label>
+              <label class="field">
+                Belopp (kr)
+                <input
+                  id="addQuickExpenseAmount"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                />
+              </label>
+              <label class="field">
+                Datum
+                <input id="addQuickExpenseDate" type="date" />
+              </label>
+            </div>
+            <div class="actions-row">
+              <button class="primary" id="addQuickExpenseBtn" type="button">Spara utgift</button>
+            </div>
           </div>
+
+          <div class="table-card">
+            <div class="table-title">Enstaka intäkt</div>
+            <div class="form-grid narrow">
+              <label class="field">
+                Namn
+                <input id="addQuickIncomeName" type="text" maxlength="80" autocomplete="off" placeholder="T.ex. Såld pryl" />
+              </label>
+              <label class="field">
+                Belopp (kr)
+                <input
+                  id="addQuickIncomeAmount"
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                />
+              </label>
+              <label class="field">
+                Datum
+                <input id="addQuickIncomeDate" type="date" />
+              </label>
+            </div>
+            <div class="actions-row">
+              <button class="primary" id="addQuickIncomeBtn" type="button">Spara intäkt</button>
+            </div>
+          </div>
+
+          <div class="note" id="addQuickFeedback" aria-live="polite"></div>
         </section>
 
         <!-- SETTINGS -->
         <section class="view" data-view="settings">
           <div class="view-header">
             <h2>Inställningar</h2>
-            <div class="picker-row">
-              <div class="settings-theme">
-                <label>
-                  Tema
-                  <select id="themeMode">
-                    <option value="system">System</option>
-                    <option value="light">Ljust</option>
-                    <option value="dark">Mörkt</option>
-                  </select>
-                </label>
+          </div>
+
+          <div class="table-card settings-theme-card">
+            <div class="table-title">Utseende</div>
+            <div class="form-grid narrow">
+              <div class="field">
+                <button type="button" class="bb-outline-field-btn" id="themeModeOpenBtn">
+                  <span class="bb-outline-field-label">Tema</span>
+                  <span class="bb-outline-field-value" id="themeModeSummary">System</span>
+                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                </button>
+                <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                  <option value="system">System</option>
+                  <option value="light">Ljust</option>
+                  <option value="dark">Mörkt</option>
+                </select>
               </div>
             </div>
           </div>
 
-          <div class="table-card" style="margin-top: 14px;">
+          <div class="table-card settings-food-card">
             <div class="table-title">Matplanering</div>
             <div class="form-grid narrow">
-              <label class="field">
-                Veckodag (planeringsdag)
-                <select id="foodPlanningWeekday">
+              <div class="field">
+                <button type="button" class="bb-outline-field-btn" id="foodWeekdayOpenBtn">
+                  <span class="bb-outline-field-label">Veckodag (planeringsdag)</span>
+                  <span class="bb-outline-field-value" id="foodWeekdaySummary">—</span>
+                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                </button>
+                <select id="foodPlanningWeekday" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                   <option value="1">Måndag</option>
                   <option value="2">Tisdag</option>
                   <option value="3">Onsdag</option>
@@ -717,7 +1063,7 @@
                   <option value="7">Söndag</option>
                 </select>
                 <span class="field-help">Styr vilket datum som matveckan bokförs på.</span>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -765,24 +1111,31 @@
     </main>
 
     <nav class="bottom-nav" aria-label="Huvudmeny">
-      <a href="#/overview" data-navlink="overview" aria-label="Översikt">
-        <span class="nav-icon" aria-hidden="true">⌂</span>
-        <span class="nav-label">Översikt</span>
+      <a href="#/overview" data-navlink="overview" aria-label="Analys">
+        <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M4 19h16" />
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M6 16l4-5 3 3 5-7" />
+        </svg>
+        <span class="nav-label">Analys</span>
       </a>
       <a href="#/incomes" data-navlink="incomes" aria-label="Intäkter">
-        <span class="nav-icon" aria-hidden="true">＋</span>
+        <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12 5v14" />
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4" />
+        </svg>
         <span class="nav-label">Intäkter</span>
       </a>
       <a href="#/expenses" data-navlink="expenses" aria-label="Utgifter">
-        <span class="nav-icon" aria-hidden="true">−</span>
+        <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5" />
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M8 15l4 4 4-4" />
+        </svg>
         <span class="nav-label">Utgifter</span>
       </a>
-      <a href="#/add" data-navlink="add" class="nav-add" aria-label="Lägg till">
-        <span class="nav-icon" aria-hidden="true">＋</span>
-        <span class="nav-label">Lägg till</span>
-      </a>
       <a href="#/settings" data-navlink="settings" aria-label="Inställningar">
-        <span class="nav-icon" aria-hidden="true">⚙</span>
+        <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 12h14M5 16h14" />
+        </svg>
         <span class="nav-label">Inställn.</span>
       </a>
     </nav>
@@ -811,6 +1164,7 @@
         <button class="icon-btn" id="closeIncomeModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
+        <div class="bb-error-summary" id="incomeErrorSummary" hidden role="alert" aria-live="polite"></div>
         <div class="form-grid narrow">
           <div class="field">
             Snabbval
@@ -850,7 +1204,7 @@
             </label>
           </div>
 
-          <div class="table-card compact" style="box-shadow: none">
+          <div class="table-card compact surface-nested">
             <div class="table-title small">Inbetalningar</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Inbetalningar">
@@ -907,6 +1261,7 @@
         <button class="icon-btn" id="closeExpenseModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
+        <div class="bb-error-summary" id="expenseErrorSummary" hidden role="alert" aria-live="polite"></div>
         <div class="form-grid narrow">
           <label class="field">
             Namn på utgift
@@ -938,7 +1293,7 @@
             </label>
           </div>
 
-          <div class="table-card compact" style="box-shadow: none">
+          <div class="table-card compact surface-nested">
             <div class="table-title small">Utbetalningar</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Utgiftsutbetalningar">
@@ -984,6 +1339,107 @@
       <div class="modal-actions">
         <button class="secondary" id="cancelDeleteExpenseBtn" type="button">Avbryt</button>
         <button class="danger" id="confirmDeleteExpenseBtn" type="button">Ja, ta bort</button>
+      </div>
+    </div>
+
+    <div class="date-sheet-backdrop" id="dateSheetBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="date-sheet"
+      id="dateSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="dateSheetTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle bottom-sheet-drag" id="dateSheetHandle" aria-hidden="true"></div>
+      <div class="date-sheet-chrome">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="dateSheetTitle">Välj datum</h2>
+        </div>
+      </div>
+      <div class="date-sheet-body">
+        <div class="date-sheet-month-nav">
+          <button
+            type="button"
+            class="date-sheet-month-year-btn"
+            id="dateSheetMonthYearBtn"
+            aria-expanded="false"
+            aria-controls="dateSheetMonthPane"
+          >
+            <span class="date-sheet-month-year-label" id="dateSheetMonthLabel"></span>
+            <span class="date-sheet-month-year-chevron" id="dateSheetMonthYearChevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="date-sheet-nav-arrows">
+            <button type="button" class="date-sheet-nav-btn" id="dateSheetPrevMonth" aria-label="Föregående">
+              ‹
+            </button>
+            <button type="button" class="date-sheet-nav-btn" id="dateSheetNextMonth" aria-label="Nästa">
+              ›
+            </button>
+          </div>
+        </div>
+        <div id="dateSheetDayPane" class="date-sheet-day-pane">
+          <div
+            id="dateSheetCalRoot"
+            class="date-sheet-cal-root"
+            role="grid"
+            aria-labelledby="dateSheetMonthLabel"
+          >
+            <div class="date-sheet-weekdays" role="row">
+              <span class="date-sheet-weekday" role="columnheader" aria-label="Måndag">Mån</span><span class="date-sheet-weekday" role="columnheader" aria-label="Tisdag">Tis</span><span class="date-sheet-weekday" role="columnheader" aria-label="Onsdag">Ons</span><span class="date-sheet-weekday" role="columnheader" aria-label="Torsdag">Tor</span><span class="date-sheet-weekday" role="columnheader" aria-label="Fredag">Fre</span><span class="date-sheet-weekday" role="columnheader" aria-label="Lördag">Lör</span><span class="date-sheet-weekday" role="columnheader" aria-label="Söndag">Sön</span>
+            </div>
+            <div class="date-sheet-grid date-sheet-grid--weeks" id="dateSheetGrid" role="rowgroup"></div>
+          </div>
+        </div>
+        <div id="dateSheetMonthPane" class="date-sheet-month-pane" hidden>
+          <div class="date-sheet-month-picker-grid" id="dateSheetMonthPickerGrid" role="group" aria-label="Välj månad"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="period-sheet-backdrop" id="periodSheetBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="period-sheet"
+      id="periodSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="periodSheetTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle bottom-sheet-drag" id="periodSheetHandle" aria-hidden="true"></div>
+      <div class="date-sheet-chrome period-sheet-chrome--simple">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="periodSheetTitle" tabindex="-1">Välj period</h2>
+        </div>
+      </div>
+      <div class="date-sheet-body">
+        <div class="period-sheet-section-label">År</div>
+        <div id="periodSheetYears" class="period-sheet-chips"></div>
+        <div class="period-sheet-section-label">Månad</div>
+        <div id="periodSheetMonths" class="period-sheet-month-grid"></div>
+      </div>
+    </div>
+
+    <div class="period-sheet-backdrop" id="listPickerBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="period-sheet list-picker-sheet"
+      id="listPickerSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="listPickerTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle bottom-sheet-drag" id="listPickerHandle" aria-hidden="true"></div>
+      <div class="date-sheet-chrome period-sheet-chrome--simple">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="listPickerTitle" tabindex="-1">Välj</h2>
+        </div>
+      </div>
+      <div class="date-sheet-body">
+        <div id="listPickerOptions" class="list-picker-options" role="listbox"></div>
       </div>
     </div>
 

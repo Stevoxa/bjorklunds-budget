@@ -1,0 +1,2 @@
+# Konsekventa radslut i repot (LF). Minskar CRLF-varningar under Windows.
+* text=auto eol=lf
