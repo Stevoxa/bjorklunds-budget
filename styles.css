@@ -890,6 +890,21 @@ button:focus:not(:focus-visible) {
   padding: 14px 14px 12px;
 }
 
+.bb-notched-field--list {
+  margin-top: var(--space-3);
+}
+
+.bb-notched-field--list .food-preview-list {
+  padding-bottom: 0;
+}
+
+.bb-notched-field--list .food-period-bb-row {
+  padding: 12px 0;
+}
+
+.bb-notched-field--list .food-period-bb-row:last-child {
+  border-bottom: none;
+}
 .bb-notched-field-legend {
   position: absolute;
   top: 0;

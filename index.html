@@ -115,7 +115,7 @@
               <div class="note">En rad per inbetalning (0 kr visas inte).</div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="År och månad">
-                  <div class="bb-notched-field-legend">År &amp; månad</div>
+                  <div class="bb-notched-field-legend">År och månad</div>
                   <button type="button" class="bb-notched-field-btn" id="incomeFilterPeriodOpenBtn">
                     <span class="bb-notched-field-value" id="incomeFilterSummary">—</span>
                     <span class="bb-notched-field-chev" aria-hidden="true"></span>
@@ -207,7 +207,7 @@
               <div class="note">En rad per utbetalning (0 kr visas inte).</div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="År och månad">
-                  <div class="bb-notched-field-legend">År &amp; månad</div>
+                  <div class="bb-notched-field-legend">År och månad</div>
                   <button type="button" class="bb-notched-field-btn" id="expenseFilterPeriodOpenBtn">
                     <span class="bb-notched-field-value" id="expenseFilterSummary">—</span>
                     <span class="bb-notched-field-chev" aria-hidden="true"></span>
@@ -715,8 +715,10 @@
                         <button class="secondary" type="button" id="foodCustodyEditCancelBtn">Avbryt</button>
                       </div>
                     </div>
-                    <div class="table-title small food-period-list-title" id="foodCustodyListTitle" hidden>Tillagda perioder</div>
-                    <div id="foodCustodyPeriodsList" class="food-preview-list food-period-bb-list"></div>
+                    <div class="bb-notched-field bb-notched-field--block bb-notched-field--list" id="foodCustodyListBox" hidden role="group" aria-label="Tillagda perioder">
+                      <div class="bb-notched-field-legend">Tillagda perioder</div>
+                      <div id="foodCustodyPeriodsList" class="food-preview-list food-period-bb-list"></div>
+                    </div>
                     <div class="field-error" id="foodCustodyListError" hidden></div>
                   </div>
                     </div>
@@ -781,8 +783,10 @@
                         <button class="secondary" type="button" id="foodHhEditCancelBtn">Avbryt</button>
                       </div>
                     </div>
-                    <div class="table-title small food-period-list-title" id="foodHhListTitle" hidden>Tillagda perioder</div>
-                    <div id="foodHouseholdChangesList" class="food-preview-list food-period-bb-list"></div>
+                    <div class="bb-notched-field bb-notched-field--block bb-notched-field--list" id="foodHhListBox" hidden role="group" aria-label="Tillagda perioder">
+                      <div class="bb-notched-field-legend">Tillagda perioder</div>
+                      <div id="foodHouseholdChangesList" class="food-preview-list food-period-bb-list"></div>
+                    </div>
                     <div class="field-error" id="foodHouseholdError" hidden></div>
                   </div>
                     </div>
@@ -831,8 +835,10 @@
                         <button class="secondary" type="button" id="foodDevEditCancelBtn">Avbryt</button>
                       </div>
                     </div>
-                    <div class="table-title small food-period-list-title" id="foodDevListTitle" hidden>Tillagda perioder</div>
-                    <div id="foodDeviationsList" class="food-preview-list food-period-bb-list"></div>
+                    <div class="bb-notched-field bb-notched-field--block bb-notched-field--list" id="foodDevListBox" hidden role="group" aria-label="Tillagda perioder">
+                      <div class="bb-notched-field-legend">Tillagda perioder</div>
+                      <div id="foodDeviationsList" class="food-preview-list food-period-bb-list"></div>
+                    </div>
                     <div class="field-error" id="foodDeviationsError" hidden></div>
                   </div>
                     </div>
@@ -845,7 +851,7 @@
                 <div class="food-preview">
                   <div class="picker-row picker-row--food-preview">
                     <div class="bb-notched-field" role="group" aria-label="År och månad">
-                      <div class="bb-notched-field-legend">År &amp; månad</div>
+                      <div class="bb-notched-field-legend">År och månad</div>
                       <button type="button" class="bb-notched-field-btn" id="foodPreviewPeriodOpenBtn">
                         <span class="bb-notched-field-value" id="foodPreviewSummary">—</span>
                         <span class="bb-notched-field-chev" aria-hidden="true"></span>

@@ -4991,7 +4991,7 @@ function renderFoodPage() {
     saveContext: document.getElementById("foodSaveContext"),
     custodyGlobalWarn: document.getElementById("foodCustodyGlobalWarn"),
     custodyList: document.getElementById("foodCustodyPeriodsList"),
-    custodyListTitle: document.getElementById("foodCustodyListTitle"),
+    custodyListBox: document.getElementById("foodCustodyListBox"),
     custodyListError: document.getElementById("foodCustodyListError"),
     custodyEditor: document.getElementById("foodCustodyEditor"),
     custodyEditorWeekCost: document.getElementById("foodCustodyEditorWeekCost"),
@@ -5119,7 +5119,7 @@ function renderFoodPage() {
   const renderCustodyPeriodsList = (custodyAccept) => {
     const list = els.custodyList;
     const arr = ui.foodConfigDraft.custodyPeriods || [];
-    if (els.custodyListTitle) els.custodyListTitle.hidden = arr.length === 0;
+    if (els.custodyListBox) els.custodyListBox.hidden = arr.length === 0;
     if (els.custodyListError) {
       els.custodyListError.hidden = true;
       els.custodyListError.textContent = "";
@@ -5768,8 +5768,8 @@ function renderFoodPage() {
     const list = els.hhList;
     const arr = ui.foodConfigDraft.householdChanges || [];
     const editor = document.getElementById("foodHouseholdEditor");
-    const listTitleEl = document.getElementById("foodHhListTitle");
-    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
+    const listBoxEl = document.getElementById("foodHhListBox");
+    if (listBoxEl) listBoxEl.hidden = arr.length === 0;
     if (!list || !editor) return;
     const isHhEditingLocked = () =>
       Boolean(editor && !editor.hidden) || editingHouseholdChangeIndex >= 0 || householdEditorDraft != null;
@@ -5998,8 +5998,8 @@ function renderFoodPage() {
   const renderDeviations = () => {
     const list = els.devList;
     const arr = ui.foodConfigDraft.deviations || [];
-    const listTitleEl = document.getElementById("foodDevListTitle");
-    if (listTitleEl) listTitleEl.hidden = arr.length === 0;
+    const listBoxEl = document.getElementById("foodDevListBox");
+    if (listBoxEl) listBoxEl.hidden = arr.length === 0;
     if (!list) return;
     const editor = document.getElementById("foodDeviationEditor");
     const isDevEditingLocked = () =>
