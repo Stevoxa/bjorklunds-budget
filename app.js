@@ -560,7 +560,7 @@ function dateSheetTargetAllowsTillsvidare() {
 function syncDateSheetTillsvidareRow() {
   const { tillsvidareRow, tillsvidareSwitch, tillsvidareHint } = getDateSheetEls();
   if (!tillsvidareRow || !tillsvidareSwitch || !tillsvidareHint) return;
-  const show = dateSheetOpen && dateSheetTargetAllowsTillsvidare() && dateSheetMode === "days";
+  const show = dateSheetOpen && dateSheetTargetAllowsTillsvidare();
   tillsvidareRow.hidden = !show;
   tillsvidareHint.hidden = !show;
   if (!show) return;
