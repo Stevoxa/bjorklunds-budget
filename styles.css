@@ -3119,6 +3119,11 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
+/* Som Mat: lägg till-kort under månadslistan (Hem / Bil / Barn) */
+.car-omkostnader-card > .tagged-omkostnader-add-card {
+  margin-top: 14px;
+}
+
 .tagged-omkostnader-preview-title {
   margin-bottom: 0;
 }

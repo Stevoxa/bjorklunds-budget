@@ -2818,7 +2818,6 @@ const TAGGED_CATEGORY_CONFIG = {
       paymentDayRow: "carPaymentDayRow",
       editPaymentDay: "carEditPaymentDay",
       editInterval: "carEditInterval",
-      firstDateLabel: "carFirstDateLabel",
       editFirstDate: "carEditFirstDate",
       endDateRow: "carEndDateRow",
       editEndDate: "carEditEndDate",
@@ -2853,7 +2852,6 @@ const TAGGED_CATEGORY_CONFIG = {
       paymentDayRow: "homePaymentDayRow",
       editPaymentDay: "homeEditPaymentDay",
       editInterval: "homeEditInterval",
-      firstDateLabel: "homeFirstDateLabel",
       editFirstDate: "homeEditFirstDate",
       endDateRow: "homeEndDateRow",
       editEndDate: "homeEditEndDate",
@@ -2888,7 +2886,6 @@ const TAGGED_CATEGORY_CONFIG = {
       paymentDayRow: "childrenPaymentDayRow",
       editPaymentDay: "childrenEditPaymentDay",
       editInterval: "childrenEditInterval",
-      firstDateLabel: "childrenFirstDateLabel",
       editFirstDate: "childrenEditFirstDate",
       endDateRow: "childrenEndDateRow",
       editEndDate: "childrenEditEndDate",
@@ -2929,7 +2926,6 @@ const TAGGED_CATEGORY_CONFIG = {
       paymentDayRow: "savingsPaymentDayRow",
       editPaymentDay: "savingsEditPaymentDay",
       editInterval: "savingsEditInterval",
-      firstDateLabel: "savingsFirstDateLabel",
       editFirstDate: "savingsEditFirstDate",
       endDateRow: "savingsEndDateRow",
       editEndDate: "savingsEditEndDate",
@@ -4749,16 +4745,20 @@ function updateTaggedEditorIntervalVisibility(cat) {
   const recurring = interval !== "once";
   const payDayRow = document.getElementById(ids.paymentDayRow);
   const endRow = document.getElementById(ids.endDateRow);
-  const firstLbl = document.getElementById(ids.firstDateLabel);
   if (payDayRow) payDayRow.hidden = !recurring;
   if (endRow) endRow.hidden = !recurring;
-  if (firstLbl) {
+  const firstInp = document.getElementById(ids.editFirstDate);
+  if (firstInp) {
     const L = C.labels || {};
-    if (recurring) {
-      firstLbl.textContent = L.firstDateRecurring || "Första betalningsdatum";
-    } else {
-      firstLbl.textContent = L.firstDateOnce || "Betalningsdatum";
-    }
+    const text = recurring
+      ? L.firstDateRecurring || "Första betalningsdatum"
+      : L.firstDateOnce || "Betalningsdatum";
+    firstInp.setAttribute("data-notch-label", text);
+    const notch = firstInp.closest(".bb-notched-field");
+    const leg = notch?.querySelector(".bb-notched-field-legend");
+    if (leg) leg.textContent = text;
+    syncDateFieldRow(firstInp);
+    applyDateFieldRowTabState(firstInp);
   }
 }
 

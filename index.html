@@ -263,13 +263,20 @@
                   </select>
                 </label>
                 <label class="field">
-                  <span id="homeFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
-                  <input id="homeEditFirstDate" type="date" />
+                  <input
+                    id="homeEditFirstDate"
+                    type="date"
+                    data-notch-label="Betalningsdatum"
+                  />
                   <div class="field-error" id="homeErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="homeEndDateRow">
-                  Betalning upphör (valfritt)
-                  <input id="homeEditEndDate" type="date" />
+                  <input
+                    id="homeEditEndDate"
+                    type="date"
+                    data-notch-label="Betalning upphör (valfritt)"
+                    data-date-clear
+                  />
                   <div class="field-error" id="homeErrEndDate" hidden></div>
                 </label>
                 <label class="field">
@@ -296,9 +303,6 @@
                 >Utgifter</button>
               </div>
               <div class="table-title">Hem</div>
-              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
-                <button class="secondary car-omkostnader-btn" id="homeAddBtn" type="button">Lägg till</button>
-              </div>
               <div class="tagged-omkostnader-preview">
                 <div class="table-title tagged-omkostnader-preview-title">Hem omkostnader</div>
                 <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
@@ -316,6 +320,14 @@
                 <div id="homeListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="homeMonthTotal"></p>
               </div>
+              <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="homeAddBtn">
+                <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="food-mat-add-period-card__label">Lägg till</span>
+              </button>
             </div>
           </section>
 
@@ -460,13 +472,20 @@
                   </select>
                 </label>
                 <label class="field">
-                  <span id="carFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
-                  <input id="carEditFirstDate" type="date" />
+                  <input
+                    id="carEditFirstDate"
+                    type="date"
+                    data-notch-label="Betalningsdatum"
+                  />
                   <div class="field-error" id="carErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="carEndDateRow">
-                  Betalning upphör (valfritt)
-                  <input id="carEditEndDate" type="date" />
+                  <input
+                    id="carEditEndDate"
+                    type="date"
+                    data-notch-label="Betalning upphör (valfritt)"
+                    data-date-clear
+                  />
                   <div class="field-error" id="carErrEndDate" hidden></div>
                 </label>
                 <label class="field">
@@ -493,9 +512,6 @@
                 >Utgifter</button>
               </div>
               <div class="table-title">Bil</div>
-              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
-                <button class="secondary car-omkostnader-btn" id="carAddBtn" type="button">Lägg till</button>
-              </div>
               <div class="tagged-omkostnader-preview">
                 <div class="table-title tagged-omkostnader-preview-title">Bil omkostnader</div>
                 <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
@@ -513,6 +529,14 @@
                 <div id="carListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="carMonthTotal"></p>
               </div>
+              <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="carAddBtn">
+                <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="food-mat-add-period-card__label">Lägg till</span>
+              </button>
             </div>
           </section>
 
@@ -974,13 +998,20 @@
                   </select>
                 </label>
                 <label class="field">
-                  <span id="childrenFirstDateLabel">Första betalningsdatum / betalningsdatum</span>
-                  <input id="childrenEditFirstDate" type="date" />
+                  <input
+                    id="childrenEditFirstDate"
+                    type="date"
+                    data-notch-label="Betalningsdatum"
+                  />
                   <div class="field-error" id="childrenErrFirstDate" hidden></div>
                 </label>
                 <label class="field" id="childrenEndDateRow">
-                  Betalning upphör (valfritt)
-                  <input id="childrenEditEndDate" type="date" />
+                  <input
+                    id="childrenEditEndDate"
+                    type="date"
+                    data-notch-label="Betalning upphör (valfritt)"
+                    data-date-clear
+                  />
                   <div class="field-error" id="childrenErrEndDate" hidden></div>
                 </label>
                 <label class="field">
@@ -1007,9 +1038,6 @@
                 >Utgifter</button>
               </div>
               <div class="table-title">Barn</div>
-              <div class="actions-row car-omkostnader-actions car-omkostnader-add-row">
-                <button class="secondary car-omkostnader-btn" id="childrenAddBtn" type="button">Lägg till</button>
-              </div>
               <div class="tagged-omkostnader-preview">
                 <div class="table-title tagged-omkostnader-preview-title">Barn omkostnader</div>
                 <div class="tagged-omkostnader-title-rule" aria-hidden="true"></div>
@@ -1027,6 +1055,14 @@
                 <div id="childrenListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
               </div>
+              <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="childrenAddBtn">
+                <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="food-mat-add-period-card__label">Lägg till</span>
+              </button>
             </div>
           </section>
 
@@ -1055,12 +1091,19 @@
                   </select>
                 </label>
                 <label class="field">
-                  <span id="savingsFirstDateLabel">Spar datum</span>
-                  <input id="savingsEditFirstDate" type="date" />
+                  <input
+                    id="savingsEditFirstDate"
+                    type="date"
+                    data-notch-label="Spar datum"
+                  />
                 </label>
                 <label class="field" id="savingsEndDateRow">
-                  Spar upphör (valfritt)
-                  <input id="savingsEditEndDate" type="date" />
+                  <input
+                    id="savingsEditEndDate"
+                    type="date"
+                    data-notch-label="Spar upphör (valfritt)"
+                    data-date-clear
+                  />
                 </label>
                 <label class="field">
                   Belopp (kr)
