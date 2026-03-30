@@ -2063,11 +2063,11 @@ body.modal-open {
 }
 
 .food-preview {
-  margin-top: 16px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--card) 88%, transparent);
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .food-preview-list {
@@ -2300,17 +2300,15 @@ body.modal-open {
 }
 
 .food-household-size-box {
-  margin-top: 24px;
-  border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
-  border-radius: 12px;
-  padding: 14px 14px 12px;
-  background: color-mix(in srgb, var(--card) 86%, transparent);
+  margin-top: 0;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .food-household-size-title {
-  margin: 0 0 12px !important;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  display: none;
 }
 
 .food-mat-period-cards {
@@ -2433,6 +2431,7 @@ body.modal-open {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-top: var(--space-3);
   padding-bottom: var(--space-4);
 }
 
@@ -2460,8 +2459,17 @@ body.modal-open {
 .food-period-card {
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 10px;
+  padding: 14px 12px 12px;
   background: color-mix(in srgb, var(--card) 84%, transparent);
+}
+
+/* Mer luft ovanför första notchade fältet i Mat-editorer */
+.food-mat-panel-body .food-period-card > .form-grid:first-child {
+  margin-top: 2px;
+}
+
+.food-period-card > .note.micro-note--tight + .bb-notched-field--block {
+  margin-top: var(--space-3);
 }
 
 .food-date-with-clear {

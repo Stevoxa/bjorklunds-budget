@@ -1946,6 +1946,14 @@ function syncFoodScopeSummaryLabel() {
   el.textContent = opt ? opt.textContent : "—";
 }
 
+function syncFoodDeviationPresetSummaryLabel() {
+  const sel = document.getElementById("foodDevEditPreset");
+  const el = document.getElementById("foodDevEditPresetSummary");
+  if (!sel || !el) return;
+  const opt = sel.options[sel.selectedIndex];
+  el.textContent = opt ? opt.textContent : "—";
+}
+
 function initOverviewPeriodSheet() {
   const { backdrop, handle, sheet } = getPeriodSheetEls();
   if (!backdrop || !sheet) return;
@@ -5966,6 +5974,7 @@ function renderFoodPage() {
     document.getElementById("foodDevEditStart").value = dv.startDate || "";
     document.getElementById("foodDevEditEnd").value = dv.endDate || "";
     document.getElementById("foodDevEditPreset").value = deviationPresetFromValue(dv.value);
+    syncFoodDeviationPresetSummaryLabel();
 
     const saveBtn = document.getElementById("foodDevEditSaveBtn");
     if (saveBtn) saveBtn.textContent = editingDeviationIndex >= 0 ? "Uppdatera period" : "Lägg till period";
@@ -6072,6 +6081,22 @@ function renderFoodPage() {
     renderDeviationEditor();
     draw();
   };
+
+  document.getElementById("foodDevEditPresetOpenBtn")?.addEventListener("click", () => {
+    const sel = document.getElementById("foodDevEditPreset");
+    if (!sel) return;
+    const options = Array.from(sel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+    openListPickerSheet({
+      title: "Kostnaden för perioden är",
+      options,
+      currentValue: String(sel.value || "1.2"),
+      onSelect: (value) => {
+        sel.value = value;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        syncFoodDeviationPresetSummaryLabel();
+      }
+    });
+  });
   document.getElementById("foodDevEditCancelBtn").onclick = () => {
     const idxToRestore = editingDeviationIndex;
     if (idxToRestore >= 0 && deviationEditorBackup && Array.isArray(ui.foodConfigDraft?.deviations)) {
@@ -6168,7 +6193,10 @@ function renderFoodPage() {
     const el = document.getElementById(id);
     if (!el) return;
     el.oninput = () => dismissDevInlineErrors();
-    el.onchange = () => dismissDevInlineErrors();
+    el.onchange = () => {
+      dismissDevInlineErrors();
+      if (id === "foodDevEditPreset") syncFoodDeviationPresetSummaryLabel();
+    };
   });
 
   renderCustodyEditor();

@@ -562,31 +562,33 @@
                     </div>
                   </div>
 
-                  <div id="foodAutoSection" class="food-household-size-box">
-                    <div class="table-title small food-household-size-title">Hushållets storlek</div>
-                    <div class="food-counter-grid">
-                      <div class="food-counter-row">
-                        <span>Vuxna</span>
-                        <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodAdultsMinusBtn">-</button>
-                          <input id="foodAdultsInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodAdultsPlusBtn">+</button>
+                  <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Hushållets storlek">
+                    <div class="bb-notched-field-legend">Hushållets storlek</div>
+                    <div id="foodAutoSection" class="food-household-size-box">
+                      <div class="food-counter-grid">
+                        <div class="food-counter-row">
+                          <span>Vuxna</span>
+                          <div class="food-counter-actions">
+                            <button class="secondary" type="button" id="foodAdultsMinusBtn">-</button>
+                            <input id="foodAdultsInput" type="number" inputmode="numeric" min="0" step="1" />
+                            <button class="secondary" type="button" id="foodAdultsPlusBtn">+</button>
+                          </div>
                         </div>
-                      </div>
-                      <div class="food-counter-row">
-                        <span>Tonåringar</span>
-                        <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodTeensMinusBtn">-</button>
-                          <input id="foodTeensInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodTeensPlusBtn">+</button>
+                        <div class="food-counter-row">
+                          <span>Tonåringar</span>
+                          <div class="food-counter-actions">
+                            <button class="secondary" type="button" id="foodTeensMinusBtn">-</button>
+                            <input id="foodTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                            <button class="secondary" type="button" id="foodTeensPlusBtn">+</button>
+                          </div>
                         </div>
-                      </div>
-                      <div class="food-counter-row">
-                        <span>Barn</span>
-                        <div class="food-counter-actions">
-                          <button class="secondary" type="button" id="foodChildrenMinusBtn">-</button>
-                          <input id="foodChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                          <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
+                        <div class="food-counter-row">
+                          <span>Barn</span>
+                          <div class="food-counter-actions">
+                            <button class="secondary" type="button" id="foodChildrenMinusBtn">-</button>
+                            <input id="foodChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                            <button class="secondary" type="button" id="foodChildrenPlusBtn">+</button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -680,22 +682,24 @@
                         </label>
                       </div>
                       <div class="note micro-note micro-note--tight">Intervallet upprepas inom perioden. Perioder kortare än en hel cykel påverkar inte kostnaden.</div>
-                      <div class="table-title small spacing-top">Hur många är borta i bortaveckor?</div>
-                      <div class="food-counter-grid">
-                        <div class="food-counter-row">
-                          <span>Tonåringar</span>
-                          <div class="food-counter-actions">
-                            <button class="secondary" type="button" id="foodCustodyEditTeensMinusBtn">-</button>
-                            <input id="foodCustodyEditTeensInput" type="number" inputmode="numeric" min="0" step="1" />
-                            <button class="secondary" type="button" id="foodCustodyEditTeensPlusBtn">+</button>
+                      <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Hur många är borta i bortaveckor?">
+                        <div class="bb-notched-field-legend">Hur många är borta i bortaveckor?</div>
+                        <div class="food-counter-grid">
+                          <div class="food-counter-row">
+                            <span>Tonåringar</span>
+                            <div class="food-counter-actions">
+                              <button class="secondary" type="button" id="foodCustodyEditTeensMinusBtn">-</button>
+                              <input id="foodCustodyEditTeensInput" type="number" inputmode="numeric" min="0" step="1" />
+                              <button class="secondary" type="button" id="foodCustodyEditTeensPlusBtn">+</button>
+                            </div>
                           </div>
-                        </div>
-                        <div class="food-counter-row">
-                          <span>Barn</span>
-                          <div class="food-counter-actions">
-                            <button class="secondary" type="button" id="foodCustodyEditChildrenMinusBtn">-</button>
-                            <input id="foodCustodyEditChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
-                            <button class="secondary" type="button" id="foodCustodyEditChildrenPlusBtn">+</button>
+                          <div class="food-counter-row">
+                            <span>Barn</span>
+                            <div class="food-counter-actions">
+                              <button class="secondary" type="button" id="foodCustodyEditChildrenMinusBtn">-</button>
+                              <input id="foodCustodyEditChildrenInput" type="number" inputmode="numeric" min="0" step="1" />
+                              <button class="secondary" type="button" id="foodCustodyEditChildrenPlusBtn">+</button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -809,13 +813,17 @@
                         </label>
                         <div class="bb-notched-field" role="group" aria-label="Kostnaden för perioden är">
                           <div class="bb-notched-field-legend">Kostnaden för perioden är</div>
-                          <select id="foodDevEditPreset" class="bb-notched-field-select">
-                            <option value="0.8">Lite billigare (-20%)</option>
-                            <option value="0.6">Mycket billigare (-40%)</option>
-                            <option value="1.2">Lite dyrare (+20%)</option>
-                            <option value="1.4">Mycket dyrare (+40%)</option>
-                          </select>
+                          <button type="button" class="bb-notched-field-btn" id="foodDevEditPresetOpenBtn" aria-haspopup="dialog" aria-controls="listPickerSheet">
+                            <span class="bb-notched-field-value" id="foodDevEditPresetSummary">—</span>
+                            <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                          </button>
                         </div>
+                        <select id="foodDevEditPreset" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                          <option value="0.8">Lite billigare (-20%)</option>
+                          <option value="0.6">Mycket billigare (-40%)</option>
+                          <option value="1.2">Lite dyrare (+20%)</option>
+                          <option value="1.4">Mycket dyrare (+40%)</option>
+                        </select>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
                         <button class="primary" type="button" id="foodDevEditSaveBtn">Lägg till period</button>
@@ -832,27 +840,29 @@
                 </div>
               </div>
 
-              <div class="food-preview">
-                <div class="table-title small">Matkostnad översikt</div>
-                <div class="picker-row picker-row--food-preview">
-                  <div class="bb-notched-field" role="group" aria-label="År och månad">
-                    <div class="bb-notched-field-legend">År &amp; månad</div>
-                    <button type="button" class="bb-notched-field-btn" id="foodPreviewPeriodOpenBtn">
-                      <span class="bb-notched-field-value" id="foodPreviewSummary">—</span>
-                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                    </button>
+              <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Matkostnad översikt">
+                <div class="bb-notched-field-legend">Matkostnad översikt</div>
+                <div class="food-preview">
+                  <div class="picker-row picker-row--food-preview">
+                    <div class="bb-notched-field" role="group" aria-label="År och månad">
+                      <div class="bb-notched-field-legend">År &amp; månad</div>
+                      <button type="button" class="bb-notched-field-btn" id="foodPreviewPeriodOpenBtn">
+                        <span class="bb-notched-field-value" id="foodPreviewSummary">—</span>
+                        <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                      </button>
+                    </div>
                   </div>
+                  <select id="foodPreviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <select id="foodPreviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <div class="food-preview-summary">
+                    <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
+                    <div class="summary-row food-preview-summary-row"><span>Differens mellan veckor</span><strong id="foodPreviewWeekSpread">0kr</strong></div>
+                    <div class="summary-row food-preview-summary-row"><span>Snittkostnad per vecka</span><strong id="foodPreviewWeekAvg">0kr</strong></div>
+                  </div>
+                  <div class="note food-preview-weeks-heading" id="foodPreviewWeeksTitle"></div>
+                  <div id="foodPreviewWeeks" class="food-preview-list food-preview-weeks"></div>
+                  <div class="food-preview-month-total" id="foodPreviewMonthTotal"></div>
                 </div>
-                <select id="foodPreviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                <select id="foodPreviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                <div class="food-preview-summary">
-                  <div class="summary-row food-preview-summary-row"><span>Beräknad veckokostnad</span><strong id="foodPreviewNormalWeek">0kr</strong></div>
-                  <div class="summary-row food-preview-summary-row"><span>Differens mellan veckor</span><strong id="foodPreviewWeekSpread">0kr</strong></div>
-                  <div class="summary-row food-preview-summary-row"><span>Snittkostnad per vecka</span><strong id="foodPreviewWeekAvg">0kr</strong></div>
-                </div>
-                <div class="note food-preview-weeks-heading" id="foodPreviewWeeksTitle"></div>
-                <div id="foodPreviewWeeks" class="food-preview-list food-preview-weeks"></div>
-                <div class="food-preview-month-total" id="foodPreviewMonthTotal"></div>
               </div>
               <div class="note" id="foodSaveContext" role="status" aria-live="polite"></div>
               <div class="actions-row food-mat-save-actions">
@@ -1480,7 +1490,7 @@
       <div class="date-sheet-handle bottom-sheet-drag" id="periodSheetHandle" aria-hidden="true"></div>
       <div class="date-sheet-chrome period-sheet-chrome--simple">
         <div class="date-sheet-title-wrap">
-          <h2 class="date-sheet-title" id="periodSheetTitle" tabindex="-1">Välj period</h2>
+          <h2 class="date-sheet-title" id="periodSheetTitle" tabindex="-1">Välj år och månad</h2>
         </div>
       </div>
       <div class="date-sheet-body">
