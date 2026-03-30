@@ -653,17 +653,19 @@
                         </label>
                         <label class="field">
                           Hur ser växel boendets intervall ut?
-                          <button
-                            type="button"
-                            class="bb-outline-field-btn"
-                            id="foodCustodyEditRatioOpenBtn"
-                            aria-haspopup="dialog"
-                            aria-controls="listPickerSheet"
-                          >
-                            <span class="bb-outline-field-label">Intervall</span>
-                            <span class="bb-outline-field-value" id="foodCustodyEditRatioSummary">—</span>
-                            <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                          </button>
+                          <div class="bb-notched-field" role="group" aria-label="Intervall">
+                            <div class="bb-notched-field-legend">Intervall</div>
+                            <button
+                              type="button"
+                              class="bb-notched-field-btn"
+                              id="foodCustodyEditRatioOpenBtn"
+                              aria-haspopup="dialog"
+                              aria-controls="listPickerSheet"
+                            >
+                              <span class="bb-notched-field-value" id="foodCustodyEditRatioSummary">—</span>
+                              <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                            </button>
+                          </div>
                           <select id="foodCustodyEditRatio" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                             <option value="3-3">3/3 (3 dagar borta, 3 dagar hos dig)</option>
                             <option value="5-2">5/2 (5 dagar borta, 2 dagar hos dig)</option>
@@ -795,11 +797,13 @@
               <div class="food-preview">
                 <div class="table-title small">Matkostnad översikt</div>
                 <div class="picker-row picker-row--food-preview">
-                  <button type="button" class="bb-outline-field-btn" id="foodPreviewPeriodOpenBtn">
-                    <span class="bb-outline-field-label">År &amp; månad</span>
-                    <span class="bb-outline-field-value" id="foodPreviewSummary">—</span>
-                    <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                  </button>
+                  <div class="bb-notched-field" role="group" aria-label="År och månad">
+                    <div class="bb-notched-field-legend">År &amp; månad</div>
+                    <button type="button" class="bb-notched-field-btn" id="foodPreviewPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="foodPreviewSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
                 <select id="foodPreviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <select id="foodPreviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
