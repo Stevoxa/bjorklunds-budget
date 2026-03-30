@@ -5969,6 +5969,14 @@ function renderFoodPage() {
 
     const delBtn = document.getElementById("foodHhEditDeleteBtn");
     if (delBtn) delBtn.hidden = editingHouseholdChangeIndex < 0;
+
+    const panelLegend = document.getElementById("foodHouseholdEditorPanelLegend");
+    if (panelLegend) panelLegend.textContent = editingHouseholdChangeIndex >= 0 ? "Redigera period" : "Lägg till period";
+
+    const sInp = document.getElementById("foodHhEditStart");
+    const eInp = document.getElementById("foodHhEditEnd");
+    if (sInp instanceof HTMLInputElement) syncDateFieldRow(sInp);
+    if (eInp instanceof HTMLInputElement) syncDateFieldRow(eInp);
   };
   const readHouseholdEditor = () => {
     const arr = ui.foodConfigDraft.householdChanges || [];
@@ -6116,6 +6124,14 @@ function renderFoodPage() {
 
     const delBtn = document.getElementById("foodDevEditDeleteBtn");
     if (delBtn) delBtn.hidden = editingDeviationIndex < 0;
+
+    const panelLegend = document.getElementById("foodDeviationEditorPanelLegend");
+    if (panelLegend) panelLegend.textContent = editingDeviationIndex >= 0 ? "Redigera period" : "Lägg till period";
+
+    const sInp = document.getElementById("foodDevEditStart");
+    const eInp = document.getElementById("foodDevEditEnd");
+    if (sInp instanceof HTMLInputElement) syncDateFieldRow(sInp);
+    if (eInp instanceof HTMLInputElement) syncDateFieldRow(eInp);
   };
   const readDeviationEditor = () => {
     const arr = ui.foodConfigDraft.deviations || [];

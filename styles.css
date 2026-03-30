@@ -2409,7 +2409,7 @@ body.modal-open {
   display: none;
 }
 
-/* Växelvis boende: vit kortyta som huvudkort, rubrik inne i boxen, redigerare ovanför listan */
+/* Mat undersidor (växelvis boende, hushållsändring, annan kostnad): vit kortyta, rubrik inne, redigerare ovanför listan */
 .exp-overlay[data-expview="food"] .food-mat-subsection-panel.table-card {
   background: var(--card);
   border-color: var(--border);
@@ -2438,11 +2438,11 @@ body.modal-open {
 }
 
 .food-mat-subsection-panel > .bb-notched-panel--list,
-.food-mat-subsection-panel > .food-mat-custody-editor-panel {
+.food-mat-subsection-panel > .food-mat-period-editor-panel {
   margin-top: 0;
 }
 
-.food-mat-subsection-panel .food-mat-custody-list-panel .food-preview-list {
+.food-mat-subsection-panel .food-mat-period-list-panel .food-preview-list {
   padding-top: 10px;
 }
 
@@ -2507,38 +2507,38 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 14%, transparent);
 }
 
-.food-mat-custody-editor-panel .food-mat-custody-editor-content {
+.food-mat-period-editor-panel .food-mat-period-editor-content {
   padding-top: 4px;
 }
 
-.food-mat-panel-body .food-mat-custody-editor-content > .form-grid:first-child {
+.food-mat-panel-body .food-mat-period-editor-content > .form-grid:first-child {
   margin-top: 2px;
 }
 
-/* Växelvis boende: luftigare vertikal rytm mellan fält, hjälptext, stegare och summering */
-.food-mat-custody-editor-content > .form-grid {
+/* Periodredigerare (alla tre mat-flikar): luftigare vertikal rytm */
+.food-mat-period-editor-content > .form-grid {
   row-gap: 18px;
   column-gap: 12px;
 }
 
-.food-mat-custody-editor-content > .form-grid + .note.micro-note--tight {
+.food-mat-period-editor-content > .form-grid + .note.micro-note--tight {
   margin-top: 14px;
   line-height: 1.45;
 }
 
-.food-mat-custody-editor-content > .note.micro-note--tight + .bb-notched-field--block {
+.food-mat-period-editor-content > .note.micro-note--tight + .bb-notched-field--block {
   margin-top: 20px;
 }
 
-.food-mat-custody-editor-content .bb-notched-field--block .food-counter-grid {
+.food-mat-period-editor-content .bb-notched-field--block .food-counter-grid {
   gap: 12px;
 }
 
-.food-mat-custody-editor-content .food-custody-example-block {
+.food-mat-period-editor-content .food-custody-example-block {
   margin-top: 16px;
 }
 
-.food-mat-custody-editor-content > .food-hh-editor-actions {
+.food-mat-period-editor-content > .food-hh-editor-actions {
   margin-top: 20px;
 }
 
