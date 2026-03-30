@@ -639,17 +639,25 @@
                     </div>
                     <div class="food-mat-panel-body">
                       <div class="bb-error-summary" id="foodCustodyErrorSummary" hidden role="alert" aria-live="polite"></div>
-                  <div id="foodKidsSection">
+                  <div id="foodKidsSection" class="food-mat-subsection">
                     <div class="field-error" id="foodCustodyGlobalWarn" hidden></div>
-                    <div class="table-title-row food-panel-title-row">
-                      <div class="table-title food-panel-appbar-title flush">Barn med växelvis boende</div>
-                      <button type="button" class="bb-icon-add-btn" id="foodAddCustodyPeriodBtn" aria-label="Lägg till period">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <div class="table-title">Barn med växelvis boende</div>
+                    <div class="table-card surface-nested food-mat-subsection-panel">
+                    <div class="bb-notched-panel bb-notched-panel--list" id="foodCustodyListBox" hidden role="group" aria-label="Tillagda perioder">
+                      <div class="bb-notched-panel-legend">Tillagda perioder</div>
+                      <div id="foodCustodyPeriodsList" class="food-preview-list food-period-bb-list"></div>
+                    </div>
+                    <button type="button" class="food-mat-add-period-card" id="foodAddCustodyPeriodBtn">
+                      <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                           <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                         </svg>
-                      </button>
-                    </div>
-                    <div id="foodCustodyEditor" class="food-period-card" hidden>
+                      </span>
+                      <span class="food-mat-add-period-card__label">Lägg till period</span>
+                    </button>
+                    <div id="foodCustodyEditor" class="bb-notched-panel food-mat-custody-editor-panel" hidden role="group">
+                      <div class="bb-notched-panel-legend" id="foodCustodyEditorPanelLegend">Lägg till period</div>
+                      <div class="food-mat-custody-editor-content">
                       <div class="form-grid">
                         <label class="field">
                           <input id="foodCustodyEditStart" type="date" data-notch-label="När börjar perioden utan barn?" />
@@ -720,12 +728,10 @@
                         <button class="danger" type="button" id="foodCustodyEditDeleteBtn" hidden>Ta bort period</button>
                         <button class="secondary" type="button" id="foodCustodyEditCancelBtn">Avbryt</button>
                       </div>
-                    </div>
-                    <div class="bb-notched-panel bb-notched-panel--list" id="foodCustodyListBox" hidden role="group" aria-label="Tillagda perioder">
-                      <div class="bb-notched-panel-legend">Tillagda perioder</div>
-                      <div id="foodCustodyPeriodsList" class="food-preview-list food-period-bb-list"></div>
+                      </div>
                     </div>
                     <div class="field-error" id="foodCustodyListError" hidden></div>
+                    </div>
                   </div>
                     </div>
                   </div>

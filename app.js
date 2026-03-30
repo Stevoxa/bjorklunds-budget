@@ -5246,6 +5246,9 @@ function renderFoodPage() {
     const saveBtn = document.getElementById("foodCustodyEditSaveBtn");
     if (saveBtn) saveBtn.textContent = editingCustodyIndex >= 0 ? "Uppdatera period" : "Lägg till period";
 
+    const panelLegend = document.getElementById("foodCustodyEditorPanelLegend");
+    if (panelLegend) panelLegend.textContent = editingCustodyIndex >= 0 ? "Redigera period" : "Lägg till period";
+
     const delBtn = document.getElementById("foodCustodyEditDeleteBtn");
     if (delBtn) delBtn.hidden = editingCustodyIndex < 0;
     clearCustodyEditorFieldErrors();
