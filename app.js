@@ -474,6 +474,8 @@ let periodSheetKeydownHandler = null;
 let listPickerOpen = false;
 let listPickerClosing = false;
 let listPickerKeydownHandler = null;
+/** Fokushållare för att undvika aria-hidden-varning vid stängning. */
+let listPickerPrevFocusEl = null;
 
 /** Mat-overlay: fullskärms-underläge (pushState så systemets bakåt stänger panelen) */
 let foodMatSubHistoryDepth = 0;
@@ -1948,12 +1950,19 @@ function syncFoodPreviewSummaryLabel() {
 
 function finalizeListPickerClose() {
   const { backdrop, sheet } = getListPickerEls();
+  const active = document.activeElement;
   if (backdrop) {
+    if (active instanceof Node && backdrop.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
     backdrop.hidden = true;
     backdrop.classList.remove("period-sheet-backdrop--visible");
     backdrop.setAttribute("aria-hidden", "true");
   }
   if (sheet) {
+    if (active instanceof Node && sheet.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
     sheet.hidden = true;
     sheet.classList.remove("period-sheet--visible");
     sheet.style.removeProperty("transform");
@@ -1967,6 +1976,20 @@ function finalizeListPickerClose() {
   popAppBottomSheetScrollLock();
   listPickerOpen = false;
   listPickerClosing = false;
+  queueMicrotask(() => {
+    if (listPickerPrevFocusEl && typeof listPickerPrevFocusEl.focus === "function") {
+      try {
+        listPickerPrevFocusEl.focus({ preventScroll: true });
+      } catch {
+        try {
+          listPickerPrevFocusEl.focus();
+        } catch {
+          // ignore
+        }
+      }
+    }
+    listPickerPrevFocusEl = null;
+  });
 }
 
 function closeListPickerAnimated() {
@@ -2007,6 +2030,7 @@ function openListPickerSheet({ title, options, currentValue, onSelect }) {
   if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
   const { backdrop, sheet, title: titleEl, options: host, handle } = getListPickerEls();
   if (!backdrop || !sheet || !titleEl || !host) return;
+  listPickerPrevFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   titleEl.textContent = title || "Välj";
   host.innerHTML = "";
   for (const opt of options) {
@@ -6168,8 +6192,9 @@ function renderFoodPage() {
     }
     editingHouseholdChangeIndex = -1;
     householdEditorDraft = null;
-    renderHouseholdChanges();
+    // Stäng redigeraren först, annars ritas listan med `disabled` (redigeraren kan vara synlig än).
     renderHouseholdEditor();
+    renderHouseholdChanges();
     draw();
   };
   document.getElementById("foodHhEditCancelBtn").onclick = () => {
@@ -6444,8 +6469,9 @@ function renderFoodPage() {
     }
     editingDeviationIndex = -1;
     deviationEditorDraft = null;
-    renderDeviations();
+    // Stäng redigeraren först, annars ritas listan med `disabled` (redigeraren kan vara synlig än).
     renderDeviationEditor();
+    renderDeviations();
     draw();
   };
 
@@ -6604,8 +6630,14 @@ function renderFoodPage() {
 
   // Simple warnings (non-blocking)
   const weeklyWarn = () => {
-    const w = computeFoodWeeklyCost(ui.foodConfigDraft);
-    if (w > 20000) setWarn("Varning: ovanligt hög veckokostnad.");
+    const draft = ui.foodConfigDraft;
+    const w = computeFoodWeeklyCost(draft);
+    const scopeF = FOOD_SCOPE_FACTORS[draft.foodScope] || 1.0;
+    // I auto-läge kommer `all` höja veckokostnaden via scope-faktor; varningen ska därför jämföras på "baseline"
+    // så att enbart byte av scope inte triggar varningen.
+    const compareW = draft.mode === "manual" ? w : (scopeF > 0 ? w / scopeF : w);
+    if (compareW > 20000) setWarn("Varning: ovanligt hög veckokostnad.");
+    else setWarn("");
   };
   const originalDraw = draw;
   const wrappedDraw = () => {
