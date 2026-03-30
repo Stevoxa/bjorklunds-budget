@@ -618,16 +618,40 @@ function initFoodMatSwipeBack() {
     let startY = 0;
     let startT = 0;
     let active = false;
+    let edgeOk = false;
+
+    const begin = (x, y) => {
+      if (!panel || panel.hidden) return;
+      startX = x;
+      startY = y;
+      startT = performance.now();
+      // Require swipe to start near left edge to avoid fighting scroll/taps.
+      edgeOk = startX <= 28;
+      active = true;
+    };
+
+    const move = (x, y) => {
+      if (!active) return;
+      const dx = x - startX;
+      const dy = y - startY;
+      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
+    };
+
+    const end = (x, y) => {
+      if (!active) return;
+      active = false;
+      if (!edgeOk) return;
+      const dx = x - startX;
+      const dy = y - startY;
+      const dt = performance.now() - startT;
+      if (dx > 80 && Math.abs(dy) < 40 && dt < 900) closeFoodMatSubPanelFromBackButton();
+    };
 
     panel.addEventListener(
       "pointerdown",
       (e) => {
         if (e.pointerType === "mouse") return;
-        if (!panel || panel.hidden) return;
-        startX = e.clientX;
-        startY = e.clientY;
-        startT = performance.now();
-        active = true;
+        begin(e.clientX, e.clientY);
       },
       { passive: true }
     );
@@ -635,31 +659,53 @@ function initFoodMatSwipeBack() {
     panel.addEventListener(
       "pointermove",
       (e) => {
-        if (!active) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        // Cancel if vertical scroll gesture dominates.
-        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
+        move(e.clientX, e.clientY);
       },
       { passive: true }
     );
 
-    const onEnd = (e) => {
-      if (!active) return;
-      active = false;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      const dt = performance.now() - startT;
-      // Simple "back swipe": quick horizontal move right, not vertical.
-      if (dx > 80 && Math.abs(dy) < 40 && dt < 700) {
-        closeFoodMatSubPanelFromBackButton();
-      }
-    };
-
-    panel.addEventListener("pointerup", onEnd, { passive: true });
+    panel.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { passive: true });
     panel.addEventListener("pointercancel", () => {
       active = false;
     }, { passive: true });
+
+    // Android WebView/Chrome can be inconsistent with PointerEvents in some modes;
+    // add TouchEvents as a fallback.
+    const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
+    panel.addEventListener(
+      "touchstart",
+      (ev) => {
+        const t = getTouch(ev);
+        if (!t) return;
+        begin(t.clientX, t.clientY);
+      },
+      { passive: true }
+    );
+    panel.addEventListener(
+      "touchmove",
+      (ev) => {
+        const t = getTouch(ev);
+        if (!t) return;
+        move(t.clientX, t.clientY);
+      },
+      { passive: true }
+    );
+    panel.addEventListener(
+      "touchend",
+      (ev) => {
+        const t = getTouch(ev);
+        if (!t) return;
+        end(t.clientX, t.clientY);
+      },
+      { passive: true }
+    );
+    panel.addEventListener(
+      "touchcancel",
+      () => {
+        active = false;
+      },
+      { passive: true }
+    );
   });
 }
 
