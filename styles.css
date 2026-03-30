@@ -2627,13 +2627,17 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  padding-top: calc(var(--space-3) + env(safe-area-inset-top));
+  padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
+  /* Vänster: bara safe area så App bar-nav (pil) kan ligga mot innehållsmarginalen som SJ App Bar */
+  padding-left: env(safe-area-inset-left);
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
   animation: overlay-in var(--motion-fast) var(--motion-ease) both;
 }
 
 .food-mat-panel-top {
   flex-shrink: 0;
-  padding: calc(var(--space-3) + 4px) var(--space-4) calc(var(--space-4) + 2px);
+  padding: calc(var(--space-3) + 4px) var(--space-4) calc(var(--space-4) + 2px) 0;
   border-bottom: 1px solid var(--border);
   margin-bottom: var(--space-3);
 }
@@ -2643,7 +2647,8 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   align-items: center;
   gap: 10px;
   min-height: 48px;
-  padding: 10px 14px 10px 12px;
+  /* Minimal vänsterpadding: pilen nära kant; höger behåller tryckyta */
+  padding: 10px 14px 10px 2px;
   margin: 0;
   border: none;
   border-radius: var(--radius-control);
@@ -2685,6 +2690,8 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   -webkit-overflow-scrolling: touch;
   padding-top: var(--space-3);
   padding-bottom: var(--space-4);
+  /* Samma vänstermarginal som tidigare panel-padding (innehåll inte under pil-raden) */
+  padding-left: var(--space-4);
 }
 
 .food-mat-period-cards .food-advanced {
