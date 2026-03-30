@@ -2647,8 +2647,8 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   align-items: center;
   gap: 10px;
   min-height: 48px;
-  /* Minimal vänsterpadding: pilen nära kant; höger behåller tryckyta */
-  padding: 10px 14px 10px 2px;
+  /* Pil något in från kant; höger behåller tryckyta */
+  padding: 10px 14px 10px 10px;
   margin: 0;
   border: none;
   border-radius: var(--radius-control);
