@@ -832,9 +832,16 @@
                       <div class="form-grid">
                         <label class="field">
                           <input id="foodDevEditStart" type="date" data-notch-label="När börjar perioden att gälla?" />
+                          <div class="field-error" id="foodDevErrStart" hidden></div>
                         </label>
                         <label class="field">
-                          <input id="foodDevEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
+                          <input
+                            id="foodDevEditEnd"
+                            type="date"
+                            data-notch-label="När slutar perioden att gälla?"
+                            data-date-clear
+                          />
+                          <div class="field-error" id="foodDevErrEnd" hidden></div>
                         </label>
                         <div class="bb-notched-field" role="group" aria-label="Kostnaden för perioden är">
                           <div class="bb-notched-field-legend">Kostnaden för perioden är</div>

@@ -2405,6 +2405,11 @@ body.modal-open {
   background: transparent;
 }
 
+/* Samma vertikala luft som i periodredigerare (hushåll/avvikelse) */
+.food-household-size-box .food-counter-grid {
+  gap: 14px;
+}
+
 .food-household-size-title {
   display: none;
 }
@@ -2527,6 +2532,18 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
 }
 #foodHouseholdEditor .food-mat-period-editor-content .bb-notched-field--block .food-counter-grid {
   gap: 14px;
+}
+
+#foodHouseholdChangesSection .food-mat-period-list-panel {
+  margin-bottom: 12px;
+}
+
+#foodDeviationEditor .food-mat-period-editor-content > .form-grid {
+  row-gap: 22px;
+}
+
+#foodDeviationsSection .food-mat-period-list-panel {
+  margin-bottom: 12px;
 }
 
 .food-mat-period-editor-content > .form-grid + .note.micro-note--tight {
