@@ -889,8 +889,7 @@ function enhanceAllDateFieldRows() {
     btn.appendChild(createCalendarIconSvg());
     wrap.appendChild(btn);
 
-    const useNotched =
-      Boolean(inp.closest('.exp-overlay[data-expview="food"]')) || Boolean(inp.closest(".food-mat-panel"));
+    const useNotched = true;
     if (useNotched && !wrap.closest(".bb-notched-field")) {
       const label = inp.getAttribute("data-notch-label") || humanLabelForDateInput(inp);
       const host = document.createElement("div");

@@ -24,11 +24,13 @@
           <div class="view-header">
             <h2>Analys</h2>
             <div class="period-picker bb-period-wrap" data-overview-period="" role="group" aria-label="Välj period">
-              <button type="button" class="bb-outline-field-btn" id="overviewPeriodOpenBtn">
-                <span class="bb-outline-field-label">Period</span>
-                <span class="bb-outline-field-value" id="overviewPeriodSummary">—</span>
-                <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-              </button>
+              <div class="bb-notched-field" role="group" aria-label="Period">
+                <div class="bb-notched-field-legend">Period</div>
+                <button type="button" class="bb-notched-field-btn" id="overviewPeriodOpenBtn">
+                  <span class="bb-notched-field-value" id="overviewPeriodSummary">—</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+              </div>
               <select id="overviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
               <select id="overviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
@@ -112,11 +114,13 @@
             <div class="filter-toolbar">
               <div class="note">En rad per inbetalning (0 kr visas inte).</div>
               <div class="picker-row bb-filter-period-row">
-                <button type="button" class="bb-outline-field-btn" id="incomeFilterPeriodOpenBtn">
-                  <span class="bb-outline-field-label">År &amp; månad</span>
-                  <span class="bb-outline-field-value" id="incomeFilterSummary">—</span>
-                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                </button>
+                <div class="bb-notched-field" role="group" aria-label="År och månad">
+                  <div class="bb-notched-field-legend">År &amp; månad</div>
+                  <button type="button" class="bb-notched-field-btn" id="incomeFilterPeriodOpenBtn">
+                    <span class="bb-notched-field-value" id="incomeFilterSummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
               </div>
               <select id="incomeYearFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
               <select id="incomeMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
@@ -1091,11 +1095,13 @@
             <div class="table-title">Utseende</div>
             <div class="form-grid narrow">
               <div class="field">
-                <button type="button" class="bb-outline-field-btn" id="themeModeOpenBtn">
-                  <span class="bb-outline-field-label">Tema</span>
-                  <span class="bb-outline-field-value" id="themeModeSummary">System</span>
-                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                </button>
+                <div class="bb-notched-field" role="group" aria-label="Tema">
+                  <div class="bb-notched-field-legend">Tema</div>
+                  <button type="button" class="bb-notched-field-btn" id="themeModeOpenBtn">
+                    <span class="bb-notched-field-value" id="themeModeSummary">System</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
                 <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                   <option value="system">System</option>
                   <option value="light">Ljust</option>
@@ -1109,11 +1115,13 @@
             <div class="table-title">Matplanering</div>
             <div class="form-grid narrow">
               <div class="field">
-                <button type="button" class="bb-outline-field-btn" id="foodWeekdayOpenBtn">
-                  <span class="bb-outline-field-label">Veckodag (planeringsdag)</span>
-                  <span class="bb-outline-field-value" id="foodWeekdaySummary">—</span>
-                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                </button>
+                <div class="bb-notched-field" role="group" aria-label="Veckodag (planeringsdag)">
+                  <div class="bb-notched-field-legend">Veckodag (planeringsdag)</div>
+                  <button type="button" class="bb-notched-field-btn" id="foodWeekdayOpenBtn">
+                    <span class="bb-notched-field-value" id="foodWeekdaySummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
                 <select id="foodPlanningWeekday" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                   <option value="1">Måndag</option>
                   <option value="2">Tisdag</option>
