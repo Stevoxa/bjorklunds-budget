@@ -2236,7 +2236,15 @@ body.modal-open {
 }
 
 .food-mat-hub-title--muted {
-  color: var(--muted);
+  /* Lite starkare i ljust tema, fortsatt mjukt i mörkt */
+  color: color-mix(in srgb, var(--muted) 55%, var(--text));
+}
+
+.food-mat-hub-title--has-periods::after {
+  content: " ✓";
+  color: var(--primary);
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .food-mat-hub-desc {

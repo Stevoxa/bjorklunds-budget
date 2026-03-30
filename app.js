@@ -750,9 +750,18 @@ function updateFoodMatHubTitles(draft) {
   const tc = document.getElementById("foodHubTitleCustody");
   const th = document.getElementById("foodHubTitleHousehold");
   const td = document.getElementById("foodHubTitleDeviation");
-  if (tc) tc.classList.toggle("food-mat-hub-title--muted", custodyN === 0);
-  if (th) th.classList.toggle("food-mat-hub-title--muted", hhN === 0);
-  if (td) td.classList.toggle("food-mat-hub-title--muted", devN === 0);
+  if (tc) {
+    tc.classList.toggle("food-mat-hub-title--muted", custodyN === 0);
+    tc.classList.toggle("food-mat-hub-title--has-periods", custodyN > 0);
+  }
+  if (th) {
+    th.classList.toggle("food-mat-hub-title--muted", hhN === 0);
+    th.classList.toggle("food-mat-hub-title--has-periods", hhN > 0);
+  }
+  if (td) {
+    td.classList.toggle("food-mat-hub-title--muted", devN === 0);
+    td.classList.toggle("food-mat-hub-title--has-periods", devN > 0);
+  }
 }
 
 let dateFieldRowResizeTimer = null;
