@@ -460,6 +460,8 @@ let dateSheetClosing = false;
 let dateSheetKeydownHandler = null;
 /** I datumblad för `data-date-clear`: true = inget slutdatum (tillsvidare), false = välj specifikt datum. */
 let dateSheetTillsvidareOn = false;
+/** Minsta höjd för dag-/månadspanel så kortet inte hoppar vid växling (max av uppmätta vyer). */
+let dateSheetPanesMinHeightPx = 0;
 
 let periodSheetOpen = false;
 let periodSheetClosing = false;
@@ -565,6 +567,49 @@ function syncDateSheetTillsvidareRow() {
   tillsvidareSwitch.setAttribute("aria-checked", dateSheetTillsvidareOn ? "true" : "false");
   tillsvidareSwitch.classList.toggle("date-sheet-switch--on", dateSheetTillsvidareOn);
   tillsvidareSwitch.setAttribute("aria-disabled", dateSheetTillsvidareOn ? "true" : "false");
+}
+
+function measureAndApplyDateSheetPanesMinHeight(resetAccumulated) {
+  if (!dateSheetOpen) return;
+  const wrap = document.getElementById("dateSheetPanes");
+  const dayPane = document.getElementById("dateSheetDayPane");
+  const monthPane = document.getElementById("dateSheetMonthPane");
+  if (!wrap || !dayPane || !monthPane) return;
+  if (resetAccumulated) dateSheetPanesMinHeightPx = 0;
+
+  const mode = dateSheetMode;
+
+  dayPane.hidden = false;
+  monthPane.hidden = true;
+  void wrap.offsetHeight;
+  const hDay = dayPane.getBoundingClientRect().height;
+
+  dayPane.hidden = true;
+  monthPane.hidden = false;
+  void wrap.offsetHeight;
+  const hMonth = monthPane.getBoundingClientRect().height;
+
+  if (mode === "days") {
+    dayPane.hidden = false;
+    monthPane.hidden = true;
+  } else {
+    dayPane.hidden = true;
+    monthPane.hidden = false;
+  }
+  dayPane.setAttribute("aria-hidden", mode !== "days" ? "true" : "false");
+  monthPane.setAttribute("aria-hidden", mode !== "months" ? "true" : "false");
+
+  const next = Math.max(dateSheetPanesMinHeightPx, hDay, hMonth);
+  dateSheetPanesMinHeightPx = next;
+  wrap.style.minHeight = `${next}px`;
+}
+
+function scheduleDateSheetPanesMinHeight(resetAccumulated) {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      measureAndApplyDateSheetPanesMinHeight(Boolean(resetAccumulated));
+    });
+  });
 }
 
 function getPeriodSheetEls() {
@@ -1008,6 +1053,9 @@ function finalizeDateSheetClose(revert) {
   dateSheetClosing = false;
   dateSheetTargetInput = null;
   dateSheetMode = "days";
+  dateSheetPanesMinHeightPx = 0;
+  const dateSheetPanesEl = document.getElementById("dateSheetPanes");
+  if (dateSheetPanesEl) dateSheetPanesEl.style.removeProperty("min-height");
 }
 
 function closeDateSheetAnimated(revert) {
@@ -1335,11 +1383,13 @@ function renderDateSheetMonth() {
     renderDateSheetMonthPicker();
     syncDateSheetArrowDisabled();
     syncDateSheetTillsvidareRow();
+    scheduleDateSheetPanesMinHeight();
     return;
   }
 
   if (!grid) {
     syncDateSheetTillsvidareRow();
+    scheduleDateSheetPanesMinHeight();
     return;
   }
   syncDateSheetArrowDisabled();
@@ -1408,7 +1458,9 @@ function renderDateSheetMonth() {
 
   grid.__dayMatrix = matrix;
   applyCalendarRovingTabindex(matrix);
+  renderDateSheetMonthPicker();
   syncDateSheetTillsvidareRow();
+  scheduleDateSheetPanesMinHeight();
 }
 
 function openDateSheet(inputEl) {
@@ -2194,6 +2246,15 @@ function initMobileDateSheetPicker() {
       renderDateSheetMonth();
     });
   }
+
+  let dateSheetPanesResizeTimer = null;
+  window.addEventListener("resize", () => {
+    if (!dateSheetOpen) return;
+    clearTimeout(dateSheetPanesResizeTimer);
+    dateSheetPanesResizeTimer = setTimeout(() => {
+      scheduleDateSheetPanesMinHeight(true);
+    }, 120);
+  });
 }
 
 function getDefaultState() {

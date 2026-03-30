@@ -1491,21 +1491,23 @@
             </button>
           </div>
         </div>
-        <div id="dateSheetDayPane" class="date-sheet-day-pane">
-          <div
-            id="dateSheetCalRoot"
-            class="date-sheet-cal-root"
-            role="grid"
-            aria-labelledby="dateSheetMonthLabel"
-          >
-            <div class="date-sheet-weekdays" role="row">
-              <span class="date-sheet-weekday" role="columnheader" aria-label="Måndag">Mån</span><span class="date-sheet-weekday" role="columnheader" aria-label="Tisdag">Tis</span><span class="date-sheet-weekday" role="columnheader" aria-label="Onsdag">Ons</span><span class="date-sheet-weekday" role="columnheader" aria-label="Torsdag">Tor</span><span class="date-sheet-weekday" role="columnheader" aria-label="Fredag">Fre</span><span class="date-sheet-weekday" role="columnheader" aria-label="Lördag">Lör</span><span class="date-sheet-weekday" role="columnheader" aria-label="Söndag">Sön</span>
+        <div id="dateSheetPanes" class="date-sheet-panes">
+          <div id="dateSheetDayPane" class="date-sheet-day-pane">
+            <div
+              id="dateSheetCalRoot"
+              class="date-sheet-cal-root"
+              role="grid"
+              aria-labelledby="dateSheetMonthLabel"
+            >
+              <div class="date-sheet-weekdays" role="row">
+                <span class="date-sheet-weekday" role="columnheader" aria-label="Måndag">Mån</span><span class="date-sheet-weekday" role="columnheader" aria-label="Tisdag">Tis</span><span class="date-sheet-weekday" role="columnheader" aria-label="Onsdag">Ons</span><span class="date-sheet-weekday" role="columnheader" aria-label="Torsdag">Tor</span><span class="date-sheet-weekday" role="columnheader" aria-label="Fredag">Fre</span><span class="date-sheet-weekday" role="columnheader" aria-label="Lördag">Lör</span><span class="date-sheet-weekday" role="columnheader" aria-label="Söndag">Sön</span>
+              </div>
+              <div class="date-sheet-grid date-sheet-grid--weeks" id="dateSheetGrid" role="rowgroup"></div>
             </div>
-            <div class="date-sheet-grid date-sheet-grid--weeks" id="dateSheetGrid" role="rowgroup"></div>
           </div>
-        </div>
-        <div id="dateSheetMonthPane" class="date-sheet-month-pane" hidden>
-          <div class="date-sheet-month-picker-grid" id="dateSheetMonthPickerGrid" role="group" aria-label="Välj månad"></div>
+          <div id="dateSheetMonthPane" class="date-sheet-month-pane" hidden>
+            <div class="date-sheet-month-picker-grid" id="dateSheetMonthPickerGrid" role="group" aria-label="Välj månad"></div>
+          </div>
         </div>
       </div>
     </div>

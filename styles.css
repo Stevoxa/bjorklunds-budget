@@ -3447,6 +3447,12 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   -webkit-overflow-scrolling: touch;
 }
 
+.date-sheet-panes {
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+}
+
 .date-sheet-month-nav {
   display: flex;
   align-items: center;
