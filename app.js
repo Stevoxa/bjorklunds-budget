@@ -1430,6 +1430,10 @@ function openDateSheet(inputEl) {
   if (title) title.textContent = humanLabelForDateInput(inputEl);
   dateSheetTillsvidareOn = inputEl.hasAttribute("data-date-clear") ? !dateSheetSnapshot.trim() : false;
 
+  pushAppBottomSheetScrollLock();
+  /* Måste vara true innan renderDateSheetMonth → syncDateSheetTillsvidareRow (annars döljs Tillsvidare-raden). */
+  dateSheetOpen = true;
+
   renderDateSheetMonth();
   backdrop.hidden = false;
   backdrop.setAttribute("aria-hidden", "false");
@@ -1437,8 +1441,6 @@ function openDateSheet(inputEl) {
   sheet.setAttribute("aria-hidden", "false");
   backdrop.classList.remove("date-sheet-backdrop--visible");
   sheet.classList.remove("date-sheet--visible");
-  pushAppBottomSheetScrollLock();
-  dateSheetOpen = true;
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
