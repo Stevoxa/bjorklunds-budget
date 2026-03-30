@@ -639,6 +639,13 @@ function getListPickerEls() {
 }
 
 function hideFoodMatSubPanelsUi() {
+  const active = document.activeElement;
+  // Om fokus ligger kvar inne i en underpanel får vi aria-hidden-varning när vi gömmer den.
+  const activePanel = active instanceof Node ? active.closest(".food-mat-panel") : null;
+  if (activePanel && typeof active?.blur === "function") {
+    active.blur();
+  }
+
   document.querySelectorAll(".food-mat-panel").forEach((el) => {
     el.hidden = true;
     el.setAttribute("aria-hidden", "true");
@@ -648,6 +655,19 @@ function hideFoodMatSubPanelsUi() {
     hub.hidden = false;
     hub.removeAttribute("aria-hidden");
   }
+
+  // Återställ fokus till hubben (eller första hub-card) efter att paneler blivit gömda.
+  queueMicrotask(() => {
+    if (!hub) return;
+    const focusTarget = hub.querySelector(".food-mat-hub-card, #foodHubOpenCustody, #foodHubOpenHousehold, #foodHubOpenDeviation");
+    if (focusTarget && typeof focusTarget.focus === "function") {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch {
+        focusTarget.focus();
+      }
+    }
+  });
 }
 
 function openFoodMatSubPanel(kind) {
