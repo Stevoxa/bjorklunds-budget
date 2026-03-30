@@ -2406,21 +2406,41 @@ body.modal-open {
   display: none;
 }
 
-/* Växelvis boende: rubrik som Mat, yttre kort runt lista + lägg till + redigeringspanel */
-.food-mat-subsection > .table-title {
-  margin-bottom: var(--space-3);
+/* Växelvis boende: vit kortyta som huvudkort, rubrik inne i boxen, redigerare ovanför listan */
+.exp-overlay[data-expview="food"] .food-mat-subsection-panel.table-card {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: calc(var(--space-4) + 6px) calc(var(--space-4) + 4px) calc(var(--space-4) + 8px);
 }
 
 .food-mat-subsection-panel {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px) * 0.35);
+  gap: 20px;
   margin-bottom: 0;
+}
+
+.food-mat-subsection-warn:not([hidden]) {
+  margin-bottom: 4px;
+}
+
+.food-mat-subsection-heading.table-title {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-bottom: 2px;
+  font-size: 1.12rem;
+  letter-spacing: -0.03em;
+  line-height: 1.28;
 }
 
 .food-mat-subsection-panel > .bb-notched-panel--list,
 .food-mat-subsection-panel > .food-mat-custody-editor-panel {
   margin-top: 0;
+}
+
+.food-mat-subsection-panel .food-mat-custody-list-panel .food-preview-list {
+  padding-top: 10px;
 }
 
 .food-mat-add-period-card {
