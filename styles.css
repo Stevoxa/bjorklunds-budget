@@ -886,6 +886,10 @@ button:focus:not(:focus-visible) {
   background: color-mix(in srgb, var(--card) 92%, transparent);
 }
 
+.bb-notched-field--block {
+  padding: 14px 14px 12px;
+}
+
 .bb-notched-field-legend {
   position: absolute;
   top: 0;
@@ -922,6 +926,26 @@ button:focus:not(:focus-visible) {
   font-size: 1rem;
 }
 
+.bb-notched-field-select {
+  width: 100%;
+  min-height: 52px;
+  padding: 18px var(--space-4) 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  font-size: 1rem;
+  border-radius: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.bb-notched-field-select:focus-visible {
+  outline: none;
+}
+
 .bb-notched-field-chev {
   width: 18px;
   height: 18px;
@@ -940,6 +964,35 @@ button:focus:not(:focus-visible) {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg) translateY(-1px);
+}
+
+/* Date field rows inside notched containers (mat) */
+.bb-notched-field .date-field-row {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.bb-notched-field .date-field-row-trigger {
+  width: 100%;
+  min-height: 52px;
+  padding: 18px var(--space-4) 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 650;
+  font-size: 1rem;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-radius: inherit;
+}
+
+.bb-notched-field .date-field-row-value {
+  font-weight: 650;
 }
 
 .bb-notched-field:focus-within {

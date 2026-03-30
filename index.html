@@ -202,11 +202,13 @@
             <div class="filter-toolbar">
               <div class="note">En rad per utbetalning (0 kr visas inte).</div>
               <div class="picker-row bb-filter-period-row">
-                <button type="button" class="bb-outline-field-btn" id="expenseFilterPeriodOpenBtn">
-                  <span class="bb-outline-field-label">År &amp; månad</span>
-                  <span class="bb-outline-field-value" id="expenseFilterSummary">—</span>
-                  <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
-                </button>
+                <div class="bb-notched-field" role="group" aria-label="År och månad">
+                  <div class="bb-notched-field-legend">År &amp; månad</div>
+                  <button type="button" class="bb-notched-field-btn" id="expenseFilterPeriodOpenBtn">
+                    <span class="bb-notched-field-value" id="expenseFilterSummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
               </div>
               <select id="expenseYearFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
               <select id="expenseMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
@@ -639,22 +641,20 @@
                     <div id="foodCustodyEditor" class="food-period-card" hidden>
                       <div class="form-grid">
                         <label class="field">
-                          När börjar perioden utan barn?
-                          <input id="foodCustodyEditStart" type="date" />
+                          <input id="foodCustodyEditStart" type="date" data-notch-label="När börjar perioden utan barn?" />
                           <div class="field-error" id="foodCustodyErrStart" hidden></div>
                         </label>
                         <label class="field">
-                          När slutar växelvis boende? (lämna tomt för tills vidare)
                           <div class="food-date-with-clear">
-                            <input id="foodCustodyEditEnd" type="date" />
+                            <input id="foodCustodyEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
                             <button class="secondary" type="button" id="foodCustodyClearEndBtn">Rensa</button>
                           </div>
+                          <div class="note micro-note micro-note--tight">Om detta fält lämnas tomt tolkas det som att perioden gäller tillsvidare.</div>
                           <div class="field-error" id="foodCustodyErrEnd" hidden></div>
                         </label>
                         <label class="field">
-                          Hur ser växel boendets intervall ut?
-                          <div class="bb-notched-field" role="group" aria-label="Intervall">
-                            <div class="bb-notched-field-legend">Intervall</div>
+                          <div class="bb-notched-field" role="group" aria-label="Hur ser växel boendets intervall ut?">
+                            <div class="bb-notched-field-legend">Hur ser växel boendets intervall ut?</div>
                             <button
                               type="button"
                               class="bb-notched-field-btn"
@@ -731,11 +731,41 @@
                     </div>
                     <div id="foodHouseholdEditor" class="food-period-card" hidden>
                       <div class="form-grid">
-                        <label class="field">Från<input id="foodHhEditStart" type="date" /></label>
-                        <label class="field">Till<input id="foodHhEditEnd" type="date" /></label>
-                        <label class="field">Vuxna<input id="foodHhEditAdults" type="number" inputmode="numeric" min="0" step="1" /></label>
-                        <label class="field">Tonåringar<input id="foodHhEditTeens" type="number" inputmode="numeric" min="0" step="1" /></label>
-                        <label class="field">Barn<input id="foodHhEditChildren" type="number" inputmode="numeric" min="0" step="1" /></label>
+                        <label class="field">
+                          <input id="foodHhEditStart" type="date" data-notch-label="När börjar perioden att gälla?" />
+                        </label>
+                        <label class="field">
+                          <input id="foodHhEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
+                        </label>
+                        <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Hushållets tillfälliga storlek">
+                          <div class="bb-notched-field-legend">Hushållets tillfälliga storlek</div>
+                          <div class="food-counter-grid">
+                            <div class="food-counter-row">
+                              <span>Vuxna</span>
+                              <div class="food-counter-actions">
+                                <button class="secondary" type="button" id="foodHhEditAdultsMinusBtn">-</button>
+                                <input id="foodHhEditAdults" type="number" inputmode="numeric" min="0" step="1" />
+                                <button class="secondary" type="button" id="foodHhEditAdultsPlusBtn">+</button>
+                              </div>
+                            </div>
+                            <div class="food-counter-row">
+                              <span>Tonåringar</span>
+                              <div class="food-counter-actions">
+                                <button class="secondary" type="button" id="foodHhEditTeensMinusBtn">-</button>
+                                <input id="foodHhEditTeens" type="number" inputmode="numeric" min="0" step="1" />
+                                <button class="secondary" type="button" id="foodHhEditTeensPlusBtn">+</button>
+                              </div>
+                            </div>
+                            <div class="food-counter-row">
+                              <span>Barn</span>
+                              <div class="food-counter-actions">
+                                <button class="secondary" type="button" id="foodHhEditChildrenMinusBtn">-</button>
+                                <input id="foodHhEditChildren" type="number" inputmode="numeric" min="0" step="1" />
+                                <button class="secondary" type="button" id="foodHhEditChildrenPlusBtn">+</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
                         <button class="primary" type="button" id="foodHhEditSaveBtn">Lägg till period</button>
@@ -767,17 +797,21 @@
                     </div>
                     <div id="foodDeviationEditor" class="food-period-card" hidden>
                       <div class="form-grid">
-                        <label class="field">Från<input id="foodDevEditStart" type="date" /></label>
-                        <label class="field">Till<input id="foodDevEditEnd" type="date" /></label>
                         <label class="field">
-                          Kostnaden för perioden är
-                          <select id="foodDevEditPreset">
+                          <input id="foodDevEditStart" type="date" data-notch-label="När börjar perioden att gälla?" />
+                        </label>
+                        <label class="field">
+                          <input id="foodDevEditEnd" type="date" data-notch-label="När slutar perioden att gälla?" />
+                        </label>
+                        <div class="bb-notched-field" role="group" aria-label="Kostnaden för perioden är">
+                          <div class="bb-notched-field-legend">Kostnaden för perioden är</div>
+                          <select id="foodDevEditPreset" class="bb-notched-field-select">
                             <option value="0.8">Lite billigare (-20%)</option>
                             <option value="0.6">Mycket billigare (-40%)</option>
                             <option value="1.2">Lite dyrare (+20%)</option>
                             <option value="1.4">Mycket dyrare (+40%)</option>
                           </select>
-                        </label>
+                        </div>
                       </div>
                       <div class="actions-row food-hh-editor-actions">
                         <button class="primary" type="button" id="foodDevEditSaveBtn">Lägg till period</button>

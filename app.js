@@ -889,6 +889,22 @@ function enhanceAllDateFieldRows() {
     btn.appendChild(createCalendarIconSvg());
     wrap.appendChild(btn);
 
+    const useNotched =
+      Boolean(inp.closest('.exp-overlay[data-expview="food"]')) || Boolean(inp.closest(".food-mat-panel"));
+    if (useNotched && !wrap.closest(".bb-notched-field")) {
+      const label = inp.getAttribute("data-notch-label") || humanLabelForDateInput(inp);
+      const host = document.createElement("div");
+      host.className = "bb-notched-field";
+      host.setAttribute("role", "group");
+      host.setAttribute("aria-label", label);
+      const legend = document.createElement("div");
+      legend.className = "bb-notched-field-legend";
+      legend.textContent = label;
+      host.appendChild(legend);
+      wrap.parentNode?.insertBefore(host, wrap);
+      host.appendChild(wrap);
+    }
+
     const onSync = () => syncDateFieldRow(inp);
     inp.addEventListener("input", onSync);
     inp.addEventListener("change", onSync);
@@ -6124,6 +6140,20 @@ function renderFoodPage() {
     el.oninput = () => dismissHhInlineErrors();
     el.onchange = () => dismissHhInlineErrors();
   });
+
+  const hhBump = (id, delta) => {
+    const el = document.getElementById(id);
+    if (!(el instanceof HTMLInputElement)) return;
+    el.value = String(Math.max(0, Math.floor(asNumber(el.value) + delta)));
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  document.getElementById("foodHhEditAdultsMinusBtn")?.addEventListener("click", () => hhBump("foodHhEditAdults", -1));
+  document.getElementById("foodHhEditAdultsPlusBtn")?.addEventListener("click", () => hhBump("foodHhEditAdults", +1));
+  document.getElementById("foodHhEditTeensMinusBtn")?.addEventListener("click", () => hhBump("foodHhEditTeens", -1));
+  document.getElementById("foodHhEditTeensPlusBtn")?.addEventListener("click", () => hhBump("foodHhEditTeens", +1));
+  document.getElementById("foodHhEditChildrenMinusBtn")?.addEventListener("click", () => hhBump("foodHhEditChildren", -1));
+  document.getElementById("foodHhEditChildrenPlusBtn")?.addEventListener("click", () => hhBump("foodHhEditChildren", +1));
 
   const dismissDevInlineErrors = () => {
     const devErr = document.getElementById("foodDeviationsError");
