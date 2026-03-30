@@ -2283,17 +2283,15 @@ body.modal-open {
 }
 
 .food-household-card {
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px 16px 14px;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  margin-bottom: 18px;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  margin-bottom: 0;
 }
 
 .food-household-title {
-  margin: 0 0 10px;
-  font-weight: 750;
-  letter-spacing: -0.02em;
+  display: none;
 }
 
 .food-household-mode-field {
@@ -2311,6 +2309,10 @@ body.modal-open {
 
 .food-auto-only-block {
   margin-top: 22px;
+}
+
+.food-auto-calc-section {
+  margin-top: var(--space-3);
 }
 
 .food-auto-only-block .food-auto-only-field + .food-auto-only-field {
