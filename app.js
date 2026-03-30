@@ -5136,7 +5136,7 @@ function renderFoodPage() {
       const startText = sDt ? formatPlanningDateLongSv(sDt) : (p.startDate || "-");
       const endStr = p.endDate && String(p.endDate).trim() ? String(p.endDate).trim() : "";
       const eDt = endStr ? parseDateISO(endStr) : null;
-      const endText = endStr ? (eDt ? formatPlanningDateLongSv(eDt) : endStr) : "tills vidare";
+      const endText = endStr ? (eDt ? formatPlanningDateLongSv(eDt) : endStr) : "tillsvidare";
       const range = `${escapeHtml(startText)} – ${escapeHtml(endText)}`;
       const meta = shadow ? ` <span class="food-period-bb-row-meta">(överlapp — räknas ej)</span>` : "";
       return `

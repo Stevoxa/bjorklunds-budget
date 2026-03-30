@@ -492,6 +492,13 @@ button:focus:not(:focus-visible) {
   margin-bottom: var(--space-3);
 }
 
+/* Legend (notch) sticker upp ovanför ramen – säkerställ luft efter hjälptexter */
+.food-auto-only-block .note + .bb-notched-field,
+.food-auto-only-block .note + .bb-notched-field--block,
+.food-auto-only-block .note + .bb-notched-field.bb-notched-field--block {
+  margin-top: var(--space-4);
+}
+
 .food-counter-actions input,
 .food-manual-row input {
   min-height: 48px;
@@ -1105,7 +1112,7 @@ button:focus:not(:focus-visible) {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-weight: 650;
+  font-weight: 500;
   font-size: 1rem;
   cursor: pointer;
   transition: background var(--motion-fast) var(--motion-ease);
@@ -3266,7 +3273,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   background: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary) 72%, var(--border));
   color: #ffffff;
-  font-weight: 900;
+  font-weight: 700;
   padding: var(--space-2) var(--space-3);
 }
 
@@ -3322,7 +3329,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   background: var(--primary);
   border: 1px solid color-mix(in srgb, var(--primary) 72%, var(--border));
   color: #ffffff;
-  font-weight: 900;
+  font-weight: 700;
   padding: var(--space-2) var(--space-3);
   max-width: none;
   width: auto;
