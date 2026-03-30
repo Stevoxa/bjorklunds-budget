@@ -535,11 +535,22 @@
 
                     <div class="field food-auto-only-field">
                       <span>Vad ska räknas med?</span>
-                      <div class="chip-row">
-                        <button class="chip" type="button" id="foodScopeGroceriesBtn">Endast matvaror</button>
-                        <button class="chip" type="button" id="foodScopeMixedBtn">Matvaror + restaurang</button>
-                        <button class="chip" type="button" id="foodScopeAllBtn">All mat</button>
-                      </div>
+                      <button
+                        type="button"
+                        class="bb-outline-field-btn"
+                        id="foodScopeOpenBtn"
+                        aria-haspopup="dialog"
+                        aria-controls="listPickerSheet"
+                      >
+                        <span class="bb-outline-field-label">Val</span>
+                        <span class="bb-outline-field-value" id="foodScopeSummary">—</span>
+                        <span class="bb-outline-field-chev" aria-hidden="true">⌄</span>
+                      </button>
+                      <select id="foodScopeSelect" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                        <option value="groceries">Endast matvaror</option>
+                        <option value="mixed">Matvaror + restaurang</option>
+                        <option value="all">All mat</option>
+                      </select>
                       <div class="note" id="foodScopeHelp"></div>
                     </div>
                   </div>
@@ -640,7 +651,7 @@
                           <div class="field-error" id="foodCustodyErrEnd" hidden></div>
                         </label>
                         <label class="field">
-                          Hur länge är de borta / hos dig?
+                          Hur ser växel boendets intervall ut?
                           <button
                             type="button"
                             class="bb-outline-field-btn"

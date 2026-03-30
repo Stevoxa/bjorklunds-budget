@@ -476,6 +476,14 @@ button:focus:not(:focus-visible) {
   margin-top: var(--space-1);
 }
 
+/* Mat: förklaringstexter i hushållets grundinställningar */
+.food-auto-only-block .note {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  font-style: italic;
+  color: color-mix(in srgb, var(--muted) 80%, var(--text));
+}
+
 .food-counter-actions input,
 .food-manual-row input {
   min-height: 48px;

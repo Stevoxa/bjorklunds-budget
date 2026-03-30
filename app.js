@@ -1921,6 +1921,14 @@ function syncFoodWeekdaySummaryLabel() {
   el.textContent = opt ? opt.textContent : "";
 }
 
+function syncFoodScopeSummaryLabel() {
+  const sel = document.getElementById("foodScopeSelect");
+  const el = document.getElementById("foodScopeSummary");
+  if (!sel || !el) return;
+  const opt = sel.options[sel.selectedIndex];
+  el.textContent = opt ? opt.textContent : "—";
+}
+
 function initOverviewPeriodSheet() {
   const { backdrop, handle, sheet } = getPeriodSheetEls();
   if (!backdrop || !sheet) return;
@@ -5171,9 +5179,9 @@ function renderFoodPage() {
     setChipState("foodLevelBudgetBtn", d.costLevel === "budget");
     setChipState("foodLevelNormalBtn", d.costLevel === "normal");
     setChipState("foodLevelHighBtn", d.costLevel === "high");
-    setChipState("foodScopeGroceriesBtn", d.foodScope === "groceries");
-    setChipState("foodScopeMixedBtn", d.foodScope === "mixed");
-    setChipState("foodScopeAllBtn", d.foodScope === "all");
+    const scopeSel = document.getElementById("foodScopeSelect");
+    if (scopeSel) scopeSel.value = String(d.foodScope || "groceries");
+    syncFoodScopeSummaryLabel();
 
     const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
     const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
@@ -5385,9 +5393,27 @@ function renderFoodPage() {
   document.getElementById("foodLevelBudgetBtn").onclick = () => { ui.foodConfigDraft.costLevel = "budget"; draw(); };
   document.getElementById("foodLevelNormalBtn").onclick = () => { ui.foodConfigDraft.costLevel = "normal"; draw(); };
   document.getElementById("foodLevelHighBtn").onclick = () => { ui.foodConfigDraft.costLevel = "high"; draw(); };
-  document.getElementById("foodScopeGroceriesBtn").onclick = () => { ui.foodConfigDraft.foodScope = "groceries"; draw(); };
-  document.getElementById("foodScopeMixedBtn").onclick = () => { ui.foodConfigDraft.foodScope = "mixed"; draw(); };
-  document.getElementById("foodScopeAllBtn").onclick = () => { ui.foodConfigDraft.foodScope = "all"; draw(); };
+
+  const scopeSel = document.getElementById("foodScopeSelect");
+  if (scopeSel) scopeSel.value = String(ui.foodConfigDraft.foodScope || "groceries");
+  syncFoodScopeSummaryLabel();
+  document.getElementById("foodScopeOpenBtn")?.addEventListener("click", () => {
+    const sel = document.getElementById("foodScopeSelect");
+    if (!sel) return;
+    const options = Array.from(sel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+    openListPickerSheet({
+      title: "Vad ska räknas med?",
+      options,
+      currentValue: String(sel.value || "groceries"),
+      onSelect: (value) => {
+        ui.foodConfigDraft.foodScope = value;
+        sel.value = value;
+        sel.dispatchEvent(new Event("change", { bubbles: true }));
+        syncFoodScopeSummaryLabel();
+        draw();
+      }
+    });
+  });
 
   document.getElementById("foodAdultsMinusBtn").onclick = () => bump("adults", -1);
   document.getElementById("foodAdultsPlusBtn").onclick = () => bump("adults", +1);
