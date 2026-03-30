@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Mask för inline .field-error (CSS mask + background: var(--danger)). Vit = synlig yta, samma proportioner som calendar-outline (24). -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-  <path fill="#fff" d="M12 2.85c.35 0 .67.18.85.48l8.9 15.5c.18.3.18.67 0 .97-.18.3-.5.48-.85.48H3.1c-.35 0-.67-.18-.85-.48a.98.98 0 0 1 0-.97l8.9-15.5c.18-.3.5-.48.85-.48Z"/>
-  <rect width="2.25" height="5.5" x="10.875" y="9.35" fill="#fff" rx="1.125"/>
-  <circle cx="12" cy="17.65" r="1.35" fill="#fff"/>
+<!-- Mask för .field-error::before (CSS mask + background: var(--danger)). Enkla path:er för bred webbläsarstöd. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+  <path fill="#ffffff" d="M12 3.25 20.75 19.5H3.25L12 3.25z"/>
+  <rect x="10.85" y="9.25" width="2.3" height="5.5" rx="1.15" fill="#ffffff"/>
+  <circle cx="12" cy="17.6" r="1.35" fill="#ffffff"/>
 </svg>
