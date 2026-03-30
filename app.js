@@ -458,6 +458,8 @@ let dateSheetMode = "days";
 let dateSheetOpen = false;
 let dateSheetClosing = false;
 let dateSheetKeydownHandler = null;
+/** I datumblad för `data-date-clear`: true = inget slutdatum (tillsvidare), false = välj specifikt datum. */
+let dateSheetTillsvidareOn = false;
 
 let periodSheetOpen = false;
 let periodSheetClosing = false;
@@ -542,8 +544,26 @@ function getDateSheetEls() {
     monthPickerGrid: document.getElementById("dateSheetMonthPickerGrid"),
     prevBtn: document.getElementById("dateSheetPrevMonth"),
     nextBtn: document.getElementById("dateSheetNextMonth"),
-    handle: document.getElementById("dateSheetHandle")
+    handle: document.getElementById("dateSheetHandle"),
+    tillsvidareRow: document.getElementById("dateSheetTillsvidareRow"),
+    tillsvidareSwitch: document.getElementById("dateSheetTillsvidareSwitch"),
+    tillsvidareHint: document.getElementById("dateSheetTillsvidareHint")
   };
+}
+
+function dateSheetTargetAllowsTillsvidare() {
+  return Boolean(dateSheetTargetInput?.hasAttribute("data-date-clear"));
+}
+
+function syncDateSheetTillsvidareRow() {
+  const { tillsvidareRow, tillsvidareSwitch, tillsvidareHint } = getDateSheetEls();
+  if (!tillsvidareRow || !tillsvidareSwitch || !tillsvidareHint) return;
+  const show = dateSheetOpen && dateSheetTargetAllowsTillsvidare() && dateSheetMode === "days";
+  tillsvidareRow.hidden = !show;
+  tillsvidareHint.hidden = !show;
+  if (!show) return;
+  tillsvidareSwitch.setAttribute("aria-checked", dateSheetTillsvidareOn ? "true" : "false");
+  tillsvidareSwitch.classList.toggle("date-sheet-switch--on", dateSheetTillsvidareOn);
 }
 
 function getPeriodSheetEls() {
@@ -831,77 +851,13 @@ function createCalendarIconSvg() {
   return svg;
 }
 
-/** Liten X för rensning av valfritt slutdatum (visas bara när fältet har värde). */
-function createDateClearIconSvg() {
-  const ns = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("class", "date-field-row-clear-icon");
-  svg.setAttribute("width", "18");
-  svg.setAttribute("height", "18");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("aria-hidden", "true");
-  const p = document.createElementNS(ns, "path");
-  p.setAttribute("d", "M6 6l12 12M18 6L6 18");
-  p.setAttribute("stroke", "currentColor");
-  p.setAttribute("stroke-width", "2");
-  p.setAttribute("stroke-linecap", "round");
-  svg.appendChild(p);
-  return svg;
-}
-
-function wireDateFieldRowClearButton(inp, clearBtn) {
-  clearBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (inp.disabled) return;
-    inp.value = "";
-    inp.dispatchEvent(new Event("input", { bubbles: true }));
-    inp.dispatchEvent(new Event("change", { bubbles: true }));
-    syncDateFieldRow(inp);
-    if (isDateSheetViewport()) {
-      inp.closest(".date-field-row")?.querySelector(".date-field-row-trigger")?.focus();
-    } else {
-      inp.focus();
-    }
-  });
-}
-
-function createDateFieldRowClearButton(inp) {
-  const clearBtn = document.createElement("button");
-  clearBtn.type = "button";
-  clearBtn.className = "date-field-row-clear";
-  clearBtn.setAttribute("aria-label", "Rensa datum");
-  clearBtn.setAttribute("title", "Rensa");
-  clearBtn.appendChild(createDateClearIconSvg());
-  wireDateFieldRowClearButton(inp, clearBtn);
-  return clearBtn;
-}
-
-/** Om `data-date-clear` finns: infoga X-knapp före kalendertriggern (idempotent). */
-function ensureDateFieldRowClearButton(inp) {
-  if (!(inp instanceof HTMLInputElement)) return;
-  if (!inp.hasAttribute("data-date-clear")) return;
-  const wrap = inp.closest(".date-field-row");
-  if (!wrap || wrap.querySelector(".date-field-row-clear")) return;
-  const trigger = wrap.querySelector(".date-field-row-trigger");
-  if (!trigger) return;
-  wrap.insertBefore(createDateFieldRowClearButton(inp), trigger);
-}
-
 function syncDateFieldRow(inp) {
   const wrap = inp.closest(".date-field-row");
   if (!wrap) return;
   const tr = wrap.querySelector(".date-field-row-trigger");
   const val = wrap.querySelector(".date-field-row-value");
-  const clearBtn = wrap.querySelector(".date-field-row-clear");
   const shown = formatDateRowDisplay(inp.value);
   if (val) val.textContent = shown;
-  if (clearBtn) {
-    const hasVal = Boolean(inp.value);
-    clearBtn.hidden = !hasVal;
-    clearBtn.disabled = inp.disabled;
-  }
   if (tr) {
     tr.disabled = inp.disabled;
     const base = humanLabelForDateInput(inp);
@@ -934,7 +890,6 @@ function enhanceAllDateFieldRows() {
     if (!(inp instanceof HTMLInputElement)) return;
     if (inp.hasAttribute("data-native-date")) return;
     if (inp.closest(".date-field-row")) {
-      ensureDateFieldRowClearButton(inp);
       syncDateFieldRow(inp);
       applyDateFieldRowTabState(inp);
       return;
@@ -953,9 +908,6 @@ function enhanceAllDateFieldRows() {
     btn.appendChild(valSpan);
     btn.appendChild(createCalendarIconSvg());
     wrap.appendChild(btn);
-    if (inp.hasAttribute("data-date-clear")) {
-      wrap.insertBefore(createDateFieldRowClearButton(inp), btn);
-    }
 
     const useNotched = true;
     if (useNotched && !wrap.closest(".bb-notched-field")) {
@@ -981,7 +933,7 @@ function enhanceAllDateFieldRows() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       if (inp.disabled) return;
-      if (isDateSheetViewport()) openDateSheet(inp);
+      if (isDateSheetViewport() || inp.hasAttribute("data-date-clear")) openDateSheet(inp);
       else if (typeof inp.showPicker === "function") inp.showPicker();
       else inp.focus();
     });
@@ -1018,7 +970,14 @@ function finalizeDateSheetClose(revert) {
     inp.dispatchEvent(new Event("input", { bubbles: true }));
     inp.dispatchEvent(new Event("change", { bubbles: true }));
   }
-  const { backdrop, sheet } = getDateSheetEls();
+  const { backdrop, sheet, tillsvidareRow, tillsvidareHint, tillsvidareSwitch } = getDateSheetEls();
+  if (tillsvidareRow) tillsvidareRow.hidden = true;
+  if (tillsvidareHint) tillsvidareHint.hidden = true;
+  dateSheetTillsvidareOn = false;
+  if (tillsvidareSwitch) {
+    tillsvidareSwitch.setAttribute("aria-checked", "false");
+    tillsvidareSwitch.classList.remove("date-sheet-switch--on");
+  }
   if (backdrop) {
     backdrop.hidden = true;
     backdrop.classList.remove("date-sheet-backdrop--visible");
@@ -1088,6 +1047,7 @@ function commitDateSheetDayAndClose(iso) {
   if (minIso && iso < minIso) return;
   if (maxIso && iso > maxIso) return;
   const clamped = clampIsoToMinMax(iso, minIso, maxIso);
+  if (dateSheetTargetAllowsTillsvidare()) dateSheetTillsvidareOn = false;
   dateSheetDraft = clamped;
   inp.value = clamped;
   inp.dispatchEvent(new Event("input", { bubbles: true }));
@@ -1365,10 +1325,14 @@ function renderDateSheetMonth() {
   if (dateSheetMode === "months") {
     renderDateSheetMonthPicker();
     syncDateSheetArrowDisabled();
+    syncDateSheetTillsvidareRow();
     return;
   }
 
-  if (!grid) return;
+  if (!grid) {
+    syncDateSheetTillsvidareRow();
+    return;
+  }
   syncDateSheetArrowDisabled();
 
   grid.innerHTML = "";
@@ -1435,6 +1399,7 @@ function renderDateSheetMonth() {
 
   grid.__dayMatrix = matrix;
   applyCalendarRovingTabindex(matrix);
+  syncDateSheetTillsvidareRow();
 }
 
 function openDateSheet(inputEl) {
@@ -1463,6 +1428,7 @@ function openDateSheet(inputEl) {
   dateSheetMode = "days";
 
   if (title) title.textContent = humanLabelForDateInput(inputEl);
+  dateSheetTillsvidareOn = inputEl.hasAttribute("data-date-clear") ? !dateSheetSnapshot.trim() : false;
 
   renderDateSheetMonth();
   backdrop.hidden = false;
@@ -2105,7 +2071,7 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport()) return;
+      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -2118,7 +2084,7 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport()) return;
+      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -2132,7 +2098,7 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport()) return;
+      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
       t.blur();
       openDateSheet(t);
@@ -2142,6 +2108,26 @@ function initMobileDateSheetPicker() {
 
   backdrop.addEventListener("click", () => closeDateSheetAnimated(true));
   attachBottomSheetDragDismiss(handle, sheet, () => closeDateSheetAnimated(true));
+
+  const tvSw = document.getElementById("dateSheetTillsvidareSwitch");
+  if (tvSw) {
+    tvSw.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (!dateSheetOpen || !dateSheetTargetAllowsTillsvidare()) return;
+      if (!dateSheetTillsvidareOn) {
+        const inp = dateSheetTargetInput;
+        if (!inp || inp.disabled) return;
+        inp.value = "";
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+        inp.dispatchEvent(new Event("change", { bubbles: true }));
+        syncDateFieldRow(inp);
+        closeDateSheetAnimated(false);
+        return;
+      }
+      dateSheetTillsvidareOn = false;
+      syncDateSheetTillsvidareRow();
+    });
+  }
 
   monthYearBtn?.addEventListener("click", () => {
     dateSheetMode = dateSheetMode === "days" ? "months" : "days";

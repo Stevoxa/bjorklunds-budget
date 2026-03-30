@@ -1002,17 +1002,10 @@ button:focus:not(:focus-visible) {
   border: none;
   background: transparent;
   padding: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
 }
 
 .bb-notched-field .date-field-row-trigger {
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
+  width: 100%;
   min-height: 52px;
   padding: 16px var(--space-4) 12px;
   border: none;
@@ -3048,29 +3041,137 @@ html[data-theme="dark"] .period-sheet-backdrop {
 }
 
 .date-sheet-chrome {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2) 0 var(--space-3);
+  display: block;
+  padding: var(--space-1) var(--space-3) 0;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+}
+
+.date-sheet-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
 }
 
 .date-sheet-title-wrap {
   flex: 1;
   min-width: 0;
-  padding: var(--space-2) var(--space-1) var(--space-3);
-  text-align: center;
+  padding: var(--space-2) 0 var(--space-2);
+  text-align: left;
 }
 
 .date-sheet-title {
   font-weight: 800;
   font-size: 1rem;
   letter-spacing: -0.03em;
-  text-align: center;
+  text-align: left;
   margin: 0;
   line-height: 1.25;
+}
+
+.date-sheet-tillsvidare-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.date-sheet-tillsvidare-label {
+  font-weight: 750;
+  font-size: 0.95rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.date-sheet-tillsvidare-hint {
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.date-sheet-switch {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.date-sheet-switch:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.date-sheet-switch-track {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--card-2);
+  border: 1px solid var(--border-strong);
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.date-sheet-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 18%, transparent);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.date-sheet-switch-check {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+  pointer-events: none;
+}
+
+.date-sheet-switch--on .date-sheet-switch-track {
+  background: #22c55e;
+  border-color: color-mix(in srgb, #22c55e 70%, var(--border));
+}
+
+.date-sheet-switch--on .date-sheet-switch-thumb {
+  transform: translateX(20px);
+  background: #fff;
+}
+
+.date-sheet-switch--on .date-sheet-switch-check {
+  opacity: 1;
+}
+
+html[data-theme="dark"] .date-sheet-switch-track {
+  background: color-mix(in srgb, var(--card) 88%, var(--text));
+}
+
+html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
+  background: #22c55e;
 }
 
 .date-sheet-close {
@@ -3120,59 +3221,16 @@ html[data-theme="dark"] .period-sheet-backdrop {
 .date-field-row {
   position: relative;
   display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
   width: 100%;
   min-width: 0;
 }
 
 .date-field-row input[type="date"].date-field-row-native {
-  flex: 1 1 140px;
+  width: 100%;
   min-width: 0;
-  width: auto;
   box-sizing: border-box;
-}
-
-.date-field-row-clear {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition:
-    color var(--motion-fast) var(--motion-ease),
-    background var(--motion-fast) var(--motion-ease);
-}
-
-.date-field-row-clear:hover:not(:disabled) {
-  color: var(--text);
-  background: color-mix(in srgb, var(--card-2) 70%, transparent);
-}
-
-.date-field-row-clear:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.date-field-row-clear:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.bb-notched-field .date-field-row-clear {
-  align-self: center;
-  margin-left: -4px;
 }
 
 .date-field-row-trigger {
@@ -3180,9 +3238,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  flex: 1 1 auto;
-  min-width: 0;
-  width: auto;
+  width: 100%;
   max-width: none;
   align-self: stretch;
   min-height: 48px;
