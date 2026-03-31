@@ -4950,6 +4950,8 @@ function renderTaggedCategoryPage(cat) {
   const saveBtn = document.getElementById(ids.saveBtn);
   const note = document.getElementById(ids.note);
   const addBtn = document.getElementById(ids.addBtn);
+  wireTaggedEditorPickers(cat);
+  wireKrAmountInput(ids.editAmount);
 
   if (typeSel && typeSel.options.length === 0) {
     for (const t of C.types) {
@@ -4987,7 +4989,7 @@ function renderTaggedCategoryPage(cat) {
       payDayInp.value = String(inf.payDay);
       firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
-      amtInp.value = inf.amount > 0 ? String(Math.round(inf.amount)) : "";
+      amtInp.value = inf.amount > 0 ? formatKrLikeList(inf.amount) : "";
     } else {
       if (typeSel) {
         const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
@@ -5007,6 +5009,7 @@ function renderTaggedCategoryPage(cat) {
     if (note) note.textContent = "";
     applyTaggedOverlayDateBounds(cat);
     refreshTaggedExpenseNameDatalist(cat, ids.editName);
+    syncTaggedEditorPickerSummaries(cat);
   }
 
   renderTaggedExpenseListMount(cat);
@@ -5073,6 +5076,97 @@ function setTaggedEditorInlineError(cat, field, msg) {
     inp.classList.add("input-invalid");
     inp.setAttribute("aria-invalid", "true");
   }
+}
+
+function selectOptionLabelByValue(sel, value) {
+  if (!sel) return "—";
+  const v = String(value ?? sel.value ?? "");
+  const opt = Array.from(sel.options || []).find((o) => String(o.value) === v);
+  return opt ? (opt.textContent || opt.value || "—") : "—";
+}
+
+function syncTaggedEditorPickerSummaries(cat) {
+  const typeSel = document.getElementById(`${cat}EditType`);
+  const typeSum = document.getElementById(`${cat}EditTypeSummary`);
+  if (typeSel && typeSum) typeSum.textContent = selectOptionLabelByValue(typeSel);
+
+  const intSel = document.getElementById(`${cat}EditInterval`);
+  const intSum = document.getElementById(`${cat}EditIntervalSummary`);
+  if (intSel && intSum) intSum.textContent = selectOptionLabelByValue(intSel);
+}
+
+function wireTaggedEditorPickers(cat) {
+  const key = `__pickersBound_${cat}`;
+  if (ui.tagged[cat] && ui.tagged[cat][key]) return;
+  if (ui.tagged[cat]) ui.tagged[cat][key] = true;
+
+  const typeBtn = document.getElementById(`${cat}EditTypeOpenBtn`);
+  const typeSel = document.getElementById(`${cat}EditType`);
+  if (typeBtn && typeSel) {
+    typeBtn.addEventListener("click", () => {
+      const options = Array.from(typeSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+      openListPickerSheet({
+        title: "Välj typ",
+        options,
+        currentValue: typeSel.value,
+        onSelect: (v) => {
+          typeSel.value = v;
+          typeSel.dispatchEvent(new Event("change", { bubbles: true }));
+          syncTaggedEditorPickerSummaries(cat);
+        }
+      });
+    });
+    typeSel.addEventListener("change", () => syncTaggedEditorPickerSummaries(cat));
+  }
+
+  const intBtn = document.getElementById(`${cat}EditIntervalOpenBtn`);
+  const intSel = document.getElementById(`${cat}EditInterval`);
+  if (intBtn && intSel) {
+    intBtn.addEventListener("click", () => {
+      const options = Array.from(intSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+      openListPickerSheet({
+        title: "Välj intervall",
+        options,
+        currentValue: intSel.value,
+        onSelect: (v) => {
+          intSel.value = v;
+          intSel.dispatchEvent(new Event("change", { bubbles: true }));
+          syncTaggedEditorPickerSummaries(cat);
+        }
+      });
+    });
+    intSel.addEventListener("change", () => syncTaggedEditorPickerSummaries(cat));
+  }
+}
+
+function formatKrLikeList(n) {
+  const v = Math.max(0, Math.round(asNumber(n)));
+  if (!Number.isFinite(v) || v <= 0) return "";
+  return `${v.toLocaleString("sv-SE")} kr`;
+}
+
+function parseKrLikeList(s) {
+  const raw = String(s || "").replace(/\s+/g, " ").trim();
+  if (!raw) return 0;
+  const digits = raw.replace(/[^\d]/g, "");
+  const n = asNumber(digits);
+  return Math.max(0, Math.round(n));
+}
+
+function wireKrAmountInput(inputId) {
+  const inp = document.getElementById(inputId);
+  if (!(inp instanceof HTMLInputElement)) return;
+  if (inp.getAttribute("data-kr-bound") === "1") return;
+  inp.setAttribute("data-kr-bound", "1");
+
+  inp.addEventListener("focus", () => {
+    const n = parseKrLikeList(inp.value);
+    inp.value = n > 0 ? String(n) : "";
+  });
+  inp.addEventListener("blur", () => {
+    const n = parseKrLikeList(inp.value);
+    inp.value = formatKrLikeList(n);
+  });
 }
 
 function saveTaggedCategoryFromEditor(cat) {
@@ -5143,7 +5237,7 @@ function saveTaggedCategoryFromEditor(cat) {
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editEndDate }]);
     return;
   }
-  const amount = asNumber(amtInp.value);
+  const amount = parseKrLikeList(amtInp.value);
   if (amount <= 0) {
     const msg = "Ange belopp större än noll.";
     if (note) note.textContent = msg;
