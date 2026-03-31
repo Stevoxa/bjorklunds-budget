@@ -3292,6 +3292,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 /* Bil/Hem/Barn/Spar: editor som notchad box (Mat-likt) */
 .tagged-editor-panel {
   margin-top: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {

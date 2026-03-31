@@ -2812,7 +2812,7 @@ const TAGGED_CATEGORY_CONFIG = {
     types: CAR_EXPENSE_TYPES,
     ids: {
       editorCard: "carEditorCard",
-      editorTitle: "carEditorTitle",
+      editorTitle: "carEditorPanelLegend",
       editType: "carEditType",
       editName: "carEditName",
       paymentDayRow: "carPaymentDayRow",
@@ -2846,7 +2846,7 @@ const TAGGED_CATEGORY_CONFIG = {
     types: HOME_EXPENSE_TYPES,
     ids: {
       editorCard: "homeEditorCard",
-      editorTitle: "homeEditorTitle",
+      editorTitle: "homeEditorPanelLegend",
       editType: "homeEditType",
       editName: "homeEditName",
       paymentDayRow: "homePaymentDayRow",
@@ -2880,7 +2880,7 @@ const TAGGED_CATEGORY_CONFIG = {
     types: CHILDREN_EXPENSE_TYPES,
     ids: {
       editorCard: "childrenEditorCard",
-      editorTitle: "childrenEditorTitle",
+      editorTitle: "childrenEditorPanelLegend",
       editType: "childrenEditType",
       editName: "childrenEditName",
       paymentDayRow: "childrenPaymentDayRow",
@@ -2921,7 +2921,7 @@ const TAGGED_CATEGORY_CONFIG = {
     omitTypeInOverviewLabel: true,
     ids: {
       editorCard: "savingsEditorCard",
-      editorTitle: "savingsEditorTitle",
+      editorTitle: "savingsEditorPanelLegend",
       editName: "savingsEditName",
       paymentDayRow: "savingsPaymentDayRow",
       editPaymentDay: "savingsEditPaymentDay",
@@ -4970,11 +4970,9 @@ function renderTaggedCategoryPage(cat) {
   }
 
   if (u.editorOpen && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
-    if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
+    if (editorTitle) editorTitle.textContent = editing ? "Redigera utgift" : "Lägg till utgift";
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
-    const panelLegend = document.getElementById(`${cat}EditorPanelLegend`);
-    if (panelLegend) panelLegend.textContent = editing ? "Redigera" : "Lägg till";
 
     const kf = C.subcategoryField || "subcategory";
     const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key || "own";
