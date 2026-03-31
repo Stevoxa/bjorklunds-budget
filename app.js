@@ -4923,33 +4923,47 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
     const key = exp[keyField] || "other";
     const typeLabel = getTaggedTypeLabel(cat, key);
     const nameRaw = String(exp.name || "").trim();
-    const datesInMonth = [];
-    let sum = 0;
+    const baseNameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
+    const intervalLine = formatTaggedIntervalPaymentLabel(exp.interval);
+
+    const paymentsInMonth = [];
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
         const amt = asNumber(p.amount);
-        if (amt > 0 && p.date) datesInMonth.push(String(p.date));
-        sum += amt;
+        if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
       }
     }
-    if (sum <= 0) continue;
-    datesInMonth.sort();
-    const dateIso = datesInMonth[0] || "";
-    let nameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
-    if (exp.interval === "weekly" && dateIso) {
-      const dp = datePartsFromIso(dateIso);
-      if (dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+    if (paymentsInMonth.length === 0) continue;
+
+    if (exp.interval === "weekly") {
+      paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
+      for (const pm of paymentsInMonth) {
+        const dp = datePartsFromIso(pm.dateIso);
+        let nameLine = baseNameLine;
+        if (dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+        rows.push({
+          expenseId: exp.id,
+          nameLine,
+          amount: pm.amount,
+          intervalLine,
+          sortKey: pm.dateIso
+        });
+      }
+    } else {
+      const sum = paymentsInMonth.reduce((s, x) => s + x.amount, 0);
+      if (sum <= 0) continue;
+      paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
+      const dateIso = paymentsInMonth[0].dateIso;
+      rows.push({
+        expenseId: exp.id,
+        nameLine: baseNameLine,
+        amount: sum,
+        intervalLine,
+        sortKey: dateIso || "9999-12-31"
+      });
     }
-    const intervalLine = formatTaggedIntervalPaymentLabel(exp.interval);
-    rows.push({
-      expenseId: exp.id,
-      nameLine,
-      amount: sum,
-      intervalLine,
-      sortKey: dateIso || "9999-12-31"
-    });
   }
   rows.sort(
     (a, b) =>
