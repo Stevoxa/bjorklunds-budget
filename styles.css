@@ -1830,13 +1830,6 @@ tr.month-break td {
   --bb-notched-panel-margin-extra: 14px;
 }
 
-.loan-date-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
 .loan-copy-notice {
   grid-column: 1 / -1;
   color: var(--muted);

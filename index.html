@@ -386,50 +386,60 @@
                   <div class="bb-notched-panel-legend" id="loanEditorPanelLegend">Lägg till lån</div>
                   <div class="form-grid narrow">
                     <div class="loan-copy-notice" id="loanCopyNotice" hidden></div>
-                    <label class="field">
-                      Namn
-                      <input id="loanNameInput" type="text" autocomplete="off" />
-                    </label>
-                    <label class="field">
-                      Bank
-                      <input id="loanBankInput" type="text" autocomplete="off" />
-                    </label>
-                    <label class="field">
-                      Skuld (kr)
-                      <input id="loanPrincipal" type="number" inputmode="decimal" min="0" step="1" />
-                    </label>
-                    <label class="field">
-                      Räntesats (%)
-                      <input id="loanRate" type="number" inputmode="decimal" min="0" step="0.001" />
-                    </label>
-                    <label class="field">
-                      Amortering (kr/mån)
-                      <input id="loanAmortization" type="number" inputmode="decimal" min="0" step="1" />
-                    </label>
-                    <label class="field">
-                      Betalningsdag
-                      <input id="loanDueDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                    </label>
-                    <div class="loan-date-row">
-                      <label class="field">
-                        Startår
-                        <select id="loanStartYear"></select>
-                      </label>
-                      <label class="field">
-                        Startmånad
-                        <select id="loanStartMonth"></select>
-                      </label>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Namn">
+                        <div class="bb-notched-field-legend">Namn</div>
+                        <input id="loanNameInput" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                      </div>
                     </div>
-                    <div class="loan-date-row">
-                      <label class="field">
-                        Slutår
-                        <select id="loanEndYear"></select>
-                      </label>
-                      <label class="field">
-                        Slutmånad
-                        <select id="loanEndMonth"></select>
-                      </label>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Bank">
+                        <div class="bb-notched-field-legend">Bank</div>
+                        <input id="loanBankInput" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                      </div>
                     </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Skuld">
+                        <div class="bb-notched-field-legend">Skuld (kr)</div>
+                        <input
+                          id="loanPrincipal"
+                          class="bb-notched-field-plain-input"
+                          type="text"
+                          inputmode="numeric"
+                          autocomplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Räntesats">
+                        <div class="bb-notched-field-legend">Räntesats (%)</div>
+                        <input
+                          id="loanRate"
+                          class="bb-notched-field-plain-input"
+                          type="text"
+                          inputmode="decimal"
+                          autocomplete="off"
+                        />
+                      </div>
+                    </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Amortering">
+                        <div class="bb-notched-field-legend">Amortering (kr/mån)</div>
+                        <input
+                          id="loanAmortization"
+                          class="bb-notched-field-plain-input"
+                          type="text"
+                          inputmode="numeric"
+                          autocomplete="off"
+                        />
+                      </div>
+                    </div>
+                    <label class="field">
+                      <input id="loanFirstDate" type="date" data-notch-label="Betaldatum" />
+                    </label>
+                    <label class="field">
+                      <input id="loanEndDate" type="date" data-notch-label="Gäller till" data-date-clear />
+                    </label>
                     <div class="loan-metrics">
                       <div class="loan-metric-line" id="loanInterestAmount">Räntebelopp: 0 kr</div>
                       <div class="loan-metric-line" id="loanTotalPayment">Månadskostnad: 0 kr</div>
