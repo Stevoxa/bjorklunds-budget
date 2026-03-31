@@ -43,17 +43,6 @@ function asNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-function recurringMonthlyAmount(item) {
-  const amount = asNumber(item?.amount);
-  const freq = item?.frequency || "monthly";
-  if (freq === "yearly") return amount / 12;
-  return amount;
-}
-
-function freqLabel(freq) {
-  return freq === "yearly" ? "kr/år" : "kr/mån";
-}
-
 function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `id_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -138,9 +127,9 @@ function applyFoodOverlayDateBounds() {
 function isGeneratedMatExpenseInSelectableWindow(exp) {
   if (!isMatLikeExpense(exp)) return false;
   const years = getSelectableAppYears();
-  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
+  const fy = Number(exp.metadata?.food?.year);
   if (Number.isFinite(fy)) return years.includes(fy);
-  const iso = exp.metadata?.food?.planningDate || exp.foodPlanningDate || exp?.payments?.[0]?.date;
+  const iso = exp.metadata?.food?.planningDate || exp?.payments?.[0]?.date;
   if (!iso || typeof iso !== "string" || iso.length < 4) return false;
   const py = Number(iso.slice(0, 4));
   return Number.isFinite(py) && years.includes(py);
@@ -2407,7 +2396,6 @@ function initMobileDateSheetPicker() {
 }
 
 function getDefaultState() {
-  const currentYear = new Date().getFullYear();
   return {
     version: 2,
     themeMode: "system", // system | light | dark
@@ -2416,9 +2404,6 @@ function getDefaultState() {
       backupFilenamePattern: "bjorklunds_budget_{YYYY}-{MM}.json",
       lastBackupPromptAt: 0,
       foodPlanningWeekday: 1
-    },
-    recurring: {
-      expenses: { [String(currentYear)]: [] }
     },
     incomes: [],
     expenses: [],
@@ -2431,15 +2416,10 @@ function getDefaultState() {
       home: {},
       loans: { items: [] },
       food: {},
+      foodShared: { config: {}, weeks: [] },
       children: {}
     }
   };
-}
-
-function ensureYearArray(map, year) {
-  const k = String(year);
-  if (!map[k]) map[k] = [];
-  return map[k];
 }
 
 function ensureOneOffList(root, year, monthIndex1to12) {
@@ -2458,66 +2438,6 @@ function deepCloneJson(x) {
   }
 }
 
-/** Flyttar gamla oneOff-buckets till incomes/expenses som vanliga rader (category one_off). */
-function migrateOneOffBucketsToLineItems(root) {
-  if (!root?.oneOff) return;
-  root.expenses = Array.isArray(root.expenses) ? root.expenses : [];
-  root.incomes = Array.isArray(root.incomes) ? root.incomes : [];
-  const exRoot = root.oneOff.expenses;
-  if (exRoot && typeof exRoot === "object") {
-    for (const yk of Object.keys(exRoot)) {
-      if (!/^\d{4}$/.test(yk)) continue;
-      const yo = exRoot[yk];
-      if (!yo || typeof yo !== "object") continue;
-      for (const mk of Object.keys(yo)) {
-        if (!/^\d{2}$/.test(mk)) continue;
-        const list = yo[mk];
-        if (!Array.isArray(list) || list.length === 0) continue;
-        for (const it of list) {
-          const amt = asNumber(it?.amount);
-          if (amt <= 0) continue;
-          const name = String(it?.name || "").trim() || "Enstaka utgift";
-          root.expenses.push({
-            id: uid(),
-            name,
-            category: "one_off",
-            interval: "once",
-            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }],
-            metadata: {}
-          });
-        }
-        yo[mk] = [];
-      }
-    }
-  }
-  const inRoot = root.oneOff.incomes;
-  if (inRoot && typeof inRoot === "object") {
-    for (const yk of Object.keys(inRoot)) {
-      if (!/^\d{4}$/.test(yk)) continue;
-      const yo = inRoot[yk];
-      if (!yo || typeof yo !== "object") continue;
-      for (const mk of Object.keys(yo)) {
-        if (!/^\d{2}$/.test(mk)) continue;
-        const list = yo[mk];
-        if (!Array.isArray(list) || list.length === 0) continue;
-        for (const it of list) {
-          const amt = asNumber(it?.amount);
-          if (amt <= 0) continue;
-          const name = String(it?.name || "").trim() || "Enstaka intäkt";
-          root.incomes.push({
-            id: uid(),
-            name,
-            category: "one_off",
-            interval: "once",
-            payments: [{ id: uid(), date: `${yk}-${mk}-15`, amount: amt }]
-          });
-        }
-        yo[mk] = [];
-      }
-    }
-  }
-}
-
 /** En post i expenses med category, valfri subcategory och metadata (schedule, food, …). */
 function canonicalizeExpenseRecord(raw) {
   const payments = Array.isArray(raw?.payments) ? raw.payments : [];
@@ -2527,52 +2447,21 @@ function canonicalizeExpenseRecord(raw) {
     amount: asNumber(p?.amount)
   }));
 
-  let category = raw?.category || raw?.expenseCategory || "";
-  if (!category) {
-    if (raw?.foodGenerated) category = "food";
-    else if (/^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) category = "food";
-    else category = "other";
-  }
+  let category = String(raw?.category || "other").trim() || "other";
 
   let subcategory = raw?.subcategory;
-  if (subcategory == null || subcategory === "") {
-    if (category === "car" && raw?.carTypeKey) subcategory = String(raw.carTypeKey);
-    else if (category === "home" && raw?.homeTypeKey) subcategory = String(raw.homeTypeKey);
-    else if (category === "children" && raw?.childrenTypeKey) subcategory = String(raw.childrenTypeKey);
-    else if (category === "savings" && raw?.savingsTypeKey) subcategory = String(raw.savingsTypeKey);
-  }
   if (category === "savings" && (subcategory == null || subcategory === "")) subcategory = "own";
 
   const meta =
     typeof raw?.metadata === "object" && raw.metadata && !Array.isArray(raw.metadata) ? deepCloneJson(raw.metadata) : {};
 
-  const schedIn = meta.schedule && typeof meta.schedule === "object" ? { ...meta.schedule } : {};
-  if (raw?.carPaymentDay != null && schedIn.paymentDay == null) {
-    const cpd = Math.floor(asNumber(raw.carPaymentDay));
-    if (Number.isFinite(cpd) && cpd >= 1 && cpd <= 31) schedIn.paymentDay = cpd;
-  }
-  if (raw?.carFirstDate && !schedIn.firstDate) schedIn.firstDate = String(raw.carFirstDate).slice(0, 10);
-  if (raw?.carEndDate !== undefined && raw?.carEndDate !== null && schedIn.endDate === undefined) {
-    schedIn.endDate = String(raw.carEndDate || "");
-  }
-  if (Object.keys(schedIn).length > 0) meta.schedule = schedIn;
-
-  const foodIn = meta.food && typeof meta.food === "object" ? { ...meta.food } : {};
-  if (raw?.foodGenerated) foodIn.generated = true;
-  if (raw?.foodYear != null && raw.foodYear !== "") foodIn.year = Number(raw.foodYear);
-  if (raw?.foodWeekKey) foodIn.weekKey = String(raw.foodWeekKey);
-  if (raw?.foodPlanningDate) foodIn.planningDate = String(raw.foodPlanningDate);
-  if (Array.isArray(raw?.foodLabels)) foodIn.labels = raw.foodLabels.map((x) => String(x));
-  if (Object.keys(foodIn).length > 0) meta.food = foodIn;
-
-  if (category === "food" && !meta.food?.generated && /^Mat v\.\d+$/i.test(String(raw?.name || "").trim())) {
-    meta.food = { ...meta.food, generated: true, legacyMatName: true };
-  }
+  if (meta.food && typeof meta.food === "object" && Object.keys(meta.food).length > 0) meta.food = { ...meta.food };
+  else delete meta.food;
 
   let origin = raw?.origin;
   if (origin !== "system" && origin !== "user") {
     if (category === "loans" && meta.loanId) origin = "system";
-    else if (meta.food?.generated || raw?.foodGenerated) origin = "system";
+    else if (meta.food?.generated) origin = "system";
     else origin = "user";
   }
 
@@ -2587,38 +2476,6 @@ function canonicalizeExpenseRecord(raw) {
   if (subcategory != null && subcategory !== "") out.subcategory = String(subcategory);
   if (Object.keys(meta).length > 0) out.metadata = meta;
   return out;
-}
-
-/** En gemensam matkonfiguration (foodShared); migreras från första bästa årsnyckel under special.food. */
-function migrateSpecialFoodToSharedModel(root) {
-  const special = root?.special;
-  if (!special || typeof special !== "object") return;
-  if (special.foodShared?.config && typeof special.foodShared.config === "object") return;
-  const food = special.food;
-  if (!food || typeof food !== "object") return;
-  const cur = currentYearMonth().year;
-  const tryOrder = [String(cur), String(cur - 1), String(cur + 1)];
-  let pickedConfig = null;
-  for (const k of tryOrder) {
-    const e = food[k];
-    if (e && typeof e === "object" && e.config && typeof e.config === "object") {
-      pickedConfig = e.config;
-      break;
-    }
-  }
-  if (!pickedConfig) {
-    const keys = Object.keys(food).filter((k) => /^\d{4}$/.test(k)).sort();
-    for (const k of keys) {
-      const e = food[k];
-      if (e && e.config && typeof e.config === "object") {
-        pickedConfig = e.config;
-        break;
-      }
-    }
-  }
-  if (pickedConfig) {
-    special.foodShared = { config: JSON.parse(JSON.stringify(pickedConfig)), weeks: [] };
-  }
 }
 
 function normalizeStateShape(state) {
@@ -2638,8 +2495,7 @@ function normalizeStateShape(state) {
       : base.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
 
-  normalized.recurring = normalized.recurring || base.recurring;
-  normalized.recurring.expenses = normalized.recurring.expenses || base.recurring.expenses;
+  delete normalized.recurring;
 
   normalized.incomes = Array.isArray(normalized.incomes) ? normalized.incomes : [];
   normalized.expenses = Array.isArray(normalized.expenses) ? normalized.expenses : [];
@@ -2650,9 +2506,8 @@ function normalizeStateShape(state) {
 
   normalized.special = normalized.special || base.special;
   normalized.special.car = normalized.special.car || {};
-  // Migration: gamla "housing" -> nya "home"
-  if (normalized.special.housing && !normalized.special.home) normalized.special.home = normalized.special.housing;
   normalized.special.home = normalized.special.home || {};
+  delete normalized.special.housing;
   {
     const lr = normalized.special.loans;
     normalized.special.loans =
@@ -2660,49 +2515,20 @@ function normalizeStateShape(state) {
         ? { items: lr.items.filter((x) => x && typeof x === "object") }
         : { items: [] };
   }
-  normalized.special.food = normalized.special.food || {};
+  normalized.special.food = {};
   normalized.special.children = normalized.special.children || {};
-
-  // Migration: legacy monthly food config -> yearly model { config, weeks }
-  for (const y of Object.keys(normalized.special.food || {})) {
-    const entry = normalized.special.food?.[y];
-    if (!entry || typeof entry !== "object") continue;
-    const alreadyYearModel = Boolean(entry.config || entry.weeks);
-    if (alreadyYearModel) continue;
-    const monthKeys = Object.keys(entry).filter((k) => /^\d{2}$/.test(k));
-    if (monthKeys.length === 0) continue;
-    const curMonthK = pad2(currentYearMonth().month);
-    const pickK = monthKeys.includes(curMonthK) ? curMonthK : monthKeys.sort().slice(-1)[0];
-    const mCfg = entry[pickK] || {};
-    const cfg = {
-      mode: mCfg.mode === "manual" ? "manual" : "auto",
-      household: {
-        adults: Math.max(0, Math.floor(asNumber(mCfg.household?.adults ?? 1))),
-        teens: Math.max(0, Math.floor(asNumber(mCfg.household?.teens ?? 0))),
-        children: Math.max(0, Math.floor(asNumber(mCfg.household?.children ?? 0)))
-      },
-      costLevel: ["budget", "normal", "high"].includes(mCfg.costLevel) ? mCfg.costLevel : "normal",
-      foodScope: ["groceries", "mixed", "all"].includes(mCfg.foodScope) ? mCfg.foodScope : "groceries",
-      manualWeeklyCost: Math.max(0, asNumber(mCfg.manualWeeklyCost ?? 2800)),
-      custodySchedule: normalizeCustodySchedule(mCfg.custodySchedule || mCfg.kidsSchedule),
-      custodyPeriods: migrateCustodyPeriodsFromStored(mCfg, Number(y)),
-      householdChanges: Array.isArray(mCfg.householdChanges) ? mCfg.householdChanges : [],
-      deviations: Array.isArray(mCfg.deviations) ? mCfg.deviations : []
+  {
+    const fs = normalized.special.foodShared;
+    const weeks = fs && typeof fs === "object" && Array.isArray(fs.weeks) ? fs.weeks : [];
+    const cfgIn = fs && typeof fs === "object" && fs.config && typeof fs.config === "object" ? fs.config : {};
+    normalized.special.foodShared = {
+      config: normalizeStoredFoodConfigObject(cfgIn),
+      weeks
     };
-    normalized.special.food[y] = { config: cfg, weeks: [] };
   }
 
-  migrateSpecialFoodToSharedModel(normalized);
-
-  migrateOneOffBucketsToLineItems(normalized);
-
-  migrateLegacyIncomes(normalized);
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
-  migrateLegacyExpenses(normalized);
-  migrateLegacyCarSpecialToExpenses(normalized);
-  migrateLegacyHomeSpecialToExpenses(normalized);
-  migrateLegacyChildrenSpecialToExpenses(normalized);
   ensureExpenseIds(normalized);
   normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
@@ -2773,10 +2599,9 @@ function ensureExpenseIds(root) {
 function dedupeGeneratedFoodExpenses(expenses) {
   if (!Array.isArray(expenses)) return expenses;
   const seenWeek = new Set();
-  const seenLegacyDate = new Set();
   return expenses.filter((exp) => {
-    const wk = exp?.metadata?.food?.weekKey || exp?.foodWeekKey;
-    const yFood = exp?.metadata?.food?.year ?? exp?.foodYear;
+    const wk = exp?.metadata?.food?.weekKey;
+    const yFood = exp?.metadata?.food?.year;
     if (isMatLikeExpense(exp) && wk) {
       const y = Number(yFood);
       if (!Number.isFinite(y)) return true;
@@ -2785,40 +2610,21 @@ function dedupeGeneratedFoodExpenses(expenses) {
       seenWeek.add(k);
       return true;
     }
-    const name = String(exp?.name || "").trim();
-    if (!/^Mat v\.\d+$/i.test(name)) return true;
-    const pts = Array.isArray(exp.payments) ? exp.payments : [];
-    if (pts.length !== 1) return true;
-    const iso = pts[0]?.date;
-    if (!iso) return true;
-    const legacyKey = `${iso}|${name.toLowerCase()}`;
-    if (seenLegacyDate.has(legacyKey)) return false;
-    seenLegacyDate.add(legacyKey);
     return true;
   });
 }
 
-/** True om utgiften räknas som systemgenererad mat för ett visst kalenderår (inkl. äldre rader utan flaggor). */
+/** True om utgiften räknas som systemgenererad mat för ett visst kalenderår. */
 function isGeneratedMatExpenseForYear(exp, year) {
   const y = Number(year);
   if (!Number.isFinite(y)) return false;
   if (!isMatLikeExpense(exp)) return false;
-  const fy = Number(exp.metadata?.food?.year ?? exp.foodYear);
-  if (Number.isFinite(fy)) return fy === y;
-  const name = String(exp?.name || "").trim();
-  if (!/^Mat v\.\d+$/i.test(name)) return false;
-  const iso = exp?.payments?.[0]?.date;
-  if (!iso || typeof iso !== "string" || iso.length < 4) return false;
-  const py = Number(iso.slice(0, 4));
-  return Number.isFinite(py) && py === y;
+  const fy = Number(exp.metadata?.food?.year);
+  return Number.isFinite(fy) && fy === y;
 }
 
 function isMatLikeExpense(exp) {
-  if (!exp) return false;
-  if (exp.metadata?.food?.generated) return true;
-  if (exp.foodGenerated) return true;
-  if (exp.category === "food" && exp.metadata?.food?.generated) return true;
-  return /^Mat v\.\d+$/i.test(String(exp.name || "").trim());
+  return Boolean(exp?.metadata?.food?.generated);
 }
 
 /** Bilutgifter: category car + subcategory (typnyckel). */
@@ -3052,180 +2858,6 @@ function getCarTypeLabel(carTypeKey) {
   return getTaggedTypeLabel("car", carTypeKey);
 }
 
-function migrateLegacyCarSpecialToExpenses(root) {
-  const car = root?.special?.car;
-  if (!car || typeof car !== "object" || !Array.isArray(root.expenses)) return;
-  for (const yk of Object.keys(car)) {
-    if (!/^\d{4}$/.test(yk)) continue;
-    const cfg = car[yk];
-    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
-    const year = Number(yk);
-    if (!isAllowedYear(year)) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const entries = [];
-    const ins = asNumber(cfg.insurance);
-    if (ins > 0) entries.push({ carTypeKey: "insurance", name: "Försäkring", amt: ins });
-    const fuel = asNumber(cfg.fuel);
-    if (fuel > 0) entries.push({ carTypeKey: "fuel", name: "Drivmedel", amt: fuel });
-    const park = asNumber(cfg.parking);
-    if (park > 0) entries.push({ carTypeKey: "parking_fee", name: "Parkeringsavgift", amt: park });
-    const leased = (cfg.ownership || "owned") === "leased";
-    const lease = asNumber(cfg.leasing);
-    if (leased && lease > 0) entries.push({ carTypeKey: "leasing", name: "Leasing avgift", amt: lease });
-    if (entries.length === 0) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const payDay = 25;
-    for (const e of entries) {
-      const payments = Array.from({ length: 12 }, (_, i) => ({
-        id: uid(),
-        date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
-        amount: e.amt
-      }));
-      root.expenses.push({
-        id: uid(),
-        name: e.name,
-        interval: "monthly",
-        category: "car",
-        subcategory: e.carTypeKey,
-        metadata: {
-          schedule: {
-            paymentDay: payDay,
-            firstDate: `${year}-01-${pad2(payDay)}`,
-            endDate: ""
-          }
-        },
-        payments
-      });
-    }
-    cfg._legacyMigrated = true;
-    delete cfg.ownership;
-    delete cfg.insurance;
-    delete cfg.fuel;
-    delete cfg.parking;
-    delete cfg.leasing;
-  }
-}
-
-function pushTaggedMonthlyExpense(root, { category, subcategory, name, year, amt, payDay = 25 }) {
-  const payments = Array.from({ length: 12 }, (_, i) => ({
-    id: uid(),
-    date: `${year}-${pad2(i + 1)}-${pad2(payDay)}`,
-    amount: amt
-  }));
-  root.expenses.push({
-    id: uid(),
-    name,
-    interval: "monthly",
-    category,
-    subcategory,
-    metadata: {
-      schedule: {
-        paymentDay: payDay,
-        firstDate: `${year}-01-${pad2(payDay)}`,
-        endDate: ""
-      }
-    },
-    payments
-  });
-}
-
-function migrateLegacyHomeSpecialToExpenses(root) {
-  const home = root?.special?.home;
-  if (!home || typeof home !== "object" || !Array.isArray(root.expenses)) return;
-  for (const yk of Object.keys(home)) {
-    if (!/^\d{4}$/.test(yk)) continue;
-    const cfg = home[yk];
-    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
-    const year = Number(yk);
-    if (!isAllowedYear(year)) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const entries = [
-      ["rent", "Hyra", asNumber(cfg.rent)],
-      ["electricity", "El", asNumber(cfg.electricity)],
-      ["water", "Vatten", asNumber(cfg.water)],
-      ["garbage", "Sophämtning", asNumber(cfg.garbage)],
-      ["internet", "Internet", asNumber(cfg.internet)],
-      ["parking_slot", "Parkering", asNumber(cfg.parking)]
-    ].filter((x) => x[2] > 0);
-    if (entries.length === 0) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const payDay = 25;
-    for (const [typeKey, name, amt] of entries) {
-      pushTaggedMonthlyExpense(root, {
-        category: "home",
-        subcategory: typeKey,
-        name,
-        amt,
-        year,
-        payDay
-      });
-    }
-    cfg._legacyMigrated = true;
-    delete cfg.rent;
-    delete cfg.electricity;
-    delete cfg.water;
-    delete cfg.garbage;
-    delete cfg.internet;
-    delete cfg.parking;
-  }
-}
-
-function migrateLegacyChildrenSpecialToExpenses(root) {
-  const ch = root?.special?.children;
-  if (!ch || typeof ch !== "object" || !Array.isArray(root.expenses)) return;
-  for (const yk of Object.keys(ch)) {
-    if (!/^\d{4}$/.test(yk)) continue;
-    const cfg = ch[yk];
-    if (!cfg || typeof cfg !== "object" || cfg._legacyMigrated) continue;
-    const year = Number(yk);
-    if (!isAllowedYear(year)) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const parties = Math.max(0, asNumber(cfg.kidsPartiesPerYear)) * asNumber(cfg.kidsPartyUnitCost);
-    const partiesMonthly = parties / 12;
-    const entries = [
-      ["clothes", "Kläder", asNumber(cfg.kidsClothesPerMonth)],
-      ["bus_card", "Busskort", asNumber(cfg.kidsBusCardPerMonth)],
-      ["mobile_plan", "Mobil abonnemang", asNumber(cfg.kidsPhonePerMonth)],
-      ["activity", "Aktivitet", asNumber(cfg.kidsActivitiesPerMonth)],
-      ["pocket_money", "Månadspeng", asNumber(cfg.kidsPocketMoneyPerMonth)]
-    ].filter((x) => x[2] > 0);
-    if (partiesMonthly > 0) entries.push(["other", "Kalas / partyn (migrerat)", partiesMonthly]);
-    if (entries.length === 0) {
-      cfg._legacyMigrated = true;
-      continue;
-    }
-    const payDay = 25;
-    for (const [typeKey, name, amt] of entries) {
-      pushTaggedMonthlyExpense(root, {
-        category: "children",
-        subcategory: typeKey,
-        name,
-        amt,
-        year,
-        payDay
-      });
-    }
-    cfg._legacyMigrated = true;
-    delete cfg.kidsClothesPerMonth;
-    delete cfg.kidsBusCardPerMonth;
-    delete cfg.kidsPhonePerMonth;
-    delete cfg.kidsActivitiesPerMonth;
-    delete cfg.kidsPocketMoneyPerMonth;
-    delete cfg.kidsPartiesPerYear;
-    delete cfg.kidsPartyUnitCost;
-  }
-}
-
 /** Bygger betalningslista inom appens tillåtna år (föregående/nu/nästa). */
 function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDay, amount }) {
   const amt = Math.max(0, asNumber(amount));
@@ -3305,87 +2937,6 @@ function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDa
     if (y > maxY + 2) break;
   }
   return out;
-}
-
-function migrateLegacyIncomes(root) {
-  // Legacy: state.recurring.incomes[year] = [{id,name,amount,frequency(monthly|yearly)}]
-  const legacy = root?.recurring?.incomes;
-  if (!legacy || typeof legacy !== "object") return;
-
-  const legacyYears = Object.keys(legacy);
-  if (legacyYears.length === 0) return;
-
-  if (!Array.isArray(root.incomes)) root.incomes = [];
-
-  const DEFAULT_PAYDAY = 25; // används endast för legacy-migrering
-
-  const makeMonthlyPayments = (year, monthlyAmount) =>
-    Array.from({ length: 12 }).map((_, i) => ({
-      id: uid(),
-      date: `${year}-${pad2(i + 1)}-${pad2(DEFAULT_PAYDAY)}`,
-      amount: asNumber(monthlyAmount)
-    }));
-
-  const makeYearlyPayment = (year, yearlyAmount) => [
-    {
-      id: uid(),
-      date: `${year}-01-01`,
-      amount: asNumber(yearlyAmount)
-    }
-  ];
-
-  for (const y of legacyYears) {
-    const year = Number(y);
-    if (!Number.isFinite(year)) continue;
-    const items = Array.isArray(legacy[y]) ? legacy[y] : [];
-    for (const it of items) {
-      const name = String(it?.name || "").trim() || "Intäkt";
-      const frequency = it?.frequency || "monthly";
-      const amount = asNumber(it?.amount);
-
-      const payments =
-        frequency === "yearly" ? makeYearlyPayment(year, amount) : makeMonthlyPayments(year, amount);
-
-      root.incomes.push({
-        id: uid(),
-        name,
-        interval: frequency === "yearly" ? "yearly" : "monthly",
-        payments
-      });
-    }
-  }
-
-  // Remove legacy store to avoid double counting
-  if (!root.recurring) root.recurring = {};
-  delete root.recurring.incomes;
-}
-
-function migrateLegacyExpenses(root) {
-  const legacy = root?.recurring?.expenses;
-  if (!legacy || typeof legacy !== "object") return;
-  const legacyYears = Object.keys(legacy);
-  if (legacyYears.length === 0) return;
-  if (!Array.isArray(root.expenses)) root.expenses = [];
-
-  const DEFAULT_PAYDAY = 25;
-  const makeMonthlyPayments = (year, monthlyAmount) =>
-    Array.from({ length: 12 }).map((_, i) => ({ id: uid(), date: `${year}-${pad2(i + 1)}-${pad2(DEFAULT_PAYDAY)}`, amount: asNumber(monthlyAmount) }));
-  const makeYearlyPayment = (year, yearlyAmount) => [{ id: uid(), date: `${year}-01-01`, amount: asNumber(yearlyAmount) }];
-
-  for (const y of legacyYears) {
-    const year = Number(y);
-    if (!Number.isFinite(year)) continue;
-    const items = Array.isArray(legacy[y]) ? legacy[y] : [];
-    for (const it of items) {
-      const name = String(it?.name || "").trim() || "Utgift";
-      const frequency = it?.frequency || "monthly";
-      const amount = asNumber(it?.amount);
-      const payments = frequency === "yearly" ? makeYearlyPayment(year, amount) : makeMonthlyPayments(year, amount);
-      root.expenses.push({ id: uid(), name, interval: frequency === "yearly" ? "yearly" : "monthly", payments });
-    }
-  }
-  if (!root.recurring) root.recurring = {};
-  delete root.recurring.expenses;
 }
 
 let state = null;
@@ -3597,7 +3148,6 @@ function computeSpecialHousingMonthly(year, month) {
 }
 
 function computeSpecialFoodMonthly() {
-  // Mat hanteras nu via systemgenererade utgifter (foodGenerated) med planningDate.
   return { total: 0, items: [] };
 }
 
@@ -3614,8 +3164,8 @@ function normalizeStoredFoodConfigObject(cfg) {
     costLevel: ["budget", "normal", "high"].includes(cfg.costLevel) ? cfg.costLevel : "normal",
     foodScope: ["groceries", "mixed", "all"].includes(cfg.foodScope) ? cfg.foodScope : "groceries",
     manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
-    custodySchedule: normalizeCustodySchedule(cfg.custodySchedule || cfg.kidsSchedule),
-    custodyPeriods: migrateCustodyPeriodsFromStored(cfg, refY),
+    custodySchedule: normalizeCustodySchedule(cfg.custodySchedule),
+    custodyPeriods: normalizeCustodyPeriodsArray(cfg),
     foodBudgetYear: refY,
     householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
     deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
@@ -3624,16 +3174,8 @@ function normalizeStoredFoodConfigObject(cfg) {
 
 /** Gemensam matinställning för appens tre år (special.foodShared). */
 function getSharedFoodConfig() {
-  let cfg = state.special?.foodShared?.config;
-  if (!cfg || typeof cfg !== "object") {
-    const cur = currentYearMonth().year;
-    const legacy =
-      state.special?.food?.[String(cur)]?.config ||
-      state.special?.food?.[String(cur - 1)]?.config ||
-      state.special?.food?.[String(cur + 1)]?.config;
-    cfg = legacy && typeof legacy === "object" ? legacy : {};
-  }
-  return normalizeStoredFoodConfigObject(cfg);
+  const cfg = state.special?.foodShared?.config;
+  return normalizeStoredFoodConfigObject(cfg && typeof cfg === "object" ? cfg : {});
 }
 
 function getFoodConfigForYear(_year) {
@@ -3642,20 +3184,6 @@ function getFoodConfigForYear(_year) {
 
 function normalizeCustodySchedule(input) {
   const cs = input && typeof input === "object" ? input : {};
-  const legacy = input && typeof input === "object" && ("membersWhenPresent" in input || "periodEnd" in input);
-  if (legacy) {
-    return {
-      type: "off",
-      alternating: {
-        startDate: "",
-        ratioKey: "7-7",
-        awayDays: 7,
-        withDays: 7,
-        absent: { children: 0, teens: 0 }
-      },
-      custom: []
-    };
-  }
   let type = ["off", "alternating"].includes(cs.type) ? cs.type : "off";
   if (cs.type === "same" || cs.type === "custom") type = "off";
   const alt = cs.alternating && typeof cs.alternating === "object" ? cs.alternating : {};
@@ -3698,23 +3226,9 @@ function normalizeCustodyPeriodEntry(p) {
   };
 }
 
-function migrateCustodyPeriodsFromStored(cfg, foodYear) {
-  if (Array.isArray(cfg?.custodyPeriods) && cfg.custodyPeriods.length > 0) {
-    return cfg.custodyPeriods.map(normalizeCustodyPeriodEntry);
-  }
-  const cs = cfg?.custodySchedule;
-  if (cs && cs.type === "alternating") {
-    const alt = cs.alternating || {};
-    if (alt.startDate) {
-      return [normalizeCustodyPeriodEntry({
-        startDate: alt.startDate,
-        endDate: "",
-        ratioKey: alt.ratioKey || "7-7",
-        absent: { children: alt.absent?.children ?? 0, teens: alt.absent?.teens ?? 0 }
-      })];
-    }
-  }
-  return [];
+function normalizeCustodyPeriodsArray(cfg) {
+  if (!cfg || typeof cfg !== "object" || !Array.isArray(cfg.custodyPeriods)) return [];
+  return cfg.custodyPeriods.map(normalizeCustodyPeriodEntry);
 }
 
 function getCustodyPeriodEffectiveEnd(period, foodBudgetYear) {
@@ -4454,10 +3968,6 @@ function overviewTableLabelForPayment(exp, dt) {
   return `${exp.name || "Utgift"} (${dateStr})`;
 }
 
-function computeRecurringMonthlyItems(items) {
-  return (items || []).map((it) => ({ id: it.id, label: it.name, amount: asNumber(it.amount) }));
-}
-
 function computeMonthOverview(year, month) {
   const sumPaymentsInMonth = (payments) =>
     (Array.isArray(payments) ? payments : []).reduce((s, p) => {
@@ -4865,7 +4375,7 @@ function updateTaggedEditorIntervalVisibility(cat) {
   }
 }
 
-/** Läser schema från metadata.schedule (fallback: äldre platta fält under migrering). */
+/** Läser schema från metadata.schedule och betalningar. */
 function inferScheduleMetaFromExpense(exp) {
   const pts = (exp.payments || [])
     .filter((p) => asNumber(p.amount) > 0 && p.date)
@@ -4875,7 +4385,6 @@ function inferScheduleMetaFromExpense(exp) {
   const second = pts[1];
   const sched = exp.metadata?.schedule || {};
   let payDay = sched.paymentDay;
-  if (payDay == null || payDay === "") payDay = exp.carPaymentDay;
   if (payDay == null || payDay === "") {
     const p2 = second?.date ? datePartsFromIso(second.date) : null;
     if (p2) payDay = p2.d;
@@ -4885,11 +4394,10 @@ function inferScheduleMetaFromExpense(exp) {
     payDay = p1?.d ?? 25;
   }
   payDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDay)) || 25));
-  let firstDate = sched.firstDate || exp.carFirstDate || first?.date || "";
+  const firstDate = sched.firstDate || first?.date || "";
   const amount = first ? asNumber(first.amount) : 0;
-  let endDate = "";
-  if (sched.endDate !== undefined && sched.endDate !== null) endDate = String(sched.endDate);
-  else if (exp.carEndDate != null && exp.carEndDate !== undefined) endDate = String(exp.carEndDate);
+  const endDate =
+    sched.endDate !== undefined && sched.endDate !== null ? String(sched.endDate) : "";
   return { firstDate, payDay, amount, endDate };
 }
 
@@ -7007,38 +6515,6 @@ function renderSettingsPage() {
   syncFoodWeekdaySummaryLabel();
 }
 
-function renderRecurringTables() {
-  const expYear = ui.expensesYear;
-
-  // recurring expenses
-  const expBody = document.getElementById("recurringExpensesTableBody");
-  if (!expBody) return;
-  expBody.innerHTML = "";
-  const expList = state.recurring?.expenses?.[String(expYear)] || [];
-  if (expList.length === 0) {
-    expBody.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga återkommande utgifter för valt år.</td></tr>`;
-  } else {
-    for (const it of expList) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(it.name)}</td><td>${escapeHtml(freqLabel(it.frequency))}</td><td class="right">${formatKr(it.amount)}</td><td><button class="danger" data-delete-rec-exp="${it.id}" type="button">Ta bort</button></td>`;
-      expBody.appendChild(tr);
-    }
-  }
-
-  // Bind delete handlers
-  document.querySelectorAll("[data-delete-rec-exp]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-delete-rec-exp");
-      const list = ensureYearArray(state.recurring.expenses, expYear);
-      const idx = list.findIndex((x) => x.id === id);
-      if (idx >= 0) list.splice(idx, 1);
-      saveState();
-      renderRecurringTables();
-      renderOverviewIfOnOverview();
-    });
-  });
-}
-
 function renderRoute(route) {
   switch (route) {
     case "overview": {
@@ -7959,8 +7435,8 @@ function buildExpensePaymentRowsForList(yearFilter) {
         isFoodPayment: isMatLikeExpense(exp),
         isLoanMirror: isMirroredLoanExpense(exp),
         loanId: exp.metadata?.loanId,
-        foodYear: exp?.metadata?.food?.year ?? exp?.foodYear,
-        foodWeekKey: exp?.metadata?.food?.weekKey ?? exp?.foodWeekKey
+        foodYear: exp?.metadata?.food?.year,
+        foodWeekKey: exp?.metadata?.food?.weekKey
       });
     }
   }
@@ -8194,10 +7670,8 @@ function openExpenseOverlay(expenseId, opts = {}) {
       foodYear:
         exp.metadata?.food?.year != null && exp.metadata?.food?.year !== ""
           ? Number(exp.metadata.food.year)
-          : exp.foodYear != null && exp.foodYear !== ""
-            ? Number(exp.foodYear)
-            : undefined,
-      foodWeekKey: exp.metadata?.food?.weekKey || exp.foodWeekKey
+          : undefined,
+      foodWeekKey: exp.metadata?.food?.weekKey
     });
     return;
   }
