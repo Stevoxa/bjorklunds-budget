@@ -936,8 +936,8 @@ button:focus:not(:focus-visible) {
   margin: 0;
   max-width: min(100%, calc(100% - 32px));
   line-height: 1.2;
-  font-size: 1.22rem;
-  font-weight: 750;
+  font-size: 1.12rem;
+  font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--text);
   background: var(--bb-notched-panel-bg);
@@ -1231,7 +1231,7 @@ button:focus:not(:focus-visible) {
 }
 
 .table-title {
-  font-weight: 800;
+  font-weight: 600;
   margin-bottom: var(--space-3);
   font-size: 1.05rem;
   letter-spacing: -0.025em;
@@ -2269,7 +2269,7 @@ body.modal-open {
   margin-top: 14px;
   margin-bottom: 0;
   padding-bottom: 8px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
 }
 
 .food-preview-list.food-preview-weeks {
@@ -2281,7 +2281,7 @@ body.modal-open {
 
 .food-preview-week-block {
   padding: 10px 0 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-size: clamp(0.82rem, 2.2vw + 0.55rem, 0.95rem);
   font-variant-numeric: tabular-nums;
 }
@@ -2301,7 +2301,7 @@ body.modal-open {
 
 .food-preview-week-num,
 .food-preview-week-total {
-  font-weight: 750;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -2316,7 +2316,7 @@ body.modal-open {
 .food-preview-month-total {
   margin-top: 0;
   padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-style: italic;
   color: var(--muted);
   font-size: 0.9rem;
@@ -2330,8 +2330,8 @@ body.modal-open {
 .food-custody-example-title {
   padding-bottom: 8px;
   margin-bottom: 2px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
-  font-weight: 750;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  font-weight: 600;
   font-size: 0.9rem;
   color: var(--text);
 }
@@ -2879,8 +2879,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .bb-error-summary-title {
-  font-weight: 900;
-  font-size: 0.98rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   color: var(--text);
   margin-bottom: var(--space-3);
 }
@@ -2905,7 +2905,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   color: var(--text);
   cursor: pointer;
   font: inherit;
-  font-weight: 700;
+  font-weight: 500;
   text-align: left;
 }
 
@@ -2920,7 +2920,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .bb-error-summary-item-chevron {
   flex-shrink: 0;
   color: color-mix(in srgb, var(--danger) 72%, var(--text));
-  font-weight: 900;
+  font-weight: 500;
   opacity: 0.85;
 }
 
@@ -3164,7 +3164,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-omkostnader-title-rule {
   margin-top: 10px;
   border: none;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
 }
 
 .tagged-omkostnader-picker {
@@ -3194,7 +3194,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-omkostnader-month-heading {
   margin: 18px 0 0;
   padding-bottom: 10px;
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
@@ -3215,7 +3215,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 .tagged-expense-preview-row {
   padding: 0;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-size: clamp(0.82rem, 2.2vw + 0.55rem, 0.95rem);
   font-variant-numeric: tabular-nums;
 }
@@ -3225,7 +3225,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .tagged-expense-preview-row:last-child {
-  border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
 }
 
 .tagged-expense-row-btn {
@@ -3281,13 +3281,13 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--text);
 }
 
 .tagged-expense-row-line1 .tagged-expense-amt {
   flex-shrink: 0;
-  font-weight: 750;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -3310,7 +3310,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-omkostnader-total {
   margin: 0;
   padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-style: italic;
   color: var(--muted);
   font-size: 0.9rem;
@@ -3369,8 +3369,15 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .bb-error-summary.tagged-editor-error-summary[hidden] + .bb-notched-panel.tagged-editor-panel {
   margin-top: var(--space-6);
 }
+/*
+ * Panelens notch-rubrik (.bb-notched-panel-legend) är absolut positionerad och sticker upp ovanför
+ * kanten — utan extra luft överlappar den felrutan. Reservera vertikalt utrymme här.
+ */
+.bb-error-summary.tagged-editor-error-summary:not([hidden]) {
+  margin-bottom: calc(var(--space-4) + 4px);
+}
 .bb-error-summary.tagged-editor-error-summary:not([hidden]) + .bb-notched-panel.tagged-editor-panel {
-  margin-top: var(--space-3);
+  margin-top: calc(var(--space-5) + 14px);
 }
 
 /*
@@ -3458,7 +3465,7 @@ button.stretch {
 .backup-restore {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
-  border-top: 1px dashed var(--border);
+  border-top: 1px solid var(--border);
 }
 
 /* —— Bottom sheets: datum + period —— */
