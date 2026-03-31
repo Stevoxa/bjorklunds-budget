@@ -3018,9 +3018,9 @@ const TAGGED_CATEGORY_CONFIG = {
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
       endDateHint: "Ogiltigt slutdatum för spar.",
-      firstDateOnce: "Förfallodatum",
-      firstDateRecurring: "Förfallodatum",
-      endDate: "Hur länge gäller betalningsintervallet?"
+      firstDateOnce: "Betaldatum",
+      firstDateRecurring: "Betaldatum",
+      endDate: "Gäller till"
     }
   }
 };
@@ -4817,8 +4817,8 @@ function updateTaggedEditorIntervalVisibility(cat) {
   const firstInp = document.getElementById(ids.editFirstDate);
   if (firstInp) {
     const text = recurring
-      ? L.firstDateRecurring || "Förfallodatum"
-      : L.firstDateOnce || "Förfallodatum";
+      ? L.firstDateRecurring || "Betaldatum"
+      : L.firstDateOnce || "Betaldatum";
     firstInp.setAttribute("data-notch-label", text);
     const notch = firstInp.closest(".bb-notched-field");
     const leg = notch?.querySelector(".bb-notched-field-legend");
@@ -4828,7 +4828,7 @@ function updateTaggedEditorIntervalVisibility(cat) {
   }
   const endInp = document.getElementById(ids.editEndDate);
   if (endInp) {
-    const endText = L.endDate || "Hur länge gäller betalningsintervallet?";
+    const endText = L.endDate || "Gäller till";
     endInp.setAttribute("data-notch-label", endText);
     const endNotch = endInp.closest(".bb-notched-field");
     const endLeg = endNotch?.querySelector(".bb-notched-field-legend");
@@ -4994,7 +4994,7 @@ function renderTaggedCategoryPage(cat) {
   const u = ui.tagged[cat];
 
   const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
-  if (summaryId) hideErrorSummaryById(summaryId);
+  if (summaryId && !u.editorOpen) hideErrorSummaryById(summaryId);
   if (!u.editorOpen) clearTaggedEditorInlineErrors(cat);
 
   const listYearSel = document.getElementById(ids.listYear);
@@ -5189,7 +5189,7 @@ function wireTaggedEditorPickers(cat) {
     typeBtn.addEventListener("click", () => {
       const options = Array.from(typeSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
       openListPickerSheet({
-        title: "Välj typ",
+        title: "Välj kategori",
         options,
         currentValue: typeSel.value,
         onSelect: (v) => {
@@ -5274,7 +5274,7 @@ function saveTaggedCategoryFromEditor(cat) {
   const name = (nameInp.value || "").trim();
   const L = C.labels || {};
   if (!name) {
-    const msg = L.nameRequiredHint || "Ange namn på utgift.";
+    const msg = L.nameRequiredHint || "Ange namn.";
     if (note) note.textContent = msg;
     setTaggedEditorInlineError(cat, "name", msg);
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editName }]);

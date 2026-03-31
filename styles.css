@@ -1010,11 +1010,6 @@ button:focus:not(:focus-visible) {
   outline: none;
 }
 
-.bb-notched-field > .field-error {
-  margin-top: 6px;
-  padding: 0 2px 4px;
-}
-
 .bb-notched-field-btn {
   width: 100%;
   min-height: 52px;
@@ -3370,6 +3365,14 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   margin-bottom: var(--space-6);
 }
 
+/* Felruta ovanför vit panel (syskon före .tagged-editor-panel), som Mat-periodsheet */
+.bb-error-summary.tagged-editor-error-summary[hidden] + .bb-notched-panel.tagged-editor-panel {
+  margin-top: var(--space-6);
+}
+.bb-error-summary.tagged-editor-error-summary:not([hidden]) + .bb-notched-panel.tagged-editor-panel {
+  margin-top: var(--space-3);
+}
+
 /*
  * Samma vertikala rytm som .food-mat-period-editor-content > .form-grid (18px)
  * och avvikelse/hushåll (22px) — inte tightare gap än Mat.
@@ -3377,6 +3380,24 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-editor-panel .form-grid.narrow {
   row-gap: 22px;
   column-gap: 12px;
+}
+
+.tagged-editor-panel .form-grid.narrow > .tagged-editor-field-wrap {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+}
+
+.tagged-editor-panel .tagged-editor-field-error:not([hidden]) {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.tagged-editor-panel .bb-notched-field:has(.bb-notched-field-plain-input.input-invalid) {
+  border-color: var(--danger);
 }
 
 /* Diskretare etiketter och visade värden (typ/intervall) utan att datum blir för bleka */
