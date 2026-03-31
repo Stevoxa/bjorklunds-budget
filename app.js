@@ -4973,6 +4973,8 @@ function renderTaggedCategoryPage(cat) {
     if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
+    const panelLegend = document.getElementById(`${cat}EditorPanelLegend`);
+    if (panelLegend) panelLegend.textContent = editing ? "Redigera" : "Lägg till";
 
     const kf = C.subcategoryField || "subcategory";
     const defaultTypeKey = C.defaultTypeKey || C.types[0]?.key || "own";

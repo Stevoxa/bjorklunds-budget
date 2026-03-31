@@ -238,57 +238,60 @@
             <div class="table-card" id="homeEditorCard" hidden>
               <div class="table-title" id="homeEditorTitle">Ny hemutgift</div>
               <div class="bb-error-summary" id="homeErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid narrow">
-                <label class="field">
-                  Typ
-                  <select id="homeEditType"></select>
-                </label>
-                <label class="field">
-                  Namn på utgift
-                  <input id="homeEditName" type="text" autocomplete="off" list="homeEditNameList" />
-                  <datalist id="homeEditNameList"></datalist>
-                  <div class="field-error" id="homeErrName" hidden></div>
-                </label>
-                <label class="field" id="homePaymentDayRow">
-                  Betalningsdag (dag i månaden)
-                  <input id="homeEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                </label>
-                <label class="field">
-                  Betalningsintervall
-                  <select id="homeEditInterval">
-                    <option value="once">Enskild</option>
-                    <option value="monthly">Månad</option>
-                    <option value="quarterly">Kvartal</option>
-                    <option value="yearly">År</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <input
-                    id="homeEditFirstDate"
-                    type="date"
-                    data-notch-label="Betalningsdatum"
-                  />
-                  <div class="field-error" id="homeErrFirstDate" hidden></div>
-                </label>
-                <label class="field" id="homeEndDateRow">
-                  <input
-                    id="homeEditEndDate"
-                    type="date"
-                    data-notch-label="Betalning upphör (valfritt)"
-                    data-date-clear
-                  />
-                  <div class="field-error" id="homeErrEndDate" hidden></div>
-                </label>
-                <label class="field">
-                  Belopp (kr)
-                  <input id="homeEditAmount" type="number" inputmode="decimal" min="0" step="1" />
-                  <div class="field-error" id="homeErrAmount" hidden></div>
-                </label>
-              </div>
-              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
-                <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
-                <button class="primary" id="homeSaveBtn" type="button">Lägg till</button>
-                <button class="secondary" id="homeCancelEditorBtn" type="button">Avbryt</button>
+              <div class="bb-notched-panel tagged-editor-panel" role="group" aria-label="Lägg till hemutgift">
+                <div class="bb-notched-panel-legend" id="homeEditorPanelLegend">Lägg till</div>
+                <div class="form-grid narrow">
+                  <label class="field">
+                    Typ
+                    <select id="homeEditType"></select>
+                  </label>
+                  <label class="field">
+                    Namn på utgift
+                    <input id="homeEditName" type="text" autocomplete="off" list="homeEditNameList" />
+                    <datalist id="homeEditNameList"></datalist>
+                    <div class="field-error" id="homeErrName" hidden></div>
+                  </label>
+                  <label class="field" id="homePaymentDayRow">
+                    Betalningsdag (dag i månaden)
+                    <input id="homeEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                  </label>
+                  <label class="field">
+                    Betalningsintervall
+                    <select id="homeEditInterval">
+                      <option value="once">Enskild</option>
+                      <option value="monthly">Månad</option>
+                      <option value="quarterly">Kvartal</option>
+                      <option value="yearly">År</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <input
+                      id="homeEditFirstDate"
+                      type="date"
+                      data-notch-label="Betalningsdatum"
+                    />
+                    <div class="field-error" id="homeErrFirstDate" hidden></div>
+                  </label>
+                  <label class="field" id="homeEndDateRow">
+                    <input
+                      id="homeEditEndDate"
+                      type="date"
+                      data-notch-label="Betalning upphör (valfritt)"
+                      data-date-clear
+                    />
+                    <div class="field-error" id="homeErrEndDate" hidden></div>
+                  </label>
+                  <label class="field">
+                    Belopp (kr)
+                    <input id="homeEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                    <div class="field-error" id="homeErrAmount" hidden></div>
+                  </label>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="primary" id="homeSaveBtn" type="button">Lägg till</button>
+                  <button class="secondary" id="homeCancelEditorBtn" type="button">Avbryt</button>
+                </div>
               </div>
               <div class="note" id="homeNote"></div>
             </div>
@@ -452,57 +455,60 @@
             <div class="table-card" id="carEditorCard" hidden>
               <div class="table-title" id="carEditorTitle">Ny bilutgift</div>
               <div class="bb-error-summary" id="carErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid narrow">
-                <label class="field">
-                  Typ
-                  <select id="carEditType"></select>
-                </label>
-                <label class="field">
-                  Namn på utgift
-                  <input id="carEditName" type="text" autocomplete="off" list="carEditNameList" />
-                  <datalist id="carEditNameList"></datalist>
-                  <div class="field-error" id="carErrName" hidden></div>
-                </label>
-                <label class="field" id="carPaymentDayRow">
-                  Betalningsdag (dag i månaden)
-                  <input id="carEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                </label>
-                <label class="field">
-                  Betalningsintervall
-                  <select id="carEditInterval">
-                    <option value="once">Enskild</option>
-                    <option value="monthly">Månad</option>
-                    <option value="quarterly">Kvartal</option>
-                    <option value="yearly">År</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <input
-                    id="carEditFirstDate"
-                    type="date"
-                    data-notch-label="Betalningsdatum"
-                  />
-                  <div class="field-error" id="carErrFirstDate" hidden></div>
-                </label>
-                <label class="field" id="carEndDateRow">
-                  <input
-                    id="carEditEndDate"
-                    type="date"
-                    data-notch-label="Betalning upphör (valfritt)"
-                    data-date-clear
-                  />
-                  <div class="field-error" id="carErrEndDate" hidden></div>
-                </label>
-                <label class="field">
-                  Belopp (kr)
-                  <input id="carEditAmount" type="number" inputmode="decimal" min="0" step="1" />
-                  <div class="field-error" id="carErrAmount" hidden></div>
-                </label>
-              </div>
-              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
-                <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
-                <button class="primary" id="carSaveBtn" type="button">Lägg till</button>
-                <button class="secondary" id="carCancelEditorBtn" type="button">Avbryt</button>
+              <div class="bb-notched-panel tagged-editor-panel" role="group" aria-label="Lägg till bilutgift">
+                <div class="bb-notched-panel-legend" id="carEditorPanelLegend">Lägg till</div>
+                <div class="form-grid narrow">
+                  <label class="field">
+                    Typ
+                    <select id="carEditType"></select>
+                  </label>
+                  <label class="field">
+                    Namn på utgift
+                    <input id="carEditName" type="text" autocomplete="off" list="carEditNameList" />
+                    <datalist id="carEditNameList"></datalist>
+                    <div class="field-error" id="carErrName" hidden></div>
+                  </label>
+                  <label class="field" id="carPaymentDayRow">
+                    Betalningsdag (dag i månaden)
+                    <input id="carEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                  </label>
+                  <label class="field">
+                    Betalningsintervall
+                    <select id="carEditInterval">
+                      <option value="once">Enskild</option>
+                      <option value="monthly">Månad</option>
+                      <option value="quarterly">Kvartal</option>
+                      <option value="yearly">År</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <input
+                      id="carEditFirstDate"
+                      type="date"
+                      data-notch-label="Betalningsdatum"
+                    />
+                    <div class="field-error" id="carErrFirstDate" hidden></div>
+                  </label>
+                  <label class="field" id="carEndDateRow">
+                    <input
+                      id="carEditEndDate"
+                      type="date"
+                      data-notch-label="Betalning upphör (valfritt)"
+                      data-date-clear
+                    />
+                    <div class="field-error" id="carErrEndDate" hidden></div>
+                  </label>
+                  <label class="field">
+                    Belopp (kr)
+                    <input id="carEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                    <div class="field-error" id="carErrAmount" hidden></div>
+                  </label>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="primary" id="carSaveBtn" type="button">Lägg till</button>
+                  <button class="secondary" id="carCancelEditorBtn" type="button">Avbryt</button>
+                </div>
               </div>
               <div class="note" id="carNote"></div>
             </div>
@@ -980,57 +986,60 @@
             <div class="table-card" id="childrenEditorCard" hidden>
               <div class="table-title" id="childrenEditorTitle">Ny barnutgift</div>
               <div class="bb-error-summary" id="childrenErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid narrow">
-                <label class="field">
-                  Typ
-                  <select id="childrenEditType"></select>
-                </label>
-                <label class="field">
-                  Namn på utgift
-                  <input id="childrenEditName" type="text" autocomplete="off" list="childrenEditNameList" />
-                  <datalist id="childrenEditNameList"></datalist>
-                  <div class="field-error" id="childrenErrName" hidden></div>
-                </label>
-                <label class="field" id="childrenPaymentDayRow">
-                  Betalningsdag (dag i månaden)
-                  <input id="childrenEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                </label>
-                <label class="field">
-                  Betalningsintervall
-                  <select id="childrenEditInterval">
-                    <option value="once">Enskild</option>
-                    <option value="monthly">Månad</option>
-                    <option value="quarterly">Kvartal</option>
-                    <option value="yearly">År</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <input
-                    id="childrenEditFirstDate"
-                    type="date"
-                    data-notch-label="Betalningsdatum"
-                  />
-                  <div class="field-error" id="childrenErrFirstDate" hidden></div>
-                </label>
-                <label class="field" id="childrenEndDateRow">
-                  <input
-                    id="childrenEditEndDate"
-                    type="date"
-                    data-notch-label="Betalning upphör (valfritt)"
-                    data-date-clear
-                  />
-                  <div class="field-error" id="childrenErrEndDate" hidden></div>
-                </label>
-                <label class="field">
-                  Belopp (kr)
-                  <input id="childrenEditAmount" type="number" inputmode="decimal" min="0" step="1" />
-                  <div class="field-error" id="childrenErrAmount" hidden></div>
-                </label>
-              </div>
-              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
-                <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
-                <button class="primary" id="childrenSaveBtn" type="button">Lägg till</button>
-                <button class="secondary" id="childrenCancelEditorBtn" type="button">Avbryt</button>
+              <div class="bb-notched-panel tagged-editor-panel" role="group" aria-label="Lägg till barnutgift">
+                <div class="bb-notched-panel-legend" id="childrenEditorPanelLegend">Lägg till</div>
+                <div class="form-grid narrow">
+                  <label class="field">
+                    Typ
+                    <select id="childrenEditType"></select>
+                  </label>
+                  <label class="field">
+                    Namn på utgift
+                    <input id="childrenEditName" type="text" autocomplete="off" list="childrenEditNameList" />
+                    <datalist id="childrenEditNameList"></datalist>
+                    <div class="field-error" id="childrenErrName" hidden></div>
+                  </label>
+                  <label class="field" id="childrenPaymentDayRow">
+                    Betalningsdag (dag i månaden)
+                    <input id="childrenEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                  </label>
+                  <label class="field">
+                    Betalningsintervall
+                    <select id="childrenEditInterval">
+                      <option value="once">Enskild</option>
+                      <option value="monthly">Månad</option>
+                      <option value="quarterly">Kvartal</option>
+                      <option value="yearly">År</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <input
+                      id="childrenEditFirstDate"
+                      type="date"
+                      data-notch-label="Betalningsdatum"
+                    />
+                    <div class="field-error" id="childrenErrFirstDate" hidden></div>
+                  </label>
+                  <label class="field" id="childrenEndDateRow">
+                    <input
+                      id="childrenEditEndDate"
+                      type="date"
+                      data-notch-label="Betalning upphör (valfritt)"
+                      data-date-clear
+                    />
+                    <div class="field-error" id="childrenErrEndDate" hidden></div>
+                  </label>
+                  <label class="field">
+                    Belopp (kr)
+                    <input id="childrenEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                    <div class="field-error" id="childrenErrAmount" hidden></div>
+                  </label>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="primary" id="childrenSaveBtn" type="button">Lägg till</button>
+                  <button class="secondary" id="childrenCancelEditorBtn" type="button">Avbryt</button>
+                </div>
               </div>
               <div class="note" id="childrenNote"></div>
             </div>
@@ -1080,51 +1089,52 @@
             <div class="table-card" id="savingsEditorCard" hidden>
               <div class="table-title" id="savingsEditorTitle">Nytt sparande</div>
               <div class="bb-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="form-grid">
-                <label class="field">
-                  Namn på spar
-                  <input id="savingsEditName" type="text" autocomplete="off" list="savingsEditNameList" />
-                  <datalist id="savingsEditNameList"></datalist>
-                </label>
-                <label class="field" id="savingsPaymentDayRow">
-                  Sparningsdag (dag i månaden)
-                  <input id="savingsEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                </label>
-                <label class="field">
-                  Sparintervall
-                  <select id="savingsEditInterval">
-                    <option value="once">Enskild</option>
-                    <option value="monthly">Månad</option>
-                    <option value="quarterly">Kvartal</option>
-                    <option value="yearly">År</option>
-                  </select>
-                </label>
-                <label class="field">
-                  <input
-                    id="savingsEditFirstDate"
-                    type="date"
-                    data-notch-label="Spar datum"
-                  />
-                </label>
-                <label class="field" id="savingsEndDateRow">
-                  <input
-                    id="savingsEditEndDate"
-                    type="date"
-                    data-notch-label="Spar upphör (valfritt)"
-                    data-date-clear
-                  />
-                </label>
-                <label class="field">
-                  Belopp (kr)
-                  <input id="savingsEditAmount" type="number" inputmode="decimal" min="0" step="1" />
-                </label>
-              </div>
-              <div class="actions-row car-editor-actions-primary">
-                <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
-                <button class="primary" id="savingsSaveBtn" type="button">Lägg till</button>
-              </div>
-              <div class="actions-row car-editor-actions-cancel">
-                <button class="secondary stretch" id="savingsCancelEditorBtn" type="button">Avbryt</button>
+              <div class="bb-notched-panel tagged-editor-panel" role="group" aria-label="Lägg till sparande">
+                <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till</div>
+                <div class="form-grid narrow">
+                  <label class="field">
+                    Namn på spar
+                    <input id="savingsEditName" type="text" autocomplete="off" list="savingsEditNameList" />
+                    <datalist id="savingsEditNameList"></datalist>
+                  </label>
+                  <label class="field" id="savingsPaymentDayRow">
+                    Sparningsdag (dag i månaden)
+                    <input id="savingsEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                  </label>
+                  <label class="field">
+                    Sparintervall
+                    <select id="savingsEditInterval">
+                      <option value="once">Enskild</option>
+                      <option value="monthly">Månad</option>
+                      <option value="quarterly">Kvartal</option>
+                      <option value="yearly">År</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <input
+                      id="savingsEditFirstDate"
+                      type="date"
+                      data-notch-label="Spar datum"
+                    />
+                  </label>
+                  <label class="field" id="savingsEndDateRow">
+                    <input
+                      id="savingsEditEndDate"
+                      type="date"
+                      data-notch-label="Spar upphör (valfritt)"
+                      data-date-clear
+                    />
+                  </label>
+                  <label class="field">
+                    Belopp (kr)
+                    <input id="savingsEditAmount" type="number" inputmode="decimal" min="0" step="1" />
+                  </label>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="primary" id="savingsSaveBtn" type="button">Lägg till</button>
+                  <button class="secondary" id="savingsCancelEditorBtn" type="button">Avbryt</button>
+                </div>
               </div>
               <div class="note" id="savingsNote"></div>
             </div>
