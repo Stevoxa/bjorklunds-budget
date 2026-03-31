@@ -3274,6 +3274,21 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   --bb-notched-panel-margin-extra: 14px;
 }
 
+/* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
+.exp-overlay .table-title + .tagged-exp-overlay-intro {
+  margin-top: calc(var(--space-2) * -1);
+  margin-bottom: var(--space-3);
+}
+
+.exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+.exp-overlay[data-expview="savings"] .car-omkostnader-card > .tagged-exp-overlay-intro {
+  margin-bottom: var(--space-3);
+}
+
 button.stretch {
   flex: 1;
   min-width: 0;
