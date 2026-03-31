@@ -3303,7 +3303,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
 .exp-overlay[data-expview="savings"] {
-  --bb-notched-panel-margin-extra: 18px;
+  --bb-notched-panel-margin-extra: 22px;
 }
 
 /* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
@@ -3319,12 +3319,12 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .tagged-omkostnader-panel {
-  margin-top: var(--space-6);
+  margin-top: calc(var(--space-6) + var(--space-2));
 }
 
 /* Bil/Hem/Barn/Spar: editor som notchad box (Mat-likt) */
 .tagged-editor-panel {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
   margin-bottom: var(--space-6);
 }
 
@@ -3354,14 +3354,24 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   color: color-mix(in srgb, var(--text) 88%, var(--muted));
 }
 
+.tagged-editor-panel .date-field-row--empty .date-field-row-value {
+  color: color-mix(in srgb, var(--muted) 82%, var(--text));
+  font-weight: 400;
+}
+
 /* Mer inre marginal i redigeringspanelen (Mat använder rymligare kant mot kortkant) */
 .bb-notched-panel.tagged-editor-panel {
   --bb-notched-panel-margin-extra: 20px;
   /* Extra luft mellan notch-rubrik (Lägg till/Redigera) och första fältet */
-  padding-top: calc(var(--bb-notched-panel-pad-top) + 12px);
+  padding-top: calc(var(--bb-notched-panel-pad-top) + 18px);
   padding-left: 18px;
   padding-right: 18px;
   padding-bottom: 18px;
+}
+
+/* Listpanel (Utgifter för bil m.m.): lite mer luft ovanför notch-rubriken */
+.bb-notched-panel.tagged-omkostnader-panel {
+  padding-top: calc(var(--bb-notched-panel-pad-top) + 8px);
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {

@@ -867,13 +867,13 @@ function formatDateRowDisplay(iso, inp) {
   const empty = !iso || typeof iso !== "string" || String(iso).trim() === "";
   if (empty) {
     if (inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear")) return "Tillsvidare";
-    return "Välj datum";
+    return "välj datum";
   }
   const parts = datePartsFromIso(iso);
-  if (!parts) return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
+  if (!parts) return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "välj datum";
   const d = new Date(parts.y, parts.m - 1, parts.d);
   if (Number.isNaN(d.getTime()))
-    return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
+    return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "välj datum";
   const currentY = new Date().getFullYear();
   const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
   const capWd = wd ? wd.charAt(0).toUpperCase() + wd.slice(1) : "";
@@ -937,7 +937,11 @@ function syncDateFieldRow(inp) {
   const tr = wrap.querySelector(".date-field-row-trigger");
   const val = wrap.querySelector(".date-field-row-value");
   const shown = formatDateRowDisplay(inp.value, inp);
+  const empty = !inp.value || String(inp.value).trim() === "";
+  const placeholderEmpty =
+    empty && !(inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear"));
   if (val) val.textContent = shown;
+  wrap.classList.toggle("date-field-row--empty", placeholderEmpty);
   if (tr) {
     tr.disabled = inp.disabled;
     const base = humanLabelForDateInput(inp);
@@ -4952,7 +4956,7 @@ function renderTaggedCategoryPage(cat) {
 
   if (u.editorOpen && nameInp && intervalSel && firstInp && endInp && amtInp) {
     if (editorTitle) editorTitle.textContent = editing ? "Redigera utgift" : "Lägg till utgift";
-    if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
+    if (saveBtn) saveBtn.textContent = "Spara";
     if (delBtn) delBtn.hidden = !editing;
 
     const kf = C.subcategoryField || "subcategory";
@@ -4975,10 +4979,7 @@ function renderTaggedCategoryPage(cat) {
       }
       nameInp.value = C.hideTypeInEditor ? "" : defType ? defType.label : "";
       intervalSel.value = "once";
-      const y = Number(u.listYear) || baseYear;
-      const m = Number(u.listMonth) || cur.month;
-      const d = clampDay(y, m, 25);
-      firstInp.value = `${y}-${pad2(m)}-${pad2(d)}`;
+      firstInp.value = "";
       endInp.value = "";
       amtInp.value = "";
     }
