@@ -3357,6 +3357,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 /* Mer inre marginal i redigeringspanelen (Mat använder rymligare kant mot kortkant) */
 .bb-notched-panel.tagged-editor-panel {
   --bb-notched-panel-margin-extra: 20px;
+  /* Extra luft mellan notch-rubrik (Lägg till/Redigera) och första fältet */
+  padding-top: calc(var(--bb-notched-panel-pad-top) + 12px);
   padding-left: 18px;
   padding-right: 18px;
   padding-bottom: 18px;
