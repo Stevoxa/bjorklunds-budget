@@ -2430,6 +2430,16 @@ body.modal-open {
   margin-bottom: 0;
 }
 
+.food-mat-subsection-top {
+  padding-bottom: 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.food-mat-panel-back--in-card {
+  font-size: 1.05rem;
+}
+
 .food-mat-subsection-warn:not([hidden]) {
   margin-bottom: 4px;
 }
