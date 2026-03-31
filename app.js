@@ -4847,6 +4847,7 @@ function renderTaggedExpenseListMount(cat) {
   if (!mount) return;
 
   const u = ui.tagged[cat];
+  const editorOpen = Boolean(u && u.editorOpen);
   const year = Number(u.listYear);
   const month = Number(u.listMonth);
   if (!Number.isFinite(year) || !Number.isFinite(month)) return;
@@ -4864,6 +4865,7 @@ function renderTaggedExpenseListMount(cat) {
     for (const r of rows) {
       const row = document.createElement("div");
       row.className = "tagged-expense-preview-row";
+      const dis = editorOpen ? "disabled" : "";
       row.innerHTML = `
         <div class="tagged-expense-row-top">
           <strong class="tagged-expense-title">${escapeHtml(r.titleLine)}</strong>
@@ -4871,7 +4873,7 @@ function renderTaggedExpenseListMount(cat) {
         </div>
         <div class="tagged-expense-row-meta">
           <span class="tagged-expense-date">${escapeHtml(r.dateStr)}</span>
-          <button type="button" class="secondary btn-icon tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera">✎</button>
+          <button type="button" class="secondary btn-icon tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera" ${dis} aria-disabled="${editorOpen ? "true" : "false"}">✎</button>
         </div>
       `;
       mount.appendChild(row);
@@ -4883,6 +4885,7 @@ function renderTaggedExpenseListMount(cat) {
   }
 
   mount.onclick = (e) => {
+    if (editorOpen) return;
     const btn = e.target.closest("[data-tagged-edit-id]");
     if (!btn) return;
     const id = btn.getAttribute("data-tagged-edit-id");
@@ -4946,6 +4949,7 @@ function renderTaggedCategoryPage(cat) {
   const delBtn = document.getElementById(ids.deleteBtn);
   const saveBtn = document.getElementById(ids.saveBtn);
   const note = document.getElementById(ids.note);
+  const addBtn = document.getElementById(ids.addBtn);
 
   if (typeSel && typeSel.options.length === 0) {
     for (const t of C.types) {
@@ -4960,6 +4964,10 @@ function renderTaggedCategoryPage(cat) {
   const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.category === C.category) : null;
 
   if (editorCard) editorCard.hidden = !u.editorOpen;
+  if (addBtn) {
+    addBtn.disabled = Boolean(u.editorOpen);
+    addBtn.setAttribute("aria-disabled", u.editorOpen ? "true" : "false");
+  }
 
   if (u.editorOpen && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
     if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;

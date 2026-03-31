@@ -3276,8 +3276,17 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 /* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
 .exp-overlay .table-title + .tagged-exp-overlay-intro {
-  margin-top: calc(var(--space-2) * -1);
+  margin-top: 2px;
   margin-bottom: var(--space-3);
+}
+
+.tagged-exp-overlay-intro {
+  color: color-mix(in srgb, var(--text) 86%, var(--muted));
+  font-size: 0.92rem;
+}
+
+.tagged-omkostnader-panel {
+  margin-top: 12px;
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {
