@@ -3249,6 +3249,24 @@ function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDa
     return out;
   }
 
+  if (interval === "weekly") {
+    const cur = new Date(firstParts.y, firstParts.m - 1, firstParts.d);
+    cur.setHours(12, 0, 0, 0);
+    for (let guard = 0; guard < 800; guard++) {
+      const y = cur.getFullYear();
+      const m = cur.getMonth() + 1;
+      const d = cur.getDate();
+      const t = cur.getTime();
+      if (endTime !== null && t > endTime) break;
+      if (t >= firstTime && y >= minY && y <= maxY && isAllowedYear(y)) {
+        out.push({ id: uid(), date: `${y}-${pad2(m)}-${pad2(d)}`, amount: amt });
+      }
+      cur.setDate(cur.getDate() + 7);
+      if (y > maxY + 2) break;
+    }
+    return out;
+  }
+
   let y = firstParts.y;
   let m = firstParts.m;
   let first = true;
@@ -4872,9 +4890,24 @@ function formatTaggedExpenseDateDisplaySv(isoDate) {
   return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** ISO-veckonummer 1–53 för lokalt Y-M-D (ISO 8601, samma som i Sverige). */
+function isoWeekNumberForYmdParts(y, m, d) {
+  const date = new Date(y, m - 1, d, 12, 0, 0);
+  const tmp = new Date(date);
+  tmp.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const week1 = new Date(tmp.getFullYear(), 0, 4);
+  return (
+    1 +
+    Math.round(
+      ((tmp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7
+    )
+  );
+}
+
 function formatTaggedIntervalPaymentLabel(interval) {
   const iv = String(interval || "").trim();
   if (!iv || iv === "once") return "Engångsbelopp";
+  if (iv === "weekly") return "Veckovis betalning";
   if (iv === "monthly") return "Månadsvis betalning";
   if (iv === "quarterly") return "Kvartalsvis betalning";
   if (iv === "yearly") return "Årsvis betalning";
@@ -4904,7 +4937,11 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
     if (sum <= 0) continue;
     datesInMonth.sort();
     const dateIso = datesInMonth[0] || "";
-    const nameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
+    let nameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
+    if (exp.interval === "weekly" && dateIso) {
+      const dp = datePartsFromIso(dateIso);
+      if (dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+    }
     const intervalLine = formatTaggedIntervalPaymentLabel(exp.interval);
     rows.push({
       expenseId: exp.id,
@@ -5073,7 +5110,9 @@ function renderTaggedCategoryPage(cat) {
         typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
       }
       nameInp.value = editing.name || (C.hideTypeInEditor ? "" : getTaggedTypeLabel(cat, curKey));
-      intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
+      intervalSel.value = ["once", "weekly", "monthly", "quarterly", "yearly"].includes(editing.interval)
+        ? editing.interval
+        : "monthly";
       const inf = inferScheduleMetaFromExpense(editing);
       firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";

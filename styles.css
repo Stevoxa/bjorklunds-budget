@@ -3281,6 +3281,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
   color: var(--text);
 }
