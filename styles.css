@@ -1027,6 +1027,7 @@ button:focus:not(:focus-visible) {
   background: transparent;
   color: var(--text);
   font: inherit;
+  font-weight: 400;
   cursor: pointer;
   text-align: left;
   border-radius: inherit;
@@ -3173,7 +3174,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 .tagged-omkostnader-picker {
   justify-content: flex-start;
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 .tagged-omkostnader-picker label {
@@ -3187,8 +3188,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .tagged-omkostnader-month-heading {
-  margin: 14px 0 0;
-  padding-bottom: 8px;
+  margin: 18px 0 0;
+  padding-bottom: 10px;
   border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
   font-size: 0.95rem;
   font-weight: 600;
@@ -3291,40 +3292,57 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 /* Hem / Bil / Barn: samma knapprad som Mat (Spara, Avbryt i kolumn) */
 .tagged-category-editor-actions {
-  margin-top: var(--space-4);
+  margin-top: 22px;
 }
 
-/* Samma luft som Mat mellan intro och notchade ytor */
+/*
+ * Utgiftsöverlägg (Hem/Bil/Barn/Spar): lite mer luft kring notchade paneler än standard,
+ * i linje med Mat-flikarnas periodredigerare (SJ-lik appkänsla).
+ */
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
 .exp-overlay[data-expview="savings"] {
-  --bb-notched-panel-margin-extra: 14px;
+  --bb-notched-panel-margin-extra: 18px;
 }
 
 /* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
 .exp-overlay .table-title + .tagged-exp-overlay-intro {
   margin-top: 2px;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .tagged-exp-overlay-intro {
   color: color-mix(in srgb, var(--text) 86%, var(--muted));
   font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .tagged-omkostnader-panel {
-  margin-top: var(--space-4);
+  margin-top: var(--space-6);
 }
 
 /* Bil/Hem/Barn/Spar: editor som notchad box (Mat-likt) */
 .tagged-editor-panel {
-  margin-top: var(--space-4);
-  margin-bottom: var(--space-5);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-6);
 }
 
+/*
+ * Samma vertikala rytm som .food-mat-period-editor-content > .form-grid (18px)
+ * och avvikelse/hushåll (22px) — inte tightare gap än Mat.
+ */
 .tagged-editor-panel .form-grid.narrow {
-  gap: 14px;
+  row-gap: 22px;
+  column-gap: 12px;
+}
+
+/* Mer inre marginal i redigeringspanelen (Mat använder rymligare kant mot kortkant) */
+.bb-notched-panel.tagged-editor-panel {
+  --bb-notched-panel-margin-extra: 20px;
+  padding-left: 18px;
+  padding-right: 18px;
+  padding-bottom: 18px;
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {
