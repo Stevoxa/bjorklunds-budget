@@ -2197,6 +2197,12 @@ function refreshTaggedExpenseNameDatalist(cat, nameInputId) {
   const inp = document.getElementById(nameInputId);
   if (!dl || !inp) return;
   const names = new Set();
+  const cur = String(inp.value || "").trim();
+  if (cur) names.add(cur);
+  for (const t of C.types || []) {
+    const lab = String(t.label || "").trim();
+    if (lab) names.add(lab);
+  }
   for (const exp of state.expenses || []) {
     if (exp.category !== C.category) continue;
     const n = String(exp.name || "").trim();
@@ -4990,11 +4996,11 @@ function renderTaggedCategoryPage(cat) {
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
       amtInp.value = inf.amount > 0 ? formatKrLikeList(inf.amount) : "";
     } else {
-      if (typeSel) {
-        const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
+      const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
+      if (typeSel && defType) {
         typeSel.value = defType.key;
       }
-      nameInp.value = C.hideTypeInEditor ? "" : (C.types[0] ? C.types[0].label : "");
+      nameInp.value = C.hideTypeInEditor ? "" : defType ? defType.label : "";
       intervalSel.value = "once";
       const y = Number(u.listYear) || baseYear;
       const m = Number(u.listMonth) || cur.month;
@@ -5023,6 +5029,7 @@ function renderTaggedCategoryPage(cat) {
       if (C.hideTypeInEditor) return;
       const t = C.types.find((x) => x.key === typeSel.value);
       if (t && nameInp) nameInp.value = t.label;
+      refreshTaggedExpenseNameDatalist(cat, ids.editName);
     });
   }
 }
