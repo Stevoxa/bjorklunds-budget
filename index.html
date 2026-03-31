@@ -1172,15 +1172,24 @@
           <section class="exp-view exp-overlay" data-expview="savings" hidden>
             <div class="bb-error-summary tagged-editor-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
             <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button
+                  type="button"
+                  class="food-mat-panel-back"
+                  data-exp-close
+                  aria-label="Tillbaka till Utgifter"
+                >Utgifter</button>
+              </div>
+              <div class="table-title">Spar</div>
               <p class="note tagged-exp-overlay-intro">
                 Planera ditt sparande och sätt mål för hur mycket du vill lägga undan över tid.
               </p>
-              <div class="bb-notched-panel tagged-editor-panel" id="savingsEditorCard" hidden role="group" aria-label="Lägg till utgift">
-                <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till utgift</div>
+              <div class="bb-notched-panel tagged-editor-panel" id="savingsEditorCard" hidden role="group" aria-label="Lägg till sparande">
+                <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till sparande</div>
                 <div class="form-grid narrow">
                   <div class="tagged-editor-field-wrap">
-                    <div class="bb-notched-field" role="group" aria-label="Namn på spar">
-                      <div class="bb-notched-field-legend">Namn på spar</div>
+                    <div class="bb-notched-field" role="group" aria-label="Namn">
+                      <div class="bb-notched-field-legend">Namn</div>
                       <input
                         id="savingsEditName"
                         class="bb-notched-field-plain-input"
@@ -1188,16 +1197,18 @@
                         autocomplete="off"
                       />
                     </div>
+                    <div class="field-error tagged-editor-field-error" id="savingsErrName" hidden></div>
                   </div>
                   <label class="field">
                     <input
                       id="savingsEditFirstDate"
                       type="date"
-                      data-notch-label="Betaldatum"
+                      data-notch-label="Spar datum"
                     />
                   </label>
-                  <div class="bb-notched-field" role="group" aria-label="Sparintervall">
-                    <div class="bb-notched-field-legend">Sparintervall</div>
+                  <div class="field-error tagged-editor-field-error" id="savingsErrFirstDate" hidden></div>
+                  <div class="bb-notched-field" role="group" aria-label="Intervall">
+                    <div class="bb-notched-field-legend">Intervall</div>
                     <button
                       type="button"
                       class="bb-notched-field-btn"
@@ -1224,6 +1235,7 @@
                       data-date-clear
                     />
                   </label>
+                  <div class="field-error tagged-editor-field-error" id="savingsErrEndDate" hidden></div>
                   <div class="tagged-editor-field-wrap">
                     <div class="bb-notched-field" role="group" aria-label="Belopp">
                       <div class="bb-notched-field-legend">Belopp</div>
@@ -1235,6 +1247,7 @@
                         autocomplete="off"
                       />
                     </div>
+                    <div class="field-error tagged-editor-field-error" id="savingsErrAmount" hidden></div>
                   </div>
                 </div>
                 <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
@@ -1268,9 +1281,6 @@
                   </span>
                   <span class="food-mat-add-period-card__label">Lägg till</span>
                 </button>
-              </div>
-              <div class="exp-app-bar">
-                <button class="secondary stretch exp-app-bar-btn" type="button" data-exp-close>Tillbaka</button>
               </div>
             </div>
           </section>

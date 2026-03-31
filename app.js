@@ -3014,12 +3014,13 @@ const TAGGED_CATEGORY_CONFIG = {
       editItem: "Redigera sparande",
       emptyMonth: "Inget spar denna månad.",
       monthListTitlePrefix: "Sparbelopp",
+      monthTotalPrefix: "Totalt sparat denna månad",
       nameRequiredHint: "Ange namn på spar.",
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
       endDateHint: "Ogiltigt slutdatum för spar.",
-      firstDateOnce: "Betaldatum",
-      firstDateRecurring: "Betaldatum",
+      firstDateOnce: "Spar datum",
+      firstDateRecurring: "Spar datum",
       endDate: "Gäller till"
     }
   }
@@ -4914,6 +4915,16 @@ function formatTaggedIntervalPaymentLabel(interval) {
   return "Engångsbelopp";
 }
 
+function formatTaggedSavingsIntervalLabel(interval) {
+  const iv = String(interval || "").trim();
+  if (!iv || iv === "once") return "Engångsspar";
+  if (iv === "weekly") return "Veckovis sparande";
+  if (iv === "monthly") return "Månadsvis sparande";
+  if (iv === "quarterly") return "Kvartalsvis sparande";
+  if (iv === "yearly") return "Årligt sparande";
+  return "Engångsspar";
+}
+
 function getTaggedExpenseRowsForMonth(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   const keyField = C.subcategoryField || "subcategory";
@@ -4924,7 +4935,8 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
     const typeLabel = getTaggedTypeLabel(cat, key);
     const nameRaw = String(exp.name || "").trim();
     const baseNameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
-    const intervalLine = formatTaggedIntervalPaymentLabel(exp.interval);
+    const intervalLine =
+      cat === "savings" ? formatTaggedSavingsIntervalLabel(exp.interval) : formatTaggedIntervalPaymentLabel(exp.interval);
 
     const paymentsInMonth = [];
     for (const p of exp.payments || []) {
@@ -5002,8 +5014,9 @@ function renderTaggedExpenseListMount(cat) {
       row.className = "tagged-expense-preview-row";
       const dis = editorOpen ? "disabled" : "";
       const ariaDis = editorOpen ? "true" : "false";
+      const editAria = cat === "savings" ? "Redigera sparande" : "Redigera utgift";
       row.innerHTML = `
-        <button type="button" class="tagged-expense-row-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera utgift" ${dis} aria-disabled="${ariaDis}">
+        <button type="button" class="tagged-expense-row-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="${escapeHtml(editAria)}" ${dis} aria-disabled="${ariaDis}">
           <span class="tagged-expense-row-btn-main">
             <span class="tagged-expense-row-line1">
               <span class="tagged-expense-name">${escapeHtml(r.nameLine)}</span>
@@ -5019,7 +5032,8 @@ function renderTaggedExpenseListMount(cat) {
   }
 
   if (totalEl) {
-    totalEl.textContent = total > 0 ? `Totalt denna månad: ${formatKr(total)}` : "";
+    const totalPrefix = (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+    totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
   }
 
   mount.onclick = (e) => {
@@ -5112,7 +5126,20 @@ function renderTaggedCategoryPage(cat) {
   }
 
   if (u.editorOpen && nameInp && intervalSel && firstInp && endInp && amtInp) {
-    if (editorTitle) editorTitle.textContent = editing ? "Redigera utgift" : "Lägg till utgift";
+    if (editorTitle) {
+      if (cat === "savings") {
+        editorTitle.textContent = editing ? "Redigera sparande" : "Lägg till sparande";
+      } else {
+        editorTitle.textContent = editing ? "Redigera utgift" : "Lägg till utgift";
+      }
+    }
+    if (editorCard) {
+      if (cat === "savings") {
+        editorCard.setAttribute("aria-label", editing ? "Redigera sparande" : "Lägg till sparande");
+      } else {
+        editorCard.setAttribute("aria-label", editing ? "Redigera utgift" : "Lägg till utgift");
+      }
+    }
     if (saveBtn) saveBtn.textContent = "Spara";
     if (delBtn) delBtn.hidden = !editing;
 
@@ -5166,7 +5193,7 @@ function renderTaggedCategoryPage(cat) {
 }
 
 function taggedCategoryHasInlineFieldErrors(cat) {
-  return cat === "car" || cat === "home" || cat === "children";
+  return cat === "car" || cat === "home" || cat === "children" || cat === "savings";
 }
 
 function clearTaggedEditorInlineErrors(cat) {
@@ -5261,7 +5288,7 @@ function wireTaggedEditorPickers(cat) {
     intBtn.addEventListener("click", () => {
       const options = Array.from(intSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
       openListPickerSheet({
-        title: "Välj intervall",
+        title: cat === "savings" ? "Välj sparintervall" : "Välj intervall",
         options,
         currentValue: intSel.value,
         onSelect: (v) => {

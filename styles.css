@@ -3457,10 +3457,6 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   margin-bottom: var(--space-4);
 }
 
-.exp-overlay[data-expview="savings"] .car-omkostnader-card > .tagged-exp-overlay-intro {
-  margin-bottom: var(--space-3);
-}
-
 button.stretch {
   flex: 1;
   min-width: 0;
