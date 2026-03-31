@@ -986,6 +986,33 @@ button:focus:not(:focus-visible) {
   font-weight: 500;
   color: var(--muted);
   background: var(--bb-notched-bg);
+  max-width: calc(100% - 28px);
+}
+
+.bb-notched-field-plain-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 16px var(--space-4) 12px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.bb-notched-field-plain-input:focus {
+  outline: none;
+}
+
+.bb-notched-field > .field-error {
+  margin-top: 6px;
+  padding: 0 2px 4px;
 }
 
 .bb-notched-field-btn {
@@ -1007,7 +1034,7 @@ button:focus:not(:focus-visible) {
 
 .bb-notched-field-value {
   min-width: 0;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 1rem;
 }
 
@@ -1019,7 +1046,7 @@ button:focus:not(:focus-visible) {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 1rem;
   border-radius: inherit;
   -webkit-appearance: none;
@@ -1066,7 +1093,7 @@ button:focus:not(:focus-visible) {
   background: transparent;
   color: var(--text);
   font: inherit;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 1rem;
   text-align: left;
   display: flex;
@@ -1077,7 +1104,7 @@ button:focus:not(:focus-visible) {
 }
 
 .bb-notched-field .date-field-row-value {
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .bb-notched-field:focus-within {
@@ -3270,14 +3297,15 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 /* Samma luft som Mat mellan intro och notchade ytor */
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
-.exp-overlay[data-expview="children"] {
+.exp-overlay[data-expview="children"],
+.exp-overlay[data-expview="savings"] {
   --bb-notched-panel-margin-extra: 14px;
 }
 
 /* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
 .exp-overlay .table-title + .tagged-exp-overlay-intro {
   margin-top: 2px;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .tagged-exp-overlay-intro {
@@ -3291,8 +3319,12 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 /* Bil/Hem/Barn/Spar: editor som notchad box (Mat-likt) */
 .tagged-editor-panel {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.tagged-editor-panel .form-grid.narrow {
+  gap: 14px;
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {

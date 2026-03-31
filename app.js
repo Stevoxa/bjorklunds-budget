@@ -2815,8 +2815,6 @@ const TAGGED_CATEGORY_CONFIG = {
       editorTitle: "carEditorPanelLegend",
       editType: "carEditType",
       editName: "carEditName",
-      paymentDayRow: "carPaymentDayRow",
-      editPaymentDay: "carEditPaymentDay",
       editInterval: "carEditInterval",
       editFirstDate: "carEditFirstDate",
       endDateRow: "carEndDateRow",
@@ -2849,8 +2847,6 @@ const TAGGED_CATEGORY_CONFIG = {
       editorTitle: "homeEditorPanelLegend",
       editType: "homeEditType",
       editName: "homeEditName",
-      paymentDayRow: "homePaymentDayRow",
-      editPaymentDay: "homeEditPaymentDay",
       editInterval: "homeEditInterval",
       editFirstDate: "homeEditFirstDate",
       endDateRow: "homeEndDateRow",
@@ -2883,8 +2879,6 @@ const TAGGED_CATEGORY_CONFIG = {
       editorTitle: "childrenEditorPanelLegend",
       editType: "childrenEditType",
       editName: "childrenEditName",
-      paymentDayRow: "childrenPaymentDayRow",
-      editPaymentDay: "childrenEditPaymentDay",
       editInterval: "childrenEditInterval",
       editFirstDate: "childrenEditFirstDate",
       endDateRow: "childrenEndDateRow",
@@ -2923,8 +2917,6 @@ const TAGGED_CATEGORY_CONFIG = {
       editorCard: "savingsEditorCard",
       editorTitle: "savingsEditorPanelLegend",
       editName: "savingsEditName",
-      paymentDayRow: "savingsPaymentDayRow",
-      editPaymentDay: "savingsEditPaymentDay",
       editInterval: "savingsEditInterval",
       editFirstDate: "savingsEditFirstDate",
       endDateRow: "savingsEndDateRow",
@@ -2950,9 +2942,9 @@ const TAGGED_CATEGORY_CONFIG = {
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
       endDateHint: "Ogiltigt slutdatum för spar.",
-      firstDateOnce: "Spar datum",
-      firstDateRecurring: "Första spar tillfälle",
-      endDate: "Spar upphör (valfritt)"
+      firstDateOnce: "Förfallodatum",
+      firstDateRecurring: "Förfallodatum",
+      endDate: "Hur länge gäller betalningsintervallet? (valfritt)"
     }
   }
 };
@@ -4743,22 +4735,31 @@ function updateTaggedEditorIntervalVisibility(cat) {
   const ids = C.ids;
   const interval = document.getElementById(ids.editInterval)?.value || "once";
   const recurring = interval !== "once";
-  const payDayRow = document.getElementById(ids.paymentDayRow);
   const endRow = document.getElementById(ids.endDateRow);
-  if (payDayRow) payDayRow.hidden = !recurring;
   if (endRow) endRow.hidden = !recurring;
+  const L = C.labels || {};
   const firstInp = document.getElementById(ids.editFirstDate);
   if (firstInp) {
-    const L = C.labels || {};
     const text = recurring
-      ? L.firstDateRecurring || "Första betalningsdatum"
-      : L.firstDateOnce || "Betalningsdatum";
+      ? L.firstDateRecurring || "Förfallodatum"
+      : L.firstDateOnce || "Förfallodatum";
     firstInp.setAttribute("data-notch-label", text);
     const notch = firstInp.closest(".bb-notched-field");
     const leg = notch?.querySelector(".bb-notched-field-legend");
     if (leg) leg.textContent = text;
     syncDateFieldRow(firstInp);
     applyDateFieldRowTabState(firstInp);
+  }
+  const endInp = document.getElementById(ids.editEndDate);
+  if (endInp) {
+    const endText =
+      L.endDate || "Hur länge gäller betalningsintervallet? (valfritt)";
+    endInp.setAttribute("data-notch-label", endText);
+    const endNotch = endInp.closest(".bb-notched-field");
+    const endLeg = endNotch?.querySelector(".bb-notched-field-legend");
+    if (endLeg) endLeg.textContent = endText;
+    syncDateFieldRow(endInp);
+    applyDateFieldRowTabState(endInp);
   }
 }
 
@@ -4941,7 +4942,6 @@ function renderTaggedCategoryPage(cat) {
   const editorTitle = document.getElementById(ids.editorTitle);
   const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
   const nameInp = document.getElementById(ids.editName);
-  const payDayInp = document.getElementById(ids.editPaymentDay);
   const intervalSel = document.getElementById(ids.editInterval);
   const firstInp = document.getElementById(ids.editFirstDate);
   const endInp = document.getElementById(ids.editEndDate);
@@ -4971,7 +4971,7 @@ function renderTaggedCategoryPage(cat) {
     addBtn.setAttribute("aria-disabled", u.editorOpen ? "true" : "false");
   }
 
-  if (u.editorOpen && nameInp && payDayInp && intervalSel && firstInp && endInp && amtInp) {
+  if (u.editorOpen && nameInp && intervalSel && firstInp && endInp && amtInp) {
     if (editorTitle) editorTitle.textContent = editing ? "Redigera utgift" : "Lägg till utgift";
     if (saveBtn) saveBtn.textContent = editing ? "Spara" : "Lägg till";
     if (delBtn) delBtn.hidden = !editing;
@@ -4986,7 +4986,6 @@ function renderTaggedCategoryPage(cat) {
       nameInp.value = editing.name || (C.hideTypeInEditor ? "" : getTaggedTypeLabel(cat, curKey));
       intervalSel.value = ["once", "monthly", "quarterly", "yearly"].includes(editing.interval) ? editing.interval : "monthly";
       const inf = inferScheduleMetaFromExpense(editing);
-      payDayInp.value = String(inf.payDay);
       firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
       endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
       amtInp.value = inf.amount > 0 ? formatKrLikeList(inf.amount) : "";
@@ -4997,7 +4996,6 @@ function renderTaggedCategoryPage(cat) {
       }
       nameInp.value = C.hideTypeInEditor ? "" : (C.types[0] ? C.types[0].label : "");
       intervalSel.value = "once";
-      payDayInp.value = "25";
       const y = Number(u.listYear) || baseYear;
       const m = Number(u.listMonth) || cur.month;
       const d = clampDay(y, m, 25);
@@ -5181,7 +5179,6 @@ function saveTaggedCategoryFromEditor(cat) {
   clearTaggedEditorInlineErrors(cat);
   const typeSel = ids.editType ? document.getElementById(ids.editType) : null;
   const nameInp = document.getElementById(ids.editName);
-  const payDayInp = document.getElementById(ids.editPaymentDay);
   const intervalSel = document.getElementById(ids.editInterval);
   const firstInp = document.getElementById(ids.editFirstDate);
   const endInp = document.getElementById(ids.editEndDate);
@@ -5226,7 +5223,7 @@ function saveTaggedCategoryFromEditor(cat) {
     renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
     return;
   }
-  const paymentDay = Math.max(1, Math.min(31, Math.floor(asNumber(payDayInp?.value) || 25)));
+  const paymentDay = Math.max(1, Math.min(31, Math.floor(firstParts.d)));
   let endDateISO = (endInp?.value || "").trim();
   if (interval === "once") {
     endDateISO = "";

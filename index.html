@@ -266,16 +266,18 @@
                     </button>
                   </div>
                   <select id="homeEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                  <label class="field">
-                    Namn på utgift
-                    <input id="homeEditName" type="text" autocomplete="off" list="homeEditNameList" />
+                  <div class="bb-notched-field" role="group" aria-label="Namn på utgift">
+                    <div class="bb-notched-field-legend">Namn på utgift</div>
+                    <input
+                      id="homeEditName"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      autocomplete="off"
+                      list="homeEditNameList"
+                    />
                     <datalist id="homeEditNameList"></datalist>
                     <div class="field-error" id="homeErrName" hidden></div>
-                  </label>
-                  <label class="field" id="homePaymentDayRow">
-                    Betalningsdag (dag i månaden)
-                    <input id="homeEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                  </label>
+                  </div>
                   <div class="bb-notched-field" role="group" aria-label="Betalningsintervall">
                     <div class="bb-notched-field-legend">Betalningsintervall</div>
                     <button
@@ -299,7 +301,7 @@
                     <input
                       id="homeEditFirstDate"
                       type="date"
-                      data-notch-label="Betalningsdatum"
+                      data-notch-label="Förfallodatum"
                     />
                     <div class="field-error" id="homeErrFirstDate" hidden></div>
                   </label>
@@ -307,16 +309,22 @@
                     <input
                       id="homeEditEndDate"
                       type="date"
-                      data-notch-label="Betalning upphör (valfritt)"
+                      data-notch-label="Hur länge gäller betalningsintervallet? (valfritt)"
                       data-date-clear
                     />
                     <div class="field-error" id="homeErrEndDate" hidden></div>
                   </label>
-                  <label class="field">
-                    Belopp (kr)
-                    <input id="homeEditAmount" type="text" inputmode="numeric" autocomplete="off" />
+                  <div class="bb-notched-field" role="group" aria-label="Belopp">
+                    <div class="bb-notched-field-legend">Belopp (kr)</div>
+                    <input
+                      id="homeEditAmount"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                    />
                     <div class="field-error" id="homeErrAmount" hidden></div>
-                  </label>
+                  </div>
                 </div>
                 <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                   <button class="danger" id="homeDeleteBtn" type="button" hidden>Ta bort</button>
@@ -499,16 +507,18 @@
                     </button>
                   </div>
                   <select id="carEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                  <label class="field">
-                    Namn på utgift
-                    <input id="carEditName" type="text" autocomplete="off" list="carEditNameList" />
+                  <div class="bb-notched-field" role="group" aria-label="Namn på utgift">
+                    <div class="bb-notched-field-legend">Namn på utgift</div>
+                    <input
+                      id="carEditName"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      autocomplete="off"
+                      list="carEditNameList"
+                    />
                     <datalist id="carEditNameList"></datalist>
                     <div class="field-error" id="carErrName" hidden></div>
-                  </label>
-                  <label class="field" id="carPaymentDayRow">
-                    Betalningsdag (dag i månaden)
-                    <input id="carEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                  </label>
+                  </div>
                   <div class="bb-notched-field" role="group" aria-label="Betalningsintervall">
                     <div class="bb-notched-field-legend">Betalningsintervall</div>
                     <button
@@ -532,7 +542,7 @@
                     <input
                       id="carEditFirstDate"
                       type="date"
-                      data-notch-label="Betalningsdatum"
+                      data-notch-label="Förfallodatum"
                     />
                     <div class="field-error" id="carErrFirstDate" hidden></div>
                   </label>
@@ -540,16 +550,22 @@
                     <input
                       id="carEditEndDate"
                       type="date"
-                      data-notch-label="Betalning upphör (valfritt)"
+                      data-notch-label="Hur länge gäller betalningsintervallet? (valfritt)"
                       data-date-clear
                     />
                     <div class="field-error" id="carErrEndDate" hidden></div>
                   </label>
-                  <label class="field">
-                    Belopp (kr)
-                    <input id="carEditAmount" type="text" inputmode="numeric" autocomplete="off" />
+                  <div class="bb-notched-field" role="group" aria-label="Belopp">
+                    <div class="bb-notched-field-legend">Belopp (kr)</div>
+                    <input
+                      id="carEditAmount"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                    />
                     <div class="field-error" id="carErrAmount" hidden></div>
-                  </label>
+                  </div>
                 </div>
                 <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                   <button class="danger" id="carDeleteBtn" type="button" hidden>Ta bort</button>
@@ -1046,16 +1062,18 @@
                     </button>
                   </div>
                   <select id="childrenEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                  <label class="field">
-                    Namn på utgift
-                    <input id="childrenEditName" type="text" autocomplete="off" list="childrenEditNameList" />
+                  <div class="bb-notched-field" role="group" aria-label="Namn på utgift">
+                    <div class="bb-notched-field-legend">Namn på utgift</div>
+                    <input
+                      id="childrenEditName"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      autocomplete="off"
+                      list="childrenEditNameList"
+                    />
                     <datalist id="childrenEditNameList"></datalist>
                     <div class="field-error" id="childrenErrName" hidden></div>
-                  </label>
-                  <label class="field" id="childrenPaymentDayRow">
-                    Betalningsdag (dag i månaden)
-                    <input id="childrenEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                  </label>
+                  </div>
                   <div class="bb-notched-field" role="group" aria-label="Betalningsintervall">
                     <div class="bb-notched-field-legend">Betalningsintervall</div>
                     <button
@@ -1079,7 +1097,7 @@
                     <input
                       id="childrenEditFirstDate"
                       type="date"
-                      data-notch-label="Betalningsdatum"
+                      data-notch-label="Förfallodatum"
                     />
                     <div class="field-error" id="childrenErrFirstDate" hidden></div>
                   </label>
@@ -1087,16 +1105,22 @@
                     <input
                       id="childrenEditEndDate"
                       type="date"
-                      data-notch-label="Betalning upphör (valfritt)"
+                      data-notch-label="Hur länge gäller betalningsintervallet? (valfritt)"
                       data-date-clear
                     />
                     <div class="field-error" id="childrenErrEndDate" hidden></div>
                   </label>
-                  <label class="field">
-                    Belopp (kr)
-                    <input id="childrenEditAmount" type="text" inputmode="numeric" autocomplete="off" />
+                  <div class="bb-notched-field" role="group" aria-label="Belopp">
+                    <div class="bb-notched-field-legend">Belopp (kr)</div>
+                    <input
+                      id="childrenEditAmount"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                    />
                     <div class="field-error" id="childrenErrAmount" hidden></div>
-                  </label>
+                  </div>
                 </div>
                 <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                   <button class="danger" id="childrenDeleteBtn" type="button" hidden>Ta bort</button>
@@ -1142,15 +1166,17 @@
                 <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till utgift</div>
                 <div class="bb-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
                 <div class="form-grid narrow">
-                  <label class="field">
-                    Namn på spar
-                    <input id="savingsEditName" type="text" autocomplete="off" list="savingsEditNameList" />
+                  <div class="bb-notched-field" role="group" aria-label="Namn på spar">
+                    <div class="bb-notched-field-legend">Namn på spar</div>
+                    <input
+                      id="savingsEditName"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      autocomplete="off"
+                      list="savingsEditNameList"
+                    />
                     <datalist id="savingsEditNameList"></datalist>
-                  </label>
-                  <label class="field" id="savingsPaymentDayRow">
-                    Sparningsdag (dag i månaden)
-                    <input id="savingsEditPaymentDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                  </label>
+                  </div>
                   <div class="bb-notched-field" role="group" aria-label="Sparintervall">
                     <div class="bb-notched-field-legend">Sparintervall</div>
                     <button
@@ -1174,21 +1200,27 @@
                     <input
                       id="savingsEditFirstDate"
                       type="date"
-                      data-notch-label="Spar datum"
+                      data-notch-label="Förfallodatum"
                     />
                   </label>
                   <label class="field" id="savingsEndDateRow">
                     <input
                       id="savingsEditEndDate"
                       type="date"
-                      data-notch-label="Spar upphör (valfritt)"
+                      data-notch-label="Hur länge gäller betalningsintervallet? (valfritt)"
                       data-date-clear
                     />
                   </label>
-                  <label class="field">
-                    Belopp (kr)
-                    <input id="savingsEditAmount" type="text" inputmode="numeric" autocomplete="off" />
-                  </label>
+                  <div class="bb-notched-field" role="group" aria-label="Belopp">
+                    <div class="bb-notched-field-legend">Belopp (kr)</div>
+                    <input
+                      id="savingsEditAmount"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                    />
+                  </div>
                 </div>
                 <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
                   <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
