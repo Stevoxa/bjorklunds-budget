@@ -2190,32 +2190,6 @@ function initOverviewPeriodSheet() {
   });
 }
 
-function refreshTaggedExpenseNameDatalist(cat, nameInputId) {
-  const C = TAGGED_CATEGORY_CONFIG[cat];
-  if (!C) return;
-  const dl = document.getElementById(`${nameInputId}List`);
-  const inp = document.getElementById(nameInputId);
-  if (!dl || !inp) return;
-  const names = new Set();
-  const cur = String(inp.value || "").trim();
-  if (cur) names.add(cur);
-  for (const t of C.types || []) {
-    const lab = String(t.label || "").trim();
-    if (lab) names.add(lab);
-  }
-  for (const exp of state.expenses || []) {
-    if (exp.category !== C.category) continue;
-    const n = String(exp.name || "").trim();
-    if (n) names.add(n);
-  }
-  dl.innerHTML = "";
-  for (const n of Array.from(names).sort((a, b) => a.localeCompare(b, "sv"))) {
-    const o = document.createElement("option");
-    o.value = n;
-    dl.appendChild(o);
-  }
-}
-
 function initMobileDateSheetPicker() {
   const { backdrop, prevBtn, nextBtn, handle, sheet, monthYearBtn } = getDateSheetEls();
   if (!backdrop || !sheet) return;
@@ -2950,7 +2924,7 @@ const TAGGED_CATEGORY_CONFIG = {
       endDateHint: "Ogiltigt slutdatum för spar.",
       firstDateOnce: "Förfallodatum",
       firstDateRecurring: "Förfallodatum",
-      endDate: "Hur länge gäller betalningsintervallet? (valfritt)"
+      endDate: "Hur länge gäller betalningsintervallet?"
     }
   }
 };
@@ -4758,8 +4732,7 @@ function updateTaggedEditorIntervalVisibility(cat) {
   }
   const endInp = document.getElementById(ids.editEndDate);
   if (endInp) {
-    const endText =
-      L.endDate || "Hur länge gäller betalningsintervallet? (valfritt)";
+    const endText = L.endDate || "Hur länge gäller betalningsintervallet?";
     endInp.setAttribute("data-notch-label", endText);
     const endNotch = endInp.closest(".bb-notched-field");
     const endLeg = endNotch?.querySelector(".bb-notched-field-legend");
@@ -5012,7 +4985,6 @@ function renderTaggedCategoryPage(cat) {
     updateTaggedEditorIntervalVisibility(cat);
     if (note) note.textContent = "";
     applyTaggedOverlayDateBounds(cat);
-    refreshTaggedExpenseNameDatalist(cat, ids.editName);
     syncTaggedEditorPickerSummaries(cat);
   }
 
@@ -5029,7 +5001,6 @@ function renderTaggedCategoryPage(cat) {
       if (C.hideTypeInEditor) return;
       const t = C.types.find((x) => x.key === typeSel.value);
       if (t && nameInp) nameInp.value = t.label;
-      refreshTaggedExpenseNameDatalist(cat, ids.editName);
     });
   }
 }

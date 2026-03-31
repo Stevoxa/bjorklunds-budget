@@ -1010,18 +1010,6 @@ button:focus:not(:focus-visible) {
   outline: none;
 }
 
-/*
- * <input list="…"> får en inbyggd listpil (WebKit/Blink) som ser annorlunda ut än
- * våra chevroner i typ/intervall. Datalist behålls för förslag; pilen döljs.
- */
-.tagged-editor-panel input.bb-notched-field-plain-input[list]::-webkit-list-button {
-  display: none;
-  width: 0;
-  height: 0;
-  margin: 0;
-  padding: 0;
-}
-
 .bb-notched-field > .field-error {
   margin-top: 6px;
   padding: 0 2px 4px;
@@ -3347,6 +3335,23 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-editor-panel .form-grid.narrow {
   row-gap: 22px;
   column-gap: 12px;
+}
+
+/* Diskretare etiketter och visade värden (typ/intervall) utan att datum blir för bleka */
+.tagged-editor-panel .bb-notched-field-legend {
+  color: color-mix(in srgb, var(--muted) 72%, var(--text) 28%);
+}
+
+.tagged-editor-panel .bb-notched-field-value {
+  color: color-mix(in srgb, var(--text) 86%, var(--muted));
+}
+
+.tagged-editor-panel .bb-notched-field-plain-input::placeholder {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+}
+
+.tagged-editor-panel .bb-notched-field .date-field-row-value {
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
 }
 
 /* Mer inre marginal i redigeringspanelen (Mat använder rymligare kant mot kortkant) */
