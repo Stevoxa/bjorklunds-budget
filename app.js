@@ -3019,7 +3019,7 @@ function initRouting() {
   };
 
   const onChange = () => {
-    const allowed = new Set(["overview", "incomes", "expenses", "add", "settings"]);
+    const allowed = new Set(["overview", "incomes", "expenses", "settings"]);
     let route = routeFromHash();
     if (!allowed.has(route)) route = "overview";
     view(route);
@@ -6548,10 +6548,6 @@ function renderRoute(route) {
       renderExpensesPage();
       break;
     }
-    case "add": {
-      renderQuickAddPage();
-      break;
-    }
     case "settings": {
       requireEl("headerSubtitle").textContent = "Inställn.";
       const themeModeSel = document.getElementById("themeMode");
@@ -6863,128 +6859,6 @@ function parseIntOrNull(v) {
 function isAllowedYear(y) {
   const cur = currentYearMonth().year;
   return y === cur - 1 || y === cur || y === cur + 1;
-}
-
-/** Dagens datum i ISO om det ligger i appens tillåtna år, annars klampat mot min/max. */
-function defaultQuickAddDateIso() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth() + 1;
-  const d = now.getDate();
-  let iso = isoDateFromParts(y, m, d);
-  const min = getFoodDateInputMinIso();
-  const max = getFoodDateInputMaxIso();
-  if (iso < min) return min;
-  if (iso > max) return max;
-  return iso;
-}
-
-function renderQuickAddPage() {
-  document.getElementById("headerSubtitle").textContent = "Snabbtillägg";
-  const min = getFoodDateInputMinIso();
-  const max = getFoodDateInputMaxIso();
-  const defIso = defaultQuickAddDateIso();
-  const expDate = requireEl("addQuickExpenseDate");
-  const incDate = requireEl("addQuickIncomeDate");
-  expDate.min = min;
-  expDate.max = max;
-  incDate.min = min;
-  incDate.max = max;
-  expDate.value = defIso;
-  incDate.value = defIso;
-  requireEl("addQuickExpenseName").value = "";
-  requireEl("addQuickExpenseAmount").value = "";
-  requireEl("addQuickIncomeName").value = "";
-  requireEl("addQuickIncomeAmount").value = "";
-  requireEl("addQuickFeedback").textContent = "";
-  hideErrorSummaryById("addQuickErrorSummary");
-
-  requireEl("addQuickExpenseBtn").onclick = () => {
-    requireEl("addQuickFeedback").textContent = "";
-    saveQuickOneOffExpense();
-  };
-  requireEl("addQuickIncomeBtn").onclick = () => {
-    requireEl("addQuickFeedback").textContent = "";
-    saveQuickOneOffIncome();
-  };
-}
-
-function saveQuickOneOffExpense() {
-  const feedback = requireEl("addQuickFeedback");
-  const summaryEl = document.getElementById("addQuickErrorSummary");
-  if (summaryEl) hideErrorSummaryByEl(summaryEl);
-  const name = (requireEl("addQuickExpenseName").value || "").trim();
-  const amount = asNumber(requireEl("addQuickExpenseAmount").value);
-  const dateIso = (requireEl("addQuickExpenseDate").value || "").trim();
-  const errors = [];
-  if (!name) errors.push({ label: "Ange namn på utgift.", jumpId: "addQuickExpenseName" });
-  if (amount <= 0) errors.push({ label: "Ange belopp större än 0.", jumpId: "addQuickExpenseAmount" });
-  const parts = datePartsFromIso(dateIso);
-  if (!parts) {
-    errors.push({ label: "Välj ett giltigt datum.", jumpId: "addQuickExpenseDate" });
-  } else {
-    const row = { year: String(parts.y), month: pad2(parts.m), day: String(parts.d), amount };
-    const res = validateIncomePaymentParts(row);
-    if (!res.ok) errors.push({ label: res.message, jumpId: "addQuickExpenseDate" });
-  }
-  if (errors.length) {
-    feedback.textContent = "";
-    renderErrorSummary(summaryEl, errors);
-    return;
-  }
-  state.expenses.push(
-    canonicalizeExpenseRecord({
-      id: uid(),
-      name,
-      interval: "once",
-      category: "one_off",
-      payments: [{ id: uid(), date: dateIso, amount }]
-    })
-  );
-  saveState();
-  requireEl("addQuickExpenseName").value = "";
-  requireEl("addQuickExpenseAmount").value = "";
-  feedback.textContent = "Utgift sparad.";
-  renderExpensesList();
-  renderOverviewIfOnOverview();
-}
-
-function saveQuickOneOffIncome() {
-  const feedback = requireEl("addQuickFeedback");
-  const summaryEl = document.getElementById("addQuickErrorSummary");
-  if (summaryEl) hideErrorSummaryByEl(summaryEl);
-  const name = (requireEl("addQuickIncomeName").value || "").trim();
-  const amount = asNumber(requireEl("addQuickIncomeAmount").value);
-  const dateIso = (requireEl("addQuickIncomeDate").value || "").trim();
-  const errors = [];
-  if (!name) errors.push({ label: "Ange namn på intäkt.", jumpId: "addQuickIncomeName" });
-  if (amount <= 0) errors.push({ label: "Ange belopp större än 0.", jumpId: "addQuickIncomeAmount" });
-  const parts = datePartsFromIso(dateIso);
-  if (!parts) {
-    errors.push({ label: "Välj ett giltigt datum.", jumpId: "addQuickIncomeDate" });
-  } else {
-    const row = { year: String(parts.y), month: pad2(parts.m), day: String(parts.d), amount };
-    const res = validateIncomePaymentParts(row);
-    if (!res.ok) errors.push({ label: res.message, jumpId: "addQuickIncomeDate" });
-  }
-  if (errors.length) {
-    feedback.textContent = "";
-    renderErrorSummary(summaryEl, errors);
-    return;
-  }
-  state.incomes.push({
-    id: uid(),
-    name,
-    interval: "once",
-    category: "one_off",
-    payments: [{ id: uid(), date: dateIso, amount }]
-  });
-  saveState();
-  requireEl("addQuickIncomeName").value = "";
-  requireEl("addQuickIncomeAmount").value = "";
-  feedback.textContent = "Intäkt sparad.";
-  renderIncomesList();
-  renderOverviewIfOnOverview();
 }
 
 function validateIncomePaymentParts({ year, month, day, amount }) {
@@ -7489,7 +7363,6 @@ function renderExpensesSummaryPage() {
   };
   syncExpenseFilterSummaryLabel();
 
-  requireEl("openExpenseOverlayBtn").onclick = () => openExpenseOverlay(null);
   requireEl("expenseIntervalSelect").onchange = () => resetExpenseEditorRowsForInterval();
 
   const defYear = requireEl("expenseDefaultYear");
@@ -7640,6 +7513,7 @@ function applyExpenseDefaultFieldToEditorRows(field) {
 }
 
 function openExpenseOverlay(expenseId, opts = {}) {
+  if (expenseId == null || expenseId === "") return;
   ui.editExpenseId = expenseId;
   ui.expenseScrollToPaymentId = opts?.scrollToPaymentId || null;
   ui.expenseScrollToPaymentDateISO = opts?.scrollToPaymentDateISO || null;
@@ -7647,13 +7521,13 @@ function openExpenseOverlay(expenseId, opts = {}) {
   ui.expenseFocusPaymentDateISO = null;
   const modal = requireEl("expenseModal");
   const backdrop = requireEl("expenseModalBackdrop");
-  const editing = Boolean(expenseId);
-  modal.dataset.mode = editing ? "edit" : "create";
-  requireEl("expenseModalTitle").textContent = editing ? "Redigera utgift" : "Ny utgift";
+  modal.dataset.mode = "edit";
+  requireEl("expenseModalTitle").textContent = "Redigera utgift";
   requireEl("expenseEditorNote").textContent = "";
   hideErrorSummaryById("expenseErrorSummary");
-  requireEl("expenseDeleteBtn").hidden = !editing;
-  const exp = editing ? (state.expenses || []).find((x) => x.id === expenseId) : null;
+  requireEl("expenseDeleteBtn").hidden = false;
+  const exp = (state.expenses || []).find((x) => x.id === expenseId);
+  if (!exp) return;
   if (isMirroredLoanExpense(exp)) {
     closeExpenseOverlay();
     openExpenseCategoryOverlay("loans");
@@ -7715,8 +7589,7 @@ function openExpenseOverlay(expenseId, opts = {}) {
   setDayOptions(requireEl("expenseDefaultDay"), ui.expenseDefaults.day);
   requireEl("expenseDefaultAmount").value = asNumber(ui.expenseDefaults.amount);
 
-  if (!editing) resetExpenseEditorRowsForInterval();
-  else renderExpensePaymentsEditorRows();
+  renderExpensePaymentsEditorRows();
 
   backdrop.hidden = false;
   modal.hidden = false;
@@ -7858,6 +7731,7 @@ function scrollToExpensePaymentRow({ paymentId, dateISO }) {
 }
 
 function saveExpenseFromOverlay() {
+  if (!ui.editExpenseId) return;
   const name = (requireEl("expenseNameInput").value || "").trim();
   const interval = requireEl("expenseIntervalSelect").value || "once";
   const note = requireEl("expenseEditorNote");
@@ -7892,12 +7766,9 @@ function saveExpenseFromOverlay() {
     const valid = y !== null && m !== null && d !== null && isAllowedYear(y) && m >= 1 && m <= 12 && d >= 1 && d <= daysInMonth(y, m);
     return { id: p.id, date: valid ? `${y}-${pad2(m)}-${pad2(d)}` : "", amount: amt };
   });
-  if (ui.editExpenseId) {
-    const idx = (state.expenses || []).findIndex((x) => x.id === ui.editExpenseId);
-    if (idx >= 0)
-      state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], name, interval, payments: stored, id: state.expenses[idx].id });
-  } else {
-    state.expenses.push(canonicalizeExpenseRecord({ id: uid(), name, interval, payments: stored, category: "other" }));
+  const idx = (state.expenses || []).findIndex((x) => x.id === ui.editExpenseId);
+  if (idx >= 0) {
+    state.expenses[idx] = canonicalizeExpenseRecord({ ...state.expenses[idx], name, interval, payments: stored, id: state.expenses[idx].id });
   }
   saveState();
   closeExpenseOverlay();

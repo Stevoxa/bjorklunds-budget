@@ -197,11 +197,6 @@
           <div class="table-card">
             <div class="table-title-row">
               <div class="table-title">Utgifter</div>
-              <button type="button" class="bb-icon-add-btn" id="openExpenseOverlayBtn" aria-label="Lägg till utgift">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-              </button>
             </div>
             <div class="filter-toolbar">
               <div class="note">En rad per utbetalning (0 kr visas inte).</div>
@@ -1302,75 +1297,6 @@
           </section>
         </section>
 
-        <!-- ADD: enstaka poster utan fullständig redigerare -->
-        <section class="view" data-view="add">
-          <div class="view-header">
-            <h2>Snabbtillägg</h2>
-          </div>
-          <p class="note add-quick-lead">
-            Lägg till en engångsutgift eller engångsintäkt. Posterna räknas som enstaka i översikten.
-          </p>
-
-          <div class="table-card">
-            <div class="table-title">Enstaka utgift</div>
-            <div class="bb-error-summary" id="addQuickErrorSummary" hidden role="alert" aria-live="polite"></div>
-            <div class="form-grid narrow">
-              <label class="field">
-                Namn
-                <input id="addQuickExpenseName" type="text" maxlength="80" autocomplete="off" placeholder="T.ex. Reparation" />
-              </label>
-              <label class="field">
-                Belopp (kr)
-                <input
-                  id="addQuickExpenseAmount"
-                  type="number"
-                  inputmode="decimal"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                />
-              </label>
-              <label class="field">
-                Datum
-                <input id="addQuickExpenseDate" type="date" />
-              </label>
-            </div>
-            <div class="actions-row">
-              <button class="primary" id="addQuickExpenseBtn" type="button">Spara utgift</button>
-            </div>
-          </div>
-
-          <div class="table-card">
-            <div class="table-title">Enstaka intäkt</div>
-            <div class="form-grid narrow">
-              <label class="field">
-                Namn
-                <input id="addQuickIncomeName" type="text" maxlength="80" autocomplete="off" placeholder="T.ex. Såld pryl" />
-              </label>
-              <label class="field">
-                Belopp (kr)
-                <input
-                  id="addQuickIncomeAmount"
-                  type="number"
-                  inputmode="decimal"
-                  min="0"
-                  step="1"
-                  placeholder="0"
-                />
-              </label>
-              <label class="field">
-                Datum
-                <input id="addQuickIncomeDate" type="date" />
-              </label>
-            </div>
-            <div class="actions-row">
-              <button class="primary" id="addQuickIncomeBtn" type="button">Spara intäkt</button>
-            </div>
-          </div>
-
-          <div class="note" id="addQuickFeedback" aria-live="polite"></div>
-        </section>
-
         <!-- SETTINGS -->
         <section class="view" data-view="settings">
           <div class="view-header">
@@ -1612,7 +1538,7 @@
     <div class="modal-backdrop" id="expenseModalBackdrop" hidden></div>
     <div class="modal" id="expenseModal" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle" hidden>
       <div class="modal-header">
-        <div id="expenseModalTitle">Ny utgift</div>
+        <div id="expenseModalTitle">Redigera utgift</div>
         <button class="icon-btn" id="closeExpenseModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
