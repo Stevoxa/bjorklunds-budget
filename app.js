@@ -469,6 +469,8 @@ let periodSheetClosing = false;
 let periodSheetKind = "overview";
 let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
+/** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spar-vy som öppnade periodarket. */
+let periodSheetTaggedCat = null;
 let periodSheetKeydownHandler = null;
 
 let listPickerOpen = false;
@@ -867,13 +869,13 @@ function formatDateRowDisplay(iso, inp) {
   const empty = !iso || typeof iso !== "string" || String(iso).trim() === "";
   if (empty) {
     if (inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear")) return "Tillsvidare";
-    return "välj datum";
+    return "Välj datum";
   }
   const parts = datePartsFromIso(iso);
-  if (!parts) return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "välj datum";
+  if (!parts) return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
   const d = new Date(parts.y, parts.m - 1, parts.d);
   if (Number.isNaN(d.getTime()))
-    return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "välj datum";
+    return inp instanceof HTMLInputElement && inp.hasAttribute("data-date-clear") ? "Tillsvidare" : "Välj datum";
   const currentY = new Date().getFullYear();
   const wd = d.toLocaleDateString("sv-SE", { weekday: "long" });
   const capWd = wd ? wd.charAt(0).toUpperCase() + wd.slice(1) : "";
@@ -1644,6 +1646,7 @@ function finalizePeriodSheetClose() {
   popAppBottomSheetScrollLock();
   periodSheetOpen = false;
   periodSheetClosing = false;
+  periodSheetTaggedCat = null;
 }
 
 function closePeriodSheetAnimated() {
@@ -1682,7 +1685,8 @@ function closePeriodSheetAnimated() {
 
 function yearOptionsForPeriodSheet() {
   if (periodSheetKind === "overview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
-  if (periodSheetKind === "foodPreview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
+  if (periodSheetKind === "foodPreview" || periodSheetKind === "taggedList")
+    return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
   const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
   return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
 }
@@ -1706,7 +1710,13 @@ function renderPeriodSheetContent() {
   }
   monthsHost.innerHTML = "";
   const monthEntries = [];
-  if (periodSheetKind !== "overview" && periodSheetKind !== "foodPreview") monthEntries.push({ v: "all", lab: "Alla" });
+  if (
+    periodSheetKind !== "overview" &&
+    periodSheetKind !== "foodPreview" &&
+    periodSheetKind !== "taggedList"
+  ) {
+    monthEntries.push({ v: "all", lab: "Alla" });
+  }
   for (let m = 1; m <= 12; m++) {
     const full = monthName(m);
     monthEntries.push({ v: String(m), lab: full.length > 6 ? `${full.slice(0, 3)}.` : full });
@@ -1743,6 +1753,22 @@ function commitPeriodSheetAndClose() {
       ms.value = periodSheetDraftMonthStr;
       ys.dispatchEvent(new Event("change", { bubbles: true }));
       ms.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  } else if (periodSheetKind === "taggedList") {
+    const cat = periodSheetTaggedCat;
+    periodSheetTaggedCat = null;
+    if (cat && TAGGED_CATEGORY_CONFIG[cat]) {
+      const C = TAGGED_CATEGORY_CONFIG[cat];
+      const ys = document.getElementById(C.ids.listYear);
+      const ms = document.getElementById(C.ids.listMonth);
+      if (ys && ms) {
+        ys.value = periodSheetDraftYearStr;
+        ms.value = periodSheetDraftMonthStr;
+      }
+      ui.tagged[cat].listYear = Number(periodSheetDraftYearStr);
+      ui.tagged[cat].listMonth = Number(periodSheetDraftMonthStr);
+      syncTaggedListPeriodSummary(cat);
+      renderTaggedExpenseListMount(cat);
     }
   } else if (periodSheetKind === "expenseFilter") {
     const ys = document.getElementById("expenseYearFilter");
@@ -1823,6 +1849,49 @@ function openFoodPreviewPeriodSheet() {
   const cur = currentYearMonth();
   let y = Number(ys.value || ui.foodPreviewYear);
   let m = Number(ms.value || ui.foodPreviewMonth);
+  if (!Number.isFinite(y)) y = cur.year;
+  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+  periodSheetDraftYearStr = String(y);
+  periodSheetDraftMonthStr = String(m);
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function openTaggedListPeriodSheet(cat) {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ys = document.getElementById(C.ids.listYear);
+  const ms = document.getElementById(C.ids.listMonth);
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!ys || !ms || !backdrop || !sheet) return;
+  periodSheetKind = "taggedList";
+  periodSheetTaggedCat = cat;
+  const u = ui.tagged[cat];
+  const cur = currentYearMonth();
+  let y = Number(ys.value ?? u.listYear);
+  let m = Number(ms.value ?? u.listMonth);
   if (!Number.isFinite(y)) y = cur.year;
   if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
   periodSheetDraftYearStr = String(y);
@@ -1970,6 +2039,29 @@ function syncFoodPreviewSummaryLabel() {
   const y = String(ui.foodPreviewYear || ys.value || "");
   const m = Number(ui.foodPreviewMonth || ms.value || 0);
   el.textContent = y && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
+}
+
+function syncTaggedListPeriodSummary(cat) {
+  const C = TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const el = document.getElementById(`${cat}ListPeriodSummary`);
+  const ys = document.getElementById(C.ids.listYear);
+  const ms = document.getElementById(C.ids.listMonth);
+  if (!el || !ys || !ms) return;
+  const y = Number(ui.tagged[cat].listYear ?? ys.value);
+  const m = Number(ui.tagged[cat].listMonth ?? ms.value);
+  el.textContent =
+    Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
+}
+
+let taggedListPeriodPickersWired = false;
+function wireTaggedListPeriodPickers() {
+  if (taggedListPeriodPickersWired) return;
+  taggedListPeriodPickersWired = true;
+  for (const cat of TAGGED_CATEGORY_KEYS) {
+    const btn = document.getElementById(`${cat}ListPeriodOpenBtn`);
+    if (btn) btn.addEventListener("click", () => openTaggedListPeriodSheet(cat));
+  }
 }
 
 function finalizeListPickerClose() {
@@ -4780,6 +4872,15 @@ function formatTaggedExpenseDateDisplaySv(isoDate) {
   return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
 }
 
+function formatTaggedIntervalPaymentLabel(interval) {
+  const iv = String(interval || "").trim();
+  if (!iv || iv === "once") return "Engångsbelopp";
+  if (iv === "monthly") return "Månadsvis betalning";
+  if (iv === "quarterly") return "Kvartalsvis betalning";
+  if (iv === "yearly") return "Årsvis betalning";
+  return "Engångsbelopp";
+}
+
 function getTaggedExpenseRowsForMonth(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   const keyField = C.subcategoryField || "subcategory";
@@ -4803,21 +4904,20 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
     if (sum <= 0) continue;
     datesInMonth.sort();
     const dateIso = datesInMonth[0] || "";
-    let titleLine;
-    if (C.hideTypeInList) {
-      titleLine = nameRaw || "Sparande";
-    } else {
-      titleLine = nameRaw && nameRaw !== typeLabel ? `${typeLabel} ${nameRaw}`.trim() : typeLabel;
-    }
+    const nameLine = C.hideTypeInList ? nameRaw || "Sparande" : nameRaw || typeLabel || "";
+    const intervalLine = formatTaggedIntervalPaymentLabel(exp.interval);
     rows.push({
       expenseId: exp.id,
-      titleLine,
+      nameLine,
       amount: sum,
-      dateStr: formatTaggedExpenseDateDisplaySv(dateIso),
+      intervalLine,
       sortKey: dateIso || "9999-12-31"
     });
   }
-  rows.sort((a, b) => String(a.sortKey).localeCompare(String(b.sortKey)) || a.titleLine.localeCompare(b.titleLine, "sv"));
+  rows.sort(
+    (a, b) =>
+      String(a.sortKey).localeCompare(String(b.sortKey)) || a.nameLine.localeCompare(b.nameLine, "sv")
+  );
   const total = rows.reduce((s, r) => s + r.amount, 0);
   return { rows, total };
 }
@@ -4850,15 +4950,18 @@ function renderTaggedExpenseListMount(cat) {
       const row = document.createElement("div");
       row.className = "tagged-expense-preview-row";
       const dis = editorOpen ? "disabled" : "";
+      const ariaDis = editorOpen ? "true" : "false";
       row.innerHTML = `
-        <div class="tagged-expense-row-top">
-          <strong class="tagged-expense-title">${escapeHtml(r.titleLine)}</strong>
-          <strong class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</strong>
-        </div>
-        <div class="tagged-expense-row-meta">
-          <span class="tagged-expense-date">${escapeHtml(r.dateStr)}</span>
-          <button type="button" class="secondary btn-icon tagged-expense-edit-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera" ${dis} aria-disabled="${editorOpen ? "true" : "false"}">✎</button>
-        </div>
+        <button type="button" class="tagged-expense-row-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="Redigera utgift" ${dis} aria-disabled="${ariaDis}">
+          <span class="tagged-expense-row-btn-main">
+            <span class="tagged-expense-row-line1">
+              <span class="tagged-expense-name">${escapeHtml(r.nameLine)}</span>
+              <span class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</span>
+            </span>
+            <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
+          </span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">›</span>
+        </button>
       `;
       mount.appendChild(row);
     }
@@ -4870,7 +4973,7 @@ function renderTaggedExpenseListMount(cat) {
 
   mount.onclick = (e) => {
     if (editorOpen) return;
-    const btn = e.target.closest("[data-tagged-edit-id]");
+    const btn = e.target.closest(".tagged-expense-row-btn[data-tagged-edit-id]");
     if (!btn) return;
     const id = btn.getAttribute("data-tagged-edit-id");
     const c = btn.getAttribute("data-tagged-cat");
@@ -4910,6 +5013,7 @@ function renderTaggedCategoryPage(cat) {
     setYear3Options(listYearSel, u.listYear);
     listYearSel.onchange = () => {
       u.listYear = Number(listYearSel.value);
+      syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
     };
   }
@@ -4917,9 +5021,11 @@ function renderTaggedCategoryPage(cat) {
     setMonthOptions(listMonthSel, u.listMonth);
     listMonthSel.onchange = () => {
       u.listMonth = Number(listMonthSel.value);
+      syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
     };
   }
+  syncTaggedListPeriodSummary(cat);
 
   const editorCard = document.getElementById(ids.editorCard);
   const editorTitle = document.getElementById(ids.editorTitle);
@@ -8980,6 +9086,7 @@ function initRoot() {
     initDateFieldRows();
     initMobileDateSheetPicker();
     initOverviewPeriodSheet();
+    wireTaggedListPeriodPickers();
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
     initExpenseOverlayHistory();

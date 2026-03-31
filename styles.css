@@ -3187,6 +3187,15 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   min-width: 0;
 }
 
+.tagged-omkostnader-period-row {
+  margin-top: 14px;
+}
+
+.tagged-omkostnader-period-row .bb-notched-field {
+  width: 100%;
+  max-width: 100%;
+}
+
 .tagged-omkostnader-month-heading {
   margin: 18px 0 0;
   padding-bottom: 10px;
@@ -3210,7 +3219,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .tagged-expense-preview-row {
-  padding: 10px 0 12px;
+  padding: 0;
   border-top: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
   font-size: clamp(0.82rem, 2.2vw + 0.55rem, 0.95rem);
   font-variant-numeric: tabular-nums;
@@ -3218,14 +3227,53 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 .tagged-expense-preview-row:first-child {
   border-top: none;
-  padding-top: 4px;
 }
 
 .tagged-expense-preview-row:last-child {
   border-bottom: 1px dashed color-mix(in srgb, var(--border) 88%, transparent);
 }
 
-.tagged-expense-row-top {
+.tagged-expense-row-btn {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 12px 0 14px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-control);
+  box-sizing: border-box;
+}
+
+.tagged-expense-row-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+
+.tagged-expense-row-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tagged-expense-row-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tagged-expense-row-btn-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tagged-expense-row-line1 {
   display: flex;
   flex-wrap: nowrap;
   justify-content: space-between;
@@ -3233,41 +3281,35 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   gap: 12px;
 }
 
-.tagged-expense-title,
-.tagged-expense-amt {
-  font-weight: 750;
-  color: var(--text);
-}
-
-.tagged-expense-title {
+.tagged-expense-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 750;
+  color: var(--text);
 }
 
-.tagged-expense-amt {
+.tagged-expense-row-line1 .tagged-expense-amt {
   flex-shrink: 0;
+  font-weight: 750;
+  color: var(--text);
 }
 
-.tagged-expense-row-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-
-.tagged-expense-date {
-  font-style: italic;
-  font-size: 0.82em;
-  color: var(--muted);
+.tagged-expense-row-line2 {
+  font-size: 0.88em;
   line-height: 1.35;
+  color: var(--muted);
 }
 
-.tagged-expense-row-meta .tagged-expense-edit-btn {
+.tagged-expense-row-chev {
   flex-shrink: 0;
   align-self: center;
+  font-size: 1.35rem;
+  font-weight: 300;
+  line-height: 1;
+  color: color-mix(in srgb, var(--muted) 85%, var(--text));
+  padding: 4px 2px 4px 8px;
 }
 
 .tagged-omkostnader-total {

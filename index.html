@@ -298,7 +298,7 @@
                     </button>
                   </div>
                   <select id="homeEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                    <option value="once">Enskild</option>
+                    <option value="once">Inget</option>
                     <option value="monthly">Månad</option>
                     <option value="quarterly">Kvartal</option>
                     <option value="yearly">År</option>
@@ -333,16 +333,17 @@
               </div>
               <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för hemmet">
                 <div class="bb-notched-panel-legend">Utgifter för hemmet</div>
-                <div class="picker-row tagged-omkostnader-picker">
-                  <label>
-                    År
-                    <select id="homeListYear"></select>
-                  </label>
-                  <label>
-                    Månad
-                    <select id="homeListMonth"></select>
-                  </label>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="homeListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="homeListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
+                <select id="homeListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="homeListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <h3 class="tagged-omkostnader-month-heading" id="homeListMonthTitle">Utgifter</h3>
                 <div id="homeListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="homeMonthTotal"></p>
@@ -537,7 +538,7 @@
                     </button>
                   </div>
                   <select id="carEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                    <option value="once">Enskild</option>
+                    <option value="once">Inget</option>
                     <option value="monthly">Månad</option>
                     <option value="quarterly">Kvartal</option>
                     <option value="yearly">År</option>
@@ -572,16 +573,17 @@
               </div>
               <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för bil">
                 <div class="bb-notched-panel-legend">Utgifter för bil</div>
-                <div class="picker-row tagged-omkostnader-picker">
-                  <label>
-                    År
-                    <select id="carListYear"></select>
-                  </label>
-                  <label>
-                    Månad
-                    <select id="carListMonth"></select>
-                  </label>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="carListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="carListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
+                <select id="carListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="carListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <h3 class="tagged-omkostnader-month-heading" id="carListMonthTitle">Utgifter</h3>
                 <div id="carListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="carMonthTotal"></p>
@@ -1090,7 +1092,7 @@
                     </button>
                   </div>
                   <select id="childrenEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                    <option value="once">Enskild</option>
+                    <option value="once">Inget</option>
                     <option value="monthly">Månad</option>
                     <option value="quarterly">Kvartal</option>
                     <option value="yearly">År</option>
@@ -1125,16 +1127,17 @@
               </div>
               <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för barn">
                 <div class="bb-notched-panel-legend">Utgifter för barn</div>
-                <div class="picker-row tagged-omkostnader-picker">
-                  <label>
-                    År
-                    <select id="childrenListYear"></select>
-                  </label>
-                  <label>
-                    Månad
-                    <select id="childrenListMonth"></select>
-                  </label>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="childrenListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="childrenListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
+                <select id="childrenListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="childrenListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <h3 class="tagged-omkostnader-month-heading" id="childrenListMonthTitle">Utgifter</h3>
                 <div id="childrenListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
@@ -1190,7 +1193,7 @@
                     </button>
                   </div>
                   <select id="savingsEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                    <option value="once">Enskild</option>
+                    <option value="once">Inget</option>
                     <option value="monthly">Månad</option>
                     <option value="quarterly">Kvartal</option>
                     <option value="yearly">År</option>
@@ -1223,16 +1226,17 @@
               </div>
               <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Ditt sparande">
                 <div class="bb-notched-panel-legend">Ditt sparande</div>
-                <div class="picker-row tagged-omkostnader-picker">
-                  <label>
-                    År
-                    <select id="savingsListYear"></select>
-                  </label>
-                  <label>
-                    Månad
-                    <select id="savingsListMonth"></select>
-                  </label>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="savingsListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="savingsListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
                 </div>
+                <select id="savingsListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="savingsListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
                 <h3 class="tagged-omkostnader-month-heading" id="savingsListMonthTitle">Sparbelopp</h3>
                 <div id="savingsListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="savingsMonthTotal"></p>
