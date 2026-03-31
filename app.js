@@ -2956,7 +2956,6 @@ const ui = {
   expenseMonthFilter: "all",
   loanEditorOpen: false,
   editLoanId: null,
-  loanCopySourceName: null,
   foodScrollWeekKey: null,
   tagged: {
     car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
@@ -7969,22 +7968,14 @@ function closeExpenseCategoryOverlay(opts = { fromHistory: false }) {
 }
 
 function renderLoansPage() {
-  const body = document.getElementById("loansTableBody");
-  if (!body) return;
+  const mount = document.getElementById("loansListMount");
+  if (!mount) return;
   if (!ui.loanEditorOpen) hideErrorSummaryById("loanErrorSummary");
   const loanAddBtn = document.getElementById("loanAddNewBtn");
   if (loanAddBtn) {
     loanAddBtn.disabled = Boolean(ui.loanEditorOpen);
     loanAddBtn.setAttribute("aria-disabled", ui.loanEditorOpen ? "true" : "false");
   }
-
-  const splitKr = (amount) => {
-    const formatted = formatKr(amount);
-    // Intl SEK returns something like: "200 000 kr" (with potential NBSPs)
-    const m = String(formatted).match(/^(.*?)[\s\u00A0]*kr$/i);
-    const num = (m && m[1] ? m[1] : formatted).trim();
-    return { num, currency: "kr" };
-  };
 
   const endKey = (loan) => {
     const ed = loan.endDate ? datePartsFromIso(String(loan.endDate)) : null;
@@ -7996,46 +7987,53 @@ function renderLoansPage() {
     const ae = endKey(a);
     const be = endKey(b);
     if (ae === null && be === null) return 0;
-    if (ae === null) return 1; // no end date last
+    if (ae === null) return 1;
     if (be === null) return -1;
-    return ae - be; // later end date lower in list
+    return ae - be;
   });
-  body.innerHTML = "";
+  mount.innerHTML = "";
   const editorBusy = Boolean(ui.loanEditorOpen);
   if (loans.length === 0) {
-    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga lån ännu.</td></tr>`;
+    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga lån ännu.</div>`;
   } else {
     for (const loan of loans) {
       const displayName = loan.name || "Lån";
-      const displayBank = loan.bank || "";
-      const total = splitKr(getLoanTotalPayment(loan));
+      const displayBank = String(loan.bank || "").trim();
+      const amt = getLoanTotalPayment(loan);
       const hasEnd = Boolean(loan.endDate);
       const lastPaymentDate = hasEnd ? String(loan.endDate) : "";
-      const tr = document.createElement("tr");
-      tr.className = "loan-item-row";
-      const editDis = editorBusy ? "disabled" : "";
-      const editAria = editorBusy ? "true" : "false";
-      tr.innerHTML = `
-        <td colspan="4">
-          <div class="loan-item-grid">
-            <div class="loan-item-name truncate" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</div>
-            <div class="loan-item-cost">${escapeHtml(`${total.num}${total.currency}`)}</div>
-            <button class="secondary btn-icon loan-item-edit" type="button" data-loan-edit="${escapeHtml(loan.id)}" aria-label="Redigera" ${editDis} aria-disabled="${editAria}">✎</button>
-
-            <div class="loan-item-bank truncate" title="${escapeHtml(displayBank)}">${escapeHtml(displayBank)}</div>
-            ${hasEnd ? `<div class="loan-item-last">Sista betalning: ${escapeHtml(lastPaymentDate)}</div>` : `<div class="loan-item-last loan-item-last-empty"></div>`}
-          </div>
-        </td>
+      const line2Parts = [];
+      if (displayBank) line2Parts.push(displayBank);
+      if (hasEnd) line2Parts.push(`Sista betalning: ${lastPaymentDate}`);
+      const line2 = line2Parts.length > 0 ? line2Parts.join(" · ") : "—";
+      const row = document.createElement("div");
+      row.className = "tagged-expense-preview-row";
+      const dis = editorBusy ? "disabled" : "";
+      const ariaDis = editorBusy ? "true" : "false";
+      row.innerHTML = `
+        <button type="button" class="tagged-expense-row-btn" data-loan-edit-id="${escapeHtml(loan.id)}" aria-label="Redigera lån" ${dis} aria-disabled="${ariaDis}">
+          <span class="tagged-expense-row-btn-main">
+            <span class="tagged-expense-row-line1">
+              <span class="tagged-expense-name">${escapeHtml(displayName)}</span>
+              <span class="tagged-expense-amt">${escapeHtml(formatKr(amt))}</span>
+            </span>
+            <span class="tagged-expense-row-line2">${escapeHtml(line2)}</span>
+          </span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">›</span>
+        </button>
       `;
-      body.appendChild(tr);
+      mount.appendChild(row);
     }
   }
-  body.querySelectorAll("[data-loan-edit]").forEach((btn) => {
-    btn.onclick = () => {
-      if (ui.loanEditorOpen) return;
-      openLoanEditor(btn.getAttribute("data-loan-edit"));
-    };
-  });
+
+  mount.onclick = (e) => {
+    if (ui.loanEditorOpen) return;
+    const btn = e.target.closest(".tagged-expense-row-btn[data-loan-edit-id]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-loan-edit-id");
+    if (!id) return;
+    openLoanEditor(id);
+  };
 
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = !ui.loanEditorOpen;
@@ -8074,16 +8072,6 @@ function getLoanDraftFromInputs() {
   };
 }
 
-function nextYearMonth(year, month) {
-  let y = Number(year);
-  let m = Number(month) + 1;
-  if (m > 12) {
-    y += 1;
-    m = 1;
-  }
-  return { year: y, month: m };
-}
-
 function renderLoanDateInlineError() {
   const el = document.getElementById("loanDateError");
   if (!el) return true;
@@ -8098,22 +8086,9 @@ function renderLoanDateInlineError() {
   return false;
 }
 
-function renderLoanCopyNotice() {
-  const el = document.getElementById("loanCopyNotice");
-  if (!el) return;
-  if (!ui.loanCopySourceName) {
-    el.hidden = true;
-    el.textContent = "";
-    return;
-  }
-  el.hidden = false;
-  el.textContent = `Kopia av ${ui.loanCopySourceName}. Spara för att lägga till det som nytt lån.`;
-}
-
 function openLoanEditor(loanId = null) {
   const existing = loanId ? getAllLoans().find((x) => x.id === loanId) : null;
   ui.editLoanId = existing?.id || null;
-  ui.loanCopySourceName = null;
   ui.loanEditorOpen = true;
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = false;
@@ -8149,13 +8124,10 @@ function openLoanEditor(loanId = null) {
     applyDateFieldRowTabState(endInp);
   }
   const deleteBtn = document.getElementById("loanDeleteBtn");
-  const copyBtn = document.getElementById("loanCopyBtn");
   if (deleteBtn) deleteBtn.hidden = !existing;
-  if (copyBtn) copyBtn.hidden = !existing;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
   hideErrorSummaryById("loanErrorSummary");
-  renderLoanCopyNotice();
   renderLoanDateInlineError();
   updateLoanDerivedFields();
   requestAnimationFrame(() => {
@@ -8190,13 +8162,9 @@ function closeLoanEditor() {
     applyDateFieldRowTabState(endClear);
   }
   const deleteBtn = document.getElementById("loanDeleteBtn");
-  const copyBtn = document.getElementById("loanCopyBtn");
   if (deleteBtn) deleteBtn.hidden = true;
-  if (copyBtn) copyBtn.hidden = true;
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
-  ui.loanCopySourceName = null;
-  renderLoanCopyNotice();
   updateLoanDerivedFields();
 }
 
@@ -8378,67 +8346,6 @@ function initActions() {
     if (!ui.editLoanId) return;
     showConfirmDeleteLoanModal();
   });
-  document.getElementById("loanCopyBtn").addEventListener("click", () => {
-    if (!ui.editLoanId) return;
-    const source = getAllLoans().find((x) => x.id === ui.editLoanId);
-    if (!source) return;
-    const draft = normalizeLoanItem(source);
-    draft.id = uid();
-    if (draft.endDate) {
-      const ep = datePartsFromIso(String(draft.endDate));
-      if (ep) {
-        const nm = nextYearMonth(ep.y, ep.m);
-        const fp = datePartsFromIso(draft.firstPaymentDate);
-        const due = fp ? fp.d : 25;
-        draft.firstPaymentDate = `${nm.year}-${pad2(nm.month)}-${pad2(clampDay(nm.year, nm.month, due))}`;
-        draft.endDate = null;
-      }
-    }
-    ui.editLoanId = null;
-    ui.loanCopySourceName = source.name || "Lån";
-    const loanLegCopy = document.getElementById("loanEditorPanelLegend");
-    const loanPanelCopy = document.querySelector(".loan-editor-panel");
-    if (loanLegCopy) loanLegCopy.textContent = "Lägg till lån";
-    if (loanPanelCopy) loanPanelCopy.setAttribute("aria-label", "Lägg till lån");
-    document.getElementById("loanNameInput").value = draft.name;
-    document.getElementById("loanBankInput").value = draft.bank;
-    document.getElementById("loanPrincipal").value =
-      asNumber(draft.principal) > 0 ? formatKrLikeList(asNumber(draft.principal)) : "";
-    document.getElementById("loanRate").value =
-      draft.rate !== undefined && draft.rate !== null && String(draft.rate).trim() !== ""
-        ? String(asNumber(draft.rate))
-        : "";
-    document.getElementById("loanAmortization").value =
-      asNumber(draft.amortization) > 0 ? formatKrLikeList(asNumber(draft.amortization)) : "";
-    const firstCopy = document.getElementById("loanFirstDate");
-    const endCopy = document.getElementById("loanEndDate");
-    if (firstCopy) {
-      firstCopy.value =
-        draft.firstPaymentDate && datePartsFromIso(String(draft.firstPaymentDate)) ? String(draft.firstPaymentDate) : "";
-    }
-    if (endCopy) {
-      endCopy.value = draft.endDate && datePartsFromIso(String(draft.endDate)) ? String(draft.endDate) : "";
-    }
-    applyLoanOverlayDateBounds();
-    if (firstCopy) {
-      syncDateFieldRow(firstCopy);
-      applyDateFieldRowTabState(firstCopy);
-    }
-    if (endCopy) {
-      syncDateFieldRow(endCopy);
-      applyDateFieldRowTabState(endCopy);
-    }
-    document.getElementById("loanDeleteBtn").hidden = true;
-    document.getElementById("loanCopyBtn").hidden = true;
-    renderLoanCopyNotice();
-    renderLoanDateInlineError();
-    updateLoanDerivedFields();
-    requestAnimationFrame(() => {
-      const overlay = document.querySelector('[data-expview="loans"]');
-      if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
-      else window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-  });
   document.getElementById("loanEditorCancelBtn").addEventListener("click", () => closeLoanEditor());
   requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;
   requireEl("cancelDeleteLoanBtn").onclick = hideConfirmDeleteLoanModal;
@@ -8521,7 +8428,6 @@ function initActions() {
     else loans.push(draft);
     persistAllLoans(loans);
     saveState();
-    ui.loanCopySourceName = null;
     document.getElementById("loanNote").textContent = "Lån sparat.";
     closeLoanEditor();
     renderLoansPage();

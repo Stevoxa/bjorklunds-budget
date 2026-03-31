@@ -385,7 +385,6 @@
                 <div class="bb-notched-panel tagged-editor-panel loan-editor-panel" role="group" aria-label="Lägg till lån">
                   <div class="bb-notched-panel-legend" id="loanEditorPanelLegend">Lägg till lån</div>
                   <div class="form-grid narrow">
-                    <div class="loan-copy-notice" id="loanCopyNotice" hidden></div>
                     <div class="tagged-editor-field-wrap">
                       <div class="bb-notched-field" role="group" aria-label="Namn">
                         <div class="bb-notched-field-legend">Namn</div>
@@ -449,7 +448,6 @@
                   <div class="actions-row food-mat-save-actions tagged-category-editor-actions loan-editor-actions">
                     <button class="primary" id="loanSaveBtn" type="button">Spara</button>
                     <button class="danger" id="loanDeleteBtn" type="button" hidden>Ta bort</button>
-                    <button class="secondary" id="loanCopyBtn" type="button" hidden>Kopiera lån</button>
                     <button class="secondary" id="loanEditorCancelBtn" type="button">Avbryt</button>
                   </div>
                 </div>
@@ -458,9 +456,7 @@
               <div class="bb-notched-panel tagged-omkostnader-panel loan-list-omk-panel" role="group" aria-label="Dina lån">
                 <div class="bb-notched-panel-legend">Dina lån</div>
                 <div class="table-wrap loan-list-table-wrap">
-                  <table class="data-table loan-list-table" aria-label="Lån">
-                    <tbody id="loansTableBody"></tbody>
-                  </table>
+                  <div id="loansListMount" class="tagged-expense-preview-list" role="list" aria-label="Lån"></div>
                 </div>
                 <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="loanAddNewBtn">
                   <span class="food-mat-add-period-card__icon" aria-hidden="true">
