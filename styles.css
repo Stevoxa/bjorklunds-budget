@@ -3129,8 +3129,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
-/* Som Mat: lägg till-kort under månadslistan (Hem / Bil / Barn) */
-.car-omkostnader-card > .tagged-omkostnader-add-card {
+/* Som Mat: lägg till-kort under månadslistan (Hem / Bil / Barn / Spar) */
+.tagged-omkostnader-panel > .tagged-omkostnader-add-card {
   margin-top: 14px;
 }
 
@@ -3277,7 +3277,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 /* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
 .exp-overlay .table-title + .tagged-exp-overlay-intro {
   margin-top: 2px;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .tagged-exp-overlay-intro {
@@ -3286,7 +3286,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .tagged-omkostnader-panel {
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 
 .exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {
