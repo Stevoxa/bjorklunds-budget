@@ -3365,19 +3365,26 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   margin-bottom: var(--space-6);
 }
 
-/* Felruta ovanför vit panel (syskon före .tagged-editor-panel), som Mat-periodsheet */
-.bb-error-summary.tagged-editor-error-summary[hidden] + .bb-notched-panel.tagged-editor-panel {
-  margin-top: var(--space-6);
-}
 /*
- * Panelens notch-rubrik (.bb-notched-panel-legend) är absolut positionerad och sticker upp ovanför
- * kanten — utan extra luft överlappar den felrutan. Reservera vertikalt utrymme här.
+ * Felruta på overlay-bakgrund (var(--bg)), inte inuti vita .table-card — ovanför hela kortet.
+ * Samma maxbredd som .exp-overlay > .table-card så kanterna linjerar.
  */
-.bb-error-summary.tagged-editor-error-summary:not([hidden]) {
-  margin-bottom: calc(var(--space-4) + 4px);
+.exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary,
+.exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary,
+.exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
+.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary {
+  max-width: 780px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  box-sizing: border-box;
 }
-.bb-error-summary.tagged-editor-error-summary:not([hidden]) + .bb-notched-panel.tagged-editor-panel {
-  margin-top: calc(var(--space-5) + 14px);
+
+.exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
+  margin-bottom: var(--space-4);
 }
 
 /*
