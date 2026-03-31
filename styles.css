@@ -1413,12 +1413,6 @@ button:focus:not(:focus-visible) {
   text-align: right;
 }
 
-.loan-list-title {
-  font-weight: 800;
-  margin: 6px 0 12px 0;
-  letter-spacing: -0.02em;
-}
-
 .loan-item-row td {
   padding-top: 10px;
   padding-bottom: 10px;
@@ -1826,15 +1820,6 @@ tr.month-break td {
   margin-top: 0;
 }
 
-/* Lån-overlay: rubrik + stäng i samma premium-rad */
-.exp-overlay[data-expview="loans"] > .table-card > .overlay-head {
-  margin-bottom: var(--space-4);
-}
-
-.exp-overlay[data-expview="loans"] > .table-card > .overlay-head .table-title {
-  margin-bottom: 0;
-}
-
 /* Mat m.fl.: första rubrik utan overlay-head */
 .exp-overlay > .table-card > .table-title:first-child {
   margin-top: 0;
@@ -1866,31 +1851,25 @@ tr.month-break td {
 
 .loan-metric-line {
   color: var(--primary);
-  font-weight: 650;
+  font-weight: 600;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
   background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
+/* Lån: samma knapprad som Hem/Bil (kolumn, Spara överst) */
 .loan-editor-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 14px;
+  margin-top: 22px;
 }
 
-/* Create mode: Avbryt first, then Spara */
-.loan-editor-actions[data-mode="create"] #loanEditorCancelBtn { order: 1; }
-.loan-editor-actions[data-mode="create"] #loanSaveBtn { order: 2; }
-.loan-editor-actions[data-mode="create"] #loanCopyBtn { order: 3; }
-.loan-editor-actions[data-mode="create"] #loanDeleteBtn { order: 4; }
+.loan-list-table-wrap {
+  margin-top: 4px;
+}
 
-/* Edit mode: Ta bort/Spara then Kopiera/Avbryt */
-.loan-editor-actions[data-mode="edit"] #loanDeleteBtn { order: 1; }
-.loan-editor-actions[data-mode="edit"] #loanSaveBtn { order: 2; }
-.loan-editor-actions[data-mode="edit"] #loanCopyBtn { order: 3; }
-.loan-editor-actions[data-mode="edit"] #loanEditorCancelBtn { order: 4; }
+.loan-list-omk-panel .food-mat-add-period-card {
+  margin-top: 14px;
+}
 
 .section-divider {
   border: 0;
@@ -3340,7 +3319,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
-.exp-overlay[data-expview="savings"] {
+.exp-overlay[data-expview="savings"],
+.exp-overlay[data-expview="loans"] {
   --bb-notched-panel-margin-extra: 22px;
 }
 
@@ -3373,7 +3353,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
-.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary {
+.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary,
+.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary {
   max-width: 780px;
   width: 100%;
   margin-left: auto;
@@ -3384,7 +3365,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
-.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
+.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
   margin-bottom: var(--space-4);
 }
 
@@ -3450,11 +3432,6 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 /* Listpanel (Utgifter för bil m.m.): lite mer luft ovanför notch-rubriken */
 .bb-notched-panel.tagged-omkostnader-panel {
   padding-top: calc(var(--bb-notched-panel-pad-top) + 8px);
-}
-
-.exp-overlay[data-expview="loans"] .overlay-head + .tagged-exp-overlay-intro {
-  margin-top: 0;
-  margin-bottom: var(--space-4);
 }
 
 button.stretch {
