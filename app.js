@@ -3395,9 +3395,15 @@ const INCOME_BENEFIT_TYPES = [
   { key: "barnbidrag", label: "Barnbidrag" },
   { key: "studiebidrag", label: "Studiebidrag" },
   { key: "bostadsbidrag", label: "Bostadsbidrag" },
-  { key: "forsakringskassan", label: "Försäkringskassan" },
+  { key: "foraldrapenning", label: "Föräldrapenning" },
+  { key: "sjukpenning", label: "Sjukpenning" },
   { key: "annat_bidrag", label: "Annat" }
 ];
+
+/** Tidigare typ borttagen från listan — visas vid äldre sparade intäkter. */
+const INCOME_BENEFIT_LEGACY_TYPE_LABELS = {
+  forsakringskassan: "Försäkringskassan"
+};
 
 const INCOME_CAPITAL_TYPES = [
   { key: "ranta", label: "Ränta" },
@@ -3750,7 +3756,9 @@ function getIncomeTaggedTypeLabel(cat, typeKey) {
   if (!C) return String(typeKey || "");
   const k = String(typeKey || "");
   const row = C.types.find((t) => t.key === k);
-  return row ? row.label : k || "";
+  if (row) return row.label;
+  if (cat === "benefit" && INCOME_BENEFIT_LEGACY_TYPE_LABELS[k]) return INCOME_BENEFIT_LEGACY_TYPE_LABELS[k];
+  return k || "";
 }
 
 function incomeTaggedOverlayIsOpen(cat) {
@@ -4135,7 +4143,18 @@ function renderTaggedIncomeCategoryPage(cat) {
     if (editing) {
       const curKey = editing[kf];
       if (typeSel) {
-        typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
+        if (cat === "benefit" && curKey && INCOME_BENEFIT_LEGACY_TYPE_LABELS[curKey]) {
+          const hasOpt = Array.from(typeSel.options).some((o) => o.value === curKey);
+          if (!hasOpt) {
+            const opt = document.createElement("option");
+            opt.value = curKey;
+            opt.textContent = INCOME_BENEFIT_LEGACY_TYPE_LABELS[curKey];
+            typeSel.appendChild(opt);
+          }
+        }
+        const inList = C.types.some((t) => t.key === curKey);
+        const legacyOk = cat === "benefit" && curKey && INCOME_BENEFIT_LEGACY_TYPE_LABELS[curKey];
+        typeSel.value = inList || legacyOk ? curKey : C.types[0].key;
       }
       nameInp.value = editing.name || "";
       intervalSel.value = ["once", "weekly", "monthly", "quarterly", "yearly"].includes(editing.interval)
