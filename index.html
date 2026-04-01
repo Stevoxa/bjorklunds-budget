@@ -199,7 +199,7 @@
               <div class="table-title">Utgifter</div>
             </div>
             <div class="filter-toolbar">
-              <div class="note">En rad per utbetalning (0 kr visas inte).</div>
+              <div class="note">En rad per utbetalning (0 kr visas inte). Tryck på en rad för att öppna redigering.</div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>
@@ -212,18 +212,13 @@
               <select id="expenseYearFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
               <select id="expenseMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
-            <div class="table-wrap">
-              <table class="data-table income-payments-table" aria-label="Utgifter">
-                <thead>
-                  <tr>
-                    <th>Utgift</th>
-                    <th>Datum</th>
-                    <th class="right">Belopp</th>
-                    <th class="right"></th>
-                  </tr>
-                </thead>
-                <tbody id="expensePaymentsTableBody"></tbody>
-              </table>
+            <div class="table-wrap expense-payments-list-wrap">
+              <div
+                id="expensePaymentsListMount"
+                class="tagged-expense-preview-list expense-payments-list"
+                role="list"
+                aria-label="Utgifter"
+              ></div>
             </div>
             <div class="note" id="expenseListNote"></div>
           </div>

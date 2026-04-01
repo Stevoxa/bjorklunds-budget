@@ -3080,6 +3080,52 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   padding: 4px 2px 4px 8px;
 }
 
+/* Utgifter: lista med månadsrubriker (samma mönster som kategorilistor) */
+.expense-payments-list > .expense-list-month-heading {
+  margin-top: 14px;
+}
+
+.expense-payments-list > .expense-list-month-heading:first-child {
+  margin-top: 4px;
+}
+
+.expense-list-month-divider {
+  margin-bottom: 2px;
+}
+
+.expense-payments-list > .tagged-expense-preview-row:last-child {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+}
+
+.expense-payments-list > .expense-list-month-heading + .tagged-expense-preview-row {
+  border-top: none;
+}
+
+.expense-payment-line1-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.expense-payment-line1-left .tagged-expense-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.expense-payment-week-prefix {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--muted) 55%, var(--text));
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-payment-row-chev {
+  font-weight: 400;
+  font-size: 1.1rem;
+}
+
 .tagged-omkostnader-total {
   margin: 0;
   padding-top: 12px;

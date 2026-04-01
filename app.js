@@ -7285,11 +7285,33 @@ function setExpenseYearFilterOptions(selectEl, selected) {
   }
 }
 
+function expensePaymentRowDisplayParts(exp) {
+  const rawName = String(exp?.name || "Utgift").trim() || "Utgift";
+  if (!isMatLikeExpense(exp)) {
+    return { weekPrefix: "", title: rawName };
+  }
+  const mv = /^Mat v\.(\d+)$/i.exec(rawName);
+  let weekPrefix = "";
+  if (mv) weekPrefix = `v${mv[1]}`;
+  else {
+    const wk = exp?.metadata?.food?.weekKey ? String(exp.metadata.food.weekKey) : "";
+    const wm = /(?:^|-)W(\d{1,2})$/i.exec(wk);
+    if (wm) weekPrefix = `v${Number(wm[1])}`;
+  }
+  return { weekPrefix, title: "Mat" };
+}
+
+function formatExpenseListLongDate(dt) {
+  if (!dt || Number.isNaN(dt.getTime())) return "—";
+  return `${dt.getDate()} ${monthName(dt.getMonth() + 1)} ${dt.getFullYear()}`;
+}
+
 function buildExpensePaymentRowsForList(yearFilter) {
   const rows = [];
   const monthFilter = ui.expenseMonthFilter || "all";
   for (const exp of state.expenses || []) {
     const name = exp.name || "Utgift";
+    const disp = expensePaymentRowDisplayParts(exp);
     for (const p of exp.payments || []) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
@@ -7309,7 +7331,10 @@ function buildExpensePaymentRowsForList(yearFilter) {
         isLoanMirror: isMirroredLoanExpense(exp),
         loanId: exp.metadata?.loanId,
         foodYear: exp?.metadata?.food?.year,
-        foodWeekKey: exp?.metadata?.food?.weekKey
+        foodWeekKey: exp?.metadata?.food?.weekKey,
+        weekPrefix: disp.weekPrefix,
+        lineTitle: disp.title,
+        dateLong: formatExpenseListLongDate(dt)
       });
     }
   }
@@ -7407,77 +7432,93 @@ function renderExpensesSummaryPage() {
   renderExpensesList();
 }
 
+function ensureExpensePaymentsListDelegation() {
+  const mount = document.getElementById("expensePaymentsListMount");
+  if (!mount || mount.dataset.expPayDel === "1") return;
+  mount.dataset.expPayDel = "1";
+  mount.addEventListener("click", (e) => {
+    const btn = e.target.closest(".expense-payment-row-btn");
+    if (!btn || !mount.contains(btn)) return;
+    const rows = ui.lastExpenseListRows || [];
+    const loanId = btn.getAttribute("data-edit-loan");
+    if (loanId) {
+      openExpenseCategoryOverlay("loans");
+      openLoanEditor(loanId);
+      return;
+    }
+    const expenseId = btn.getAttribute("data-edit-expense");
+    const paymentId = btn.getAttribute("data-edit-expense-payment");
+    const iso = btn.getAttribute("data-edit-expense-iso");
+    const row = rows.find(
+      (r) => String(r.expenseId) === String(expenseId) && (!paymentId || String(r.paymentId) === String(paymentId))
+    );
+    if (row?.isFoodPayment) {
+      openFoodOverlayForExpenseRow(row);
+      return;
+    }
+    if (row?.isLoanMirror && row.loanId) {
+      openExpenseCategoryOverlay("loans");
+      openLoanEditor(String(row.loanId));
+      return;
+    }
+    openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
+  });
+}
+
 function renderExpensesList() {
+  ensureExpensePaymentsListDelegation();
   const rows = buildExpensePaymentRowsForList(ui.expenseYearFilter || "all");
-  const body = requireEl("expensePaymentsTableBody");
-  body.innerHTML = "";
+  ui.lastExpenseListRows = rows;
+  const mount = requireEl("expensePaymentsListMount");
+  mount.innerHTML = "";
   const noteEl = requireEl("expenseListNote");
   noteEl.textContent = "";
   if (rows.length === 0) {
-    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga utgifter för valt filter.</td></tr>`;
+    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga utgifter för valt filter.</div>`;
     return;
   }
   const total = rows.reduce((s, r) => s + asNumber(r.amount), 0);
-  noteEl.textContent = `Totalt: ${formatKr(total)}`;
+  noteEl.textContent = `Utgifter totalt: ${formatKr(total)}`;
   let prevMonthKey = null;
-  let prevDataRow = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
-    // Add month divider on first month and each month change
     if (!prevMonthKey || monthKey !== prevMonthKey) {
-      if (prevDataRow) prevDataRow.classList.add("before-month-break");
-      const monthRow = document.createElement("tr");
-      monthRow.className = "month-label-row";
-      monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
-        r.date.getMonth() + 1
-      ))} ${escapeHtml(String(r.date.getFullYear()))}</span></div></td>`;
-      body.appendChild(monthRow);
+      const heading = document.createElement("div");
+      heading.className = "expense-list-month-heading";
+      heading.innerHTML = `<div class="month-divider expense-list-month-divider"><span>${escapeHtml(monthName(r.date.getMonth() + 1))} ${escapeHtml(
+        String(r.date.getFullYear())
+      )}</span></div>`;
+      mount.appendChild(heading);
+      prevMonthKey = monthKey;
     }
-    const tr = document.createElement("tr");
-    prevMonthKey = monthKey;
-    prevDataRow = tr;
-    tr.innerHTML = `
-      <td><button class="linklike truncate" type="button" data-show-expense-name="${escapeHtml(r.name)}" title="${escapeHtml(r.name)}">${escapeHtml(
-      r.name
-    )}${r.isFoodPayment ? ` <span class="badge badge-food" aria-label="Systemgenererad">Mat</span>` : ""}</button></td>
-      <td><button class="linklike truncate" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense-date="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
-      r.paymentId || ""
-    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} title="${escapeHtml(r.isoDate || "")}">${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}</button></td>
-      <td class="right">${formatKr(r.amount)}</td>
-      <td class="right"><button class="secondary btn-icon" type="button" ${r.isLoanMirror ? `data-edit-loan="${escapeHtml(r.loanId || "")}"` : `data-edit-expense="${escapeHtml(r.expenseId)}" data-edit-expense-payment="${escapeHtml(
-      r.paymentId || ""
-    )}" data-edit-expense-iso="${escapeHtml(r.isoDate || "")}"`} aria-label="Redigera">✎</button></td>
+    const rowWrap = document.createElement("div");
+    rowWrap.className = "tagged-expense-preview-row";
+    const loanMirror = r.isLoanMirror && r.loanId;
+    const attrs = loanMirror
+      ? `data-edit-loan="${escapeHtml(String(r.loanId))}"`
+      : `data-edit-expense="${escapeHtml(String(r.expenseId))}" data-edit-expense-payment="${escapeHtml(
+          String(r.paymentId || "")
+        )}" data-edit-expense-iso="${escapeHtml(String(r.isoDate || ""))}"`;
+    const prefixHtml = r.weekPrefix
+      ? `<span class="expense-payment-week-prefix">${escapeHtml(r.weekPrefix)}</span>`
+      : "";
+    const line1Left = r.weekPrefix
+      ? `<span class="expense-payment-line1-left">${prefixHtml}<span class="tagged-expense-name">${escapeHtml(r.lineTitle)}</span></span>`
+      : `<span class="tagged-expense-name">${escapeHtml(r.lineTitle)}</span>`;
+    rowWrap.innerHTML = `
+      <button type="button" class="tagged-expense-row-btn expense-payment-row-btn" ${attrs} aria-label="Redigera ${escapeHtml(r.lineTitle)}">
+        <span class="tagged-expense-row-btn-main">
+          <span class="tagged-expense-row-line1">
+            ${line1Left}
+            <span class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</span>
+          </span>
+          <span class="tagged-expense-row-line2">${escapeHtml(r.dateLong)}</span>
+        </span>
+        <span class="tagged-expense-row-chev expense-payment-row-chev" aria-hidden="true">&gt;</span>
+      </button>
     `;
-    body.appendChild(tr);
+    mount.appendChild(rowWrap);
   }
-  document.querySelectorAll("[data-show-expense-name]").forEach((btn) => {
-    btn.onclick = () => {
-      document.querySelectorAll("[data-show-expense-name].peek").forEach((open) => open.classList.remove("peek"));
-      btn.classList.add("peek");
-      setTimeout(() => btn.classList.remove("peek"), 1800);
-    };
-  });
-  document.querySelectorAll("[data-edit-expense],[data-edit-expense-date]").forEach((btn) => {
-    btn.onclick = () => {
-      const expenseId = btn.getAttribute("data-edit-expense") || btn.getAttribute("data-edit-expense-date");
-      const paymentId = btn.getAttribute("data-edit-expense-payment");
-      const iso = btn.getAttribute("data-edit-expense-iso");
-      const row = rows.find((r) => String(r.expenseId) === String(expenseId) && (!paymentId || String(r.paymentId) === String(paymentId)));
-      if (row?.isFoodPayment) return openFoodOverlayForExpenseRow(row);
-      if (row?.isLoanMirror && row.loanId) {
-        openExpenseCategoryOverlay("loans");
-        return openLoanEditor(String(row.loanId));
-      }
-      openExpenseOverlay(expenseId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
-    };
-  });
-  document.querySelectorAll("[data-edit-loan]").forEach((btn) => {
-    btn.onclick = () => {
-      openExpenseCategoryOverlay("loans");
-      const loanId = btn.getAttribute("data-edit-loan");
-      openLoanEditor(loanId);
-    };
-  });
 }
 
 function getExpenseDefaultsFromUI() {
