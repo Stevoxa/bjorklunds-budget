@@ -192,7 +192,22 @@ body {
   text-transform: uppercase;
 }
 
-/* Nedre menylayout: temadriven, platt nav (ljus / mörk). */
+.app-header-settings {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--muted);
+  border-radius: 12px;
+}
+
+.app-header-settings[aria-current="page"] {
+  color: var(--text);
+}
+
+.app-header-settings svg {
+  display: block;
+}
+
+/* Nedre menylayout: SJ-lik (ikon outline ↔ fylld, typografi, minimalt med “knappyta”). */
 .bottom-nav {
   position: fixed !important;
   left: 0;
@@ -200,10 +215,7 @@ body {
   bottom: 0;
   z-index: 25;
   width: 100vw;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0;
-  padding: 7px var(--space-2) calc(10px + env(safe-area-inset-bottom));
+  padding: 6px var(--space-2) calc(10px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--bottom-nav-border-top);
   background: var(--bottom-nav-bg);
   box-shadow: var(--bottom-nav-shadow);
@@ -212,75 +224,111 @@ body {
   transform: translateZ(0);
 }
 
+.bottom-nav__list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  align-items: stretch;
+}
+
+.bottom-nav__list > li {
+  min-width: 0;
+  display: flex;
+}
+
 html[data-theme="dark"] .bottom-nav {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-.bottom-nav a {
+.bottom-nav__list > li > a {
   position: relative;
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 3px;
   text-decoration: none;
   color: var(--bottom-nav-item-color);
   border: none;
-  border-radius: 12px;
-  padding: 6px 4px 7px;
-  margin: 0 2px;
+  border-radius: 10px;
+  padding: 5px 2px 6px;
+  margin: 0 1px;
   min-height: 48px;
   touch-action: manipulation;
   user-select: none;
+  background: transparent;
   transition:
-    background var(--motion-fast) var(--motion-ease),
     color var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
+    opacity var(--motion-fast) var(--motion-ease);
 }
 
-.bottom-nav a:hover {
-  background: var(--bottom-nav-hover-bg);
+.bottom-nav__list > li > a:hover {
+  background: transparent;
+  color: color-mix(in srgb, var(--bottom-nav-item-color) 72%, var(--text));
 }
 
-.bottom-nav a:active {
-  transform: scale(0.99);
+.bottom-nav__list > li > a:active {
+  transform: none;
+  opacity: 0.88;
 }
 
-.bottom-nav a:focus-visible {
+.bottom-nav__list > li > a:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--bottom-nav-focus-inner), 0 0 0 4px var(--bottom-nav-focus-outer);
 }
 
-/* Aktiv flik: färg + vikt, ingen stapel */
-.bottom-nav a[aria-current="page"] {
+.bottom-nav__list > li > a[aria-current="page"] {
   color: var(--bottom-nav-item-active-color);
   background: transparent;
 }
 
-.bottom-nav a[aria-current="page"]:hover {
-  background: color-mix(in srgb, var(--primary) 8%, var(--bottom-nav-bg));
+.bottom-nav__list > li > a[aria-current="page"]:hover {
+  background: transparent;
+  color: var(--bottom-nav-item-active-color);
 }
 
-html[data-theme="dark"] .bottom-nav a[aria-current="page"]:hover {
-  background: var(--bottom-nav-hover-bg);
+.nav-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .nav-icon-svg {
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
-  stroke: currentColor;
-  stroke-width: 1.5px;
 }
 
-.nav-icon-svg path {
-  stroke-width: inherit;
+.nav-icon-svg .nav-icon__outline,
+.nav-icon-svg .nav-icon__solid {
+  transition: opacity var(--motion-fast) var(--motion-ease);
 }
 
-.bottom-nav a[aria-current="page"] .nav-icon-svg {
-  stroke-width: 1.75px;
+.bottom-nav__list > li > a:not([aria-current="page"]) .nav-icon__solid {
+  opacity: 0;
+}
+
+.bottom-nav__list > li > a:not([aria-current="page"]) .nav-icon__outline {
+  opacity: 1;
+}
+
+.bottom-nav__list > li > a[aria-current="page"] .nav-icon__outline {
+  opacity: 0;
+}
+
+.bottom-nav__list > li > a[aria-current="page"] .nav-icon__solid {
+  opacity: 1;
 }
 
 .nav-label {
@@ -295,7 +343,7 @@ html[data-theme="dark"] .bottom-nav a[aria-current="page"]:hover {
   line-height: 1.2;
 }
 
-.bottom-nav a[aria-current="page"] .nav-label {
+.bottom-nav__list > li > a[aria-current="page"] .nav-label {
   font-weight: 700;
 }
 
@@ -4259,7 +4307,7 @@ body.app-bottom-sheet-open {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bottom-nav a,
+  .bottom-nav__list > li > a,
   .primary,
   .secondary,
   .danger,

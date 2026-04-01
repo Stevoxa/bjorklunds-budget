@@ -492,6 +492,9 @@ function closeExpenseCategoryOverlayFromUi() {
     return;
   }
   closeExpenseCategoryOverlay({ fromHistory: false });
+  if (ui.activeRoute === "savings") {
+    location.hash = "#/expenses";
+  }
 }
 
 function initExpenseOverlayHistory() {
@@ -3230,17 +3233,24 @@ function initRouting() {
 
   const view = (name) => {
     ui.activeRoute = name;
+    const routeView = name === "savings" ? "expenses" : name;
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     document.querySelectorAll("[data-view]").forEach((v) => {
-      if (v.getAttribute("data-view") === name) v.classList.add("active");
+      if (v.getAttribute("data-view") === routeView) v.classList.add("active");
     });
-    document.querySelectorAll(".bottom-nav a").forEach((a) => {
-      a.setAttribute("aria-current", a.getAttribute("data-navlink") === name ? "page" : "false");
+    if (routeView !== "expenses" && anyExpenseOverlayOpen()) {
+      closeExpenseCategoryOverlay({ fromHistory: false });
+      expenseOverlayHistoryDepth = 0;
+    }
+    document.querySelectorAll("[data-navlink]").forEach((el) => {
+      const link = el.getAttribute("data-navlink");
+      if (link === name) el.setAttribute("aria-current", "page");
+      else el.removeAttribute("aria-current");
     });
   };
 
   const onChange = () => {
-    const allowed = new Set(["overview", "incomes", "expenses", "settings"]);
+    const allowed = new Set(["overview", "incomes", "expenses", "savings", "settings"]);
     let route = routeFromHash();
     if (!allowed.has(route)) route = "overview";
     view(route);
@@ -6785,6 +6795,10 @@ function renderRoute(route) {
       renderExpensesPage();
       break;
     }
+    case "savings": {
+      renderExpensesPage({ openSavingsOverlay: true });
+      break;
+    }
     case "settings": {
       requireEl("headerSubtitle").textContent = "Inställn.";
       const themeModeSel = document.getElementById("themeMode");
@@ -8224,8 +8238,10 @@ function saveExpenseFromOverlay() {
   renderOverviewIfOnOverview();
 }
 
-function renderExpensesPage() {
-  document.getElementById("headerSubtitle").textContent = "Utgifter";
+function renderExpensesPage(opts = {}) {
+  const openSavings = opts.openSavingsOverlay === true;
+  const subEl = document.getElementById("headerSubtitle");
+  if (subEl) subEl.textContent = openSavings ? "Spar" : "Utgifter";
   ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
 
   // Ensure overlays start hidden
@@ -8245,9 +8261,13 @@ function renderExpensesPage() {
   });
 
   renderExpensesSummaryPage();
+  if (openSavings) {
+    openExpenseCategoryOverlay("savings", { skipHistory: true });
+  }
 }
 
-function openExpenseCategoryOverlay(key) {
+function openExpenseCategoryOverlay(key, opts = {}) {
+  const skipHistory = opts.skipHistory === true;
   const map = {
     home: renderHomePage,
     loans: renderLoansPage,
@@ -8263,7 +8283,7 @@ function openExpenseCategoryOverlay(key) {
   target.hidden = false;
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
-  if (!wasAnyOpen) {
+  if (!skipHistory && !wasAnyOpen) {
     history.pushState({ expOverlay: true, key }, "");
     expenseOverlayHistoryDepth += 1;
   }
