@@ -8148,7 +8148,8 @@ function openLoanEditor(loanId = null) {
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
   hideErrorSummaryById("loanErrorSummary");
-  renderLoanDateInlineError();
+  // Visa inte "Ange betaldatum" direkt vid nytt lån — validera vid datumändring eller Spara.
+  if (existing) renderLoanDateInlineError();
   updateLoanDerivedFields();
   requestAnimationFrame(() => {
     const overlay = document.querySelector('[data-expview="loans"]');
