@@ -2575,24 +2575,151 @@ function cleanupExpenseGarbage(root) {
   });
 }
 
+const INCOME_CATEGORY_SALARY = "salary";
+const INCOME_CATEGORY_OTHER = "other";
+
+function normalizeIncomeRecord(raw) {
+  const incomeId = raw?.id || uid();
+  const payments = Array.isArray(raw?.payments) ? raw.payments : [];
+  const normalizedPayments = payments.map((p) => ({
+    id: p?.id || uid(),
+    date: p?.date || "",
+    amount: asNumber(p?.amount)
+  }));
+  const nameTrim = String(raw?.name || "").trim();
+  let category = String(raw?.category || INCOME_CATEGORY_OTHER).trim() || INCOME_CATEGORY_OTHER;
+  if (![INCOME_CATEGORY_SALARY, INCOME_CATEGORY_OTHER, "one_off"].includes(category)) category = INCOME_CATEGORY_OTHER;
+  if (category === INCOME_CATEGORY_OTHER && /^lön$/i.test(nameTrim)) category = INCOME_CATEGORY_SALARY;
+
+  let interval = raw?.interval || "once";
+  if (category === INCOME_CATEGORY_SALARY) interval = "monthly";
+
+  const meta =
+    typeof raw?.metadata === "object" && raw.metadata && !Array.isArray(raw.metadata) ? deepCloneJson(raw.metadata) : {};
+
+  if (category !== INCOME_CATEGORY_SALARY) {
+    delete meta.salary;
+  } else {
+    const salIn = meta.salary && typeof meta.salary === "object" ? meta.salary : {};
+    const byYear = salIn.byYear && typeof salIn.byYear === "object" ? { ...salIn.byYear } : {};
+    const pd = Math.floor(asNumber(salIn.payDay));
+    const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : 25;
+    meta.salary = { byYear, payDay };
+  }
+
+  const out = {
+    id: incomeId,
+    name: nameTrim,
+    interval,
+    category,
+    payments: normalizedPayments
+  };
+  if (Object.keys(meta).length > 0) out.metadata = meta;
+  return out;
+}
+
 function ensureIncomeIds(root) {
   if (!Array.isArray(root.incomes)) root.incomes = [];
-  root.incomes = root.incomes.map((inc) => {
-    const incomeId = inc?.id || uid();
-    const payments = Array.isArray(inc?.payments) ? inc.payments : [];
-    const normalizedPayments = payments.map((p) => ({
-      id: p?.id || uid(),
-      date: p?.date || "",
-      amount: asNumber(p?.amount)
-    }));
-    return {
-      id: incomeId,
-      name: String(inc?.name || "").trim(),
-      interval: inc?.interval || "once",
-      category: String(inc?.category || "other").trim() || "other",
-      payments: normalizedPayments
-    };
+  root.incomes = root.incomes.map((inc) => normalizeIncomeRecord(inc));
+}
+
+function isSalaryIncome(inc) {
+  return Boolean(inc && inc.category === INCOME_CATEGORY_SALARY);
+}
+
+function incomeDisplayName(inc) {
+  if (isSalaryIncome(inc)) return "Lön";
+  return String(inc?.name || "Intäkt").trim() || "Intäkt";
+}
+
+function resolveSalaryTemplateForCalendarYear(byYear, calendarYear) {
+  const y = Number(calendarYear);
+  if (!Number.isFinite(y)) return 0;
+  const obj = byYear && typeof byYear === "object" ? byYear : {};
+  const keys = Object.keys(obj)
+    .map((k) => Number(k))
+    .filter((n) => Number.isFinite(n) && asNumber(obj[String(n)]) > 0)
+    .sort((a, b) => a - b);
+  if (keys.length === 0) return 0;
+  let bestAmt = 0;
+  let found = false;
+  for (const k of keys) {
+    if (k <= y) {
+      bestAmt = asNumber(obj[String(k)]);
+      found = true;
+    }
+  }
+  if (found) return bestAmt;
+  return asNumber(obj[String(keys[0])]);
+}
+
+function salaryEditorAnchorYears() {
+  const y = currentYearMonth().year;
+  return [y - 1, y, y + 1];
+}
+
+function updateIncomeSalaryBandLabels() {
+  const ys = salaryEditorAnchorYears();
+  const labels = [`${ys[0]} · föregående`, `${ys[1]} · nu`, `${ys[2]} · nästa`];
+  ["incomeSalaryBandPrevLabel", "incomeSalaryBandCurLabel", "incomeSalaryBandNextLabel"].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = labels[i];
   });
+}
+
+function readSalaryByYearFromBandInputs() {
+  const ys = salaryEditorAnchorYears();
+  const ids = ["incomeSalaryBandPrev", "incomeSalaryBandCur", "incomeSalaryBandNext"];
+  const byYear = {};
+  ids.forEach((id, i) => {
+    const v = asNumber(document.getElementById(id)?.value);
+    if (v > 0) byYear[String(ys[i])] = v;
+  });
+  return byYear;
+}
+
+function writeSalaryByYearToBandInputs(byYear) {
+  const ys = salaryEditorAnchorYears();
+  const ids = ["incomeSalaryBandPrev", "incomeSalaryBandCur", "incomeSalaryBandNext"];
+  ys.forEach((y, i) => {
+    const el = document.getElementById(ids[i]);
+    if (!el) return;
+    const v = byYear && byYear[String(y)] != null ? asNumber(byYear[String(y)]) : 0;
+    el.value = v > 0 ? String(v) : "";
+  });
+}
+
+function regenerateSalaryEditorPayments() {
+  const years = salaryEditorAnchorYears();
+  const payDay = Math.max(1, Math.min(31, Math.floor(asNumber(document.getElementById("incomeSalaryPayDay")?.value || 25)))) || 25;
+  const byYear = readSalaryByYearFromBandInputs();
+  const prev = Array.isArray(ui.incomeEditorPayments) ? ui.incomeEditorPayments : [];
+  const prevByKey = new Map();
+  for (const p of prev) {
+    const y = parseIntOrNull(p.year);
+    const m = parseIntOrNull(p.month);
+    if (y === null || m === null) continue;
+    prevByKey.set(`${y}-${pad2(m)}`, p);
+  }
+  const rows = [];
+  for (const y of years) {
+    const template = resolveSalaryTemplateForCalendarYear(byYear, y);
+    for (let m = 1; m <= 12; m++) {
+      const key = `${y}-${pad2(m)}`;
+      const existing = prevByKey.get(key);
+      const d = clampDay(y, m, payDay);
+      const prevAmt = existing ? asNumber(existing.amount) : 0;
+      rows.push({
+        id: existing?.id || uid(),
+        year: String(y),
+        month: pad2(m),
+        day: String(d),
+        amount: prevAmt > 0 ? prevAmt : template
+      });
+    }
+  }
+  ui.incomeEditorPayments = rows;
+  renderIncomePaymentsEditorRows();
 }
 
 function ensureExpenseIds(root) {
@@ -3043,6 +3170,8 @@ const ui = {
   // Intäkter
   incomeYearFilter: null,
   incomeMonthFilter: "all",
+  incomeEditorKind: "other",
+  lastIncomeListRows: [],
   // Utgifter
   expenseYearFilter: null,
   expenseMonthFilter: "all",
@@ -4161,7 +4290,7 @@ function computeMonthOverview(year, month) {
       if (py !== year || pm !== month) continue;
       incomesRows.push({
         group: "Utbetalningar",
-        label: `${inc.name || "Intäkt"} (${dt.toLocaleDateString("sv-SE")})`,
+        label: `${incomeDisplayName(inc)} (${dt.toLocaleDateString("sv-SE")})`,
         amount: amt
       });
     }
@@ -6742,7 +6871,7 @@ function buildIncomePaymentRowsForList(yearFilter) {
   const rows = [];
   const monthFilter = ui.incomeMonthFilter || "all";
   for (const inc of state.incomes || []) {
-    const name = inc.name || "Intäkt";
+    const lineTitle = incomeDisplayName(inc);
     for (const p of inc.payments || []) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
@@ -6756,14 +6885,15 @@ function buildIncomePaymentRowsForList(yearFilter) {
       rows.push({
         incomeId: inc.id,
         paymentId: p.id,
-        name,
+        name: lineTitle,
+        lineTitle,
         isoDate: iso,
         date: dt,
-        amount: amt
+        amount: amt,
+        dateLong: formatExpenseListLongDate(dt)
       });
     }
   }
-  // Sort ascending so later dates are further down
   rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
 }
@@ -6790,15 +6920,67 @@ function renderIncomesPage() {
 
   requireEl("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
 
-  // Suggestions
+  const salPayDayInit = document.getElementById("incomeSalaryPayDay");
+  if (salPayDayInit && salPayDayInit.options.length === 0) {
+    setDayOptions(salPayDayInit, ui.incomeDefaults?.day || 25);
+  }
+
+  const salKindBtn = document.getElementById("incomeKindSalaryBtn");
+  if (salKindBtn) {
+    salKindBtn.onclick = () => {
+      ui.incomeEditorKind = "salary";
+      requireEl("incomeNameInput").value = "Lön";
+      requireEl("incomeIntervalSelect").value = "monthly";
+      updateIncomeSalaryBandLabels();
+      const editingId = ui.editIncomeId;
+      const inc = editingId ? (state.incomes || []).find((x) => x.id === editingId) : null;
+      if (inc && isSalaryIncome(inc)) {
+        writeSalaryByYearToBandInputs(inc.metadata?.salary?.byYear || {});
+      } else {
+        writeSalaryByYearToBandInputs({});
+      }
+      const paySel = document.getElementById("incomeSalaryPayDay");
+      if (paySel) {
+        const pd = inc && isSalaryIncome(inc) ? inc.metadata?.salary?.payDay : null;
+        const n = Number(pd);
+        const d = Number.isFinite(n) && n >= 1 && n <= 31 ? n : ui.incomeDefaults?.day || 25;
+        setDayOptions(paySel, d);
+      }
+      syncIncomeModalKindUI();
+      if (ui.incomeEditorPayments?.length) regenerateSalaryEditorPayments();
+      else renderIncomePaymentsEditorRows();
+    };
+  }
+
+  const othKindBtn = document.getElementById("incomeKindOtherBtn");
+  if (othKindBtn) {
+    othKindBtn.onclick = () => {
+      ui.incomeEditorKind = "other";
+      syncIncomeModalKindUI();
+      resetIncomeEditorRowsForInterval();
+    };
+  }
+
+  const genSalBtn = document.getElementById("incomeSalaryGenerateBtn");
+  if (genSalBtn) {
+    genSalBtn.onclick = () => {
+      if (ui.incomeEditorKind !== "salary") return;
+      regenerateSalaryEditorPayments();
+    };
+  }
+
   document.querySelectorAll("[data-income-suggest]").forEach((btn) => {
     btn.onclick = () => {
-      document.getElementById("incomeNameInput").value = btn.getAttribute("data-income-suggest") || "";
+      const v = btn.getAttribute("data-income-suggest") || "";
+      const nameInp = document.getElementById("incomeNameInput");
+      if (nameInp) nameInp.value = v;
+      ui.incomeEditorKind = "other";
+      syncIncomeModalKindUI();
     };
   });
 
   requireEl("incomeIntervalSelect").onchange = () => {
-    // Only interval change resets rows
+    if (ui.incomeEditorKind === "salary") return;
     resetIncomeEditorRowsForInterval();
   };
 
@@ -6835,6 +7017,45 @@ function renderIncomesPage() {
   renderIncomesList();
 }
 
+function updateIncomeModalTitle() {
+  const titleEl = document.getElementById("incomeModalTitle");
+  if (!titleEl) return;
+  const editing = Boolean(ui.editIncomeId);
+  const sal = ui.incomeEditorKind === "salary";
+  if (!editing) titleEl.textContent = sal ? "Ny lön" : "Ny intäkt";
+  else titleEl.textContent = sal ? "Redigera lön" : "Redigera intäkt";
+}
+
+function updateIncomePaymentsEditorHeading() {
+  const h = document.getElementById("incomePaymentsEditorTitle");
+  const table = document.querySelector("#incomeModal .income-payments-editor-card table");
+  if (!h) return;
+  const sal = ui.incomeEditorKind === "salary";
+  h.textContent = sal ? "Utbetalningar (3 år × 12 mån)" : "Inbetalningar";
+  if (table) table.setAttribute("aria-label", sal ? "Löneutbetalningar per månad" : "Inbetalningar");
+}
+
+function syncIncomeModalKindUI() {
+  const sal = ui.incomeEditorKind === "salary";
+  const salSec = document.getElementById("incomeSalarySection");
+  const othSec = document.getElementById("incomeOtherSection");
+  if (salSec) salSec.hidden = !sal;
+  if (othSec) othSec.hidden = sal;
+  const bSal = document.getElementById("incomeKindSalaryBtn");
+  const bOth = document.getElementById("incomeKindOtherBtn");
+  if (bSal) bSal.setAttribute("aria-pressed", sal ? "true" : "false");
+  if (bOth) bOth.setAttribute("aria-pressed", !sal ? "true" : "false");
+  const nameInp = document.getElementById("incomeNameInput");
+  if (nameInp) {
+    nameInp.readOnly = sal;
+    nameInp.classList.toggle("input-readonly-like", sal);
+  }
+  const note = document.getElementById("incomeSalaryHelpNote");
+  if (note) note.hidden = !sal;
+  updateIncomeModalTitle();
+  updateIncomePaymentsEditorHeading();
+}
+
 function openIncomeOverlay(incomeId, opts = {}) {
   ui.editIncomeId = incomeId;
   ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
@@ -6846,14 +7067,25 @@ function openIncomeOverlay(incomeId, opts = {}) {
 
   const editing = Boolean(incomeId);
   modal.dataset.mode = editing ? "edit" : "create";
-  requireEl("incomeModalTitle").textContent = editing ? "Redigera intäkt" : "Ny intäkt";
   requireEl("incomeEditorNote").textContent = "";
   hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeDeleteBtn").hidden = !editing;
 
   const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
-  requireEl("incomeNameInput").value = inc?.name || "";
-  requireEl("incomeIntervalSelect").value = inc?.interval || "once";
+  const isSal = inc ? isSalaryIncome(inc) : false;
+  ui.incomeEditorKind = isSal ? "salary" : "other";
+
+  requireEl("incomeNameInput").value = isSal ? (String(inc?.name || "").trim() || "Lön") : inc?.name || "";
+  requireEl("incomeIntervalSelect").value = isSal ? "monthly" : inc?.interval || "once";
+
+  if (isSal) {
+    updateIncomeSalaryBandLabels();
+    const metaSal = inc?.metadata?.salary || {};
+    writeSalaryByYearToBandInputs(metaSal.byYear || {});
+    const payPd = Math.max(1, Math.min(31, Math.floor(asNumber(metaSal.payDay)))) || 25;
+    const paySel = document.getElementById("incomeSalaryPayDay");
+    if (paySel) setDayOptions(paySel, payPd);
+  }
 
   ui.incomeEditorPayments = Array.isArray(inc?.payments)
     ? inc.payments.map((p) => {
@@ -6868,7 +7100,6 @@ function openIncomeOverlay(incomeId, opts = {}) {
       })
     : [];
 
-  // Resolve focus target robustly: prefer payment ID if it exists, otherwise fallback to ISO date.
   if (ui.scrollToPaymentId) {
     const pid = String(ui.scrollToPaymentId);
     const hasIdMatch = ui.incomeEditorPayments.some((p) => String(p.id || "") === pid);
@@ -6877,7 +7108,6 @@ function openIncomeOverlay(incomeId, opts = {}) {
   if (!ui.focusPaymentId && ui.scrollToPaymentDateISO) {
     ui.focusPaymentDateISO = String(ui.scrollToPaymentDateISO);
   }
-  // Initialize defaults from existing data (if editing)
   const curY = currentYearMonth().year;
   const firstPayment = (ui.incomeEditorPayments || []).find((p) => asNumber(p.amount) > 0 && p.year && p.month && p.day);
   const parts =
@@ -6889,7 +7119,6 @@ function openIncomeOverlay(incomeId, opts = {}) {
   ui.incomeDefaults.day = parts?.d || ui.incomeDefaults.day || 25;
   ui.incomeDefaults.amount = firstPayment ? asNumber(firstPayment.amount) : ui.incomeDefaults.amount;
 
-  // Apply to controls
   const defYear = requireEl("incomeDefaultYear");
   const defDay = requireEl("incomeDefaultDay");
   const defAmt = requireEl("incomeDefaultAmount");
@@ -6897,8 +7126,15 @@ function openIncomeOverlay(incomeId, opts = {}) {
   setDayOptions(defDay, ui.incomeDefaults.day);
   defAmt.value = asNumber(ui.incomeDefaults.amount);
 
+  syncIncomeModalKindUI();
+
   if (!editing) {
-    resetIncomeEditorRowsForInterval();
+    if (isSal) {
+      ui.incomeEditorPayments = [];
+      renderIncomePaymentsEditorRows();
+    } else {
+      resetIncomeEditorRowsForInterval();
+    }
   } else {
     renderIncomePaymentsEditorRows();
   }
@@ -6908,8 +7144,7 @@ function openIncomeOverlay(incomeId, opts = {}) {
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
 
-  // Scroll after modal is visible/rendered.
-  if (ui.scrollToPaymentId) {
+  if (ui.scrollToPaymentId || ui.focusPaymentDateISO) {
     requestAnimationFrame(() => {
       scrollToIncomePaymentRow({
         paymentId: ui.focusPaymentId || ui.scrollToPaymentId,
@@ -6926,6 +7161,8 @@ function closeIncomeOverlay() {
   ui.incomeEditorPayments = null;
   ui.focusPaymentId = null;
   ui.focusPaymentDateISO = null;
+  ui.incomeEditorKind = "other";
+  syncIncomeModalKindUI();
   hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeModalBackdrop").hidden = true;
   requireEl("incomeModal").hidden = true;
@@ -6999,6 +7236,7 @@ function getIncomeDefaultsFromUI() {
 }
 
 function resetIncomeEditorRowsForInterval() {
+  if (ui.incomeEditorKind === "salary") return;
   const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
   const count = paymentsCountForInterval(interval);
   const months = monthsForInterval(interval);
@@ -7019,6 +7257,7 @@ function resetIncomeEditorRowsForInterval() {
 }
 
 function applyIncomeDefaultFieldToEditorRows(field) {
+  if (ui.incomeEditorKind === "salary") return;
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
   const defaults = getIncomeDefaultsFromUI();
 
@@ -7033,6 +7272,7 @@ function applyIncomeDefaultFieldToEditorRows(field) {
 }
 
 function applyIncomeDefaultsToEditorRows(overwriteExisting) {
+  if (ui.incomeEditorKind === "salary") return;
   const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
   const count = paymentsCountForInterval(interval);
   const months = monthsForInterval(interval);
@@ -7066,15 +7306,19 @@ function applyIncomeDefaultsToEditorRows(overwriteExisting) {
 }
 
 function renderIncomePaymentsEditorRows() {
-  const interval = document.getElementById("incomeIntervalSelect").value || "once";
-  const count = paymentsCountForInterval(interval);
+  const isSalary = ui.incomeEditorKind === "salary";
+  const interval = document.getElementById("incomeIntervalSelect")?.value || "once";
+  const count = isSalary ? ui.incomeEditorPayments?.length || 0 : paymentsCountForInterval(interval);
 
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
-  while (ui.incomeEditorPayments.length < count)
-    ui.incomeEditorPayments.push({ id: uid(), year: "", month: "", day: "", amount: 0 });
-  if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
+  if (!isSalary) {
+    while (ui.incomeEditorPayments.length < count)
+      ui.incomeEditorPayments.push({ id: uid(), year: "", month: "", day: "", amount: 0 });
+    if (ui.incomeEditorPayments.length > count) ui.incomeEditorPayments = ui.incomeEditorPayments.slice(0, count);
+  }
 
   const body = document.getElementById("incomePaymentsEditorBody");
+  if (!body) return;
   body.innerHTML = "";
 
   ui.incomeEditorPayments.forEach((p, idx) => {
@@ -7206,15 +7450,16 @@ function scrollToIncomePaymentRow({ paymentId, dateISO }) {
 }
 
 function saveIncomeFromOverlay() {
-  const name = (document.getElementById("incomeNameInput").value || "").trim();
-  const interval = document.getElementById("incomeIntervalSelect").value || "once";
+  const isSal = ui.incomeEditorKind === "salary";
+  const name = isSal ? "Lön" : (document.getElementById("incomeNameInput").value || "").trim();
+  const interval = isSal ? "monthly" : document.getElementById("incomeIntervalSelect").value || "once";
   const note = document.getElementById("incomeEditorNote");
   const summaryEl = document.getElementById("incomeErrorSummary");
   if (summaryEl) hideErrorSummaryByEl(summaryEl);
 
-  if (!name) {
+  if (!isSal && !name) {
     note.textContent = "";
-    renderErrorSummary(summaryEl, [{ label: "Ange namn på intäkt.", jumpId: "incomeNameInput" }]);
+    renderErrorSummary(summaryEl, [{ label: "Ange ett namn.", jumpId: "incomeNameInput" }]);
     return;
   }
 
@@ -7226,7 +7471,6 @@ function saveIncomeFromOverlay() {
     amount: asNumber(p.amount)
   }));
 
-  // Validera: för rader med belopp > 0 måste år/månad/dag vara giltiga (ingen auto-korrigering)
   const errors = [];
   payments.forEach((p, idx) => {
     if (asNumber(p.amount) <= 0) return;
@@ -7257,13 +7501,37 @@ function saveIncomeFromOverlay() {
   });
 
   const editing = Boolean(ui.editIncomeId);
+  const prevInc = editing ? (state.incomes || []).find((x) => x.id === ui.editIncomeId) : null;
+  const baseMeta =
+    prevInc && typeof prevInc.metadata === "object" && prevInc.metadata && !Array.isArray(prevInc.metadata)
+      ? deepCloneJson(prevInc.metadata)
+      : {};
+  if (isSal) {
+    const byYear = readSalaryByYearFromBandInputs();
+    const paySel = document.getElementById("incomeSalaryPayDay");
+    const pd = Math.floor(asNumber(paySel?.value));
+    const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : 25;
+    baseMeta.salary = { byYear, payDay };
+  } else {
+    delete baseMeta.salary;
+  }
+  const hasMetaKeys = Object.keys(baseMeta).length > 0;
+
+  const raw = {
+    id: editing ? ui.editIncomeId : uid(),
+    name,
+    interval,
+    category: isSal ? INCOME_CATEGORY_SALARY : INCOME_CATEGORY_OTHER,
+    payments: storedPayments,
+    ...(hasMetaKeys ? { metadata: baseMeta } : {})
+  };
+  const normalized = normalizeIncomeRecord(raw);
+
   if (editing) {
     const idx = (state.incomes || []).findIndex((x) => x.id === ui.editIncomeId);
-    if (idx >= 0) {
-      state.incomes[idx] = { ...state.incomes[idx], name, interval, payments: storedPayments };
-    }
+    if (idx >= 0) state.incomes[idx] = normalized;
   } else {
-    state.incomes.push({ id: uid(), name, interval, category: "other", payments: storedPayments });
+    state.incomes.push(normalized);
   }
 
   saveState();
@@ -7273,93 +7541,53 @@ function saveIncomeFromOverlay() {
 }
 
 function renderIncomesList() {
+  ensureIncomePaymentsListDelegation();
   const yearFilter = ui.incomeYearFilter || "all";
   const rows = buildIncomePaymentRowsForList(yearFilter);
-
-  const body = document.getElementById("incomePaymentsTableBody");
-  const note = document.getElementById("incomeListNote");
-  body.innerHTML = "";
-
+  ui.lastIncomeListRows = rows;
+  const mount = requireEl("incomePaymentsListMount");
+  mount.innerHTML = "";
+  const note = requireEl("incomeListNote");
+  note.textContent = "";
   if (rows.length === 0) {
-    body.innerHTML = `<tr><td colspan="4" style="color: var(--muted);">Inga utbetalningar för valt filter.</td></tr>`;
-    note.textContent = "";
+    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga utbetalningar för valt filter.</div>`;
     return;
   }
-
+  const total = rows.reduce((s, r) => s + asNumber(r.amount), 0);
+  note.textContent = `Intäkter totalt: ${formatKr(total)}`;
   let prevMonthKey = null;
-  let prevDataRow = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
     if (!prevMonthKey || monthKey !== prevMonthKey) {
-      if (prevDataRow) prevDataRow.classList.add("before-month-break");
-      const monthRow = document.createElement("tr");
-      monthRow.className = "month-label-row";
-      monthRow.innerHTML = `<td colspan="4"><div class="month-divider"><span>${escapeHtml(monthName(
-        r.date.getMonth() + 1
-      ))}</span></div></td>`;
-      body.appendChild(monthRow);
+      const heading = document.createElement("div");
+      heading.className = "expense-list-month-heading";
+      heading.innerHTML = `<div class="month-divider expense-list-month-divider"><span>${escapeHtml(monthName(r.date.getMonth() + 1))} ${escapeHtml(
+        String(r.date.getFullYear())
+      )}</span></div>`;
+      mount.appendChild(heading);
+      prevMonthKey = monthKey;
     }
-    const tr = document.createElement("tr");
-    const fullName = r.name;
-    prevMonthKey = monthKey;
-    prevDataRow = tr;
-
-    tr.innerHTML = `
-      <td>
-        <button class="linklike truncate" type="button" data-show-income-name="${escapeHtml(fullName)}" title="${escapeHtml(
-          fullName
-        )}">${escapeHtml(fullName)}</button>
-      </td>
-      <td>
-        <button class="linklike truncate" type="button"
-          data-edit-income-date="${escapeHtml(r.incomeId)}"
-          data-edit-income-payment="${escapeHtml(r.paymentId || "")}"
-          data-edit-income-iso="${escapeHtml(r.isoDate || "")}"
-          title="${escapeHtml(r.isoDate || "")}">
-          ${escapeHtml(r.isoDate || r.date.toLocaleDateString("sv-SE"))}
-        </button>
-      </td>
-      <td class="right">${formatKr(r.amount)}</td>
-      <td class="right">
-        <button
-          class="secondary btn-icon"
-          type="button"
-          data-edit-income="${escapeHtml(r.incomeId)}"
-          data-edit-income-payment="${escapeHtml(r.paymentId || "")}"
-          data-edit-income-iso="${escapeHtml(r.isoDate || "")}"
-          aria-label="Redigera"
-        >✎</button>
-      </td>
+    const rowWrap = document.createElement("div");
+    rowWrap.className = "tagged-expense-preview-row";
+    rowWrap.setAttribute("role", "listitem");
+    rowWrap.innerHTML = `
+      <button type="button" class="tagged-expense-row-btn income-payment-row-btn" data-edit-income="${escapeHtml(
+        String(r.incomeId)
+      )}" data-edit-income-payment="${escapeHtml(String(r.paymentId || ""))}" data-edit-income-iso="${escapeHtml(
+        String(r.isoDate || "")
+      )}" aria-label="Redigera ${escapeHtml(r.lineTitle)}">
+        <span class="tagged-expense-row-btn-main">
+          <span class="tagged-expense-row-line1">
+            <span class="tagged-expense-name">${escapeHtml(r.lineTitle)}</span>
+            <span class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</span>
+          </span>
+          <span class="tagged-expense-row-line2">${escapeHtml(r.dateLong)}</span>
+        </span>
+        <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
+      </button>
     `;
-    body.appendChild(tr);
+    mount.appendChild(rowWrap);
   }
-
-  document.querySelectorAll("[data-show-income-name]").forEach((btn) => {
-    btn.onclick = () => {
-      // Mobile-friendly "hover/peek": temporary inline expand
-      document.querySelectorAll("[data-show-income-name].peek").forEach((open) => open.classList.remove("peek"));
-      btn.classList.add("peek");
-      setTimeout(() => btn.classList.remove("peek"), 1800);
-    };
-  });
-
-  document.querySelectorAll("[data-edit-income]").forEach((btn) => {
-    btn.onclick = () => {
-      const incomeId = btn.getAttribute("data-edit-income");
-      const paymentId = btn.getAttribute("data-edit-income-payment");
-      const iso = btn.getAttribute("data-edit-income-iso");
-      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
-    };
-  });
-
-  document.querySelectorAll("[data-edit-income-date]").forEach((btn) => {
-    btn.onclick = () => {
-      const incomeId = btn.getAttribute("data-edit-income-date");
-      const paymentId = btn.getAttribute("data-edit-income-payment");
-      const iso = btn.getAttribute("data-edit-income-iso");
-      openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
-    };
-  });
 }
 
 function expenseYearsForFilter() {
@@ -7573,6 +7801,20 @@ function ensureExpensePaymentsListDelegation() {
   });
 }
 
+function ensureIncomePaymentsListDelegation() {
+  const mount = document.getElementById("incomePaymentsListMount");
+  if (!mount || mount.dataset.incPayDel === "1") return;
+  mount.dataset.incPayDel = "1";
+  mount.addEventListener("click", (e) => {
+    const btn = e.target.closest(".income-payment-row-btn");
+    if (!btn || !mount.contains(btn)) return;
+    const incomeId = btn.getAttribute("data-edit-income");
+    const paymentId = btn.getAttribute("data-edit-income-payment");
+    const iso = btn.getAttribute("data-edit-income-iso");
+    openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
+  });
+}
+
 function renderExpensesList() {
   ensureExpensePaymentsListDelegation();
   const rows = buildExpensePaymentRowsForList(ui.expenseYearFilter || "all");
@@ -7601,6 +7843,7 @@ function renderExpensesList() {
     }
     const rowWrap = document.createElement("div");
     rowWrap.className = "tagged-expense-preview-row";
+    rowWrap.setAttribute("role", "listitem");
     const loanMirror = r.isLoanMirror && r.loanId;
     const attrs = loanMirror
       ? `data-edit-loan="${escapeHtml(String(r.loanId))}"`
@@ -7776,6 +8019,62 @@ function showConfirmDeleteExpenseModal() {
 function hideConfirmDeleteExpenseModal() {
   requireEl("confirmDeleteExpenseBackdrop").hidden = true;
   requireEl("confirmDeleteExpenseModal").hidden = true;
+}
+
+/** Escape + backdrop: samma mönster för intäkts- och utgiftsredigerare (och deras radera-dialoger). */
+function initBudgetEditorModalDismiss() {
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Escape") return;
+      if (periodSheetOpen || listPickerOpen || dateSheetOpen) return;
+      const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+      const foodPanelOpen =
+        foodOverlay &&
+        !foodOverlay.hidden &&
+        Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+      if (foodPanelOpen) return;
+
+      const incDel = document.getElementById("confirmDeleteIncomeModal");
+      if (incDel && !incDel.hidden) {
+        e.preventDefault();
+        hideConfirmDeleteIncomeModal();
+        return;
+      }
+      const expDel = document.getElementById("confirmDeleteExpenseModal");
+      if (expDel && !expDel.hidden) {
+        e.preventDefault();
+        hideConfirmDeleteExpenseModal();
+        return;
+      }
+      const incomeM = document.getElementById("incomeModal");
+      if (incomeM && !incomeM.hidden) {
+        e.preventDefault();
+        closeIncomeOverlay();
+        return;
+      }
+      const expenseM = document.getElementById("expenseModal");
+      if (expenseM && !expenseM.hidden) {
+        e.preventDefault();
+        closeExpenseOverlay();
+        return;
+      }
+    },
+    true
+  );
+
+  document.getElementById("incomeModalBackdrop")?.addEventListener("click", () => {
+    if (!document.getElementById("incomeModal")?.hidden) closeIncomeOverlay();
+  });
+  document.getElementById("expenseModalBackdrop")?.addEventListener("click", () => {
+    if (!document.getElementById("expenseModal")?.hidden) closeExpenseOverlay();
+  });
+  document.getElementById("confirmDeleteIncomeBackdrop")?.addEventListener("click", () => {
+    if (!document.getElementById("confirmDeleteIncomeModal")?.hidden) hideConfirmDeleteIncomeModal();
+  });
+  document.getElementById("confirmDeleteExpenseBackdrop")?.addEventListener("click", () => {
+    if (!document.getElementById("confirmDeleteExpenseModal")?.hidden) hideConfirmDeleteExpenseModal();
+  });
 }
 
 function renderExpensePaymentsEditorRows() {
@@ -8625,6 +8924,7 @@ function initRoot() {
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
     initExpenseOverlayHistory();
+    initBudgetEditorModalDismiss();
     initRouting();
     initActions();
     registerServiceWorker();

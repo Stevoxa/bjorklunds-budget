@@ -104,7 +104,7 @@
 
           <div class="table-card">
             <div class="table-title-row">
-              <div class="table-title">Intäkter</div>
+              <div class="table-title">Planerade inbetalningar</div>
               <button type="button" class="bb-icon-add-btn" id="openIncomeOverlayBtn" aria-label="Lägg till intäkt">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -112,7 +112,7 @@
               </button>
             </div>
             <div class="filter-toolbar">
-              <div class="note">En rad per inbetalning (0 kr visas inte).</div>
+              <div class="note">0 kr visas inte. Tryck på en rad för att redigera.</div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>
@@ -126,20 +126,15 @@
               <select id="incomeMonthFilter" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
             </div>
 
-            <div class="table-wrap">
-              <table class="data-table income-payments-table" aria-label="Utbetalningar">
-                <thead>
-                  <tr>
-                    <th>Intäkt</th>
-                    <th>Datum</th>
-                    <th class="right">Belopp</th>
-                    <th class="right"> </th>
-                  </tr>
-                </thead>
-                <tbody id="incomePaymentsTableBody"></tbody>
-              </table>
+            <div class="table-wrap expense-payments-list-wrap">
+              <div
+                id="incomePaymentsListMount"
+                class="tagged-expense-preview-list income-payments-list"
+                role="list"
+                aria-label="Intäkter"
+              ></div>
             </div>
-            <div class="note" id="incomeListNote"></div>
+            <div class="note payments-list-total-note" id="incomeListNote"></div>
           </div>
         </section>
 
@@ -220,7 +215,7 @@
                 aria-label="Utgifter"
               ></div>
             </div>
-            <div class="note" id="expenseListNote"></div>
+            <div class="note payments-list-total-note" id="expenseListNote"></div>
           </div>
 
           <!-- HOME -->
@@ -1443,45 +1438,90 @@
         <div class="bb-error-summary" id="incomeErrorSummary" hidden role="alert" aria-live="polite"></div>
         <div class="form-grid narrow">
           <div class="field">
-            Snabbval
+            Typ av intäkt
             <div class="chip-row">
-              <button class="secondary chip" type="button" data-income-suggest="Lön">Lön</button>
-              <button class="secondary chip" type="button" data-income-suggest="Barnbidrag">Barnbidrag</button>
+              <button class="secondary chip" type="button" id="incomeKindSalaryBtn" aria-pressed="false">Lön</button>
+              <button class="secondary chip" type="button" id="incomeKindOtherBtn" aria-pressed="true">Annan intäkt</button>
             </div>
           </div>
 
-          <label class="field">
-            Namn på intäkt
-            <input id="incomeNameInput" type="text" maxlength="80" placeholder="T.ex. Lön" />
-          </label>
+          <p class="income-salary-hint note" id="incomeSalaryHelpNote" hidden>
+            Tre löneår visas (föregående, nu, nästa). Ange månadslön per år som ska gälla, välj dag och tryck
+            <strong>Generera</strong> för 36 rader — justera sedan enskilda månader. Saknas senare år fortsätter senast angivna
+            beloppet tills du fyller i det året.
+          </p>
 
           <label class="field">
-            Typ av intäktsintervall
-            <select id="incomeIntervalSelect">
-              <option value="once">Engång</option>
-              <option value="monthly">Månad</option>
-              <option value="quarterly">Kvartal</option>
-              <option value="yearly">År</option>
-            </select>
+            Namn
+            <input id="incomeNameInput" type="text" maxlength="80" placeholder="T.ex. Barnbidrag" />
           </label>
 
-          <div class="defaults-row">
-            <label class="field">
-              År
-              <select id="incomeDefaultYear"></select>
-            </label>
+          <div id="incomeSalarySection" class="surface-soft surface-nested income-salary-section" hidden>
+            <div class="income-section-heading">
+              <span class="table-title small income-section-title">Mall: månadslön per år</span>
+              <span class="income-section-sub">kr per månad, exkl. skatt</span>
+            </div>
+            <div class="income-salary-bands">
+              <label class="field income-salary-band-field">
+                <span class="income-salary-band-caption" id="incomeSalaryBandPrevLabel">—</span>
+                <input id="incomeSalaryBandPrev" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+              </label>
+              <label class="field income-salary-band-field">
+                <span class="income-salary-band-caption" id="incomeSalaryBandCurLabel">—</span>
+                <input id="incomeSalaryBandCur" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+              </label>
+              <label class="field income-salary-band-field">
+                <span class="income-salary-band-caption" id="incomeSalaryBandNextLabel">—</span>
+                <input id="incomeSalaryBandNext" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+              </label>
+            </div>
             <label class="field">
               Utbetalningsdag
-              <select id="incomeDefaultDay"></select>
+              <select id="incomeSalaryPayDay" aria-label="Utbetalningsdag varje månad"></select>
             </label>
-            <label class="field">
-              Belopp (kr)
-              <input id="incomeDefaultAmount" type="number" inputmode="decimal" min="0" step="1" />
-            </label>
+            <button type="button" class="secondary income-salary-generate-btn" id="incomeSalaryGenerateBtn">Generera 36 månader</button>
           </div>
 
-          <div class="table-card compact surface-nested">
-            <div class="table-title small">Inbetalningar</div>
+          <div id="incomeOtherSection" class="surface-soft surface-nested income-other-section">
+            <div class="field">
+              Snabbval
+              <div class="chip-row income-suggest-chips">
+                <button class="secondary chip" type="button" data-income-suggest="Kapitalinkomst">Kapitalinkomst</button>
+                <button class="secondary chip" type="button" data-income-suggest="Barnbidrag">Barnbidrag</button>
+                <button class="secondary chip" type="button" data-income-suggest="Utbetalning försäkringskassan">Försäkringskassan</button>
+                <button class="secondary chip" type="button" data-income-suggest="Arv">Arv</button>
+                <button class="secondary chip" type="button" data-income-suggest="Gåva">Gåva</button>
+              </div>
+            </div>
+
+            <label class="field">
+              Typ av intäktsintervall
+              <select id="incomeIntervalSelect">
+                <option value="once">Engång</option>
+                <option value="monthly">Månad</option>
+                <option value="quarterly">Kvartal</option>
+                <option value="yearly">År</option>
+              </select>
+            </label>
+
+            <div class="defaults-row">
+              <label class="field">
+                År
+                <select id="incomeDefaultYear"></select>
+              </label>
+              <label class="field">
+                Utbetalningsdag
+                <select id="incomeDefaultDay"></select>
+              </label>
+              <label class="field">
+                Belopp (kr)
+                <input id="incomeDefaultAmount" type="number" inputmode="decimal" min="0" step="1" />
+              </label>
+            </div>
+          </div>
+
+          <div class="table-card compact surface-nested income-payments-editor-card">
+            <div class="table-title small" id="incomePaymentsEditorTitle">Inbetalningar</div>
             <div class="table-wrap">
               <table class="data-table" aria-label="Inbetalningar">
                 <thead>
