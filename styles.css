@@ -84,7 +84,6 @@
   --bottom-nav-shadow: 0 -1px 0 color-mix(in srgb, var(--border-strong) 55%, transparent);
   --bottom-nav-item-color: var(--muted);
   --bottom-nav-item-active-color: var(--primary);
-  --bottom-nav-indicator: var(--primary);
   --bottom-nav-hover-bg: color-mix(in srgb, var(--text) 5%, transparent);
   --bottom-nav-focus-inner: var(--card);
   --bottom-nav-focus-outer: var(--focus);
@@ -117,7 +116,6 @@ html[data-theme="dark"] {
   --bottom-nav-shadow: 0 -1px 0 rgba(255, 255, 255, 0.06);
   --bottom-nav-item-color: rgba(255, 255, 255, 0.55);
   --bottom-nav-item-active-color: #ffffff;
-  --bottom-nav-indicator: var(--primary);
   --bottom-nav-hover-bg: rgba(255, 255, 255, 0.06);
   --bottom-nav-focus-inner: #121714;
   --bottom-nav-focus-outer: rgba(255, 255, 255, 0.55);
@@ -254,24 +252,10 @@ html[data-theme="dark"] .bottom-nav {
   box-shadow: 0 0 0 2px var(--bottom-nav-focus-inner), 0 0 0 4px var(--bottom-nav-focus-outer);
 }
 
-/* Aktiv flik: tunn stapel överst + tydligare etikett (ingen “knapp”-ram) */
+/* Aktiv flik: färg + vikt, ingen stapel */
 .bottom-nav a[aria-current="page"] {
   color: var(--bottom-nav-item-active-color);
   background: transparent;
-}
-
-.bottom-nav a[aria-current="page"]::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 26px;
-  max-width: 42%;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--bottom-nav-indicator);
-  opacity: 0.95;
 }
 
 .bottom-nav a[aria-current="page"]:hover {
