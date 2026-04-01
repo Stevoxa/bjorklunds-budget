@@ -7239,22 +7239,74 @@ function formatSalaryPeriodListLine2(sp) {
   return `${fStr} – ${vStr}`;
 }
 
-function syncSalaryPeriodIntervalChips() {
-  const m = ui.salaryPeriodDraftInterval === "once" ? false : true;
-  const bM = document.getElementById("salaryPeriodIntervalMonthlyBtn");
-  const bO = document.getElementById("salaryPeriodIntervalOnceBtn");
-  if (bM) bM.setAttribute("aria-pressed", m ? "true" : "false");
-  if (bO) bO.setAttribute("aria-pressed", !m ? "true" : "false");
+function clampSalaryPeriodPayDay31(n) {
+  const x = Math.floor(asNumber(n));
+  if (!Number.isFinite(x)) return 25;
+  return Math.max(1, Math.min(31, x));
+}
+
+function setSalaryPeriodPayDayValue(day) {
+  const v = clampSalaryPeriodPayDay31(day);
+  const hid = document.getElementById("salaryPeriodPayDay");
+  const disp = document.getElementById("salaryPeriodPayDayDisplay");
+  const minus = document.getElementById("salaryPeriodPayDayMinus");
+  const plus = document.getElementById("salaryPeriodPayDayPlus");
+  if (hid) hid.value = String(v);
+  if (disp) disp.textContent = String(v);
+  if (minus) {
+    minus.disabled = v <= 1;
+    if (v <= 1) minus.setAttribute("aria-disabled", "true");
+    else minus.removeAttribute("aria-disabled");
+  }
+  if (plus) {
+    plus.disabled = v >= 31;
+    if (v >= 31) plus.setAttribute("aria-disabled", "true");
+    else plus.removeAttribute("aria-disabled");
+  }
+}
+
+function syncSalaryPeriodFirstDateNotchLabel() {
+  const inp = document.getElementById("salaryPeriodFirstDate");
+  if (!inp) return;
+  const once = ui.salaryPeriodDraftInterval === "once";
+  const text = once ? "Löneutbetalningsdag" : "Första löneutbetalningsdag";
+  inp.setAttribute("data-notch-label", text);
+  const host = inp.closest(".bb-notched-field");
+  if (host) {
+    host.setAttribute("aria-label", text);
+    const leg = host.querySelector(".bb-notched-field-legend");
+    if (leg) leg.textContent = text;
+  }
+  const wrap = inp.closest(".date-field-row");
+  const tr = wrap?.querySelector(".date-field-row-trigger");
+  if (tr) {
+    const shown = formatDateRowDisplay(inp.value, inp);
+    tr.setAttribute("aria-label", `${text}: ${shown}`);
+  }
+}
+
+function syncSalaryPeriodIntervalDependentUI() {
+  const once = ui.salaryPeriodDraftInterval === "once";
+  const wUntil = document.getElementById("salaryPeriodValidUntilWrap");
+  const wPay = document.getElementById("salaryPeriodPayDayWrap");
+  if (wUntil) wUntil.hidden = once;
+  if (wPay) wPay.hidden = once;
+  syncSalaryPeriodFirstDateNotchLabel();
+  const sum = document.getElementById("salaryPeriodIntervalSummary");
+  if (sum) sum.textContent = once ? "Enkel" : "Månad";
 }
 
 function getSalaryPeriodDraftFromInputs() {
   const firstIso = (document.getElementById("salaryPeriodFirstDate")?.value || "").trim();
-  const untilIso = (document.getElementById("salaryPeriodValidUntil")?.value || "").trim();
+  let untilIso = (document.getElementById("salaryPeriodValidUntil")?.value || "").trim();
+  if (ui.salaryPeriodDraftInterval === "once") untilIso = "";
   const fp = datePartsFromIso(firstIso);
   const up = untilIso ? datePartsFromIso(untilIso) : null;
-  const paySel = document.getElementById("salaryPeriodPayDay");
-  const pd = Math.floor(asNumber(paySel?.value));
-  const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : fp ? fp.d : 25;
+  const payHidden = document.getElementById("salaryPeriodPayDay");
+  const pd = Math.floor(asNumber(payHidden?.value));
+  let payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : fp ? fp.d : 25;
+  if (ui.salaryPeriodDraftInterval === "once") payDay = fp ? fp.d : clampSalaryPeriodPayDay31(payDay);
+  else payDay = clampSalaryPeriodPayDay31(payDay);
   return {
     name: String(document.getElementById("salaryPeriodNameInput")?.value || "").trim(),
     employer: String(document.getElementById("salaryPeriodEmployerInput")?.value || "").trim(),
@@ -7268,7 +7320,9 @@ function getSalaryPeriodDraftFromInputs() {
 
 function validateSalaryPeriodDraft(d) {
   if (!d.name) return "Ange namn.";
-  if (!d.firstPaymentDate) return "Ange första löneutbetalningsdag.";
+  if (!d.firstPaymentDate) {
+    return d.interval === "once" ? "Ange löneutbetalningsdag." : "Ange första löneutbetalningsdag.";
+  }
   if (asNumber(d.amount) <= 0) return "Ange belopp större än 0.";
   return "";
 }
@@ -7313,9 +7367,8 @@ function closeSalaryPeriodEditor() {
   if (f) f.value = "";
   if (v) v.value = "";
   if (a) a.value = "";
-  const paySel = document.getElementById("salaryPeriodPayDay");
-  if (paySel) setDayOptions(paySel, 25);
-  syncSalaryPeriodIntervalChips();
+  setSalaryPeriodPayDayValue(25);
+  syncSalaryPeriodIntervalDependentUI();
   applySalaryOverlayDateBounds();
   if (f) {
     syncDateFieldRow(f);
@@ -7327,6 +7380,7 @@ function closeSalaryPeriodEditor() {
   }
   const del = document.getElementById("salaryPeriodDeleteBtn");
   if (del) del.hidden = true;
+  renderSalaryPeriodsPage();
 }
 
 function openSalaryPeriodEditor(periodId = null) {
@@ -7346,11 +7400,10 @@ function openSalaryPeriodEditor(periodId = null) {
   const v = document.getElementById("salaryPeriodValidUntil");
   if (f) f.value = existing?.firstPaymentDate || "";
   if (v) v.value = existing?.validUntil || "";
-  const paySel = document.getElementById("salaryPeriodPayDay");
-  if (paySel) setDayOptions(paySel, existing?.payDay || 25);
+  setSalaryPeriodPayDayValue(existing?.payDay || 25);
   const amt = document.getElementById("salaryPeriodAmountInput");
   if (amt) amt.value = existing && asNumber(existing.amount) > 0 ? formatKrLikeList(asNumber(existing.amount)) : "";
-  syncSalaryPeriodIntervalChips();
+  syncSalaryPeriodIntervalDependentUI();
   applySalaryOverlayDateBounds();
   if (f) {
     syncDateFieldRow(f);
@@ -7363,6 +7416,7 @@ function openSalaryPeriodEditor(periodId = null) {
   const del = document.getElementById("salaryPeriodDeleteBtn");
   if (del) del.hidden = !existing;
   hideErrorSummaryById("salaryPeriodErrorSummary");
+  renderSalaryPeriodsPage();
   requestAnimationFrame(() => {
     const overlay = document.querySelector('[data-incview="salary"]');
     if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
@@ -7458,8 +7512,8 @@ function openIncomeSalaryOverlay(opts = {}) {
   renderSalaryPeriodsPage();
   const target = document.querySelector('[data-incview="salary"]');
   if (!target) return;
-  const paySel = document.getElementById("salaryPeriodPayDay");
-  if (paySel && paySel.options.length === 0) setDayOptions(paySel, 25);
+  const payHid = document.getElementById("salaryPeriodPayDay");
+  if (payHid && !String(payHid.value || "").trim()) setSalaryPeriodPayDayValue(25);
   applySalaryOverlayDateBounds();
   const wasOpen = anyIncomeSalaryOverlayOpen();
   target.hidden = false;
@@ -9429,25 +9483,44 @@ function initActions() {
       closeSalaryPeriodEditor();
     };
   }
-  document.getElementById("salaryPeriodIntervalMonthlyBtn")?.addEventListener("click", () => {
-    ui.salaryPeriodDraftInterval = "monthly";
-    syncSalaryPeriodIntervalChips();
+  document.getElementById("salaryPeriodIntervalOpenBtn")?.addEventListener("click", () => {
+    openListPickerSheet({
+      title: "Betalningsintervall",
+      options: [
+        { value: "monthly", label: "Månad" },
+        { value: "once", label: "Enkel" }
+      ],
+      currentValue: ui.salaryPeriodDraftInterval,
+      onSelect: (v) => {
+        ui.salaryPeriodDraftInterval = v === "once" ? "once" : "monthly";
+        syncSalaryPeriodIntervalDependentUI();
+        if (ui.salaryPeriodDraftInterval === "monthly") {
+          const spFirst = document.getElementById("salaryPeriodFirstDate");
+          const fp = datePartsFromIso((spFirst?.value || "").trim());
+          if (fp) setSalaryPeriodPayDayValue(fp.d);
+        }
+      }
+    });
   });
-  document.getElementById("salaryPeriodIntervalOnceBtn")?.addEventListener("click", () => {
-    ui.salaryPeriodDraftInterval = "once";
-    syncSalaryPeriodIntervalChips();
+  document.getElementById("salaryPeriodPayDayMinus")?.addEventListener("click", () => {
+    const hid = document.getElementById("salaryPeriodPayDay");
+    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(hid?.value) - 1);
+  });
+  document.getElementById("salaryPeriodPayDayPlus")?.addEventListener("click", () => {
+    const hid = document.getElementById("salaryPeriodPayDay");
+    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(hid?.value) + 1);
   });
   const spFirst = document.getElementById("salaryPeriodFirstDate");
   if (spFirst) {
     spFirst.addEventListener("change", () => {
       const fp = datePartsFromIso((spFirst.value || "").trim());
-      if (fp) {
-        const paySel = document.getElementById("salaryPeriodPayDay");
-        if (paySel) setDayOptions(paySel, fp.d);
+      if (fp && ui.salaryPeriodDraftInterval !== "once") {
+        setSalaryPeriodPayDayValue(fp.d);
       }
       applySalaryOverlayDateBounds();
       syncDateFieldRow(spFirst);
       applyDateFieldRowTabState(spFirst);
+      syncSalaryPeriodFirstDateNotchLabel();
     });
   }
   const spUntil = document.getElementById("salaryPeriodValidUntil");
@@ -9466,7 +9539,11 @@ function initActions() {
     const err = validateSalaryPeriodDraft(draft);
     const summaryEl = document.getElementById("salaryPeriodErrorSummary");
     if (err) {
-      if (summaryEl) renderErrorSummary(summaryEl, [{ label: err, jumpId: "salaryPeriodNameInput" }]);
+      const jumpId =
+        err.startsWith("Ange namn") ? "salaryPeriodNameInput" :
+        err.includes("löneutbetalningsdag") || err.includes("första löne") ? "salaryPeriodFirstDate" :
+        "salaryPeriodAmountInput";
+      if (summaryEl) renderErrorSummary(summaryEl, [{ label: err, jumpId }]);
       return;
     }
     const fpc = datePartsFromIso(draft.firstPaymentDate);

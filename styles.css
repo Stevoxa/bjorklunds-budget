@@ -3434,15 +3434,59 @@ input.input-readonly-like {
   margin-bottom: var(--space-4);
 }
 
-.salary-period-day-select {
+/* Rund stepper för utbetalningsdag (löneperiod), inspirerad av SJ stepper-mönster */
+.bb-stepper.bb-stepper--round {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
   width: 100%;
   min-height: 44px;
-  border: none;
-  background: transparent;
-  font: inherit;
-  color: inherit;
-  padding: 10px 12px;
+  padding: 8px 4px;
+}
+
+.bb-stepper--round .bb-stepper__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  font-size: 1.25rem;
+  min-width: 2.25rem;
+  text-align: center;
+}
+
+.bb-stepper--round .bb-stepper__btn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--card-2);
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.bb-stepper--round .bb-stepper__btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border-strong));
+  background: color-mix(in srgb, var(--primary) 12%, var(--card-2));
+}
+
+.bb-stepper--round .bb-stepper__btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.bb-stepper--round .bb-stepper__btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 /*

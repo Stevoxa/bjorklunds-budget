@@ -207,23 +207,42 @@
                         <input id="salaryPeriodEmployerInput" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
                       </div>
                     </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Betalningsintervall">
+                        <div class="bb-notched-field-legend">Betalningsintervall</div>
+                        <button
+                          type="button"
+                          class="bb-notched-field-btn"
+                          id="salaryPeriodIntervalOpenBtn"
+                          aria-haspopup="dialog"
+                          aria-controls="listPickerSheet"
+                        >
+                          <span class="bb-notched-field-value" id="salaryPeriodIntervalSummary">Månad</span>
+                          <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                        </button>
+                      </div>
+                    </div>
                     <label class="field">
                       <input id="salaryPeriodFirstDate" type="date" data-notch-label="Första löneutbetalningsdag" />
                     </label>
-                    <label class="field">
-                      <input id="salaryPeriodValidUntil" type="date" data-notch-label="Giltig till" data-date-clear />
-                    </label>
-                    <div class="tagged-editor-field-wrap">
+                    <div id="salaryPeriodValidUntilWrap" class="tagged-editor-field-wrap">
+                      <label class="field">
+                        <input id="salaryPeriodValidUntil" type="date" data-notch-label="Giltig till" data-date-clear />
+                      </label>
+                    </div>
+                    <div id="salaryPeriodPayDayWrap" class="tagged-editor-field-wrap">
                       <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
                         <div class="bb-notched-field-legend">Utbetalningsdag</div>
-                        <select id="salaryPeriodPayDay" class="bb-notched-field-plain-input salary-period-day-select" aria-label="Utbetalningsdag i månaden"></select>
-                      </div>
-                    </div>
-                    <div class="field salary-period-interval-field">
-                      Betalningsintervall
-                      <div class="chip-row salary-period-interval-chips">
-                        <button class="secondary chip" type="button" id="salaryPeriodIntervalMonthlyBtn" aria-pressed="true">Månad</button>
-                        <button class="secondary chip" type="button" id="salaryPeriodIntervalOnceBtn" aria-pressed="false">Enkel</button>
+                        <div class="bb-stepper bb-stepper--round" role="group" aria-label="Dag i månaden (1–31)">
+                          <button type="button" class="bb-stepper__btn bb-stepper__btn--minus" id="salaryPeriodPayDayMinus" aria-label="Minska utbetalningsdag">
+                            −
+                          </button>
+                          <span class="bb-stepper__value" id="salaryPeriodPayDayDisplay" aria-live="polite">25</span>
+                          <input type="hidden" id="salaryPeriodPayDay" value="25" />
+                          <button type="button" class="bb-stepper__btn bb-stepper__btn--plus" id="salaryPeriodPayDayPlus" aria-label="Öka utbetalningsdag">
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div class="tagged-editor-field-wrap">
