@@ -83,6 +83,108 @@ function datePartsFromIso(iso) {
   return { y, m: mo, d: clampDay(y, mo, d) };
 }
 
+function toLocalISODate(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+function isWeekendDate(d) {
+  const day = d.getDay();
+  return day === 0 || day === 6;
+}
+
+/** Påskdagen (gregorianska algoritmen, lokal midnatt). */
+function easterSundayDate(y) {
+  const a = y % 19;
+  const b = Math.floor(y / 100);
+  const c = y % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const n = Math.floor((h + l - 7 * m + 114) / 31);
+  const p = (h + l - 7 * m + 114) % 31;
+  const month = n;
+  const day = p + 1;
+  return new Date(y, month - 1, day);
+}
+
+function addDays(d, n) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+/** Svenska helgdagar som ofta stänger bank (förenklad men täcker vanliga röda dagar). */
+function swedishBankHolidayKeySet(year) {
+  const set = new Set();
+  const add = (dt) => set.add(toLocalISODate(dt));
+  const y = year;
+  add(new Date(y, 0, 1));
+  add(new Date(y, 0, 6));
+  add(new Date(y, 4, 1));
+  add(new Date(y, 5, 6));
+  add(new Date(y, 11, 25));
+  add(new Date(y, 11, 26));
+  const e = easterSundayDate(y);
+  add(addDays(e, -2));
+  add(addDays(e, 1));
+  add(addDays(e, 39));
+  add(addDays(e, 49));
+  const msSat = (() => {
+    for (let d = 20; d <= 26; d++) {
+      const dt = new Date(y, 5, d);
+      if (dt.getDay() === 6) return dt;
+    }
+    return new Date(y, 5, 24);
+  })();
+  add(addDays(msSat, -1));
+  add(msSat);
+  for (const dt of [
+    new Date(y, 9, 31),
+    new Date(y, 10, 1),
+    new Date(y, 10, 2),
+    new Date(y, 10, 3),
+    new Date(y, 10, 4),
+    new Date(y, 10, 5),
+    new Date(y, 10, 6)
+  ]) {
+    if (dt.getFullYear() === y && dt.getDay() === 6) {
+      add(dt);
+      break;
+    }
+  }
+  add(new Date(y, 11, 24));
+  add(new Date(y, 11, 31));
+  return set;
+}
+
+let _bankHolidayCacheYear = null;
+let _bankHolidayCacheSet = null;
+
+function isSwedishBankHolidayDate(d) {
+  const y = d.getFullYear();
+  if (_bankHolidayCacheYear !== y) {
+    _bankHolidayCacheYear = y;
+    _bankHolidayCacheSet = swedishBankHolidayKeySet(y);
+  }
+  return _bankHolidayCacheSet.has(toLocalISODate(d));
+}
+
+/** Närmaste helgfria vardag på eller före datumet (lö/sön + vissa helgdagar). */
+function adjustToPreviousSwedishBankDay(d) {
+  let x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  for (let i = 0; i < 14; i++) {
+    if (!isWeekendDate(x) && !isSwedishBankHolidayDate(x)) return x;
+    x = addDays(x, -1);
+  }
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 function setYear3Options(selectEl, selectedYear) {
   const cur = currentYearMonth().year;
   const years = [cur - 1, cur, cur + 1];
@@ -477,6 +579,12 @@ let foodMatSubHistoryDepth = 0;
 /** När mat-popstate just stängt underpanel: låt inte utgift-overlayns popstate stänga hela Mat. */
 let skipExpenseOverlayPopstateOnce = false;
 let expenseOverlayHistoryDepth = 0;
+let incomeSalaryOverlayHistoryDepth = 0;
+
+function anyIncomeSalaryOverlayOpen() {
+  const el = document.querySelector('[data-incview="salary"]');
+  return Boolean(el && !el.hidden);
+}
 
 function anyExpenseOverlayOpen() {
   return Array.from(document.querySelectorAll(".exp-overlay")).some((el) => !el.hidden);
@@ -501,6 +609,11 @@ function initExpenseOverlayHistory() {
   window.addEventListener("popstate", () => {
     if (skipExpenseOverlayPopstateOnce) {
       skipExpenseOverlayPopstateOnce = false;
+      return;
+    }
+    if (incomeSalaryOverlayHistoryDepth > 0 && anyIncomeSalaryOverlayOpen()) {
+      incomeSalaryOverlayHistoryDepth -= 1;
+      closeIncomeSalaryOverlay({ fromHistory: true });
       return;
     }
     // If a food subpanel is open, let the food handler consume the back.
@@ -2422,6 +2535,7 @@ function getDefaultState() {
       car: {},
       home: {},
       loans: { items: [] },
+      salaryPeriods: { items: [] },
       food: {},
       foodShared: { config: {}, weeks: [] },
       children: {}
@@ -2522,6 +2636,13 @@ function normalizeStateShape(state) {
         ? { items: lr.items.filter((x) => x && typeof x === "object") }
         : { items: [] };
   }
+  {
+    const sp = normalized.special.salaryPeriods;
+    normalized.special.salaryPeriods =
+      sp && typeof sp === "object" && Array.isArray(sp.items)
+        ? { items: sp.items.filter((x) => x && typeof x === "object") }
+        : { items: [] };
+  }
   normalized.special.food = {};
   normalized.special.children = normalized.special.children || {};
   {
@@ -2540,6 +2661,7 @@ function normalizeStateShape(state) {
   normalized.expenses = dedupeGeneratedFoodExpenses(normalized.expenses);
   cleanupExpenseGarbage(normalized);
   regenerateMirroredLoanExpenses(normalized);
+  regenerateSalaryPeriodIncomes(normalized);
 
   return normalized;
 }
@@ -2580,6 +2702,33 @@ function cleanupExpenseGarbage(root) {
 
 const INCOME_CATEGORY_SALARY = "salary";
 const INCOME_CATEGORY_OTHER = "other";
+const INCOME_CATEGORY_BENEFIT = "benefit";
+const INCOME_CATEGORY_CAPITAL = "capital";
+const INCOME_CATEGORY_GIFT = "gift";
+
+const INCOME_CATEGORIES_ALL = new Set([
+  INCOME_CATEGORY_SALARY,
+  INCOME_CATEGORY_OTHER,
+  "one_off",
+  INCOME_CATEGORY_BENEFIT,
+  INCOME_CATEGORY_CAPITAL,
+  INCOME_CATEGORY_GIFT
+]);
+
+/** För listfilter: äldre poster (other/one_off) kan klassas om utifrån namn. */
+function incomeEffectiveListCategory(inc) {
+  const c = inc?.category;
+  if (c === INCOME_CATEGORY_SALARY) return "salary";
+  if (c === INCOME_CATEGORY_BENEFIT) return "benefit";
+  if (c === INCOME_CATEGORY_CAPITAL) return "capital";
+  if (c === INCOME_CATEGORY_GIFT) return "gift";
+  const n = String(inc?.name || "");
+  if (/\b(bidrag|barnbidrag|csn|försäkringskassan)\b/i.test(n)) return "benefit";
+  if (/\b(kapitalinkomst|kapital|ränta|utdelning|aktie|fond)\b/i.test(n)) return "capital";
+  if (/\b(gåva|arv)\b/i.test(n)) return "gift";
+  if (/^lön$/i.test(n.trim())) return "salary";
+  return "other";
+}
 
 function normalizeIncomeRecord(raw) {
   const incomeId = raw?.id || uid();
@@ -2591,16 +2740,21 @@ function normalizeIncomeRecord(raw) {
   }));
   const nameTrim = String(raw?.name || "").trim();
   let category = String(raw?.category || INCOME_CATEGORY_OTHER).trim() || INCOME_CATEGORY_OTHER;
-  if (![INCOME_CATEGORY_SALARY, INCOME_CATEGORY_OTHER, "one_off"].includes(category)) category = INCOME_CATEGORY_OTHER;
+  if (!INCOME_CATEGORIES_ALL.has(category)) category = INCOME_CATEGORY_OTHER;
   if (category === INCOME_CATEGORY_OTHER && /^lön$/i.test(nameTrim)) category = INCOME_CATEGORY_SALARY;
-
-  let interval = raw?.interval || "once";
-  if (category === INCOME_CATEGORY_SALARY) interval = "monthly";
 
   const meta =
     typeof raw?.metadata === "object" && raw.metadata && !Array.isArray(raw.metadata) ? deepCloneJson(raw.metadata) : {};
 
+  let interval = raw?.interval || "once";
+  if (category === INCOME_CATEGORY_SALARY) {
+    if (meta.salaryPeriodId) interval = raw?.interval === "once" ? "once" : "monthly";
+    else interval = "monthly";
+  }
+
   if (category !== INCOME_CATEGORY_SALARY) {
+    delete meta.salary;
+  } else if (meta.salaryPeriodId) {
     delete meta.salary;
   } else {
     const salIn = meta.salary && typeof meta.salary === "object" ? meta.salary : {};
@@ -2621,6 +2775,113 @@ function normalizeIncomeRecord(raw) {
   return out;
 }
 
+function incomeIdForSalaryPeriod(periodId) {
+  return `salper_${String(periodId)}`;
+}
+
+function normalizeSalaryPeriodItem(raw) {
+  const id = String(raw?.id || "").trim() || uid();
+  const firstRaw = String(raw?.firstPaymentDate ?? "").trim();
+  const fp = datePartsFromIso(firstRaw);
+  const vuStr = raw?.validUntil == null ? "" : String(raw.validUntil).trim();
+  const vp = vuStr ? datePartsFromIso(vuStr) : null;
+  const pd = Math.floor(asNumber(raw?.payDay));
+  const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : fp ? fp.d : 25;
+  return {
+    id,
+    name: String(raw?.name || "").trim() || "Lön",
+    employer: String(raw?.employer || "").trim(),
+    firstPaymentDate: fp ? `${fp.y}-${pad2(fp.m)}-${pad2(fp.d)}` : "",
+    validUntil: vp ? `${vp.y}-${pad2(vp.m)}-${pad2(vp.d)}` : null,
+    payDay,
+    interval: raw?.interval === "once" ? "once" : "monthly",
+    amount: asNumber(raw?.amount)
+  };
+}
+
+function getAllSalaryPeriodsFromRoot(root) {
+  const items = root?.special?.salaryPeriods?.items;
+  const arr = Array.isArray(items) ? items : [];
+  return arr.map(normalizeSalaryPeriodItem);
+}
+
+function getAllSalaryPeriods() {
+  return getAllSalaryPeriodsFromRoot(state);
+}
+
+function generatePaymentsForSalaryPeriod(sp) {
+  const amount = asNumber(sp.amount);
+  if (amount <= 0) return [];
+  const first = datePartsFromIso(sp.firstPaymentDate);
+  if (!first) return [];
+  const payDay = Math.max(1, Math.min(31, Math.floor(asNumber(sp.payDay)) || first.d));
+  const untilParts = sp.validUntil ? datePartsFromIso(String(sp.validUntil)) : null;
+  const untilEnd = untilParts ? new Date(untilParts.y, untilParts.m - 1, untilParts.d, 23, 59, 59) : null;
+  const startAnchor = new Date(first.y, first.m - 1, first.d);
+  const horizonEnd = untilEnd || addDays(startAnchor, 365 * 15);
+
+  const out = [];
+  const interval = sp.interval === "once" ? "once" : "monthly";
+
+  if (interval === "once") {
+    const adj = adjustToPreviousSwedishBankDay(startAnchor);
+    if (untilEnd && adj.getTime() > untilEnd.getTime()) return [];
+    out.push({ id: uid(), date: toLocalISODate(adj), amount });
+    return out;
+  }
+
+  let y = first.y;
+  let m = first.m;
+  let isFirst = true;
+  const seen = new Set();
+  let guard = 0;
+
+  while (guard < 600) {
+    guard += 1;
+    const day = isFirst ? first.d : payDay;
+    const dim = daysInMonth(y, m);
+    const d0 = Math.min(day, dim);
+    let cand = new Date(y, m - 1, d0);
+    cand = adjustToPreviousSwedishBankDay(cand);
+    if (untilEnd && cand.getTime() > untilEnd.getTime()) break;
+    if (cand.getTime() > horizonEnd.getTime()) break;
+    const iso = toLocalISODate(cand);
+    if (!seen.has(iso)) {
+      seen.add(iso);
+      out.push({ id: uid(), date: iso, amount });
+    }
+    isFirst = false;
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+function regenerateSalaryPeriodIncomes(root) {
+  if (!Array.isArray(root.incomes)) root.incomes = [];
+  root.incomes = root.incomes.filter((inc) => !inc?.metadata?.salaryPeriodId);
+  const periods = getAllSalaryPeriodsFromRoot(root);
+  for (const sp of periods) {
+    if (!sp.firstPaymentDate) continue;
+    const payments = generatePaymentsForSalaryPeriod(sp);
+    if (payments.length === 0) continue;
+    const meta = { salaryPeriodId: sp.id };
+    if (sp.employer) meta.employer = sp.employer;
+    const rawInc = {
+      id: incomeIdForSalaryPeriod(sp.id),
+      name: String(sp.name || "").trim() || "Lön",
+      interval: sp.interval === "once" ? "once" : "monthly",
+      category: INCOME_CATEGORY_SALARY,
+      payments,
+      metadata: meta
+    };
+    root.incomes.push(normalizeIncomeRecord(rawInc));
+  }
+}
+
 function ensureIncomeIds(root) {
   if (!Array.isArray(root.incomes)) root.incomes = [];
   root.incomes = root.incomes.map((inc) => normalizeIncomeRecord(inc));
@@ -2631,7 +2892,10 @@ function isSalaryIncome(inc) {
 }
 
 function incomeDisplayName(inc) {
-  if (isSalaryIncome(inc)) return "Lön";
+  if (isSalaryIncome(inc)) {
+    if (inc?.metadata?.salaryPeriodId) return String(inc?.name || "Lön").trim() || "Lön";
+    return "Lön";
+  }
   return String(inc?.name || "Intäkt").trim() || "Intäkt";
 }
 
@@ -3173,13 +3437,20 @@ const ui = {
   // Intäkter
   incomeYearFilter: null,
   incomeMonthFilter: "all",
+  /** null = visa alla; annars salary | benefit | capital | gift */
+  incomeListCategory: null,
   incomeEditorKind: "other",
+  /** Icke-lön: benefit | capital | gift | other (sparad som category) */
+  incomeEditorOtherCategory: INCOME_CATEGORY_OTHER,
   lastIncomeListRows: [],
   // Utgifter
   expenseYearFilter: null,
   expenseMonthFilter: "all",
   loanEditorOpen: false,
   editLoanId: null,
+  salaryPeriodEditorOpen: false,
+  editSalaryPeriodId: null,
+  salaryPeriodDraftInterval: "monthly",
   foodScrollWeekKey: null,
   tagged: {
     car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
@@ -3238,6 +3509,10 @@ function initRouting() {
     document.querySelectorAll("[data-view]").forEach((v) => {
       if (v.getAttribute("data-view") === routeView) v.classList.add("active");
     });
+    if (routeView !== "incomes" && anyIncomeSalaryOverlayOpen()) {
+      closeIncomeSalaryOverlay({ fromHistory: false });
+      incomeSalaryOverlayHistoryDepth = 0;
+    }
     if (routeView !== "expenses" && anyExpenseOverlayOpen()) {
       closeExpenseCategoryOverlay({ fromHistory: false });
       expenseOverlayHistoryDepth = 0;
@@ -3288,6 +3563,14 @@ function getAvailableYears() {
     if (loan?.endDate) {
       const ep = datePartsFromIso(String(loan.endDate));
       if (ep) years.add(String(ep.y));
+    }
+  }
+  for (const sp of state.special?.salaryPeriods?.items || []) {
+    const fp = datePartsFromIso(String(sp?.firstPaymentDate || ""));
+    if (fp) years.add(String(fp.y));
+    if (sp?.validUntil) {
+      const vp = datePartsFromIso(String(sp.validUntil));
+      if (vp) years.add(String(vp.y));
     }
   }
   addFrom(state.special?.children);
@@ -6884,8 +7167,11 @@ function setMonthFilterOptions(selectEl, selected) {
 function buildIncomePaymentRowsForList(yearFilter) {
   const rows = [];
   const monthFilter = ui.incomeMonthFilter || "all";
+  const catFilter = ui.incomeListCategory;
   for (const inc of state.incomes || []) {
+    if (catFilter != null && incomeEffectiveListCategory(inc) !== catFilter) continue;
     const lineTitle = incomeDisplayName(inc);
+    const salaryPeriodId = inc?.metadata?.salaryPeriodId ? String(inc.metadata.salaryPeriodId) : "";
     for (const p of inc.payments || []) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
@@ -6904,12 +7190,289 @@ function buildIncomePaymentRowsForList(yearFilter) {
         isoDate: iso,
         date: dt,
         amount: amt,
-        dateLong: formatExpenseListLongDate(dt)
+        dateLong: formatExpenseListLongDate(dt),
+        salaryPeriodId
       });
     }
   }
   rows.sort((a, b) => a.date.getTime() - b.date.getTime());
   return rows;
+}
+
+function syncIncomeCategoryTabUI() {
+  const cur = ui.incomeListCategory;
+  document.querySelectorAll("[data-income-category]").forEach((btn) => {
+    const k = btn.getAttribute("data-income-category");
+    if (k === "salary") {
+      btn.setAttribute("aria-pressed", "false");
+      return;
+    }
+    btn.setAttribute("aria-pressed", cur != null && k === cur ? "true" : "false");
+  });
+}
+
+function applySalaryOverlayDateBounds() {
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  document.querySelectorAll('[data-incview="salary"] input[type="date"]').forEach((inp) => {
+    inp.min = min;
+    inp.max = max;
+  });
+  refreshAllDateFieldRows();
+}
+
+function formatSalaryPeriodListLine2(sp) {
+  const first = datePartsFromIso(sp.firstPaymentDate);
+  if (!first) return "—";
+  const f0 = adjustToPreviousSwedishBankDay(new Date(first.y, first.m - 1, first.d));
+  const fStr = `${f0.getDate()} ${monthName(f0.getMonth() + 1)} ${f0.getFullYear()}`;
+  if (sp.interval === "once") return `${fStr} · Enkel`;
+  const vu = sp.validUntil ? datePartsFromIso(String(sp.validUntil)) : null;
+  if (!vu) return `${fStr} – Tills vidare`;
+  const v0 = adjustToPreviousSwedishBankDay(new Date(vu.y, vu.m - 1, vu.d));
+  const vStr = `${v0.getDate()} ${monthName(v0.getMonth() + 1)} ${v0.getFullYear()}`;
+  return `${fStr} – ${vStr}`;
+}
+
+function syncSalaryPeriodIntervalChips() {
+  const m = ui.salaryPeriodDraftInterval === "once" ? false : true;
+  const bM = document.getElementById("salaryPeriodIntervalMonthlyBtn");
+  const bO = document.getElementById("salaryPeriodIntervalOnceBtn");
+  if (bM) bM.setAttribute("aria-pressed", m ? "true" : "false");
+  if (bO) bO.setAttribute("aria-pressed", !m ? "true" : "false");
+}
+
+function getSalaryPeriodDraftFromInputs() {
+  const firstIso = (document.getElementById("salaryPeriodFirstDate")?.value || "").trim();
+  const untilIso = (document.getElementById("salaryPeriodValidUntil")?.value || "").trim();
+  const fp = datePartsFromIso(firstIso);
+  const up = untilIso ? datePartsFromIso(untilIso) : null;
+  const paySel = document.getElementById("salaryPeriodPayDay");
+  const pd = Math.floor(asNumber(paySel?.value));
+  const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : fp ? fp.d : 25;
+  return {
+    name: String(document.getElementById("salaryPeriodNameInput")?.value || "").trim(),
+    employer: String(document.getElementById("salaryPeriodEmployerInput")?.value || "").trim(),
+    firstPaymentDate: fp ? `${fp.y}-${pad2(fp.m)}-${pad2(fp.d)}` : "",
+    validUntil: up ? `${up.y}-${pad2(up.m)}-${pad2(up.d)}` : null,
+    payDay,
+    interval: ui.salaryPeriodDraftInterval === "once" ? "once" : "monthly",
+    amount: parseKrLikeList(document.getElementById("salaryPeriodAmountInput")?.value)
+  };
+}
+
+function validateSalaryPeriodDraft(d) {
+  if (!d.name) return "Ange namn.";
+  if (!d.firstPaymentDate) return "Ange första löneutbetalningsdag.";
+  if (asNumber(d.amount) <= 0) return "Ange belopp större än 0.";
+  return "";
+}
+
+function persistSalaryPeriodItems(items) {
+  state.special.salaryPeriods = {
+    items: items.map((p) => {
+      const n = normalizeSalaryPeriodItem(p);
+      return {
+        id: n.id,
+        name: n.name,
+        employer: n.employer,
+        firstPaymentDate: n.firstPaymentDate,
+        validUntil: n.validUntil,
+        payDay: n.payDay,
+        interval: n.interval,
+        amount: n.amount
+      };
+    })
+  };
+  regenerateSalaryPeriodIncomes(state);
+  saveState();
+  renderIncomesList();
+  renderOverviewIfOnOverview();
+  renderSalaryPeriodsPage();
+}
+
+function closeSalaryPeriodEditor() {
+  ui.salaryPeriodEditorOpen = false;
+  ui.editSalaryPeriodId = null;
+  ui.salaryPeriodDraftInterval = "monthly";
+  const sec = document.getElementById("salaryPeriodEditorSection");
+  if (sec) sec.hidden = true;
+  hideErrorSummaryById("salaryPeriodErrorSummary");
+  const n = document.getElementById("salaryPeriodNameInput");
+  const e = document.getElementById("salaryPeriodEmployerInput");
+  const f = document.getElementById("salaryPeriodFirstDate");
+  const v = document.getElementById("salaryPeriodValidUntil");
+  const a = document.getElementById("salaryPeriodAmountInput");
+  if (n) n.value = "";
+  if (e) e.value = "";
+  if (f) f.value = "";
+  if (v) v.value = "";
+  if (a) a.value = "";
+  const paySel = document.getElementById("salaryPeriodPayDay");
+  if (paySel) setDayOptions(paySel, 25);
+  syncSalaryPeriodIntervalChips();
+  applySalaryOverlayDateBounds();
+  if (f) {
+    syncDateFieldRow(f);
+    applyDateFieldRowTabState(f);
+  }
+  if (v) {
+    syncDateFieldRow(v);
+    applyDateFieldRowTabState(v);
+  }
+  const del = document.getElementById("salaryPeriodDeleteBtn");
+  if (del) del.hidden = true;
+}
+
+function openSalaryPeriodEditor(periodId = null) {
+  const existing = periodId ? getAllSalaryPeriods().find((x) => x.id === periodId) : null;
+  ui.editSalaryPeriodId = existing?.id || null;
+  ui.salaryPeriodEditorOpen = true;
+  ui.salaryPeriodDraftInterval = existing?.interval === "once" ? "once" : "monthly";
+  const sec = document.getElementById("salaryPeriodEditorSection");
+  if (sec) sec.hidden = false;
+  const leg = document.getElementById("salaryPeriodEditorPanelLegend");
+  const panel = document.querySelector(".salary-period-editor-panel");
+  if (leg) leg.textContent = existing ? "Redigera löneperiod" : "Lägg till löneperiod";
+  if (panel) panel.setAttribute("aria-label", existing ? "Redigera löneperiod" : "Lägg till löneperiod");
+  document.getElementById("salaryPeriodNameInput").value = existing?.name || "";
+  document.getElementById("salaryPeriodEmployerInput").value = existing?.employer || "";
+  const f = document.getElementById("salaryPeriodFirstDate");
+  const v = document.getElementById("salaryPeriodValidUntil");
+  if (f) f.value = existing?.firstPaymentDate || "";
+  if (v) v.value = existing?.validUntil || "";
+  const paySel = document.getElementById("salaryPeriodPayDay");
+  if (paySel) setDayOptions(paySel, existing?.payDay || 25);
+  const amt = document.getElementById("salaryPeriodAmountInput");
+  if (amt) amt.value = existing && asNumber(existing.amount) > 0 ? formatKrLikeList(asNumber(existing.amount)) : "";
+  syncSalaryPeriodIntervalChips();
+  applySalaryOverlayDateBounds();
+  if (f) {
+    syncDateFieldRow(f);
+    applyDateFieldRowTabState(f);
+  }
+  if (v) {
+    syncDateFieldRow(v);
+    applyDateFieldRowTabState(v);
+  }
+  const del = document.getElementById("salaryPeriodDeleteBtn");
+  if (del) del.hidden = !existing;
+  hideErrorSummaryById("salaryPeriodErrorSummary");
+  requestAnimationFrame(() => {
+    const overlay = document.querySelector('[data-incview="salary"]');
+    if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
+    else window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+function renderSalaryPeriodsPage() {
+  const mount = document.getElementById("salaryPeriodsListMount");
+  if (!mount) return;
+  if (!ui.salaryPeriodEditorOpen) hideErrorSummaryById("salaryPeriodErrorSummary");
+  const addBtn = document.getElementById("salaryPeriodAddNewBtn");
+  if (addBtn) {
+    addBtn.disabled = Boolean(ui.salaryPeriodEditorOpen);
+    addBtn.setAttribute("aria-disabled", ui.salaryPeriodEditorOpen ? "true" : "false");
+  }
+  const periods = getAllSalaryPeriods()
+    .filter((p) => p.firstPaymentDate)
+    .slice()
+    .sort((a, b) => (a.name || "").localeCompare(b.name || "", "sv"));
+  mount.innerHTML = "";
+  const editorBusy = Boolean(ui.salaryPeriodEditorOpen);
+  if (periods.length === 0) {
+    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga löneperioder ännu.</div>`;
+  } else {
+    for (const sp of periods) {
+      const displayName = sp.name || "Lön";
+      const amt = asNumber(sp.amount);
+      const row = document.createElement("div");
+      row.className = "tagged-expense-preview-row";
+      const dis = editorBusy ? "disabled" : "";
+      const ariaDis = editorBusy ? "true" : "false";
+      row.innerHTML = `
+        <button type="button" class="tagged-expense-row-btn" data-salary-period-edit-id="${escapeHtml(sp.id)}" aria-label="Redigera löneperiod" ${dis} aria-disabled="${ariaDis}">
+          <span class="tagged-expense-row-btn-main">
+            <span class="tagged-expense-row-line1">
+              <span class="tagged-expense-name">${escapeHtml(displayName)}</span>
+              <span class="tagged-expense-amt">${escapeHtml(formatKr(amt))}</span>
+            </span>
+            <span class="tagged-expense-row-line2">${escapeHtml(formatSalaryPeriodListLine2(sp))}</span>
+          </span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
+        </button>
+      `;
+      mount.appendChild(row);
+    }
+  }
+  mount.onclick = (e) => {
+    if (ui.salaryPeriodEditorOpen) return;
+    const btn = e.target.closest(".tagged-expense-row-btn[data-salary-period-edit-id]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-salary-period-edit-id");
+    if (!id) return;
+    openSalaryPeriodEditor(id);
+  };
+  const editorSec = document.getElementById("salaryPeriodEditorSection");
+  if (editorSec) editorSec.hidden = !ui.salaryPeriodEditorOpen;
+}
+
+function closeIncomeSalaryOverlay(opts = {}) {
+  closeSalaryPeriodEditor();
+  const target = document.querySelector('[data-incview="salary"]');
+  if (target) target.hidden = true;
+  document.documentElement.classList.remove("modal-open");
+  document.body.classList.remove("modal-open");
+  hideConfirmDeleteSalaryPeriodModal();
+  if (!opts?.fromHistory && incomeSalaryOverlayHistoryDepth > 0) {
+    incomeSalaryOverlayHistoryDepth = Math.max(0, incomeSalaryOverlayHistoryDepth - 1);
+  }
+  const subEl = document.getElementById("headerSubtitle");
+  if (subEl && ui.activeRoute === "incomes") subEl.textContent = "Intäkter";
+}
+
+function closeIncomeSalaryOverlayFromHistory() {
+  closeIncomeSalaryOverlay({ fromHistory: true });
+}
+
+function closeIncomeSalaryOverlayFromUi() {
+  if (incomeSalaryOverlayHistoryDepth > 0) {
+    history.back();
+    return;
+  }
+  closeIncomeSalaryOverlay({ fromHistory: false });
+}
+
+function openIncomeSalaryOverlay(opts = {}) {
+  const skipHistory = opts.skipHistory === true;
+  renderSalaryPeriodsPage();
+  const target = document.querySelector('[data-incview="salary"]');
+  if (!target) return;
+  const paySel = document.getElementById("salaryPeriodPayDay");
+  if (paySel && paySel.options.length === 0) setDayOptions(paySel, 25);
+  applySalaryOverlayDateBounds();
+  const wasOpen = anyIncomeSalaryOverlayOpen();
+  target.hidden = false;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  const subEl = document.getElementById("headerSubtitle");
+  if (subEl) subEl.textContent = "Lön";
+  if (!skipHistory && !wasOpen) {
+    history.pushState({ incSalaryOverlay: true }, "");
+    incomeSalaryOverlayHistoryDepth += 1;
+  }
+  if (opts.openEditor === true) openSalaryPeriodEditor(null);
+  else if (opts.editPeriodId) openSalaryPeriodEditor(String(opts.editPeriodId));
+}
+
+function showConfirmDeleteSalaryPeriodModal() {
+  requireEl("confirmDeleteSalaryPeriodBackdrop").hidden = false;
+  requireEl("confirmDeleteSalaryPeriodModal").hidden = false;
+}
+
+function hideConfirmDeleteSalaryPeriodModal() {
+  requireEl("confirmDeleteSalaryPeriodBackdrop").hidden = true;
+  requireEl("confirmDeleteSalaryPeriodModal").hidden = true;
 }
 
 function renderIncomesPage() {
@@ -6932,6 +7495,22 @@ function renderIncomesPage() {
   };
   syncIncomeFilterSummaryLabel();
 
+  document.querySelectorAll("[data-income-category]").forEach((btn) => {
+    btn.onclick = () => {
+      const k = btn.getAttribute("data-income-category");
+      if (!k) return;
+      if (k === "salary") {
+        openIncomeSalaryOverlay();
+        return;
+      }
+      if (ui.incomeListCategory === k) ui.incomeListCategory = null;
+      else ui.incomeListCategory = k;
+      syncIncomeCategoryTabUI();
+      renderIncomesList();
+    };
+  });
+  syncIncomeCategoryTabUI();
+
   requireEl("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
 
   const salPayDayInit = document.getElementById("incomeSalaryPayDay");
@@ -6943,6 +7522,7 @@ function renderIncomesPage() {
   if (salKindBtn) {
     salKindBtn.onclick = () => {
       ui.incomeEditorKind = "salary";
+      ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
       requireEl("incomeNameInput").value = "Lön";
       requireEl("incomeIntervalSelect").value = "monthly";
       updateIncomeSalaryBandLabels();
@@ -6970,6 +7550,7 @@ function renderIncomesPage() {
   if (othKindBtn) {
     othKindBtn.onclick = () => {
       ui.incomeEditorKind = "other";
+      ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
       syncIncomeModalKindUI();
       resetIncomeEditorRowsForInterval();
     };
@@ -6989,6 +7570,10 @@ function renderIncomesPage() {
       const nameInp = document.getElementById("incomeNameInput");
       if (nameInp) nameInp.value = v;
       ui.incomeEditorKind = "other";
+      if (/kapital/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_CAPITAL;
+      else if (/\b(gåva|arv)\b/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_GIFT;
+      else if (/barnbidrag|bidrag|försäkringskassan|csn/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_BENEFIT;
+      else ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
       syncIncomeModalKindUI();
     };
   });
@@ -7036,7 +7621,7 @@ function updateIncomeModalTitle() {
   if (!titleEl) return;
   const editing = Boolean(ui.editIncomeId);
   const sal = ui.incomeEditorKind === "salary";
-  if (!editing) titleEl.textContent = sal ? "Ny lön" : "Ny intäkt";
+  if (!editing) titleEl.textContent = "Ny intäkt";
   else titleEl.textContent = sal ? "Redigera lön" : "Redigera intäkt";
 }
 
@@ -7051,6 +7636,8 @@ function updateIncomePaymentsEditorHeading() {
 
 function syncIncomeModalKindUI() {
   const sal = ui.incomeEditorKind === "salary";
+  const kindRow = document.getElementById("incomeModalKindRow");
+  if (kindRow) kindRow.hidden = true;
   const salSec = document.getElementById("incomeSalarySection");
   const othSec = document.getElementById("incomeOtherSection");
   if (salSec) salSec.hidden = !sal;
@@ -7071,6 +7658,13 @@ function syncIncomeModalKindUI() {
 }
 
 function openIncomeOverlay(incomeId, opts = {}) {
+  const editing = Boolean(incomeId);
+  const incEarly = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
+  if (editing && incEarly?.metadata?.salaryPeriodId) {
+    openIncomeSalaryOverlay({ editPeriodId: String(incEarly.metadata.salaryPeriodId), skipHistory: true });
+    return;
+  }
+
   ui.editIncomeId = incomeId;
   ui.scrollToPaymentId = opts?.scrollToPaymentId || null;
   ui.scrollToPaymentDateISO = opts?.scrollToPaymentDateISO || null;
@@ -7079,14 +7673,28 @@ function openIncomeOverlay(incomeId, opts = {}) {
   const modal = requireEl("incomeModal");
   const backdrop = requireEl("incomeModalBackdrop");
 
-  const editing = Boolean(incomeId);
   modal.dataset.mode = editing ? "edit" : "create";
   requireEl("incomeEditorNote").textContent = "";
   hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeDeleteBtn").hidden = !editing;
 
-  const inc = editing ? (state.incomes || []).find((x) => x.id === incomeId) : null;
+  const inc = incEarly;
   const isSal = inc ? isSalaryIncome(inc) : false;
+
+  if (!editing) {
+    const f = ui.incomeListCategory;
+    ui.incomeEditorOtherCategory =
+      f === "benefit" || f === "capital" || f === "gift" ? f : INCOME_CATEGORY_OTHER;
+  } else if (isSal) {
+    ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
+  } else {
+    const c = inc?.category;
+    ui.incomeEditorOtherCategory =
+      c === INCOME_CATEGORY_BENEFIT || c === INCOME_CATEGORY_CAPITAL || c === INCOME_CATEGORY_GIFT
+        ? c
+        : INCOME_CATEGORY_OTHER;
+  }
+
   ui.incomeEditorKind = isSal ? "salary" : "other";
 
   requireEl("incomeNameInput").value = isSal ? (String(inc?.name || "").trim() || "Lön") : inc?.name || "";
@@ -7176,6 +7784,7 @@ function closeIncomeOverlay() {
   ui.focusPaymentId = null;
   ui.focusPaymentDateISO = null;
   ui.incomeEditorKind = "other";
+  ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
   syncIncomeModalKindUI();
   hideErrorSummaryById("incomeErrorSummary");
   requireEl("incomeModalBackdrop").hidden = true;
@@ -7531,11 +8140,20 @@ function saveIncomeFromOverlay() {
   }
   const hasMetaKeys = Object.keys(baseMeta).length > 0;
 
+  const otherCat = ui.incomeEditorOtherCategory || INCOME_CATEGORY_OTHER;
+  const nonSalCategory =
+    otherCat === INCOME_CATEGORY_BENEFIT ||
+    otherCat === INCOME_CATEGORY_CAPITAL ||
+    otherCat === INCOME_CATEGORY_GIFT ||
+    otherCat === INCOME_CATEGORY_OTHER
+      ? otherCat
+      : INCOME_CATEGORY_OTHER;
+
   const raw = {
     id: editing ? ui.editIncomeId : uid(),
     name,
     interval,
-    category: isSal ? INCOME_CATEGORY_SALARY : INCOME_CATEGORY_OTHER,
+    category: isSal ? INCOME_CATEGORY_SALARY : nonSalCategory,
     payments: storedPayments,
     ...(hasMetaKeys ? { metadata: baseMeta } : {})
   };
@@ -7589,7 +8207,7 @@ function renderIncomesList() {
         String(r.incomeId)
       )}" data-edit-income-payment="${escapeHtml(String(r.paymentId || ""))}" data-edit-income-iso="${escapeHtml(
         String(r.isoDate || "")
-      )}" aria-label="Redigera ${escapeHtml(r.lineTitle)}">
+      )}" data-salary-period-id="${escapeHtml(String(r.salaryPeriodId || ""))}" aria-label="Redigera ${escapeHtml(r.lineTitle)}">
         <span class="tagged-expense-row-btn-main">
           <span class="tagged-expense-row-line1">
             <span class="tagged-expense-name">${escapeHtml(r.lineTitle)}</span>
@@ -7822,6 +8440,11 @@ function ensureIncomePaymentsListDelegation() {
   mount.addEventListener("click", (e) => {
     const btn = e.target.closest(".income-payment-row-btn");
     if (!btn || !mount.contains(btn)) return;
+    const spId = btn.getAttribute("data-salary-period-id");
+    if (spId) {
+      openIncomeSalaryOverlay({ editPeriodId: spId });
+      return;
+    }
     const incomeId = btn.getAttribute("data-edit-income");
     const paymentId = btn.getAttribute("data-edit-income-payment");
     const iso = btn.getAttribute("data-edit-income-iso");
@@ -8773,6 +9396,104 @@ function initActions() {
     renderLoansPage();
     renderExpensesList();
     renderOverviewIfOnOverview();
+  });
+
+  // LÖNEPERIODER (intäktsvy)
+  document.querySelectorAll("[data-inc-close]").forEach((btn) => {
+    btn.addEventListener("click", () => closeIncomeSalaryOverlayFromUi());
+  });
+  document.getElementById("salaryPeriodAddNewBtn")?.addEventListener("click", () => openSalaryPeriodEditor(null));
+  document.getElementById("salaryPeriodEditorCancelBtn")?.addEventListener("click", () => closeSalaryPeriodEditor());
+  document.getElementById("salaryPeriodDeleteBtn")?.addEventListener("click", () => {
+    if (!ui.editSalaryPeriodId) return;
+    showConfirmDeleteSalaryPeriodModal();
+  });
+  const closeDelSal = document.getElementById("closeDeleteSalaryPeriodModalBtn");
+  if (closeDelSal) closeDelSal.onclick = hideConfirmDeleteSalaryPeriodModal;
+  const cancelDelSal = document.getElementById("cancelDeleteSalaryPeriodBtn");
+  if (cancelDelSal) cancelDelSal.onclick = hideConfirmDeleteSalaryPeriodModal;
+  const confirmDelSal = document.getElementById("confirmDeleteSalaryPeriodBtn");
+  if (confirmDelSal) {
+    confirmDelSal.onclick = () => {
+      if (!ui.editSalaryPeriodId) return hideConfirmDeleteSalaryPeriodModal();
+      const items = getAllSalaryPeriods().filter((x) => x.id !== ui.editSalaryPeriodId);
+      persistSalaryPeriodItems(items);
+      hideConfirmDeleteSalaryPeriodModal();
+      closeSalaryPeriodEditor();
+    };
+  }
+  document.getElementById("salaryPeriodIntervalMonthlyBtn")?.addEventListener("click", () => {
+    ui.salaryPeriodDraftInterval = "monthly";
+    syncSalaryPeriodIntervalChips();
+  });
+  document.getElementById("salaryPeriodIntervalOnceBtn")?.addEventListener("click", () => {
+    ui.salaryPeriodDraftInterval = "once";
+    syncSalaryPeriodIntervalChips();
+  });
+  const spFirst = document.getElementById("salaryPeriodFirstDate");
+  if (spFirst) {
+    spFirst.addEventListener("change", () => {
+      const fp = datePartsFromIso((spFirst.value || "").trim());
+      if (fp) {
+        const paySel = document.getElementById("salaryPeriodPayDay");
+        if (paySel) setDayOptions(paySel, fp.d);
+      }
+      applySalaryOverlayDateBounds();
+      syncDateFieldRow(spFirst);
+      applyDateFieldRowTabState(spFirst);
+    });
+  }
+  const spUntil = document.getElementById("salaryPeriodValidUntil");
+  if (spUntil) {
+    spUntil.addEventListener("change", () => {
+      applySalaryOverlayDateBounds();
+      syncDateFieldRow(spUntil);
+      applyDateFieldRowTabState(spUntil);
+    });
+  }
+  wireKrAmountInput("salaryPeriodAmountInput");
+  document.getElementById("salaryPeriodSaveBtn")?.addEventListener("click", () => {
+    const body = getSalaryPeriodDraftFromInputs();
+    const id = ui.editSalaryPeriodId || uid();
+    const draft = normalizeSalaryPeriodItem({ ...body, id });
+    const err = validateSalaryPeriodDraft(draft);
+    const summaryEl = document.getElementById("salaryPeriodErrorSummary");
+    if (err) {
+      if (summaryEl) renderErrorSummary(summaryEl, [{ label: err, jumpId: "salaryPeriodNameInput" }]);
+      return;
+    }
+    const fpc = datePartsFromIso(draft.firstPaymentDate);
+    if (fpc && !isAllowedYear(fpc.y)) {
+      if (summaryEl) {
+        renderErrorSummary(summaryEl, [
+          {
+            label: "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).",
+            jumpId: "salaryPeriodFirstDate"
+          }
+        ]);
+      }
+      return;
+    }
+    if (draft.validUntil) {
+      const vpc = datePartsFromIso(String(draft.validUntil));
+      if (vpc && !isAllowedYear(vpc.y)) {
+        if (summaryEl) {
+          renderErrorSummary(summaryEl, [
+            {
+              label: "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).",
+              jumpId: "salaryPeriodValidUntil"
+            }
+          ]);
+        }
+        return;
+      }
+    }
+    hideErrorSummaryById("salaryPeriodErrorSummary");
+    const items = getAllSalaryPeriods()
+      .filter((x) => x.id !== draft.id)
+      .concat([draft]);
+    persistSalaryPeriodItems(items);
+    closeSalaryPeriodEditor();
   });
 
   // Inkomster hanteras nu via overlay i Intäkter-vyn.

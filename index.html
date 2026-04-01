@@ -102,6 +102,43 @@
             <h2>Intäkter</h2>
           </div>
 
+          <div class="subnav subnav--income" role="group" aria-label="Filtrera intäkter efter kategori">
+            <button type="button" class="subnav-btn subnav-tile" data-income-category="salary" aria-pressed="false">
+              <!-- icons/intäkt-lon.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2H4z" />
+                <path d="M8 7h8M8 11h8M8 15h5" />
+              </svg>
+              <span class="subnav-tile-label">Lön</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-income-category="benefit" aria-pressed="false">
+              <!-- icons/intakt-sedel.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
+                <circle cx="12" cy="13" r="3" />
+                <path d="M18 2v6M15 5h6" />
+              </svg>
+              <span class="subnav-tile-label">Bidrag</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-income-category="capital" aria-pressed="false">
+              <!-- icons/inakt-kapital.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 20l6-6 4 4 6-6V4" />
+                <path d="M17 7l3-3 3 3" />
+              </svg>
+              <span class="subnav-tile-label">Kapital</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-income-category="gift" aria-pressed="false">
+              <!-- icons/intäkt-gova.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M12 17c-1-1.5-3 0-3 1.5 0 1 1 2 3 3 2-1 3-2 3-3 0-1.5-2-3-3-1.5z" />
+              </svg>
+              <span class="subnav-tile-label">Gåva</span>
+            </button>
+          </div>
+
           <div class="table-card">
             <div class="table-title-row">
               <div class="table-title">Planerade inbetalningar</div>
@@ -136,7 +173,120 @@
             </div>
             <div class="note payments-list-total-note" id="incomeListNote"></div>
           </div>
+
+          <!-- LÖN (löneperioder, samma navigationsmönster som Lån) -->
+          <section class="inc-overlay" data-incview="salary" hidden>
+            <div class="bb-error-summary tagged-editor-error-summary" id="salaryPeriodErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button type="button" class="food-mat-panel-back" data-inc-close aria-label="Tillbaka till Intäkter">Intäkter</button>
+              </div>
+              <div class="table-title">Lön</div>
+              <p class="note tagged-exp-overlay-intro">
+                Skapa löneperioder med belopp och utbetalningsdag. Varje period genererar utbetalningar i listan över planerade
+                intäkter (vardagar; helg justeras till närmaste bankdag före).
+              </p>
+
+              <section id="salaryPeriodEditorSection" hidden>
+                <div
+                  class="bb-notched-panel tagged-editor-panel salary-period-editor-panel"
+                  role="group"
+                  aria-labelledby="salaryPeriodEditorPanelLegend"
+                >
+                  <div class="bb-notched-panel-legend" id="salaryPeriodEditorPanelLegend">Lägg till löneperiod</div>
+                  <div class="form-grid narrow">
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Namn">
+                        <div class="bb-notched-field-legend">Namn</div>
+                        <input id="salaryPeriodNameInput" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                      </div>
+                    </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Arbetsgivare">
+                        <div class="bb-notched-field-legend">Arbetsgivare</div>
+                        <input id="salaryPeriodEmployerInput" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                      </div>
+                    </div>
+                    <label class="field">
+                      <input id="salaryPeriodFirstDate" type="date" data-notch-label="Första löneutbetalningsdag" />
+                    </label>
+                    <label class="field">
+                      <input id="salaryPeriodValidUntil" type="date" data-notch-label="Giltig till" data-date-clear />
+                    </label>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
+                        <div class="bb-notched-field-legend">Utbetalningsdag</div>
+                        <select id="salaryPeriodPayDay" class="bb-notched-field-plain-input salary-period-day-select" aria-label="Utbetalningsdag i månaden"></select>
+                      </div>
+                    </div>
+                    <div class="field salary-period-interval-field">
+                      Betalningsintervall
+                      <div class="chip-row salary-period-interval-chips">
+                        <button class="secondary chip" type="button" id="salaryPeriodIntervalMonthlyBtn" aria-pressed="true">Månad</button>
+                        <button class="secondary chip" type="button" id="salaryPeriodIntervalOnceBtn" aria-pressed="false">Enkel</button>
+                      </div>
+                    </div>
+                    <div class="tagged-editor-field-wrap">
+                      <div class="bb-notched-field" role="group" aria-label="Belopp">
+                        <div class="bb-notched-field-legend">Belopp (kr)</div>
+                        <input
+                          id="salaryPeriodAmountInput"
+                          class="bb-notched-field-plain-input"
+                          type="text"
+                          inputmode="numeric"
+                          autocomplete="off"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                    <button class="primary" id="salaryPeriodSaveBtn" type="button">Spara</button>
+                    <button class="danger" id="salaryPeriodDeleteBtn" type="button" hidden>Ta bort</button>
+                    <button class="secondary" id="salaryPeriodEditorCancelBtn" type="button">Avbryt</button>
+                  </div>
+                </div>
+              </section>
+
+              <div class="bb-notched-panel tagged-omkostnader-panel salary-period-list-panel" role="group" aria-label="Löneperioder">
+                <div class="bb-notched-panel-legend">Löneperioder</div>
+                <div class="table-wrap loan-list-table-wrap">
+                  <div id="salaryPeriodsListMount" class="tagged-expense-preview-list" role="list" aria-label="Löneperioder"></div>
+                </div>
+                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="salaryPeriodAddNewBtn">
+                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="food-mat-add-period-card__label">Lägg till</span>
+                </button>
+              </div>
+            </div>
+          </section>
         </section>
+
+        <!-- CONFIRM DELETE SALARY PERIOD -->
+        <div class="modal-backdrop" id="confirmDeleteSalaryPeriodBackdrop" hidden></div>
+        <div
+          class="modal"
+          id="confirmDeleteSalaryPeriodModal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirmDeleteSalaryPeriodTitle"
+          hidden
+        >
+          <div class="modal-header">
+            <div id="confirmDeleteSalaryPeriodTitle">Ta bort löneperiod?</div>
+            <button class="icon-btn" id="closeDeleteSalaryPeriodModalBtn" type="button" aria-label="Stäng">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="note">Är du säker? Genererade löneutbetalningar i intäktslistan tas bort. Detta kan inte ångras.</div>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary" id="cancelDeleteSalaryPeriodBtn" type="button">Avbryt</button>
+            <button class="danger" id="confirmDeleteSalaryPeriodBtn" type="button">Ja, ta bort</button>
+          </div>
+        </div>
 
         <!-- EXPENSES -->
         <section class="view" data-view="expenses">
@@ -1508,7 +1658,7 @@
       <div class="modal-body">
         <div class="bb-error-summary" id="incomeErrorSummary" hidden role="alert" aria-live="polite"></div>
         <div class="form-grid narrow">
-          <div class="field">
+          <div class="field" id="incomeModalKindRow" hidden>
             Typ av intäkt
             <div class="chip-row">
               <button class="secondary chip" type="button" id="incomeKindSalaryBtn" aria-pressed="false">Lön</button>

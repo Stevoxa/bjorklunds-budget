@@ -1,7 +1,7 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v23";
+const CACHE_NAME = "bjorklunds-budget-v25";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
@@ -13,6 +13,10 @@ const ASSETS_TO_CACHE = [
   "./icons/calendar-outline.svg",
   "./icons/bas-analys.svg",
   "./icons/bas-intakt-uppil.svg",
+  "./icons/intäkt-lon.svg",
+  "./icons/intakt-sedel.svg",
+  "./icons/inakt-kapital.svg",
+  "./icons/intäkt-gova.svg",
   "./icons/bas-utgift-nerpil.svg",
   "./icons/bas-stjarna.svg",
   "./icons/bas-inställningar.svg",

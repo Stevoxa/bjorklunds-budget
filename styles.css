@@ -1605,18 +1605,38 @@ tr.month-break td {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
-.subnav-btn.subnav-tile[aria-selected="true"] {
+.subnav-btn.subnav-tile[aria-selected="true"],
+.subnav-btn.subnav-tile[aria-pressed="true"] {
   color: var(--text);
   background: color-mix(in srgb, var(--primary) 28%, var(--card));
   border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
   box-shadow: 0 4px 18px color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
-.subnav-btn.subnav-tile[aria-selected="true"] .subnav-tile-icon {
+.subnav-btn.subnav-tile[aria-selected="true"] .subnav-tile-icon,
+.subnav-btn.subnav-tile[aria-pressed="true"] .subnav-tile-icon {
   stroke-width: 2px;
 }
 
-.exp-overlay {
+/* Intäkter: fyra kategorier på full rad (samma bredd som kortet under) */
+.subnav.subnav--income {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  overflow-x: visible;
+  scroll-snap-type: none;
+}
+
+.subnav.subnav--income .subnav-btn.subnav-tile {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.exp-overlay,
+.inc-overlay {
   position: fixed;
   inset: 0;
   z-index: 70;
@@ -1660,7 +1680,8 @@ tr.month-break td {
   }
 }
 
-.exp-overlay > .table-card {
+.exp-overlay > .table-card,
+.inc-overlay > .table-card {
   max-width: 780px;
   margin: 0 auto;
 }
@@ -2776,6 +2797,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 }
 
 .exp-overlay,
+.inc-overlay,
 .modal-body {
   scroll-padding-top: 92px;
 }
@@ -3354,7 +3376,8 @@ input.input-readonly-like {
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
 .exp-overlay[data-expview="savings"],
-.exp-overlay[data-expview="loans"] {
+.exp-overlay[data-expview="loans"],
+.inc-overlay[data-incview="salary"] {
   --bb-notched-panel-margin-extra: 22px;
 }
 
@@ -3388,7 +3411,8 @@ input.input-readonly-like {
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary,
-.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary {
+.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary,
+.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary {
   max-width: 780px;
   width: 100%;
   margin-left: auto;
@@ -3400,8 +3424,20 @@ input.input-readonly-like {
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
-.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
+.exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
   margin-bottom: var(--space-4);
+}
+
+.salary-period-day-select {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 10px 12px;
+  cursor: pointer;
 }
 
 /*
@@ -4308,6 +4344,7 @@ body.app-bottom-sheet-open {
   .modal,
   .modal-backdrop,
   .exp-overlay,
+  .inc-overlay,
   .food-mat-panel,
   .tagged-expense-row-btn,
   .list-picker-row,
