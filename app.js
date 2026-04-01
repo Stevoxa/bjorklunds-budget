@@ -38,6 +38,10 @@ function formatKr(value) {
   return `${n.toLocaleString("sv-SE")}kr`;
 }
 
+/** Listrads-chevron (tunn stroke, rundade ändar) — nära t.ex. sj.se / Material list rows. */
+const LIST_ROW_CHEVRON_SVG =
+  '<svg class="list-row-chevron-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function asNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -232,7 +236,7 @@ function renderErrorSummary(summaryEl, errors) {
 
     const chev = document.createElement("span");
     chev.className = "bb-error-summary-item-chevron";
-    chev.textContent = "›";
+    chev.innerHTML = LIST_ROW_CHEVRON_SVG;
 
     btn.appendChild(left);
     btn.appendChild(chev);
@@ -4539,7 +4543,7 @@ function renderTaggedExpenseListMount(cat) {
             </span>
             <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
           </span>
-          <span class="tagged-expense-row-chev" aria-hidden="true">›</span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
         </button>
       `;
       mount.appendChild(row);
@@ -5241,7 +5245,7 @@ function renderFoodPage() {
         >
           <span class="food-period-bb-row-main">${range}</span>
           ${meta}
-          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+          <span class="food-period-bb-row-chevron" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
         </button>
       `;
     }).join("");
@@ -5875,7 +5879,7 @@ function renderFoodPage() {
           aria-label="Redigera period ${range}"
         >
           <span class="food-period-bb-row-main">${range}</span>
-          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+          <span class="food-period-bb-row-chevron" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
         </button>
       `;
     }).join("");
@@ -6238,7 +6242,7 @@ function renderFoodPage() {
           aria-label="Redigera period ${range}"
         >
           <span class="food-period-bb-row-main">${range}</span>
-          <span class="food-period-bb-row-chevron" aria-hidden="true">›</span>
+          <span class="food-period-bb-row-chevron" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
         </button>
       `;
     }).join("");
@@ -7514,7 +7518,7 @@ function renderExpensesList() {
           </span>
           <span class="tagged-expense-row-line2">${escapeHtml(r.dateLong)}</span>
         </span>
-        <span class="tagged-expense-row-chev expense-payment-row-chev" aria-hidden="true">&gt;</span>
+        <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
       </button>
     `;
     mount.appendChild(rowWrap);
@@ -7931,7 +7935,7 @@ function renderLoansPage() {
             </span>
             <span class="tagged-expense-row-line2">${escapeHtml(line2)}</span>
           </span>
-          <span class="tagged-expense-row-chev" aria-hidden="true">›</span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
         </button>
       `;
       mount.appendChild(row);
