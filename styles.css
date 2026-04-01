@@ -69,6 +69,14 @@
   --space-6: 24px;
   --motion-fast: 160ms;
   --motion-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* Navigationsstack (lista → fullskärmsvy) */
+  --motion-nav: 300ms;
+  --motion-nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Underark / modaler: tydlig inbromsning, tydlig känsla av kontroll */
+  --motion-sheet: 300ms;
+  --motion-sheet-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  --motion-modal: 240ms;
+  --motion-modal-ease: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 html[data-theme="dark"] {
@@ -602,7 +610,8 @@ button:focus:not(:focus-visible) {
 
 .primary:active,
 .secondary:active,
-.danger:active {
+.danger:active,
+.icon-btn:active {
   transform: scale(0.98);
 }
 
@@ -1192,7 +1201,13 @@ button:focus:not(:focus-visible) {
   font-weight: 500;
   font-size: 1rem;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--motion-ease);
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.list-picker-row:active {
+  transform: scale(0.99);
 }
 
 .list-picker-row-label {
@@ -1506,7 +1521,12 @@ tr.month-break td {
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease),
     color var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease);
+    box-shadow var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.subnav-btn:active {
+  transform: scale(0.98);
 }
 
 .subnav-btn.subnav-tile {
@@ -1578,7 +1598,7 @@ tr.month-break td {
   background: var(--bg);
   padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-3) calc(88px + env(safe-area-inset-bottom));
   overflow-y: auto;
-  animation: overlay-in var(--motion-fast) var(--motion-ease) both;
+  animation: exp-nav-push-in var(--motion-nav) var(--motion-nav-ease) both;
 }
 
 /* App bar: tillbaka längst ner, följer vid scroll */
@@ -1603,12 +1623,15 @@ tr.month-break td {
   font-weight: 750;
 }
 
-@keyframes overlay-in {
+/* Ny fullskärmsvy glider in från höger (chevron = “åt sidan”) — slutläge utan transform så sticky m.m. fungerar */
+@keyframes exp-nav-push-in {
   from {
-    opacity: 0.88;
+    opacity: 0.94;
+    transform: translateX(100%);
   }
   to {
     opacity: 1;
+    transform: none;
   }
 }
 
@@ -1709,7 +1732,7 @@ tr.month-break td {
   inset: 0;
   background: rgba(4, 8, 14, 0.52);
   z-index: 50;
-  animation: backdrop-in 200ms var(--motion-ease) both;
+  animation: backdrop-in var(--motion-modal) var(--motion-modal-ease) both;
 }
 
 html[data-theme="dark"] .modal-backdrop {
@@ -1739,13 +1762,13 @@ html[data-theme="dark"] .modal-backdrop {
   max-height: calc(100vh - var(--space-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  animation: modal-in 200ms var(--motion-ease) both;
+  animation: modal-in var(--motion-modal) var(--motion-modal-ease) both;
 }
 
 @keyframes modal-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
+    transform: translate(-50%, -47%) scale(0.97);
   }
   to {
     opacity: 1;
@@ -1866,10 +1889,17 @@ body.modal-open {
   min-height: 44px;
   border: 1px solid var(--border);
   background: var(--card-2);
+  cursor: pointer;
   transition:
     background var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease),
-    color var(--motion-fast) var(--motion-ease);
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.chip:active {
+  transform: scale(0.98);
 }
 
 .chip:hover {
@@ -1989,6 +2019,13 @@ body.modal-open {
   color: var(--text);
   font: inherit;
   text-align: left;
+  transition:
+    background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.food-period-bb-row:active:not(:disabled) {
+  transform: scale(0.99);
 }
 
 .food-period-bb-row:last-child {
@@ -2025,6 +2062,10 @@ body.modal-open {
   line-height: 0;
   color: color-mix(in srgb, var(--primary) 55%, var(--text));
   opacity: 0.9;
+}
+
+.food-period-bb-row:active:not(:disabled) .list-row-chevron-svg {
+  transform: translateX(5px);
 }
 
 .food-period-bb-row--shadowed .food-period-bb-row-meta {
@@ -2462,10 +2503,10 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   background: var(--bg);
   padding-top: calc(var(--space-3) + env(safe-area-inset-top));
   padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
-  /* Vänster: bara safe area så App bar-nav (pil) kan ligga mot innehållsmarginalen som SJ App Bar */
+  /* Vänster: bara safe area så app bar-nav (pil) kan ligga mot innehållsmarginalen */
   padding-left: env(safe-area-inset-left);
   padding-right: max(var(--space-4), env(safe-area-inset-right));
-  animation: overlay-in var(--motion-fast) var(--motion-ease) both;
+  animation: exp-nav-push-in var(--motion-nav) var(--motion-nav-ease) both;
 }
 
 .food-mat-panel-top {
@@ -2681,6 +2722,15 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   font: inherit;
   font-weight: 500;
   text-align: left;
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.bb-error-summary-item:active {
+  transform: scale(0.99);
+}
+
+.bb-error-summary-item:active .list-row-chevron-svg {
+  transform: translateX(5px);
 }
 
 .bb-error-summary-item:hover {
@@ -2710,7 +2760,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   box-shadow: none !important;
 }
 
-/* Synlig datum-trigger (mobil): röd kant som SJ när native input markerats ogiltig */
+/* Synlig datum-trigger (mobil): röd kant när native input markerats ogiltig */
 .date-field-row:has(.date-field-row-native.input-invalid) .date-field-row-trigger {
   border-color: var(--danger);
   border-width: 1px;
@@ -2875,13 +2925,18 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
     border-right: none;
     border-bottom: none;
     border-top: 1px solid var(--border-strong);
-    animation: modal-sheet-in 220ms var(--motion-ease) both;
+    animation: modal-sheet-in var(--motion-sheet) var(--motion-sheet-ease) both;
+  }
+
+  /* Utgift redigera: sidleds in (samma metafor som listrad + chevron) */
+  #expenseModal.modal {
+    animation: exp-nav-push-in var(--motion-nav) var(--motion-nav-ease) both;
   }
 
   @keyframes modal-sheet-in {
     from {
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(16px);
     }
     to {
       opacity: 1;
@@ -3020,6 +3075,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   cursor: pointer;
   border-radius: var(--radius-control);
   box-sizing: border-box;
+  transition: transform var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
 }
 
 .tagged-expense-row-btn:hover:not(:disabled) {
@@ -3034,6 +3090,14 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .tagged-expense-row-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.tagged-expense-row-btn:active:not(:disabled) {
+  transform: translateX(1px);
+}
+
+.tagged-expense-row-btn:active:not(:disabled) .list-row-chevron-svg {
+  transform: translateX(5px);
 }
 
 .tagged-expense-row-btn-main {
@@ -3090,6 +3154,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   display: block;
   width: 1.375rem;
   height: 1.375rem;
+  transition: transform var(--motion-fast) var(--motion-ease);
 }
 
 /* Utgifter: lista med månadsrubriker (samma mönster som kategorilistor) */
@@ -3160,7 +3225,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 /*
  * Utgiftsöverlägg (Hem/Bil/Barn/Spar): lite mer luft kring notchade paneler än standard,
- * i linje med Mat-flikarnas periodredigerare (SJ-lik appkänsla).
+ * i linje med Mat-flikarnas periodredigerare.
  */
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
@@ -3303,7 +3368,7 @@ button.stretch {
   z-index: 95;
   background: rgba(4, 10, 6, 0.48);
   opacity: 0;
-  transition: opacity 240ms var(--motion-ease);
+  transition: opacity var(--motion-sheet) var(--motion-sheet-ease);
   pointer-events: none;
 }
 
@@ -3334,7 +3399,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   display: flex;
   flex-direction: column;
   transform: translateY(108%);
-  transition: transform 260ms var(--motion-ease);
+  transition: transform var(--motion-sheet) var(--motion-sheet-ease);
   padding-bottom: 0;
   will-change: transform;
 }
@@ -3674,7 +3739,10 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   line-height: 1.2;
   cursor: pointer;
   text-align: center;
-  transition: color var(--motion-fast) var(--motion-ease);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 
 .period-sheet-chip:hover:not(.period-sheet-chip--selected) {
@@ -3689,6 +3757,7 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
 
 .period-sheet-chip:active:not(.period-sheet-chip--selected) {
   opacity: 0.85;
+  transform: scale(0.98);
 }
 
 .period-sheet-chip--selected {
@@ -3730,7 +3799,10 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   letter-spacing: -0.02em;
   cursor: pointer;
   text-align: center;
-  transition: color var(--motion-fast) var(--motion-ease);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
 }
 
 .period-sheet-month-btn:hover:not(.period-sheet-month-btn--selected) {
@@ -3745,6 +3817,7 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
 
 .period-sheet-month-btn:active:not(.period-sheet-month-btn--selected) {
   opacity: 0.85;
+  transform: scale(0.98);
 }
 
 .period-sheet-month-btn--selected {
@@ -4112,6 +4185,13 @@ body.app-bottom-sheet-open {
   .modal,
   .modal-backdrop,
   .exp-overlay,
+  .food-mat-panel,
+  .tagged-expense-row-btn,
+  .list-picker-row,
+  .food-period-bb-row,
+  .bb-error-summary-item,
+  .period-sheet-chip,
+  .period-sheet-month-btn,
   .date-sheet,
   .period-sheet,
   .date-sheet-backdrop,

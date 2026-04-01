@@ -38,7 +38,7 @@ function formatKr(value) {
   return `${n.toLocaleString("sv-SE")}kr`;
 }
 
-/** Listrads-chevron (tunn stroke, rundade ändar) — nära t.ex. sj.se / Material list rows. */
+/** Listrads-chevron (tunn stroke, rundade ändar), vanlig i appar med tydliga listrader. */
 const LIST_ROW_CHEVRON_SVG =
   '<svg class="list-row-chevron-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
