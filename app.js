@@ -600,6 +600,8 @@ let periodSheetTaggedCat = null;
 /** När periodSheetKind === "incomeTaggedList": benefit | capital | gift. */
 let periodSheetIncomeTaggedCat = null;
 let periodSheetKeydownHandler = null;
+/** Fokus före periodark — undviker aria-hidden på fokuserat element vid stängning. */
+let periodSheetPrevFocusEl = null;
 
 let listPickerOpen = false;
 let listPickerClosing = false;
@@ -1769,6 +1771,10 @@ function attachBottomSheetDragDismiss(handleEl, sheetEl, onDismiss) {
 
 function finalizePeriodSheetClose() {
   const { backdrop, sheet } = getPeriodSheetEls();
+  const active = document.activeElement;
+  if (sheet && active instanceof Node && sheet.contains(active) && typeof active.blur === "function") {
+    active.blur();
+  }
   if (backdrop) {
     backdrop.hidden = true;
     backdrop.classList.remove("period-sheet-backdrop--visible");
@@ -1790,6 +1796,24 @@ function finalizePeriodSheetClose() {
   periodSheetClosing = false;
   periodSheetTaggedCat = null;
   periodSheetIncomeTaggedCat = null;
+  queueMicrotask(() => {
+    if (periodSheetPrevFocusEl && typeof periodSheetPrevFocusEl.focus === "function") {
+      try {
+        periodSheetPrevFocusEl.focus({ preventScroll: true });
+      } catch {
+        try {
+          periodSheetPrevFocusEl.focus();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    periodSheetPrevFocusEl = null;
+  });
+}
+
+function capturePeriodSheetReturnFocus() {
+  periodSheetPrevFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 }
 
 function closePeriodSheetAnimated() {
@@ -1827,8 +1851,11 @@ function closePeriodSheetAnimated() {
 }
 
 function yearOptionsForPeriodSheet() {
-  if (periodSheetKind === "overview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
-  if (periodSheetKind === "foodPreview" || periodSheetKind === "taggedList" || periodSheetKind === "incomeTaggedList")
+  if (periodSheetKind === "taggedList" || periodSheetKind === "incomeTaggedList") {
+    const nums = getAvailableYears();
+    return [{ v: "all", lab: "Alla" }, ...nums.map((y) => ({ v: String(y), lab: String(y) }))];
+  }
+  if (periodSheetKind === "overview" || periodSheetKind === "foodPreview")
     return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
   const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
   return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
@@ -1856,8 +1883,10 @@ function renderPeriodSheetContent() {
   if (
     periodSheetKind !== "overview" &&
     periodSheetKind !== "foodPreview" &&
-    periodSheetKind !== "taggedList" &&
-    periodSheetKind !== "incomeTaggedList"
+    (periodSheetKind === "expenseFilter" ||
+      periodSheetKind === "incomeFilter" ||
+      periodSheetKind === "taggedList" ||
+      periodSheetKind === "incomeTaggedList")
   ) {
     monthEntries.push({ v: "all", lab: "Alla" });
   }
@@ -1909,8 +1938,8 @@ function commitPeriodSheetAndClose() {
         ys.value = periodSheetDraftYearStr;
         ms.value = periodSheetDraftMonthStr;
       }
-      ui.tagged[cat].listYear = Number(periodSheetDraftYearStr);
-      ui.tagged[cat].listMonth = Number(periodSheetDraftMonthStr);
+      ui.tagged[cat].listYear = periodSheetDraftYearStr === "all" ? "all" : Number(periodSheetDraftYearStr);
+      ui.tagged[cat].listMonth = periodSheetDraftMonthStr === "all" ? "all" : Number(periodSheetDraftMonthStr);
       syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
     }
@@ -1925,8 +1954,8 @@ function commitPeriodSheetAndClose() {
         ys.value = periodSheetDraftYearStr;
         ms.value = periodSheetDraftMonthStr;
       }
-      ui.incomeTagged[cat].listYear = Number(periodSheetDraftYearStr);
-      ui.incomeTagged[cat].listMonth = Number(periodSheetDraftMonthStr);
+      ui.incomeTagged[cat].listYear = periodSheetDraftYearStr === "all" ? "all" : Number(periodSheetDraftYearStr);
+      ui.incomeTagged[cat].listMonth = periodSheetDraftMonthStr === "all" ? "all" : Number(periodSheetDraftMonthStr);
       syncIncomeTaggedListPeriodSummary(cat);
       renderTaggedIncomeListMount(cat);
     }
@@ -1963,6 +1992,7 @@ function openOverviewPeriodSheet() {
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!yearSel || !monthSel || !backdrop || !sheet) return;
 
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "overview";
   const cur = currentYearMonth();
   let y = Number(yearSel.value);
@@ -2005,6 +2035,7 @@ function openFoodPreviewPeriodSheet() {
   const ms = document.getElementById("foodPreviewMonth");
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!ys || !ms || !backdrop || !sheet) return;
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "foodPreview";
   const cur = currentYearMonth();
   let y = Number(ys.value || ui.foodPreviewYear);
@@ -2046,16 +2077,25 @@ function openTaggedListPeriodSheet(cat) {
   const ms = document.getElementById(C.ids.listMonth);
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!ys || !ms || !backdrop || !sheet) return;
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "taggedList";
   periodSheetTaggedCat = cat;
   const u = ui.tagged[cat];
   const cur = currentYearMonth();
-  let y = Number(ys.value ?? u.listYear);
-  let m = Number(ms.value ?? u.listMonth);
-  if (!Number.isFinite(y)) y = cur.year;
-  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
-  periodSheetDraftYearStr = String(y);
-  periodSheetDraftMonthStr = String(m);
+  const yRaw = ys.value ?? u.listYear;
+  const mRaw = ms.value ?? u.listMonth;
+  if (yRaw === "all" || String(yRaw) === "all") periodSheetDraftYearStr = "all";
+  else {
+    let y = Number(yRaw);
+    if (!Number.isFinite(y)) y = cur.year;
+    periodSheetDraftYearStr = String(y);
+  }
+  if (mRaw === "all" || String(mRaw) === "all") periodSheetDraftMonthStr = "all";
+  else {
+    let m = Number(mRaw);
+    if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+    periodSheetDraftMonthStr = String(m);
+  }
   renderPeriodSheetContent();
   backdrop.hidden = false;
   backdrop.setAttribute("aria-hidden", "false");
@@ -2089,16 +2129,25 @@ function openIncomeTaggedListPeriodSheet(cat) {
   const ms = document.getElementById(C.ids.listMonth);
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!ys || !ms || !backdrop || !sheet) return;
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "incomeTaggedList";
   periodSheetIncomeTaggedCat = cat;
   const u = ui.incomeTagged[cat];
   const cur = currentYearMonth();
-  let y = Number(ys.value ?? u.listYear);
-  let m = Number(ms.value ?? u.listMonth);
-  if (!Number.isFinite(y)) y = cur.year;
-  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
-  periodSheetDraftYearStr = String(y);
-  periodSheetDraftMonthStr = String(m);
+  const yRaw = ys.value ?? u.listYear;
+  const mRaw = ms.value ?? u.listMonth;
+  if (yRaw === "all" || String(yRaw) === "all") periodSheetDraftYearStr = "all";
+  else {
+    let y = Number(yRaw);
+    if (!Number.isFinite(y)) y = cur.year;
+    periodSheetDraftYearStr = String(y);
+  }
+  if (mRaw === "all" || String(mRaw) === "all") periodSheetDraftMonthStr = "all";
+  else {
+    let m = Number(mRaw);
+    if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+    periodSheetDraftMonthStr = String(m);
+  }
   renderPeriodSheetContent();
   backdrop.hidden = false;
   backdrop.setAttribute("aria-hidden", "false");
@@ -2130,6 +2179,7 @@ function openExpenseFilterPeriodSheet() {
   const ms = document.getElementById("expenseMonthFilter");
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!ys || !ms || !backdrop || !sheet) return;
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "expenseFilter";
   periodSheetDraftYearStr = String(ui.expenseYearFilter || ys.value || "all");
   periodSheetDraftMonthStr = String(ui.expenseMonthFilter || ms.value || "all");
@@ -2164,6 +2214,7 @@ function openIncomeFilterPeriodSheet() {
   const ms = document.getElementById("incomeMonthFilter");
   const { backdrop, sheet } = getPeriodSheetEls();
   if (!ys || !ms || !backdrop || !sheet) return;
+  capturePeriodSheetReturnFocus();
   periodSheetKind = "incomeFilter";
   periodSheetDraftYearStr = String(ui.incomeYearFilter || ys.value || "all");
   periodSheetDraftMonthStr = String(ui.incomeMonthFilter || ms.value || "all");
@@ -2251,10 +2302,17 @@ function syncTaggedListPeriodSummary(cat) {
   const ys = document.getElementById(C.ids.listYear);
   const ms = document.getElementById(C.ids.listMonth);
   if (!el || !ys || !ms) return;
-  const y = Number(ui.tagged[cat].listYear ?? ys.value);
-  const m = Number(ui.tagged[cat].listMonth ?? ms.value);
-  el.textContent =
-    Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
+  const yRaw = ui.tagged[cat].listYear ?? ys.value;
+  const mRaw = ui.tagged[cat].listMonth ?? ms.value;
+  const yAll = yRaw === "all" || String(yRaw) === "all";
+  const mAll = mRaw === "all" || String(mRaw) === "all";
+  const y = yAll ? null : Number(yRaw);
+  const m = mAll ? null : Number(mRaw);
+  if (yAll && mAll) el.textContent = "Alla år, alla månader";
+  else if (yAll && m != null && m >= 1 && m <= 12) el.textContent = `Alla år · ${monthName(m)}`;
+  else if (mAll && Number.isFinite(y)) el.textContent = `Hela ${y}`;
+  else if (Number.isFinite(y) && m != null && m >= 1 && m <= 12) el.textContent = `${monthName(m)} ${y}`;
+  else el.textContent = "—";
 }
 
 let taggedListPeriodPickersWired = false;
@@ -3890,10 +3948,17 @@ function syncIncomeTaggedListPeriodSummary(cat) {
   const ms = document.getElementById(C.ids.listMonth);
   if (!el || !ys || !ms) return;
   const u = ui.incomeTagged[cat];
-  const y = Number(u.listYear ?? ys.value);
-  const m = Number(u.listMonth ?? ms.value);
-  el.textContent =
-    Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
+  const yRaw = u.listYear ?? ys.value;
+  const mRaw = u.listMonth ?? ms.value;
+  const yAll = yRaw === "all" || String(yRaw) === "all";
+  const mAll = mRaw === "all" || String(mRaw) === "all";
+  const y = yAll ? null : Number(yRaw);
+  const m = mAll ? null : Number(mRaw);
+  if (yAll && mAll) el.textContent = "Alla år, alla månader";
+  else if (yAll && m != null && m >= 1 && m <= 12) el.textContent = `Alla år · ${monthName(m)}`;
+  else if (mAll && Number.isFinite(y)) el.textContent = `Hela ${y}`;
+  else if (Number.isFinite(y) && m != null && m >= 1 && m <= 12) el.textContent = `${monthName(m)} ${y}`;
+  else el.textContent = "—";
 }
 
 function clearIncomeTaggedEditorInlineErrors(cat) {
@@ -4002,6 +4067,10 @@ function getTaggedIncomeRowsForMonth(year, month, cat) {
   const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
   const keyField = C.subcategoryField || "subcategory";
   const rows = [];
+  const yAll = year === "all";
+  const mAll = month === "all";
+  const yNum = yAll ? null : Number(year);
+  const mNum = mAll ? null : Number(month);
   for (const inc of state.incomes || []) {
     if (inc.category !== C.incomeCategory) continue;
     if (inc.metadata?.salaryPeriodId) continue;
@@ -4014,10 +4083,10 @@ function getTaggedIncomeRowsForMonth(year, month, cat) {
     for (const p of inc.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
-        const amt = asNumber(p.amount);
-        if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
-      }
+      if (!yAll && dt.getFullYear() !== yNum) continue;
+      if (!mAll && dt.getMonth() + 1 !== mNum) continue;
+      const amt = asNumber(p.amount);
+      if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
     }
     if (paymentsInMonth.length === 0) continue;
     if (inc.interval === "weekly") {
@@ -4065,11 +4134,18 @@ function renderTaggedIncomeListMount(cat) {
   if (!mount) return;
   const u = ui.incomeTagged[cat];
   const editorOpen = Boolean(u && u.editorOpen);
-  const year = Number(u.listYear);
-  const month = Number(u.listMonth);
-  if (!Number.isFinite(year) || !Number.isFinite(month)) return;
+  const year = u.listYear;
+  const month = u.listMonth;
+  if (year !== "all" && !Number.isFinite(Number(year))) return;
+  if (month !== "all" && !Number.isFinite(Number(month))) return;
   const prefix = (C.labels && C.labels.monthListTitlePrefix) || "Utbetalningar";
-  if (titleEl) titleEl.textContent = `${prefix} ${monthName(month).toLowerCase()}`;
+  if (titleEl) {
+    if (year === "all" && month === "all") titleEl.textContent = `${prefix} — alla perioder`;
+    else if (year === "all")
+      titleEl.textContent = `${prefix} ${monthName(Number(month)).toLowerCase()} (alla år)`;
+    else if (month === "all") titleEl.textContent = `${prefix} helår ${year}`;
+    else titleEl.textContent = `${prefix} ${monthName(Number(month)).toLowerCase()}`;
+  }
   const { rows, total } = getTaggedIncomeRowsForMonth(year, month, cat);
   mount.innerHTML = "";
   if (rows.length === 0) {
@@ -4098,7 +4174,10 @@ function renderTaggedIncomeListMount(cat) {
     }
   }
   if (totalEl) {
-    const totalPrefix = (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+    const totalPrefix =
+      year === "all" || month === "all"
+        ? "Totalt i urvalet"
+        : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
     totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
   }
   mount.onclick = (e) => {
@@ -4126,25 +4205,31 @@ function renderTaggedIncomeCategoryPage(cat) {
   const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
   const baseYear = ui.incomeYearFilter || ui.overviewYear || cur.year;
-  const appYears = getSelectableAppYears();
-  if (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear))) {
-    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  const appYears = getAvailableYears();
+  if (
+    u.listYear !== "all" &&
+    (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear)))
+  ) {
+    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[appYears.length - 1] ?? baseYear;
   }
-  if (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12) {
+  if (
+    u.listMonth !== "all" &&
+    (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12)
+  ) {
     u.listMonth = cur.month;
   }
   if (listYearSel) {
-    setYear3Options(listYearSel, u.listYear);
+    setYearOptionsWithAll(listYearSel, appYears, u.listYear);
     listYearSel.onchange = () => {
-      u.listYear = Number(listYearSel.value);
+      u.listYear = listYearSel.value === "all" ? "all" : Number(listYearSel.value);
       syncIncomeTaggedListPeriodSummary(cat);
       renderTaggedIncomeListMount(cat);
     };
   }
   if (listMonthSel) {
-    setMonthOptions(listMonthSel, u.listMonth);
+    setMonthOptionsWithAll(listMonthSel, u.listMonth);
     listMonthSel.onchange = () => {
-      u.listMonth = Number(listMonthSel.value);
+      u.listMonth = listMonthSel.value === "all" ? "all" : Number(listMonthSel.value);
       syncIncomeTaggedListPeriodSummary(cat);
       renderTaggedIncomeListMount(cat);
     };
@@ -4479,52 +4564,62 @@ function currentYearMonth() {
   return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
+/**
+ * År för periodväljare / analys: alltid nu±1 plus år från data inom ett rimligt fönster
+ * (undviker hundratals år från godtyckliga object keys i state).
+ */
 function getAvailableYears() {
-  const years = new Set();
   const cur = currentYearMonth().year;
-  for (let y = cur - 1; y <= cur + 1; y++) years.add(String(y));
+  const lo = Math.max(1990, cur - 12);
+  const hi = cur + 4;
+  const years = new Set();
+  for (let y = cur - 1; y <= cur + 1; y++) years.add(y);
 
-  const addFrom = (obj) => {
-    if (!obj) return;
-    Object.keys(obj).forEach((k) => years.add(k));
+  const addYear = (y) => {
+    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(y);
   };
-  addFrom(state.special?.car);
-  addFrom(state.special?.home);
+
+  const addYearKeysFromObject = (obj) => {
+    if (!obj || typeof obj !== "object") return;
+    for (const k of Object.keys(obj)) {
+      if (!/^\d{4}$/.test(k)) continue;
+      addYear(Number(k));
+    }
+  };
+
+  addYearKeysFromObject(state.special?.car);
+  addYearKeysFromObject(state.special?.home);
+  addYearKeysFromObject(state.special?.children);
+  addYearKeysFromObject(state.special?.food);
+
   for (const loan of state.special?.loans?.items || []) {
     const fp = datePartsFromIso(String(loan?.firstPaymentDate || ""));
-    if (fp) years.add(String(fp.y));
+    if (fp) addYear(fp.y);
     if (loan?.endDate) {
       const ep = datePartsFromIso(String(loan.endDate));
-      if (ep) years.add(String(ep.y));
+      if (ep) addYear(ep.y);
     }
   }
   for (const sp of state.special?.salaryPeriods?.items || []) {
     const fp = datePartsFromIso(String(sp?.firstPaymentDate || ""));
-    if (fp) years.add(String(fp.y));
+    if (fp) addYear(fp.y);
     if (sp?.validUntil) {
       const vp = datePartsFromIso(String(sp.validUntil));
-      if (vp) years.add(String(vp.y));
+      if (vp) addYear(vp.y);
     }
   }
-  addFrom(state.special?.children);
-  addFrom(state.special?.food);
 
-  for (const inc of state.incomes || []) {
-    for (const p of inc.payments || []) {
+  const addPaymentYears = (payments) => {
+    for (const p of payments || []) {
       const dt = p?.date ? new Date(p.date) : null;
-      if (dt && !Number.isNaN(dt.getTime())) years.add(String(dt.getFullYear()));
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      addYear(dt.getFullYear());
     }
-  }
-  for (const exp of state.expenses || []) {
-    for (const p of exp.payments || []) {
-      const dt = p?.date ? new Date(p.date) : null;
-      if (dt && !Number.isNaN(dt.getTime())) years.add(String(dt.getFullYear()));
-    }
-  }
-  return Array.from(years)
-    .map((s) => Number(s))
-    .filter((n) => Number.isFinite(n))
-    .sort((a, b) => a - b);
+  };
+  for (const inc of state.incomes || []) addPaymentYears(inc.payments);
+  for (const exp of state.expenses || []) addPaymentYears(exp.payments);
+
+  return Array.from(years).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
 }
 
 function setSelectOptions(selectEl, years, selectedYear) {
@@ -4545,6 +4640,38 @@ function setMonthOptions(selectEl, selectedMonth) {
     opt.value = String(m);
     opt.textContent = monthName(m);
     if (Number(selectedMonth) === m) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function setYearOptionsWithAll(selectEl, years, selectedYear) {
+  selectEl.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "Alla";
+  if (String(selectedYear) === "all") allOpt.selected = true;
+  selectEl.appendChild(allOpt);
+  for (const y of years) {
+    const opt = document.createElement("option");
+    opt.value = String(y);
+    opt.textContent = String(y);
+    if (String(selectedYear) !== "all" && Number(selectedYear) === Number(y)) opt.selected = true;
+    selectEl.appendChild(opt);
+  }
+}
+
+function setMonthOptionsWithAll(selectEl, selectedMonth) {
+  selectEl.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = "all";
+  allOpt.textContent = "Alla";
+  if (String(selectedMonth) === "all") allOpt.selected = true;
+  selectEl.appendChild(allOpt);
+  for (let m = 1; m <= 12; m++) {
+    const opt = document.createElement("option");
+    opt.value = String(m);
+    opt.textContent = monthName(m);
+    if (String(selectedMonth) !== "all" && Number(selectedMonth) === m) opt.selected = true;
     selectEl.appendChild(opt);
   }
 }
@@ -6889,6 +7016,10 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   const keyField = C.subcategoryField || "subcategory";
   const rows = [];
+  const yAll = year === "all";
+  const mAll = month === "all";
+  const yNum = yAll ? null : Number(year);
+  const mNum = mAll ? null : Number(month);
   for (const exp of state.expenses || []) {
     if (exp.category !== C.category) continue;
     const key = exp[keyField] || "other";
@@ -6902,10 +7033,10 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
-        const amt = asNumber(p.amount);
-        if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
-      }
+      if (!yAll && dt.getFullYear() !== yNum) continue;
+      if (!mAll && dt.getMonth() + 1 !== mNum) continue;
+      const amt = asNumber(p.amount);
+      if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
     }
     if (paymentsInMonth.length === 0) continue;
 
@@ -6955,13 +7086,18 @@ function renderTaggedExpenseListMount(cat) {
 
   const u = ui.tagged[cat];
   const editorOpen = Boolean(u && u.editorOpen);
-  const year = Number(u.listYear);
-  const month = Number(u.listMonth);
-  if (!Number.isFinite(year) || !Number.isFinite(month)) return;
+  const year = u.listYear;
+  const month = u.listMonth;
+  if (year !== "all" && !Number.isFinite(Number(year))) return;
+  if (month !== "all" && !Number.isFinite(Number(month))) return;
 
   if (titleEl) {
     const prefix = (C.labels && C.labels.monthListTitlePrefix) || "Utgifter";
-    titleEl.textContent = `${prefix} ${monthName(month).toLowerCase()}`;
+    if (year === "all" && month === "all") titleEl.textContent = `${prefix} — alla perioder`;
+    else if (year === "all")
+      titleEl.textContent = `${prefix} ${monthName(Number(month)).toLowerCase()} (alla år)`;
+    else if (month === "all") titleEl.textContent = `${prefix} helår ${year}`;
+    else titleEl.textContent = `${prefix} ${monthName(Number(month)).toLowerCase()}`;
   }
   const { rows, total } = getTaggedExpenseRowsForMonth(year, month, cat);
   mount.innerHTML = "";
@@ -6992,7 +7128,10 @@ function renderTaggedExpenseListMount(cat) {
   }
 
   if (totalEl) {
-    const totalPrefix = (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+    const totalPrefix =
+      year === "all" || month === "all"
+        ? "Totalt i urvalet"
+        : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
     totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
   }
 
@@ -7026,26 +7165,32 @@ function renderTaggedCategoryPage(cat) {
   const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
   const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
-  const appYears = getSelectableAppYears();
-  if (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear))) {
-    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  const appYears = getAvailableYears();
+  if (
+    u.listYear !== "all" &&
+    (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear)))
+  ) {
+    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[appYears.length - 1] ?? baseYear;
   }
-  if (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12) {
+  if (
+    u.listMonth !== "all" &&
+    (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12)
+  ) {
     u.listMonth = cur.month;
   }
 
   if (listYearSel) {
-    setYear3Options(listYearSel, u.listYear);
+    setYearOptionsWithAll(listYearSel, appYears, u.listYear);
     listYearSel.onchange = () => {
-      u.listYear = Number(listYearSel.value);
+      u.listYear = listYearSel.value === "all" ? "all" : Number(listYearSel.value);
       syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
     };
   }
   if (listMonthSel) {
-    setMonthOptions(listMonthSel, u.listMonth);
+    setMonthOptionsWithAll(listMonthSel, u.listMonth);
     listMonthSel.onchange = () => {
-      u.listMonth = Number(listMonthSel.value);
+      u.listMonth = listMonthSel.value === "all" ? "all" : Number(listMonthSel.value);
       syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
     };
@@ -9030,29 +9175,33 @@ function renderOverviewIfOnOverview() {
 }
 
 function incomeYearsForFilter() {
+  const cur = currentYearMonth().year;
+  const lo = Math.max(1990, cur - 12);
+  const hi = cur + 4;
   const years = new Set();
   years.add("all");
+  const addY = (y) => {
+    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(String(y));
+  };
   for (const inc of state.incomes || []) {
     for (const p of inc.payments || []) {
       if (!p?.date) continue;
       const dt = parseDateISO(String(p.date));
       if (!dt) continue;
-      years.add(String(dt.getFullYear()));
+      addY(dt.getFullYear());
     }
   }
   for (const loan of state.special?.loans?.items || []) {
     const fp = datePartsFromIso(String(loan?.firstPaymentDate || ""));
-    if (fp) years.add(String(fp.y));
+    if (fp) addY(fp.y);
     if (loan?.endDate) {
       const ep = datePartsFromIso(String(loan.endDate));
-      if (ep) years.add(String(ep.y));
+      if (ep) addY(ep.y);
     }
   }
-  // Include +/- 1 year around current to make it easy to filter
-  const cur = currentYearMonth().year;
-  years.add(String(cur - 1));
-  years.add(String(cur));
-  years.add(String(cur + 1));
+  addY(cur - 1);
+  addY(cur);
+  addY(cur + 1);
   const arr = Array.from(years);
   const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
   return ["all", ...nums.map(String)];
@@ -10178,20 +10327,25 @@ function renderIncomesList() {
 }
 
 function expenseYearsForFilter() {
+  const cur = currentYearMonth().year;
+  const lo = Math.max(1990, cur - 12);
+  const hi = cur + 4;
   const years = new Set();
   years.add("all");
+  const addY = (y) => {
+    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(String(y));
+  };
   for (const exp of state.expenses || []) {
     for (const p of exp.payments || []) {
       if (!p?.date) continue;
       const dt = parseDateISO(String(p.date));
       if (!dt) continue;
-      years.add(String(dt.getFullYear()));
+      addY(dt.getFullYear());
     }
   }
-  const cur = currentYearMonth().year;
-  years.add(String(cur - 1));
-  years.add(String(cur));
-  years.add(String(cur + 1));
+  addY(cur - 1);
+  addY(cur);
+  addY(cur + 1);
   const arr = Array.from(years);
   const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
   return ["all", ...nums.map(String)];
