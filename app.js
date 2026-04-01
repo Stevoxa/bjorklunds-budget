@@ -490,6 +490,37 @@ function chartSegmentHex(key) {
   return resolvedDocumentTheme() === "dark" ? pair.dark : pair.light;
 }
 
+/** Analysvy: DOM `data-analysis-widget` + inställning `settings.analysisLayout`. */
+const ANALYSIS_WIDGET_IDS = [
+  "hero",
+  "kpis",
+  "timeline",
+  "cashflow",
+  "buffer",
+  "category",
+  "fixedVariable",
+  "payments",
+  "weekly",
+  "goals",
+  "insights",
+  "tables"
+];
+
+const ANALYSIS_WIDGET_LABELS_SV = {
+  hero: "Sammanfattning",
+  kpis: "Nyckeltal",
+  timeline: "Tidslinje",
+  cashflow: "Kassaflöde",
+  buffer: "Kumulativ balans",
+  category: "Utgiftsfördelning",
+  fixedVariable: "Fasta vs rörliga",
+  payments: "Närmast i kalendern",
+  weekly: "Veckor (mat)",
+  goals: "Sparande",
+  insights: "Insikter",
+  tables: "Tabeller"
+};
+
 const DATE_SHEET_MQ = "(max-width: 720px)";
 
 function isDateSheetViewport() {
@@ -2586,7 +2617,9 @@ function getDefaultState() {
       backupIntervalDays: 30,
       backupFilenamePattern: "bjorklunds_budget_{YYYY}-{MM}.json",
       lastBackupPromptAt: 0,
-      foodPlanningWeekday: 1
+      foodPlanningWeekday: 1,
+      analysisLayout: null,
+      analysisSavingsTargetKr: 5000
     },
     incomes: [],
     expenses: [],
@@ -2678,6 +2711,25 @@ function normalizeStateShape(state) {
       ? normalized.settings.backupFilenamePattern
       : base.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
+  {
+    const allowed = new Set(ANALYSIS_WIDGET_IDS);
+    const al = normalized.settings.analysisLayout;
+    if (Array.isArray(al)) {
+      const seen = new Set();
+      const out = [];
+      for (const id of al) {
+        if (typeof id === "string" && allowed.has(id) && !seen.has(id)) {
+          out.push(id);
+          seen.add(id);
+        }
+      }
+      normalized.settings.analysisLayout = out.length ? out : null;
+    } else normalized.settings.analysisLayout = null;
+  }
+  normalized.settings.analysisSavingsTargetKr = Math.max(
+    1,
+    Math.floor(asNumber(normalized.settings.analysisSavingsTargetKr ?? base.settings.analysisSavingsTargetKr))
+  );
 
   delete normalized.recurring;
 
@@ -3673,6 +3725,8 @@ const ui = {
   // Analys (route "overview")
   overviewYear: null,
   overviewMonth: null,
+  /** Analys: vecka | månad | år (diagramserier) */
+  analysisRange: "month",
   // Utgifter
   expensesYear: null,
   expensesTab: "summary",
@@ -5483,6 +5537,7 @@ function computeMonthOverview(year, month) {
     incomeAmount,
     plannedExpensesAmount,
     remaining,
+    seg,
     segments,
     expensesRows: expensesRowsClean,
     incomesRows,
@@ -5490,147 +5545,1025 @@ function computeMonthOverview(year, month) {
   };
 }
 
-function drawExpenseChart(svgEl, overview) {
-  // Rensar
-  while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+let analysisChartInstances = {};
 
-  const W = 600;
-  const H = 220;
-  svgEl.setAttribute("width", String(W));
-  svgEl.setAttribute("height", String(H));
-
-  const dark = resolvedDocumentTheme() === "dark";
-  const chartUi = dark
-    ? {
-        trackMain: "rgba(111, 207, 130, 0.14)",
-        trackRem: "rgba(238, 242, 237, 0.08)",
-        remPos: "#81c784",
-        remNeg: "#ff8a80"
+function getAnalysisLayoutOrder() {
+  const custom = state?.settings?.analysisLayout;
+  const allowed = new Set(ANALYSIS_WIDGET_IDS);
+  if (Array.isArray(custom) && custom.length) {
+    const seen = new Set();
+    const out = [];
+    for (const id of custom) {
+      if (allowed.has(id) && !seen.has(id)) {
+        out.push(id);
+        seen.add(id);
       }
-    : {
-        trackMain: "rgba(37, 95, 51, 0.15)",
-        trackRem: "rgba(37, 95, 51, 0.12)",
-        remPos: "#43a047",
-        remNeg: "#d32f2f"
-      };
-
-  const expenses = Math.max(0, overview.plannedExpensesAmount);
-  const income = Math.max(0, overview.incomeAmount);
-  const remaining = overview.remaining;
-
-  const maxRef = Math.max(income, expenses, 1);
-  const totalBarW = 500;
-  const startX = 50;
-  const barY = 90;
-  const barH = 26;
-
-  // Bakgrund
-  const bg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  bg.setAttribute("x", String(startX));
-  bg.setAttribute("y", String(barY));
-  bg.setAttribute("width", String(totalBarW));
-  bg.setAttribute("height", String(barH));
-  bg.setAttribute("rx", "12");
-  bg.setAttribute("fill", chartUi.trackMain);
-  svgEl.appendChild(bg);
-
-  // Staplad segmentbar (summa = plannedExpenses)
-  const usable = totalBarW * (expenses / maxRef);
-  let xCursor = startX;
-  const segmentScale = expenses > 0 ? usable / expenses : 0;
-
-  const toPx = (amount) => Math.max(0, amount * segmentScale);
-
-  for (const seg of overview.segments) {
-    const segW = toPx(seg.amount);
-    if (segW <= 0) continue;
-    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rect.setAttribute("x", String(xCursor));
-    rect.setAttribute("y", String(barY));
-    rect.setAttribute("width", String(segW));
-    rect.setAttribute("height", String(barH));
-    rect.setAttribute("rx", "12");
-    rect.setAttribute("fill", seg.color);
-    svgEl.appendChild(rect);
-    xCursor += segW;
+    }
+    for (const id of ANALYSIS_WIDGET_IDS) {
+      if (!seen.has(id)) out.push(id);
+    }
+    return out;
   }
-
-  // Remainder bar under
-  const barY2 = barY + 52;
-  const remBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  remBg.setAttribute("x", String(startX));
-  remBg.setAttribute("y", String(barY2));
-  remBg.setAttribute("width", String(totalBarW));
-  remBg.setAttribute("height", String(barH));
-  remBg.setAttribute("rx", "12");
-  remBg.setAttribute("fill", chartUi.trackRem);
-  svgEl.appendChild(remBg);
-
-  const remAmount = Math.max(0, remaining);
-  const remW = totalBarW * (remAmount / maxRef);
-  const remRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  remRect.setAttribute("x", String(startX));
-  remRect.setAttribute("y", String(barY2));
-  remRect.setAttribute("width", String(remW));
-  remRect.setAttribute("height", String(barH));
-  remRect.setAttribute("rx", "12");
-  remRect.setAttribute("fill", remaining >= 0 ? chartUi.remPos : chartUi.remNeg);
-  svgEl.appendChild(remRect);
-
-  // Labels
-  const label1 = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  label1.setAttribute("x", "50");
-  label1.setAttribute("y", String(barY - 12));
-  label1.setAttribute("fill", "currentColor");
-  label1.setAttribute("font-size", "12");
-  label1.textContent = "Utgifter";
-  svgEl.appendChild(label1);
-
-  const label2 = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  label2.setAttribute("x", "50");
-  label2.setAttribute("y", String(barY2 - 12));
-  label2.setAttribute("fill", "currentColor");
-  label2.setAttribute("font-size", "12");
-  label2.textContent = "Kvar";
-  svgEl.appendChild(label2);
-
-  // Total texts
-  const totalText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  totalText.setAttribute("x", String(startX + totalBarW));
-  totalText.setAttribute("y", String(barY + 19));
-  totalText.setAttribute("fill", "currentColor");
-  totalText.setAttribute("font-size", "12");
-  totalText.setAttribute("text-anchor", "end");
-  totalText.textContent = formatKr(overview.plannedExpensesAmount);
-  svgEl.appendChild(totalText);
-
-  const remText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  remText.setAttribute("x", String(startX + totalBarW));
-  remText.setAttribute("y", String(barY2 + 19));
-  remText.setAttribute("fill", "currentColor");
-  remText.setAttribute("font-size", "12");
-  remText.setAttribute("text-anchor", "end");
-  remText.textContent = `${formatKr(overview.remaining)}`;
-  svgEl.appendChild(remText);
+  return [...ANALYSIS_WIDGET_IDS];
 }
 
-function renderChartLegend(containerEl, overview) {
-  containerEl.innerHTML = "";
-  for (const seg of overview.segments) {
-    const el = document.createElement("div");
-    el.className = "legend-item";
-
-    const dot = document.createElement("div");
-    dot.className = "legend-dot";
-    dot.style.background = seg.color;
-
-    const text = document.createElement("div");
-    text.textContent = `${seg.label}: ${formatKr(seg.amount)}`;
-
-    el.appendChild(dot);
-    el.appendChild(text);
-    containerEl.appendChild(el);
+function applyAnalysisWidgetOrder() {
+  const parent = document.getElementById("analysisWidgetStack");
+  if (!parent) return;
+  const order = getAnalysisLayoutOrder();
+  const map = new Map();
+  parent.querySelectorAll("[data-analysis-widget]").forEach((el) => {
+    const id = el.getAttribute("data-analysis-widget");
+    if (id) map.set(id, el);
+  });
+  for (const id of order) {
+    const el = map.get(id);
+    if (el) parent.appendChild(el);
   }
+}
+
+function persistAnalysisLayoutFromSortable() {
+  const ol = document.getElementById("analysisLayoutSortable");
+  if (!ol) return;
+  const ids = Array.from(ol.querySelectorAll("li[data-widget-id]"))
+    .map((li) => li.getAttribute("data-widget-id"))
+    .filter(Boolean);
+  state.settings.analysisLayout = ids.length ? ids : null;
+  saveState();
+  applyAnalysisWidgetOrder();
+}
+
+function renderAnalysisLayoutSettingsList() {
+  const ol = document.getElementById("analysisLayoutSortable");
+  if (!ol) return;
+  ol.innerHTML = "";
+  const order = getAnalysisLayoutOrder();
+  for (const id of order) {
+    const li = document.createElement("li");
+    li.className = "analysis-layout-row";
+    li.dataset.widgetId = id;
+    const lab = ANALYSIS_WIDGET_LABELS_SV[id] || id;
+    li.innerHTML = `<span class="analysis-layout-label">${escapeHtml(lab)}</span>
+      <span class="analysis-layout-row-actions">
+        <button type="button" class="secondary analysis-layout-up" aria-label="Flytta upp">↑</button>
+        <button type="button" class="secondary analysis-layout-down" aria-label="Flytta ner">↓</button>
+      </span>`;
+    ol.appendChild(li);
+  }
+}
+
+function wireAnalysisLayoutSettingsOnce() {
+  const ol = document.getElementById("analysisLayoutSortable");
+  if (!ol || ol.dataset.bound === "1") return;
+  ol.dataset.bound = "1";
+  ol.addEventListener("click", (e) => {
+    const up = e.target.closest(".analysis-layout-up");
+    const down = e.target.closest(".analysis-layout-down");
+    const row = e.target.closest("li[data-widget-id]");
+    if (!row || (!up && !down)) return;
+    const p = row.parentElement;
+    if (up && row.previousElementSibling) p.insertBefore(row, row.previousElementSibling);
+    if (down && row.nextElementSibling) p.insertBefore(row.nextElementSibling, row);
+    persistAnalysisLayoutFromSortable();
+  });
+  document.getElementById("analysisLayoutResetBtn")?.addEventListener("click", () => {
+    state.settings.analysisLayout = null;
+    saveState();
+    renderAnalysisLayoutSettingsList();
+    applyAnalysisWidgetOrder();
+  });
+}
+
+function getAnalysisChartPalette() {
+  const dark = resolvedDocumentTheme() === "dark";
+  return {
+    dark,
+    text: dark ? "#eef2ed" : "#1f2a21",
+    muted: dark ? "#9aaa9f" : "#6f776d",
+    grid: dark ? "rgba(154, 170, 159, 0.16)" : "rgba(111, 119, 109, 0.14)",
+    income: dark ? "#3EC172" : "#2F9A54",
+    incomeSoft: dark ? "rgba(62,193,114,0.5)" : "rgba(47,154,84,0.42)",
+    incomeStrong: dark ? "#35b867" : "#238545",
+    expense: dark ? "#A85A45" : "#824636",
+    expenseSoft: dark ? "rgba(168,90,69,0.45)" : "rgba(130,70,54,0.42)",
+    expenseStrong: dark ? "#bc654e" : "#733828",
+    balance: dark ? "#5F7F70" : "#466357",
+    balanceSoft: dark ? "rgba(95,127,112,0.22)" : "rgba(70,99,87,0.18)",
+    saving: dark ? "#D7B95A" : "#C9A646",
+    savingSoft: dark ? "rgba(215,185,90,0.32)" : "rgba(201,166,70,0.28)",
+    mat: dark ? "#C58344" : "#B06F34"
+  };
+}
+
+function dateToIsoLocal(d) {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return isoDateFromParts(y, m, day);
+}
+
+function startOfIsoWeekFromDate(d) {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dow = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+
+function endOfIsoWeekFromDate(d) {
+  const s = startOfIsoWeekFromDate(d);
+  const e = new Date(s);
+  e.setDate(e.getDate() + 6);
+  return e;
+}
+
+function isoInRange(iso, a, b) {
+  const s = String(iso || "").slice(0, 10);
+  return s >= a && s <= b;
+}
+
+function aggregateOverviewForIsoRange(startIso, endIso) {
+  const seg = {
+    other: 0,
+    mat: 0,
+    car: 0,
+    home: 0,
+    children: 0,
+    savings: 0,
+    loans: 0,
+    one_off: 0
+  };
+  const costBehaviorTotals = { fixed: 0, variable: 0, unknown: 0 };
+  let oneOffIncomesAmount = 0;
+  let incomePaymentsAmount = 0;
+
+  const payInRange = (payments) => {
+    let s = 0;
+    for (const p of payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, startIso, endIso)) continue;
+      s += amt;
+    }
+    return s;
+  };
+
+  for (const inc of state.incomes || []) {
+    if (inc.category === "one_off") oneOffIncomesAmount += payInRange(inc.payments);
+    else incomePaymentsAmount += payInRange(inc.payments);
+  }
+
+  for (const exp of state.expenses || []) {
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, startIso, endIso)) continue;
+      const cat = exp.category || "other";
+      if (isMatLikeExpense(exp)) seg.mat += amt;
+      else if (cat === "car") seg.car += amt;
+      else if (cat === "home") seg.home += amt;
+      else if (cat === "children") seg.children += amt;
+      else if (cat === "savings") seg.savings += amt;
+      else if (cat === "loans") seg.loans += amt;
+      else if (cat === "one_off") seg.one_off += amt;
+      else seg.other += amt;
+      const beh = getExpenseCostBehavior(exp);
+      if (beh === EXPENSE_COST_FIXED) costBehaviorTotals.fixed += amt;
+      else if (beh === EXPENSE_COST_VARIABLE) costBehaviorTotals.variable += amt;
+      else costBehaviorTotals.unknown += amt;
+    }
+  }
+
+  const oneOffExpensesAmount = seg.one_off;
+  const plannedExpensesAmount =
+    seg.other + seg.mat + seg.car + seg.home + seg.children + seg.savings + seg.loans + seg.one_off;
+  const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
+  const remaining = incomeAmount - plannedExpensesAmount;
+
+  const segments = [
+    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: chartSegmentHex("recurringExpenses") },
+    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: chartSegmentHex("foodGenerated") },
+    { key: "car", label: "Bil", amount: seg.car, color: chartSegmentHex("car") },
+    { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
+    { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
+    { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
+    { key: "savings", label: "Spar", amount: seg.savings, color: chartSegmentHex("savings") },
+    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
+  ].filter((s) => s.amount > 0);
+
+  return {
+    seg,
+    segments,
+    incomeAmount,
+    plannedExpensesAmount,
+    remaining,
+    costBehaviorTotals
+  };
+}
+
+function collectPaymentEventsForRange(startIso, endIso) {
+  const out = [];
+  for (const exp of state.expenses || []) {
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, startIso, endIso)) continue;
+      out.push({
+        iso,
+        kind: "expense",
+        amount: amt,
+        category: overviewTableGroupForExpense(exp),
+        name: String(exp.name || "").trim() || overviewTableGroupForExpense(exp)
+      });
+    }
+  }
+  for (const inc of state.incomes || []) {
+    for (const p of inc.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, startIso, endIso)) continue;
+      out.push({
+        iso,
+        kind: "income",
+        amount: amt,
+        category: "Inkomst",
+        name: incomeDisplayName(inc)
+      });
+    }
+  }
+  out.sort((a, b) => a.iso.localeCompare(b.iso) || (a.kind === "income" ? -1 : 1));
+  return out;
+}
+
+function mergePaymentEventsByDay(events) {
+  const m = new Map();
+  for (const e of events) {
+    if (!m.has(e.iso)) m.set(e.iso, { iso: e.iso, income: 0, expense: 0 });
+    const o = m.get(e.iso);
+    if (e.kind === "income") o.income += e.amount;
+    else o.expense += e.amount;
+  }
+  return Array.from(m.values()).sort((a, b) => a.iso.localeCompare(b.iso));
+}
+
+function bucketPaymentEventsByWeek(events) {
+  const m = new Map();
+  for (const e of events) {
+    const dp = datePartsFromIso(e.iso);
+    if (!dp) continue;
+    const wk = isoWeekNumberForYmdParts(dp.y, dp.m, dp.d);
+    const key = `${dp.y}-W${String(wk).padStart(2, "0")}`;
+    if (!m.has(key)) m.set(key, { key, isoMin: e.iso, income: 0, expense: 0, week: wk, year: dp.y });
+    const o = m.get(key);
+    if (e.iso < o.isoMin) o.isoMin = e.iso;
+    if (e.kind === "income") o.income += e.amount;
+    else o.expense += e.amount;
+  }
+  return Array.from(m.values())
+    .sort((a, b) => String(a.isoMin).localeCompare(String(b.isoMin)))
+    .map((x) => ({
+      iso: x.isoMin,
+      income: x.income,
+      expense: x.expense,
+      label: `v${x.week}`
+    }));
+}
+
+function primaryPeriodBounds(range, anchorY, anchorM) {
+  const d1 = isoDateFromParts(anchorY, anchorM, 1);
+  const d2 = isoDateFromParts(anchorY, anchorM, daysInMonth(anchorY, anchorM));
+  if (range === "month") return { startIso: d1, endIso: d2, label: `${monthName(anchorM)} ${anchorY}` };
+  if (range === "week") {
+    const ref = new Date(anchorY, anchorM - 1, 15);
+    const s = startOfIsoWeekFromDate(ref);
+    const e = endOfIsoWeekFromDate(ref);
+    return { startIso: dateToIsoLocal(s), endIso: dateToIsoLocal(e), label: "Vald vecka" };
+  }
+  return {
+    startIso: `${anchorY}-01-01`,
+    endIso: `${anchorY}-12-31`,
+    label: String(anchorY)
+  };
+}
+
+function buildCashflowSlices(range, anchorY, anchorM) {
+  const slices = [];
+  if (range === "month") {
+    for (let k = 7; k >= 0; k--) {
+      let y = anchorY;
+      let m = anchorM - k;
+      while (m < 1) {
+        m += 12;
+        y -= 1;
+      }
+      while (m > 12) {
+        m -= 12;
+        y += 1;
+      }
+      const a = isoDateFromParts(y, m, 1);
+      const b = isoDateFromParts(y, m, daysInMonth(y, m));
+      const agg = aggregateOverviewForIsoRange(a, b);
+      slices.push({
+        label: monthName(m).slice(0, 3),
+        startIso: a,
+        endIso: b,
+        ...agg
+      });
+    }
+    return slices;
+  }
+  if (range === "week") {
+    const ref = new Date(anchorY, anchorM - 1, 15);
+    const endW = endOfIsoWeekFromDate(ref);
+    for (let k = 7; k >= 0; k--) {
+      const end = new Date(endW);
+      end.setDate(end.getDate() - 7 * k);
+      const s = startOfIsoWeekFromDate(end);
+      const e = endOfIsoWeekFromDate(end);
+      const a = dateToIsoLocal(s);
+      const b = dateToIsoLocal(e);
+      const wn = isoWeekNumberForYmdParts(s.getFullYear(), s.getMonth() + 1, s.getDate());
+      const agg = aggregateOverviewForIsoRange(a, b);
+      slices.push({ label: `v${wn}`, startIso: a, endIso: b, ...agg });
+    }
+    return slices;
+  }
+  for (let m = 1; m <= 12; m++) {
+    const a = isoDateFromParts(anchorY, m, 1);
+    const b = isoDateFromParts(anchorY, m, daysInMonth(anchorY, m));
+    const agg = aggregateOverviewForIsoRange(a, b);
+    slices.push({ label: monthName(m).slice(0, 3), startIso: a, endIso: b, ...agg });
+  }
+  return slices;
+}
+
+function matTotalsByIsoWeekInMonth(anchorY, anchorM) {
+  const a = isoDateFromParts(anchorY, anchorM, 1);
+  const b = isoDateFromParts(anchorY, anchorM, daysInMonth(anchorY, anchorM));
+  const map = new Map();
+  for (const exp of state.expenses || []) {
+    if (!isMatLikeExpense(exp)) continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, a, b)) continue;
+      const dp = datePartsFromIso(iso);
+      if (!dp) continue;
+      const wk = isoWeekNumberForYmdParts(dp.y, dp.m, dp.d);
+      const key = `${dp.y}-W${wk}`;
+      map.set(key, (map.get(key) || 0) + amt);
+    }
+  }
+  const rows = Array.from(map.entries())
+    .map(([k, amt]) => {
+      const wk = Number(k.split("W")[1]);
+      return { key: k, wk, amt };
+    })
+    .sort((x, y) => x.key.localeCompare(y.key));
+  return {
+    labels: rows.map((r) => `v${r.wk}`),
+    values: rows.map((r) => r.amt)
+  };
+}
+
+function foodWeeklyLimitKr() {
+  const fc = getSharedFoodConfig();
+  if (fc.mode === "manual") return Math.max(0, asNumber(fc.manualWeeklyCost));
+  const n = Math.max(1, asNumber(fc.household?.adults) + asNumber(fc.household?.teens) + asNumber(fc.household?.children));
+  return Math.max(1200, Math.round(800 * n));
+}
+
+function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
+  const bounds = primaryPeriodBounds(range, anchorY, anchorM);
+  const heroAgg = aggregateOverviewForIsoRange(bounds.startIso, bounds.endIso);
+  const slices = buildCashflowSlices(range, anchorY, anchorM);
+  const incomeArr = slices.map((s) => s.incomeAmount);
+  const expenseArr = slices.map((s) => s.plannedExpensesAmount);
+  const netArr = incomeArr.map((inc, i) => inc - expenseArr[i]);
+  let acc = 0;
+  const cumulative = netArr.map((n) => {
+    acc += n;
+    return acc;
+  });
+  const minCum = cumulative.length ? Math.min(...cumulative) : 0;
+
+  let rawEvents = collectPaymentEventsForRange(bounds.startIso, bounds.endIso);
+  let timelineDays = mergePaymentEventsByDay(rawEvents).map((d) => {
+    const p = datePartsFromIso(d.iso);
+    const label = p ? `${p.d} ${monthName(p.m).slice(0, 3)}` : d.iso;
+    return { ...d, label };
+  });
+  if (timelineDays.length > 36) {
+    const wk = bucketPaymentEventsByWeek(rawEvents);
+    timelineDays = wk.map((w) => ({
+      iso: w.isoMin,
+      income: w.income,
+      expense: w.expense,
+      label: w.label
+    }));
+  }
+
+  const barVals = timelineDays.map((d) => d.income - d.expense);
+  let run = 0;
+  const running = timelineDays.map((d) => {
+    run += d.income - d.expense;
+    return run;
+  });
+  const salaryIdx = timelineDays.findIndex((d) => d.income > 0);
+
+  const fvLabels = slices.slice(-4).map((s) => s.label);
+  const fvFixed = slices.slice(-4).map((s) => s.costBehaviorTotals.fixed);
+  const fvVar = slices.slice(-4).map((s) => s.costBehaviorTotals.variable);
+
+  const matW = matTotalsByIsoWeekInMonth(anchorY, anchorM);
+  const wLimit = foodWeeklyLimitKr();
+  const savingsTarget = Math.max(1, asNumber(state.settings?.analysisSavingsTargetKr) || 5000);
+  const savingsAmt = monthOverview.seg?.savings ?? heroAgg.seg.savings;
+
+  const nextEv = collectPaymentEventsForRange(bounds.startIso, bounds.endIso).filter((e) => e.kind === "expense")[0];
+  const incomeIdx = rawEvents.findIndex((e) => e.kind === "income");
+  const needBeforeIncome =
+    incomeIdx === -1
+      ? rawEvents.filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0)
+      : rawEvents.slice(0, incomeIdx).filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
+
+  const saveRate =
+    heroAgg.incomeAmount > 0 ? Math.max(0, (heroAgg.remaining / heroAgg.incomeAmount) * 100) : 0;
+
+  return {
+    range,
+    bounds,
+    heroAgg,
+    heroRemaining: heroAgg.remaining,
+    slices,
+    incomeArr,
+    expenseArr,
+    netArr,
+    cumulative,
+    minCum,
+    timelineDays,
+    barVals,
+    running,
+    salaryIdx,
+    categorySegments: monthOverview.segments,
+    fvLabels,
+    fvFixed,
+    fvVar,
+    weeklyLabels: matW.labels.length ? matW.labels : ["—"],
+    weeklyValues: matW.values.length ? matW.values : [0],
+    weeklyLimit: wLimit,
+    savingsAmt,
+    savingsTarget,
+    nextExpenseLabel: nextEv
+      ? `${String(nextEv.iso).slice(8, 10)}/${String(nextEv.iso).slice(5, 7)} · ${nextEv.name}`
+      : "Ingen nära",
+    needBeforeIncome,
+    saveRate,
+    paymentListEvents: rawEvents.slice(0, 24),
+    insights: buildAnalysisInsightCards(heroAgg, slices, monthOverview)
+  };
+}
+
+function buildAnalysisInsightCards(heroAgg, slices, monthOverview) {
+  const out = [];
+  if (heroAgg.remaining < 0) {
+    out.push({
+      title: "Underskott i perioden",
+      text: `Planerade utgifter överstiger intäkter med ${formatKr(Math.abs(heroAgg.remaining))}. Prioritera datum närmast idag.`
+    });
+  } else if (heroAgg.remaining < heroAgg.incomeAmount * 0.05 && heroAgg.incomeAmount > 0) {
+    out.push({
+      title: "Tajt marginal",
+      text: "Det finns lite utrymme kvar — små oförutsedda utgifter kan påverka. Håll koll på veckan före större inkomst."
+    });
+  }
+  let worst = null;
+  for (const s of slices) {
+    if (!worst || s.remaining < worst.remaining) worst = s;
+  }
+  if (worst && worst.remaining < 0) {
+    out.push({
+      title: "Svag delperiod",
+      text: `${worst.label}: netto ${formatKr(worst.remaining)} i vald serie. Se om utgifter kan flyttas eller jämnas ut.`
+    });
+  }
+  const top = [...monthOverview.segments].sort((a, b) => b.amount - a.amount)[0];
+  if (top) {
+    out.push({
+      title: "Största utgiftsområdet",
+      text: `${top.label} står för ${formatKr(top.amount)} under vald månad i tabellerna nedan.`
+    });
+  }
+  out.push({
+    title: "Planering lönar sig",
+    text: "Siffrorna bygger på dina planerade betalningar. Uppdatera utgifter och intäkter när verkligheten ändras."
+  });
+  return out.slice(0, 5);
+}
+
+function destroyAnalysisCharts() {
+  Object.values(analysisChartInstances).forEach((c) => {
+    try {
+      c.destroy();
+    } catch {
+      /* ignore */
+    }
+  });
+  analysisChartInstances = {};
+}
+
+function analysisCommonChartOptions(palette, showCurrency = false, stacked = false) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    animation: { duration: 280 },
+    layout: { padding: { top: 4, right: 4, left: 0, bottom: 0 } },
+    plugins: {
+      legend: {
+        position: "top",
+        align: "start",
+        labels: {
+          color: palette.muted,
+          boxWidth: 9,
+          boxHeight: 9,
+          usePointStyle: true,
+          pointStyle: "circle",
+          padding: 10,
+          font: { weight: "600", size: 11 }
+        }
+      },
+      tooltip: {
+        backgroundColor: palette.dark ? "rgba(10, 16, 13, 0.96)" : "rgba(18, 25, 21, 0.92)",
+        titleColor: "#f8faf7",
+        bodyColor: "#f8faf7",
+        padding: 10,
+        cornerRadius: 12,
+        callbacks: {
+          label: (ctx) => {
+            const v = ctx.raw;
+            const t = `${ctx.dataset.label}: `;
+            return showCurrency ? `${t}${formatKr(v)}` : `${t}${v}`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        stacked,
+        ticks: { color: palette.muted, font: { weight: "600", size: 10 }, maxRotation: 0 },
+        border: { display: false },
+        grid: { display: false }
+      },
+      y: {
+        stacked,
+        beginAtZero: true,
+        ticks: {
+          color: palette.muted,
+          font: { size: 10 },
+          callback: (value) => (showCurrency ? formatKr(value) : value)
+        },
+        border: { display: false },
+        grid: { color: palette.grid, drawTicks: false }
+      }
+    }
+  };
+}
+
+function makeAnalysisTimelinePlugin(palette, salaryIdx) {
+  return {
+    id: "analysisTimelineMarkers",
+    afterDatasetsDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea || !scales.x || !scales.y) return;
+      if (salaryIdx >= 0) {
+        const x = scales.x.getPixelForValue(salaryIdx);
+        ctx.save();
+        ctx.strokeStyle = palette.incomeSoft;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top + 4);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = palette.incomeSoft;
+        ctx.fillRect(x - 22, chartArea.top + 2, 44, 16);
+        ctx.fillStyle = palette.income;
+        ctx.font = "600 10px system-ui,sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Lön+", x, chartArea.top + 13);
+        ctx.restore();
+      }
+    }
+  };
+}
+
+function renderAnalysisCharts(model) {
+  const Chart = window.Chart;
+  if (!Chart) return;
+  const palette = getAnalysisChartPalette();
+  const labels = model.timelineDays.map((d) => d.label || String(d.iso).slice(8, 10));
+
+  const tlCanvas = document.getElementById("analysisTimelineChart");
+  if (tlCanvas) {
+    analysisChartInstances.timeline = new Chart(tlCanvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            type: "bar",
+            label: "Netto per dag/vecka",
+            data: model.barVals,
+            backgroundColor: model.barVals.map((v) => (v >= 0 ? palette.incomeSoft : palette.expenseSoft)),
+            borderColor: model.barVals.map((v) => (v >= 0 ? palette.incomeStrong : palette.expenseStrong)),
+            borderWidth: 1,
+            borderRadius: 8,
+            order: 2
+          },
+          {
+            type: "line",
+            label: "Saldo",
+            data: model.running,
+            borderColor: palette.balance,
+            pointRadius: 3,
+            tension: 0.32,
+            fill: false,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        ...analysisCommonChartOptions(palette, true),
+        scales: {
+          ...analysisCommonChartOptions(palette, true).scales,
+          y: { ...analysisCommonChartOptions(palette, true).scales.y, beginAtZero: false }
+        }
+      },
+      plugins: [makeAnalysisTimelinePlugin(palette, model.salaryIdx)]
+    });
+  }
+
+  const cf = document.getElementById("analysisCashflowChart");
+  if (cf) {
+    analysisChartInstances.cashflow = new Chart(cf, {
+      type: "bar",
+      data: {
+        labels: model.slices.map((s) => s.label),
+        datasets: [
+          {
+            label: "Inkomst",
+            data: model.incomeArr,
+            backgroundColor: palette.incomeSoft,
+            borderColor: palette.incomeStrong,
+            borderWidth: 1,
+            borderRadius: 6,
+            order: 2
+          },
+          {
+            label: "Utgifter",
+            data: model.expenseArr,
+            backgroundColor: palette.expenseSoft,
+            borderColor: palette.expenseStrong,
+            borderWidth: 1,
+            borderRadius: 6,
+            order: 2
+          },
+          {
+            type: "line",
+            label: "Netto",
+            data: model.netArr,
+            borderColor: palette.saving,
+            pointRadius: 3,
+            tension: 0.3,
+            fill: false,
+            order: 1
+          }
+        ]
+      },
+      options: analysisCommonChartOptions(palette, true)
+    });
+  }
+
+  const buf = document.getElementById("analysisBufferChart");
+  if (buf) {
+    analysisChartInstances.buffer = new Chart(buf, {
+      type: "line",
+      data: {
+        labels: model.slices.map((s) => s.label),
+        datasets: [
+          {
+            label: "Kumulativt netto",
+            data: model.cumulative,
+            borderColor: palette.balance,
+            pointBackgroundColor: model.cumulative.map((v) => (v < 0 ? palette.expense : palette.balance)),
+            pointRadius: 3,
+            fill: "origin",
+            backgroundColor: (ctx) => {
+              const v = ctx.parsed?.y;
+              if (v == null) return palette.balanceSoft;
+              return v < 0 ? palette.expenseSoft : palette.balanceSoft;
+            },
+            tension: 0.28
+          }
+        ]
+      },
+      options: {
+        ...analysisCommonChartOptions(palette, true),
+        plugins: { ...analysisCommonChartOptions(palette, true).plugins, legend: { display: false } }
+      }
+    });
+  }
+
+  const cat = document.getElementById("analysisCategoryChart");
+  if (cat && model.categorySegments.length) {
+    analysisChartInstances.category = new Chart(cat, {
+      type: "doughnut",
+      data: {
+        labels: model.categorySegments.map((s) => s.label),
+        datasets: [
+          {
+            data: model.categorySegments.map((s) => s.amount),
+            backgroundColor: model.categorySegments.map((s) => s.color),
+            borderWidth: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "62%",
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: palette.muted, boxWidth: 10, padding: 8, usePointStyle: true, pointStyle: "circle" }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.label}: ${formatKr(ctx.raw)}`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  const fv = document.getElementById("analysisFixedVariableChart");
+  if (fv) {
+    analysisChartInstances.fixedVar = new Chart(fv, {
+      type: "bar",
+      data: {
+        labels: model.fvLabels,
+        datasets: [
+          {
+            label: "Fasta",
+            data: model.fvFixed,
+            backgroundColor: palette.balanceSoft,
+            borderColor: palette.balance,
+            borderWidth: 1,
+            borderRadius: 6,
+            stack: "x"
+          },
+          {
+            label: "Rörliga",
+            data: model.fvVar,
+            backgroundColor: palette.dark ? "rgba(197,131,68,0.45)" : "rgba(176,111,52,0.45)",
+            borderColor: palette.mat,
+            borderWidth: 1,
+            borderRadius: 6,
+            stack: "x"
+          }
+        ]
+      },
+      options: analysisCommonChartOptions(palette, true, true)
+    });
+  }
+
+  const wk = document.getElementById("analysisWeeklyChart");
+  if (wk) {
+    analysisChartInstances.weekly = new Chart(wk, {
+      type: "bar",
+      data: {
+        labels: model.weeklyLabels,
+        datasets: [
+          {
+            label: "Mat (vecka)",
+            data: model.weeklyValues,
+            backgroundColor: model.weeklyValues.map((v) => (v > model.weeklyLimit ? palette.expenseSoft : palette.incomeSoft)),
+            borderColor: model.weeklyValues.map((v) => (v > model.weeklyLimit ? palette.expenseStrong : palette.incomeStrong)),
+            borderWidth: 1,
+            borderRadius: 6
+          },
+          {
+            type: "line",
+            label: "Riktlinje",
+            data: model.weeklyValues.map(() => model.weeklyLimit),
+            borderColor: palette.expense,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            tension: 0
+          }
+        ]
+      },
+      options: analysisCommonChartOptions(palette, true)
+    });
+  }
+
+  const goal = document.getElementById("analysisGoalChart");
+  if (goal) {
+    const pct = Math.min(100, Math.round((model.savingsAmt / model.savingsTarget) * 100));
+    analysisChartInstances.goal = new Chart(goal, {
+      type: "doughnut",
+      data: {
+        labels: ["Sparat", "Kvar"],
+        datasets: [
+          {
+            data: [pct, Math.max(0, 100 - pct)],
+            backgroundColor: [palette.saving, palette.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"],
+            borderWidth: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "72%",
+        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+      },
+      plugins: [
+        {
+          id: "analysisGoalCenter",
+          afterDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0).data[0];
+            if (!meta) return;
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.fillStyle = palette.text;
+            ctx.font = "600 11px system-ui,sans-serif";
+            ctx.fillText("Mål", meta.x, meta.y - 10);
+            ctx.font = "800 15px system-ui,sans-serif";
+            ctx.fillText(`${pct}%`, meta.x, meta.y + 6);
+            ctx.restore();
+          }
+        }
+      ]
+    });
+  }
+}
+
+function updateAnalysisDomFromModel(model, monthOverview) {
+  const fmt = (n) => formatKr(n);
+  const rem = model.heroRemaining;
+  const elBal = document.getElementById("analysisHeroBalance");
+  if (elBal) elBal.textContent = fmt(rem);
+  const heroMsg = document.getElementById("analysisHeroMessage");
+  const heroChip = document.getElementById("analysisHeroState");
+  const tight = rem < model.heroAgg.incomeAmount * 0.08 && model.heroAgg.incomeAmount > 0;
+  if (heroMsg) {
+    heroMsg.textContent =
+      rem < 0
+        ? "Utgifterna överstiger intäkterna i vald period."
+        : tight
+          ? "Marginalen är liten — följ datum i kalendern."
+          : "Det finns utrymme kvar enligt planen.";
+  }
+  if (heroChip) {
+    heroChip.textContent = rem < 0 ? "Under brytgräns" : tight ? "Tajt läge" : "Hanterbart";
+    heroChip.className =
+      "analysis-hero-chip " + (rem < 0 || tight ? "analysis-hero-chip--warn" : "analysis-hero-chip--safe");
+  }
+  const np = document.getElementById("analysisNextPaymentLabel");
+  if (np) np.textContent = model.nextExpenseLabel;
+  const ps = document.getElementById("analysisPreSalaryNeed");
+  if (ps) ps.textContent = fmt(model.needBeforeIncome || 0);
+  const ms = document.getElementById("analysisMarginStatus");
+  if (ms) ms.textContent = model.saveRate < 5 ? "Tunt" : model.saveRate < 12 ? "Lagom" : "Luft";
+
+  const k1 = document.getElementById("analysisKpiNeedSoon");
+  if (k1) {
+    k1.textContent = fmt(model.needBeforeIncome || 0);
+    k1.className = "analysis-kpi-value analysis-kpi-value--expense";
+  }
+  const k2 = document.getElementById("analysisKpiNetPeriod");
+  if (k2) {
+    const n = model.heroAgg.incomeAmount - model.heroAgg.plannedExpensesAmount;
+    k2.textContent = (n >= 0 ? "+" : "") + fmt(n);
+    k2.className = "analysis-kpi-value " + (n >= 0 ? "analysis-kpi-value--income" : "analysis-kpi-value--expense");
+  }
+  const k3 = document.getElementById("analysisKpiBuffer");
+  if (k3) {
+    const v = model.minCum < 0 ? Math.abs(model.minCum) : 0;
+    k3.textContent = model.minCum < 0 ? fmt(v) : "0 kr";
+    k3.className =
+      "analysis-kpi-value " + (model.minCum < 0 ? "analysis-kpi-value--expense" : "analysis-kpi-value--income");
+  }
+  const k4 = document.getElementById("analysisKpiSaveRate");
+  if (k4) k4.textContent = `${model.saveRate.toFixed(1)}%`;
+
+  const tb = document.getElementById("analysisTimelineBadge");
+  if (tb) {
+    tb.textContent =
+      model.needBeforeIncome > 0 ? "Kolla datum före nästa inkomst" : "Inkomst och utgifter i balans";
+    tb.className = "analysis-badge analysis-badge--muted";
+  }
+  const bb = document.getElementById("analysisBufferBadge");
+  if (bb) {
+    if (model.minCum < 0) {
+      const idx = model.cumulative.findIndex((v) => v === model.minCum);
+      const lab = idx >= 0 ? model.slices[idx]?.label : "";
+      bb.textContent = `Under noll i ${lab || "serien"}`;
+      bb.className = "analysis-badge analysis-badge--danger";
+    } else {
+      bb.textContent = "Ingen negativ kumulativ kurva";
+      bb.className = "analysis-badge analysis-badge--ok";
+    }
+  }
+
+  const payMount = document.getElementById("analysisPaymentList");
+  if (payMount) {
+    payMount.innerHTML = "";
+    const palette = getAnalysisChartPalette();
+    const catColors = {
+      Bil: chartSegmentHex("car"),
+      Hem: chartSegmentHex("housing"),
+      Lån: chartSegmentHex("loans"),
+      Barn: chartSegmentHex("children"),
+      Spar: chartSegmentHex("savings"),
+      Mat: chartSegmentHex("foodGenerated"),
+      Utgifter: chartSegmentHex("recurringExpenses"),
+      Inkomst: palette.income
+    };
+    if (model.paymentListEvents.length === 0) {
+      payMount.innerHTML = `<div class="note" style="margin:0">Inga händelser i vald period.</div>`;
+    } else {
+      for (const e of model.paymentListEvents) {
+        const row = document.createElement("div");
+        row.className = "analysis-payment-row";
+        const dot = catColors[e.category] || palette.muted;
+        row.innerHTML = `
+          <div class="analysis-payment-date">${escapeHtml(String(e.iso).slice(8, 10))}/${escapeHtml(String(e.iso).slice(5, 7))}</div>
+          <div class="analysis-payment-main">
+            <span class="analysis-payment-dot" style="background:${dot}"></span>
+            <div>
+              <div class="analysis-payment-cat">${escapeHtml(e.name)}</div>
+              <div class="analysis-payment-kind">${e.kind === "income" ? "Inkomst" : "Utgift"} · ${escapeHtml(e.category)}</div>
+            </div>
+          </div>
+          <div class="analysis-payment-amt ${e.kind === "income" ? "analysis-payment-amt--income" : "analysis-payment-amt--expense"}">${e.kind === "income" ? "+" : "−"}${formatKr(e.amount)}</div>`;
+        payMount.appendChild(row);
+      }
+    }
+  }
+
+  const ins = document.getElementById("analysisInsights");
+  if (ins) {
+    ins.innerHTML = "";
+    for (const it of model.insights) {
+      const d = document.createElement("div");
+      d.className = "analysis-insight";
+      d.innerHTML = `<strong>${escapeHtml(it.title)}</strong><div>${escapeHtml(it.text)}</div>`;
+      ins.appendChild(d);
+    }
+  }
+
+  const bar = document.getElementById("analysisSavingsProgressBar");
+  const meta = document.getElementById("analysisSavingsMeta");
+  const sp = Math.min(100, Math.round((model.savingsAmt / model.savingsTarget) * 100));
+  if (bar) bar.style.width = `${sp}%`;
+  if (meta) meta.textContent = `${fmt(model.savingsAmt)} / ${fmt(model.savingsTarget)}`;
+}
+
+function syncAnalysisRangeSegmentUI() {
+  const r = ui.analysisRange || "month";
+  document.querySelectorAll("[data-analysis-range]").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.getAttribute("data-analysis-range") === r);
+  });
+}
+
+function wireAnalysisDashboardOnce() {
+  if (document.body.dataset.analysisDashBound === "1") return;
+  document.body.dataset.analysisDashBound = "1";
+  document.querySelectorAll("[data-analysis-range]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const v = btn.getAttribute("data-analysis-range");
+      if (v === "week" || v === "month" || v === "year") {
+        ui.analysisRange = v;
+        syncAnalysisRangeSegmentUI();
+        renderOverview();
+      }
+    });
+  });
+  document.querySelectorAll("[data-analysis-expand]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const panel = btn.closest(".analysis-panel");
+      if (panel) panel.classList.toggle("expanded");
+    });
+  });
 }
 
 function renderOverview() {
@@ -5638,75 +6571,75 @@ function renderOverview() {
   const month = ui.overviewMonth;
   if (!year || !month) return;
 
+  wireAnalysisDashboardOnce();
   const overview = computeMonthOverview(year, month);
+  const range = ui.analysisRange || "month";
+  const model = buildAnalysisAnalyticsModel(range, year, month, overview);
 
-  document.getElementById("headerSubtitle").textContent = `${overview.year} - ${monthName(overview.month)}`;
-
-  document.getElementById("overviewIncome").textContent = formatKr(overview.incomeAmount);
-  document.getElementById("overviewPlannedExpenses").textContent = formatKr(overview.plannedExpensesAmount);
-  const remainingEl = document.getElementById("overviewRemaining");
-  remainingEl.textContent = formatKr(overview.remaining);
-  remainingEl.classList.remove("summary-value--positive", "summary-value--negative");
-  remainingEl.classList.add(overview.remaining >= 0 ? "summary-value--positive" : "summary-value--negative");
-
-  const callout = document.getElementById("remainingCallout");
-  callout.classList.remove("callout--positive", "callout--negative");
-  if (overview.remaining >= 0) {
-    callout.textContent = `Bra! Du har ${formatKr(overview.remaining)} kvar för övriga utgifter.`;
-    callout.classList.add("callout--positive");
-  } else {
-    callout.textContent = `Varning! Du är beräknad att gå över med ${formatKr(Math.abs(overview.remaining))}.`;
-    callout.classList.add("callout--negative");
+  const sub = document.getElementById("headerSubtitle");
+  if (sub) {
+    sub.textContent =
+      range === "year"
+        ? `${overview.year} · helår`
+        : range === "week"
+          ? `${overview.year} - ${monthName(overview.month)} · veckovy`
+          : `${overview.year} - ${monthName(overview.month)}`;
   }
 
-  drawExpenseChart(document.getElementById("expenseChart"), overview);
-  document.getElementById("overviewChartSubtitle").textContent =
-    overview.segments.length > 0 ? "Fördela planerade kostnader per område." : "Inga planerade utgifter hittades ännu.";
-
-  renderChartLegend(document.getElementById("chartLegend"), overview);
+  applyAnalysisWidgetOrder();
+  syncAnalysisRangeSegmentUI();
+  updateAnalysisDomFromModel(model, overview);
+  destroyAnalysisCharts();
+  if (typeof window.Chart !== "undefined") {
+    renderAnalysisCharts(model);
+  }
 
   // Expense table
   const expBody = document.getElementById("overviewExpensesTableBody");
-  expBody.innerHTML = "";
-  const expTotal = overview.expensesRows.reduce((s, r) => s + r.amount, 0);
-  if (overview.expensesRows.length === 0) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga utgifter ännu.</td>`;
-    expBody.appendChild(tr);
-  } else {
-    for (const row of overview.expensesRows) {
+  if (expBody) {
+    expBody.innerHTML = "";
+    const expTotal = overview.expensesRows.reduce((s, r) => s + r.amount, 0);
+    if (overview.expensesRows.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
-        row.amount
-      )}</td>`;
+      tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga utgifter ännu.</td>`;
+      expBody.appendChild(tr);
+    } else {
+      for (const row of overview.expensesRows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
+          row.amount
+        )}</td>`;
+        expBody.appendChild(tr);
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(expTotal)}</strong></td>`;
       expBody.appendChild(tr);
     }
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(expTotal)}</strong></td>`;
-    expBody.appendChild(tr);
   }
 
   // Income table
   const incBody = document.getElementById("overviewIncomesTableBody");
-  incBody.innerHTML = "";
-  const incTotal = overview.incomesRows.reduce((s, r) => s + r.amount, 0);
-  if (overview.incomesRows.length === 0) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga intäkter ännu.</td>`;
-    incBody.appendChild(tr);
-  } else {
-    for (const row of overview.incomesRows) {
+  if (incBody) {
+    incBody.innerHTML = "";
+    const incTotal = overview.incomesRows.reduce((s, r) => s + r.amount, 0);
+    if (overview.incomesRows.length === 0) {
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
-        row.amount
-      )}</td>`;
+      tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga intäkter ännu.</td>`;
+      incBody.appendChild(tr);
+    } else {
+      for (const row of overview.incomesRows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
+          row.amount
+        )}</td>`;
+        incBody.appendChild(tr);
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(incTotal)}</strong></td>`;
       incBody.appendChild(tr);
     }
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(incTotal)}</strong></td>`;
-    incBody.appendChild(tr);
   }
 
   syncOverviewPeriodSummaryLabel();
@@ -7912,6 +8845,8 @@ function renderSettingsPage() {
   document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
+  wireAnalysisLayoutSettingsOnce();
+  renderAnalysisLayoutSettingsList();
   syncThemeModeSummaryLabel();
   syncFoodWeekdaySummaryLabel();
 }
@@ -7968,6 +8903,7 @@ function renderRoute(route, opts = {}) {
         state.themeMode = themeModeSel.value;
         saveState();
         applyTheme();
+        renderOverviewIfOnOverview();
         syncThemeModeSummaryLabel();
       });
 
@@ -10502,6 +11438,13 @@ function initActions() {
     state.settings.backupFilenamePattern = pat.trim();
     const fd = document.getElementById("foodPlanningWeekday");
     if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
+    const layoutOl = document.getElementById("analysisLayoutSortable");
+    if (layoutOl) {
+      const ids = Array.from(layoutOl.querySelectorAll("li[data-widget-id]"))
+        .map((li) => li.getAttribute("data-widget-id"))
+        .filter(Boolean);
+      state.settings.analysisLayout = ids.length ? ids : null;
+    }
     saveState();
     document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
   });

@@ -19,79 +19,230 @@
 
     <main class="app-main">
       <div class="content-card">
-        <!-- OVERVIEW -->
+        <!-- OVERVIEW / ANALYS -->
         <section class="view" data-view="overview">
-          <div class="view-header">
+          <div class="view-header analysis-view-header">
             <h2>Analys</h2>
-            <div class="period-picker bb-period-wrap" data-overview-period="" role="group" aria-label="Välj period">
-              <div class="bb-notched-field" role="group" aria-label="Period">
-                <div class="bb-notched-field-legend">Period</div>
-                <button type="button" class="bb-notched-field-btn" id="overviewPeriodOpenBtn">
-                  <span class="bb-notched-field-value" id="overviewPeriodSummary">—</span>
-                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                </button>
+            <div class="analysis-header-controls">
+              <div class="period-picker bb-period-wrap" data-overview-period="" role="group" aria-label="Välj period">
+                <div class="bb-notched-field" role="group" aria-label="Period">
+                  <div class="bb-notched-field-legend">Period</div>
+                  <button type="button" class="bb-notched-field-btn" id="overviewPeriodOpenBtn">
+                    <span class="bb-notched-field-value" id="overviewPeriodSummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <select id="overviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="overviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
               </div>
-              <select id="overviewYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-              <select id="overviewMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <div class="analysis-range-seg" role="group" aria-label="Tidsintervall för diagram">
+                <button type="button" class="analysis-range-btn" data-analysis-range="week">Vecka</button>
+                <button type="button" class="analysis-range-btn is-active" data-analysis-range="month">Månad</button>
+                <button type="button" class="analysis-range-btn" data-analysis-range="year">År</button>
+              </div>
             </div>
           </div>
 
-          <div class="overview-grid">
-            <div class="chart-card">
-              <div class="chart-title">Planerade utgifter (inkl. specialposter)</div>
-              <div class="chart-subtitle" id="overviewChartSubtitle"></div>
-              <div class="chart-wrap">
-                <svg id="expenseChart" viewBox="0 0 600 220" role="img" aria-label="Planerade utgifter diagram"></svg>
+          <div class="analysis-stack" id="analysisWidgetStack">
+            <div class="analysis-hero card analysis-widget analysis-widget--full" data-analysis-widget="hero">
+              <div class="analysis-hero-top">
+                <div>
+                  <div class="analysis-eyebrow">Sammanfattning</div>
+                  <p class="analysis-hero-lead">Fokus på att pengarna räcker hela perioden.</p>
+                </div>
               </div>
-              <div class="chart-legend" id="chartLegend"></div>
+              <div class="analysis-hero-status">
+                <div>
+                  <div class="analysis-hero-label" id="analysisHeroBalanceLabel">Kvar efter planerade betalningar</div>
+                  <div class="analysis-hero-value" id="analysisHeroBalance">0 kr</div>
+                  <div class="analysis-hero-sub" id="analysisHeroMessage"></div>
+                </div>
+                <div class="analysis-hero-chip analysis-hero-chip--safe" id="analysisHeroState">—</div>
+              </div>
+              <div class="analysis-mini-summary">
+                <div class="analysis-mini-item">
+                  <span>Kommande</span>
+                  <strong id="analysisNextPaymentLabel">—</strong>
+                </div>
+                <div class="analysis-mini-item">
+                  <span>Behov före lön</span>
+                  <strong id="analysisPreSalaryNeed">0 kr</strong>
+                </div>
+                <div class="analysis-mini-item">
+                  <span>Sparutrymme</span>
+                  <strong id="analysisMarginStatus">—</strong>
+                </div>
+              </div>
             </div>
 
-            <div class="summary-card">
-              <div class="summary-row">
-                <div class="summary-label">Intäkter</div>
-                <div class="summary-value" id="overviewIncome">0 kr</div>
+            <div class="analysis-kpi-grid analysis-widget analysis-widget--full" data-analysis-widget="kpis">
+              <div class="card analysis-kpi analysis-kpi--emphasis">
+                <div class="analysis-kpi-label">Att ha innan nästa inkomst</div>
+                <div class="analysis-kpi-value analysis-kpi-value--expense" id="analysisKpiNeedSoon">0 kr</div>
+                <div class="analysis-kpi-sub">Det som bör finnas på kontot innan nästa intäkt</div>
               </div>
-              <div class="summary-row">
-                <div class="summary-label">Planerade utgifter</div>
-                <div class="summary-value" id="overviewPlannedExpenses">0 kr</div>
+              <div class="card analysis-kpi">
+                <div class="analysis-kpi-label">Netto denna period</div>
+                <div class="analysis-kpi-value" id="analysisKpiNetPeriod">0 kr</div>
+                <div class="analysis-kpi-sub">Inkomst minus utgifter</div>
               </div>
-              <div class="summary-divider"></div>
-              <div class="summary-row summary-row-strong">
-                <div class="summary-label">Kvar för övriga utgifter</div>
-                <div class="summary-value" id="overviewRemaining">0 kr</div>
+              <div class="card analysis-kpi">
+                <div class="analysis-kpi-label">Lägsta kumulativa saldo</div>
+                <div class="analysis-kpi-value" id="analysisKpiBuffer">0 kr</div>
+                <div class="analysis-kpi-sub">I vald serie (0 om aldrig under noll)</div>
               </div>
-
-              <div class="callout" id="remainingCallout" aria-live="polite"></div>
-            </div>
-          </div>
-
-          <div class="tables-stack">
-            <div class="table-card">
-              <div class="table-title">Utgifter för vald månad</div>
-              <table class="data-table" aria-label="Utgifter">
-                <thead>
-                  <tr>
-                    <th>Typ</th>
-                    <th>Post</th>
-                    <th class="right">Belopp</th>
-                  </tr>
-                </thead>
-                <tbody id="overviewExpensesTableBody"></tbody>
-              </table>
+              <div class="card analysis-kpi">
+                <div class="analysis-kpi-label">Sparutrymme</div>
+                <div class="analysis-kpi-value" id="analysisKpiSaveRate">0%</div>
+                <div class="analysis-kpi-sub">Andel kvar av intäkterna</div>
+              </div>
             </div>
 
-            <div class="table-card">
-              <div class="table-title">Intäkter för vald månad</div>
-              <table class="data-table" aria-label="Intäkter">
-                <thead>
-                  <tr>
-                    <th>Typ</th>
-                    <th>Post</th>
-                    <th class="right">Belopp</th>
-                  </tr>
-                </thead>
-                <tbody id="overviewIncomesTableBody"></tbody>
-              </table>
+            <article class="card analysis-panel analysis-panel--spotlight analysis-widget analysis-widget--full" data-analysis-widget="timeline">
+              <button type="button" class="analysis-expand-btn" title="Visa större" data-analysis-expand aria-label="Visa diagram större">⤢</button>
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Pengar genom perioden</h3>
+                  <p class="analysis-panel-desc">Inkomster och utgifter i datumordning med löpande saldo.</p>
+                </div>
+                <span class="analysis-badge analysis-badge--muted" id="analysisTimelineBadge">—</span>
+              </div>
+              <div class="analysis-canvas-wrap">
+                <canvas id="analysisTimelineChart" aria-label="Tidslinjediagram"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget analysis-widget--wide" data-analysis-widget="cashflow">
+              <button type="button" class="analysis-expand-btn" title="Visa större" data-analysis-expand aria-label="Visa diagram större">⤢</button>
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Kassaflöde</h3>
+                  <p class="analysis-panel-desc">Inkomst, utgifter och netto per delperiod.</p>
+                </div>
+              </div>
+              <div class="analysis-canvas-wrap">
+                <canvas id="analysisCashflowChart" aria-label="Kassaflödesdiagram"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-panel--tall analysis-widget analysis-widget--wide" data-analysis-widget="buffer">
+              <button type="button" class="analysis-expand-btn" title="Visa större" data-analysis-expand aria-label="Visa diagram större">⤢</button>
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Kumulativ balans</h3>
+                  <p class="analysis-panel-desc">Summerat överskott eller underskott över tid.</p>
+                </div>
+                <span class="analysis-badge" id="analysisBufferBadge">—</span>
+              </div>
+              <div class="analysis-canvas-wrap analysis-canvas-wrap--tall">
+                <canvas id="analysisBufferChart" aria-label="Balansdiagram"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget" data-analysis-widget="category">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Utgiftsfördelning</h3>
+                  <p class="analysis-panel-desc">Planerade utgifter per huvudområde.</p>
+                </div>
+              </div>
+              <div class="analysis-canvas-wrap">
+                <canvas id="analysisCategoryChart" aria-label="Kategoridiagram"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget" data-analysis-widget="fixedVariable">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Fasta vs rörliga</h3>
+                  <p class="analysis-panel-desc">Utgifter klassade som fasta eller rörliga.</p>
+                </div>
+              </div>
+              <div class="analysis-canvas-wrap">
+                <canvas id="analysisFixedVariableChart" aria-label="Fasta och rörliga utgifter"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget analysis-widget--full" data-analysis-widget="payments">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Närmast i kalendern</h3>
+                  <p class="analysis-panel-desc">Planerade händelser i vald period.</p>
+                </div>
+              </div>
+              <div id="analysisPaymentList" class="analysis-payment-list"></div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget" data-analysis-widget="weekly">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Veckor i månaden</h3>
+                  <p class="analysis-panel-desc">Mat och matliknande utgifter per vecka (ISO).</p>
+                </div>
+              </div>
+              <div class="analysis-canvas-wrap">
+                <canvas id="analysisWeeklyChart" aria-label="Veckodiagram"></canvas>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget analysis-widget--wide" data-analysis-widget="goals">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Sparande</h3>
+                  <p class="analysis-panel-desc">Planerat sparande jämfört med mål.</p>
+                </div>
+              </div>
+              <div class="analysis-goal-wrap">
+                <div class="analysis-goal-card">
+                  <h4 class="analysis-goal-heading">Planerat denna period</h4>
+                  <div class="analysis-progress"><span id="analysisSavingsProgressBar"></span></div>
+                  <div class="analysis-goal-meta" id="analysisSavingsMeta">0 kr / 0 kr</div>
+                </div>
+                <div class="analysis-goal-donut-wrap">
+                  <canvas id="analysisGoalChart" aria-label="Sparandegrad"></canvas>
+                </div>
+              </div>
+            </article>
+
+            <article class="card analysis-panel analysis-widget analysis-widget--full" data-analysis-widget="insights">
+              <div class="analysis-panel-head">
+                <div>
+                  <h3 class="analysis-panel-title">Insikter</h3>
+                  <p class="analysis-panel-desc">Baserat på dina planerade belopp.</p>
+                </div>
+              </div>
+              <div id="analysisInsights" class="analysis-insight-list"></div>
+            </article>
+
+            <div class="analysis-tables analysis-widget analysis-widget--full" data-analysis-widget="tables">
+              <div class="tables-stack">
+                <div class="table-card">
+                  <div class="table-title">Utgifter för vald månad</div>
+                  <table class="data-table" aria-label="Utgifter">
+                    <thead>
+                      <tr>
+                        <th>Typ</th>
+                        <th>Post</th>
+                        <th class="right">Belopp</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overviewExpensesTableBody"></tbody>
+                  </table>
+                </div>
+                <div class="table-card">
+                  <div class="table-title">Intäkter för vald månad</div>
+                  <table class="data-table" aria-label="Intäkter">
+                    <thead>
+                      <tr>
+                        <th>Typ</th>
+                        <th>Post</th>
+                        <th class="right">Belopp</th>
+                      </tr>
+                    </thead>
+                    <tbody id="overviewIncomesTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1838,6 +1989,17 @@
             </div>
           </div>
 
+          <div class="table-card settings-analysis-layout-card">
+            <div class="table-title">Analysvy – ordning</div>
+            <p class="note settings-analysis-layout-intro">
+              Dra eller använd pilarna för att ändra ordningen på blocken i Analys. Spara längst ned på sidan.
+            </p>
+            <ol class="analysis-layout-sortable" id="analysisLayoutSortable" aria-label="Ordning analyspaneler"></ol>
+            <div class="analysis-layout-actions">
+              <button type="button" class="secondary" id="analysisLayoutResetBtn">Återställ standardordning</button>
+            </div>
+          </div>
+
           <div class="table-card settings-food-card">
             <div class="table-title">Matplanering</div>
             <div class="form-grid narrow">
@@ -2355,6 +2517,7 @@
       </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
     <script type="module" src="app.js"></script>
   </body>
 </html>
