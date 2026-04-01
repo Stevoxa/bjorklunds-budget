@@ -3434,64 +3434,6 @@ input.input-readonly-like {
   margin-bottom: var(--space-4);
 }
 
-/* Rund stepper för utbetalningsdag (löneperiod) — kompakt, samma textvikt som notch-fält */
-.bb-stepper.bb-stepper--round {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  width: 100%;
-  min-height: 44px;
-  padding: 6px var(--space-2);
-  box-sizing: border-box;
-}
-
-.bb-stepper--round .bb-stepper__value {
-  font-variant-numeric: tabular-nums;
-  font-weight: 400;
-  font-size: 1rem;
-  line-height: 1.2;
-  color: var(--text);
-  min-width: 1.75rem;
-  text-align: center;
-}
-
-.bb-stepper--round .bb-stepper__btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--border-strong);
-  background: var(--card-2);
-  color: var(--text);
-  font-size: 1.1rem;
-  font-weight: 500;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-
-.bb-stepper--round .bb-stepper__btn:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--primary) 45%, var(--border-strong));
-  background: color-mix(in srgb, var(--primary) 12%, var(--card-2));
-}
-
-.bb-stepper--round .bb-stepper__btn:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.bb-stepper--round .bb-stepper__btn:disabled {
-  opacity: 0.38;
-  cursor: not-allowed;
-}
-
 /*
  * Samma vertikala rytm som .food-mat-period-editor-content > .form-grid (18px)
  * och avvikelse/hushåll (22px) — inte tightare gap än Mat.

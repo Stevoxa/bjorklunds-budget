@@ -231,17 +231,32 @@
                       </label>
                     </div>
                     <div id="salaryPeriodPayDayWrap" class="tagged-editor-field-wrap">
-                      <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
+                      <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Utbetalningsdag">
                         <div class="bb-notched-field-legend">Utbetalningsdag</div>
-                        <div class="bb-stepper bb-stepper--round" role="group" aria-label="Dag i månaden (1–31)">
-                          <button type="button" class="bb-stepper__btn bb-stepper__btn--minus" id="salaryPeriodPayDayMinus" aria-label="Minska utbetalningsdag">
-                            −
-                          </button>
-                          <span class="bb-stepper__value" id="salaryPeriodPayDayDisplay" aria-live="polite">25</span>
-                          <input type="hidden" id="salaryPeriodPayDay" value="25" />
-                          <button type="button" class="bb-stepper__btn bb-stepper__btn--plus" id="salaryPeriodPayDayPlus" aria-label="Öka utbetalningsdag">
-                            +
-                          </button>
+                        <div class="food-household-size-box">
+                          <div class="food-counter-grid">
+                            <div class="food-counter-row">
+                              <span>Dag</span>
+                              <div class="food-counter-actions">
+                                <button class="secondary" type="button" id="salaryPeriodPayDayMinus" aria-label="Minska utbetalningsdag">
+                                  -
+                                </button>
+                                <input
+                                  id="salaryPeriodPayDay"
+                                  type="number"
+                                  inputmode="numeric"
+                                  min="1"
+                                  max="31"
+                                  step="1"
+                                  value="25"
+                                  aria-label="Utbetalningsdag i månaden"
+                                />
+                                <button class="secondary" type="button" id="salaryPeriodPayDayPlus" aria-label="Öka utbetalningsdag">
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

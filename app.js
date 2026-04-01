@@ -7247,12 +7247,10 @@ function clampSalaryPeriodPayDay31(n) {
 
 function setSalaryPeriodPayDayValue(day) {
   const v = clampSalaryPeriodPayDay31(day);
-  const hid = document.getElementById("salaryPeriodPayDay");
-  const disp = document.getElementById("salaryPeriodPayDayDisplay");
+  const inp = document.getElementById("salaryPeriodPayDay");
   const minus = document.getElementById("salaryPeriodPayDayMinus");
   const plus = document.getElementById("salaryPeriodPayDayPlus");
-  if (hid) hid.value = String(v);
-  if (disp) disp.textContent = String(v);
+  if (inp) inp.value = String(v);
   if (minus) {
     minus.disabled = v <= 1;
     if (v <= 1) minus.setAttribute("aria-disabled", "true");
@@ -7302,8 +7300,8 @@ function getSalaryPeriodDraftFromInputs() {
   if (ui.salaryPeriodDraftInterval === "once") untilIso = "";
   const fp = datePartsFromIso(firstIso);
   const up = untilIso ? datePartsFromIso(untilIso) : null;
-  const payHidden = document.getElementById("salaryPeriodPayDay");
-  const pd = Math.floor(asNumber(payHidden?.value));
+  const payInp = document.getElementById("salaryPeriodPayDay");
+  const pd = Math.floor(asNumber(payInp?.value));
   let payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : fp ? fp.d : 25;
   if (ui.salaryPeriodDraftInterval === "once") payDay = fp ? fp.d : clampSalaryPeriodPayDay31(payDay);
   else payDay = clampSalaryPeriodPayDay31(payDay);
@@ -7512,8 +7510,8 @@ function openIncomeSalaryOverlay(opts = {}) {
   renderSalaryPeriodsPage();
   const target = document.querySelector('[data-incview="salary"]');
   if (!target) return;
-  const payHid = document.getElementById("salaryPeriodPayDay");
-  if (payHid && !String(payHid.value || "").trim()) setSalaryPeriodPayDayValue(25);
+  const payInp = document.getElementById("salaryPeriodPayDay");
+  if (payInp && !String(payInp.value || "").trim()) setSalaryPeriodPayDayValue(25);
   applySalaryOverlayDateBounds();
   const wasOpen = anyIncomeSalaryOverlayOpen();
   target.hidden = false;
@@ -9503,12 +9501,40 @@ function initActions() {
     });
   });
   document.getElementById("salaryPeriodPayDayMinus")?.addEventListener("click", () => {
-    const hid = document.getElementById("salaryPeriodPayDay");
-    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(hid?.value) - 1);
+    const inp = document.getElementById("salaryPeriodPayDay");
+    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(inp?.value) - 1);
   });
   document.getElementById("salaryPeriodPayDayPlus")?.addEventListener("click", () => {
-    const hid = document.getElementById("salaryPeriodPayDay");
-    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(hid?.value) + 1);
+    const inp = document.getElementById("salaryPeriodPayDay");
+    setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(inp?.value) + 1);
+  });
+  document.getElementById("salaryPeriodPayDay")?.addEventListener("change", () => {
+    const inp = document.getElementById("salaryPeriodPayDay");
+    setSalaryPeriodPayDayValue(inp?.value);
+  });
+  document.getElementById("salaryPeriodPayDay")?.addEventListener("blur", () => {
+    const inp = document.getElementById("salaryPeriodPayDay");
+    if (!inp) return;
+    if (String(inp.value || "").trim() === "") setSalaryPeriodPayDayValue(25);
+    else setSalaryPeriodPayDayValue(inp.value);
+  });
+  document.getElementById("salaryPeriodPayDay")?.addEventListener("input", () => {
+    const inp = document.getElementById("salaryPeriodPayDay");
+    if (!inp || inp.value === "") return;
+    const raw = Math.floor(asNumber(inp.value));
+    if (!Number.isFinite(raw) || raw < 1 || raw > 31) return;
+    const minus = document.getElementById("salaryPeriodPayDayMinus");
+    const plus = document.getElementById("salaryPeriodPayDayPlus");
+    if (minus) {
+      minus.disabled = raw <= 1;
+      if (raw <= 1) minus.setAttribute("aria-disabled", "true");
+      else minus.removeAttribute("aria-disabled");
+    }
+    if (plus) {
+      plus.disabled = raw >= 31;
+      if (raw >= 31) plus.setAttribute("aria-disabled", "true");
+      else plus.removeAttribute("aria-disabled");
+    }
   });
   const spFirst = document.getElementById("salaryPeriodFirstDate");
   if (spFirst) {
