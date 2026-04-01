@@ -2695,6 +2695,94 @@ const CHILDREN_EXPENSE_TYPES = [
   { key: "other", label: "Annan" }
 ];
 
+/** Värden för härledd fast/rörlig-klassning (analys) — sätts inte av användaren i normalfallet. */
+const EXPENSE_COST_FIXED = "fixed";
+const EXPENSE_COST_VARIABLE = "variable";
+const EXPENSE_COST_UNKNOWN = "unknown";
+
+/**
+ * Hem: fast = återkommande boendekostnader; other = okänd tills egen typ (t.ex. hemförsäkring).
+ * Nycklar = subcategory (HOME_EXPENSE_TYPES).
+ */
+const HOME_SUBCATEGORY_COST_BEHAVIOR = {
+  rent: EXPENSE_COST_FIXED,
+  electricity: EXPENSE_COST_FIXED,
+  water: EXPENSE_COST_FIXED,
+  garbage: EXPENSE_COST_FIXED,
+  internet: EXPENSE_COST_FIXED,
+  parking_slot: EXPENSE_COST_FIXED,
+  streaming: EXPENSE_COST_FIXED,
+  digital_service: EXPENSE_COST_FIXED,
+  mobile_plan: EXPENSE_COST_FIXED,
+  association_fee: EXPENSE_COST_FIXED,
+  bus_card: EXPENSE_COST_FIXED,
+  other: EXPENSE_COST_UNKNOWN
+};
+
+/**
+ * Bil: fast = försäkring, skatt, leasing, besiktning; rörlig = drift, parkering, avgifter.
+ * Nycklar = subcategory (CAR_EXPENSE_TYPES).
+ */
+const CAR_SUBCATEGORY_COST_BEHAVIOR = {
+  insurance: EXPENSE_COST_FIXED,
+  leasing: EXPENSE_COST_FIXED,
+  road_tax: EXPENSE_COST_FIXED,
+  inspection: EXPENSE_COST_FIXED,
+  parking_fee: EXPENSE_COST_VARIABLE,
+  fuel: EXPENSE_COST_VARIABLE,
+  electricity: EXPENSE_COST_VARIABLE,
+  car_wash: EXPENSE_COST_VARIABLE,
+  tolls: EXPENSE_COST_VARIABLE,
+  ferry: EXPENSE_COST_VARIABLE
+};
+
+/** Barn: enligt analysmodell behandlas alla typer som rörliga. */
+const CHILDREN_SUBCATEGORY_COST_BEHAVIOR = Object.fromEntries(
+  CHILDREN_EXPENSE_TYPES.map(({ key }) => [key, EXPENSE_COST_VARIABLE])
+);
+
+/**
+ * Härleder fast vs rörlig utgift för analys (ingen användarklassning krävs).
+ * Valfri override: metadata.analysis.costBehavior === "fixed" | "variable" (för import/felsök).
+ * @returns {typeof EXPENSE_COST_FIXED | typeof EXPENSE_COST_VARIABLE | typeof EXPENSE_COST_UNKNOWN}
+ */
+function getExpenseCostBehavior(exp) {
+  if (!exp || typeof exp !== "object") return EXPENSE_COST_UNKNOWN;
+  const ovr = exp.metadata?.analysis?.costBehavior;
+  if (ovr === EXPENSE_COST_FIXED || ovr === EXPENSE_COST_VARIABLE) return ovr;
+
+  if (isMatLikeExpense(exp)) return EXPENSE_COST_VARIABLE;
+
+  const cat = String(exp.category || "other").trim() || "other";
+
+  if (cat === "savings") return EXPENSE_COST_FIXED;
+  if (cat === "loans") return EXPENSE_COST_FIXED;
+  if (cat === "one_off") return EXPENSE_COST_VARIABLE;
+
+  if (cat === "home") {
+    const key = String(exp.subcategory || "other").trim() || "other";
+    const b = HOME_SUBCATEGORY_COST_BEHAVIOR[key];
+    return b != null ? b : EXPENSE_COST_UNKNOWN;
+  }
+
+  if (cat === "car") {
+    const key = String(exp.subcategory || "").trim();
+    if (!key) return EXPENSE_COST_UNKNOWN;
+    const b = CAR_SUBCATEGORY_COST_BEHAVIOR[key];
+    return b != null ? b : EXPENSE_COST_UNKNOWN;
+  }
+
+  if (cat === "children") {
+    const key = String(exp.subcategory || "other").trim() || "other";
+    const b = CHILDREN_SUBCATEGORY_COST_BEHAVIOR[key];
+    return b != null ? b : EXPENSE_COST_VARIABLE;
+  }
+
+  if (cat === "other") return EXPENSE_COST_UNKNOWN;
+
+  return EXPENSE_COST_UNKNOWN;
+}
+
 /** Gemensam konfiguration för Bil / Hem / Barn (samma UI-flöde som Bil). */
 const TAGGED_CATEGORY_CONFIG = {
   car: {
@@ -3999,6 +4087,7 @@ function computeMonthOverview(year, month) {
   };
 
   const expensesRows = [];
+  const costBehaviorTotals = { fixed: 0, variable: 0, unknown: 0 };
   for (const exp of state.expenses || []) {
     const payments = Array.isArray(exp.payments) ? exp.payments : [];
     for (const p of payments) {
@@ -4017,6 +4106,11 @@ function computeMonthOverview(year, month) {
       else if (cat === "loans") seg.loans += amt;
       else if (cat === "one_off") seg.one_off += amt;
       else seg.other += amt;
+
+      const beh = getExpenseCostBehavior(exp);
+      if (beh === EXPENSE_COST_FIXED) costBehaviorTotals.fixed += amt;
+      else if (beh === EXPENSE_COST_VARIABLE) costBehaviorTotals.variable += amt;
+      else costBehaviorTotals.unknown += amt;
 
       expensesRows.push({
         group: overviewTableGroupForExpense(exp),
@@ -4089,7 +4183,17 @@ function computeMonthOverview(year, month) {
     }
   }
 
-  return { year, month, incomeAmount, plannedExpensesAmount, remaining, segments, expensesRows: expensesRowsClean, incomesRows };
+  return {
+    year,
+    month,
+    incomeAmount,
+    plannedExpensesAmount,
+    remaining,
+    segments,
+    expensesRows: expensesRowsClean,
+    incomesRows,
+    costBehaviorTotals
+  };
 }
 
 function drawExpenseChart(svgEl, overview) {
