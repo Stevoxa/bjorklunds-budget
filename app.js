@@ -566,6 +566,8 @@ let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
 /** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spar-vy som öppnade periodarket. */
 let periodSheetTaggedCat = null;
+/** När periodSheetKind === "incomeTaggedList": benefit | capital | gift. */
+let periodSheetIncomeTaggedCat = null;
 let periodSheetKeydownHandler = null;
 
 let listPickerOpen = false;
@@ -1756,6 +1758,7 @@ function finalizePeriodSheetClose() {
   periodSheetOpen = false;
   periodSheetClosing = false;
   periodSheetTaggedCat = null;
+  periodSheetIncomeTaggedCat = null;
 }
 
 function closePeriodSheetAnimated() {
@@ -1794,7 +1797,7 @@ function closePeriodSheetAnimated() {
 
 function yearOptionsForPeriodSheet() {
   if (periodSheetKind === "overview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
-  if (periodSheetKind === "foodPreview" || periodSheetKind === "taggedList")
+  if (periodSheetKind === "foodPreview" || periodSheetKind === "taggedList" || periodSheetKind === "incomeTaggedList")
     return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
   const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
   return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
@@ -1822,7 +1825,8 @@ function renderPeriodSheetContent() {
   if (
     periodSheetKind !== "overview" &&
     periodSheetKind !== "foodPreview" &&
-    periodSheetKind !== "taggedList"
+    periodSheetKind !== "taggedList" &&
+    periodSheetKind !== "incomeTaggedList"
   ) {
     monthEntries.push({ v: "all", lab: "Alla" });
   }
@@ -1878,6 +1882,22 @@ function commitPeriodSheetAndClose() {
       ui.tagged[cat].listMonth = Number(periodSheetDraftMonthStr);
       syncTaggedListPeriodSummary(cat);
       renderTaggedExpenseListMount(cat);
+    }
+  } else if (periodSheetKind === "incomeTaggedList") {
+    const cat = periodSheetIncomeTaggedCat;
+    periodSheetIncomeTaggedCat = null;
+    if (cat && INCOME_TAGGED_CATEGORY_CONFIG[cat]) {
+      const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+      const ys = document.getElementById(C.ids.listYear);
+      const ms = document.getElementById(C.ids.listMonth);
+      if (ys && ms) {
+        ys.value = periodSheetDraftYearStr;
+        ms.value = periodSheetDraftMonthStr;
+      }
+      ui.incomeTagged[cat].listYear = Number(periodSheetDraftYearStr);
+      ui.incomeTagged[cat].listMonth = Number(periodSheetDraftMonthStr);
+      syncIncomeTaggedListPeriodSummary(cat);
+      renderTaggedIncomeListMount(cat);
     }
   } else if (periodSheetKind === "expenseFilter") {
     const ys = document.getElementById("expenseYearFilter");
@@ -1998,6 +2018,49 @@ function openTaggedListPeriodSheet(cat) {
   periodSheetKind = "taggedList";
   periodSheetTaggedCat = cat;
   const u = ui.tagged[cat];
+  const cur = currentYearMonth();
+  let y = Number(ys.value ?? u.listYear);
+  let m = Number(ms.value ?? u.listMonth);
+  if (!Number.isFinite(y)) y = cur.year;
+  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
+  periodSheetDraftYearStr = String(y);
+  periodSheetDraftMonthStr = String(m);
+  renderPeriodSheetContent();
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  periodSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      document.getElementById("periodSheetTitle")?.focus();
+    });
+  });
+  periodSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closePeriodSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", periodSheetKeydownHandler, true);
+}
+
+function openIncomeTaggedListPeriodSheet(cat) {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ys = document.getElementById(C.ids.listYear);
+  const ms = document.getElementById(C.ids.listMonth);
+  const { backdrop, sheet } = getPeriodSheetEls();
+  if (!ys || !ms || !backdrop || !sheet) return;
+  periodSheetKind = "incomeTaggedList";
+  periodSheetIncomeTaggedCat = cat;
+  const u = ui.incomeTagged[cat];
   const cur = currentYearMonth();
   let y = Number(ys.value ?? u.listYear);
   let m = Number(ms.value ?? u.listMonth);
@@ -2771,6 +2834,8 @@ function normalizeIncomeRecord(raw) {
     category,
     payments: normalizedPayments
   };
+  const subRaw = raw?.subcategory;
+  if (subRaw != null && String(subRaw).trim() !== "") out.subcategory = String(subRaw).trim();
   if (Object.keys(meta).length > 0) out.metadata = meta;
   return out;
 }
@@ -3326,6 +3391,177 @@ const TAGGED_CATEGORY_CONFIG = {
 
 const TAGGED_CATEGORY_KEYS = Object.keys(TAGGED_CATEGORY_CONFIG);
 
+const INCOME_BENEFIT_TYPES = [
+  { key: "barnbidrag", label: "Barnbidrag" },
+  { key: "studiebidrag", label: "Studiebidrag" },
+  { key: "bostadsbidrag", label: "Bostadsbidrag" },
+  { key: "forsakringskassan", label: "Försäkringskassan" },
+  { key: "annat_bidrag", label: "Annat" }
+];
+
+const INCOME_CAPITAL_TYPES = [
+  { key: "ranta", label: "Ränta" },
+  { key: "utdelning", label: "Utdelning" },
+  { key: "avkastning", label: "Avkastning" },
+  { key: "annat_kapital", label: "Annat" }
+];
+
+const INCOME_GIFT_TYPES = [
+  { key: "gava", label: "Gåva" },
+  { key: "arv", label: "Arv" },
+  { key: "privat_overforing", label: "Privat överföring" }
+];
+
+const INCOME_TAGGED_CATEGORY_CONFIG = {
+  benefit: {
+    overlayKey: "benefit",
+    incomeCategory: INCOME_CATEGORY_BENEFIT,
+    subcategoryField: "subcategory",
+    allowWeeklyInterval: false,
+    types: INCOME_BENEFIT_TYPES,
+    ids: {
+      editorCard: "benefitEditorCard",
+      editorTitle: "benefitEditorPanelLegend",
+      editType: "benefitEditType",
+      editName: "benefitEditName",
+      editInterval: "benefitEditInterval",
+      editFirstDate: "benefitEditFirstDate",
+      endDateRow: "benefitEndDateRow",
+      editEndDate: "benefitEditEndDate",
+      editAmount: "benefitEditAmount",
+      deleteBtn: "benefitDeleteBtn",
+      saveBtn: "benefitSaveBtn",
+      cancelBtn: "benefitCancelEditorBtn",
+      note: "benefitNote",
+      listYear: "benefitListYear",
+      listMonth: "benefitListMonth",
+      listMount: "benefitListMount",
+      listMonthTitle: "benefitListMonthTitle",
+      monthTotal: "benefitMonthTotal",
+      addBtn: "benefitAddBtn",
+      errorSummary: "benefitErrorSummary"
+    },
+    labels: {
+      newItem: "Lägg till intäkt",
+      editItem: "Redigera intäkt",
+      emptyMonth: "Inga utbetalningar denna månad.",
+      monthListTitlePrefix: "Utbetalningar",
+      monthTotalPrefix: "Totalt denna månad",
+      listPanelLegend: "Utbetalningar för bidrag",
+      pageTitle: "Bidrag",
+      intro:
+        "Lägg in bidrag som barnbidrag, studiebidrag och ersättningar för att få med alla inkomster.",
+      nameRequiredHint: "Ange namn.",
+      dateOnceHint: "Ange utbetalningsdatum.",
+      dateRecurringHint: "Ange första utbetalningsdatum.",
+      endDateHint: "Ogiltigt slutdatum för utbetalning.",
+      firstDateOnce: "Utbetalningsdatum",
+      firstDateRecurring: "Utbetalningsdatum",
+      endDate: "Gäller till",
+      paymentsBuildError:
+        "Inga utbetalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum."
+    }
+  },
+  capital: {
+    overlayKey: "capital",
+    incomeCategory: INCOME_CATEGORY_CAPITAL,
+    subcategoryField: "subcategory",
+    allowWeeklyInterval: false,
+    types: INCOME_CAPITAL_TYPES,
+    ids: {
+      editorCard: "capitalEditorCard",
+      editorTitle: "capitalEditorPanelLegend",
+      editType: "capitalEditType",
+      editName: "capitalEditName",
+      editInterval: "capitalEditInterval",
+      editFirstDate: "capitalEditFirstDate",
+      endDateRow: "capitalEndDateRow",
+      editEndDate: "capitalEditEndDate",
+      editAmount: "capitalEditAmount",
+      deleteBtn: "capitalDeleteBtn",
+      saveBtn: "capitalSaveBtn",
+      cancelBtn: "capitalCancelEditorBtn",
+      note: "capitalNote",
+      listYear: "capitalListYear",
+      listMonth: "capitalListMonth",
+      listMount: "capitalListMount",
+      listMonthTitle: "capitalListMonthTitle",
+      monthTotal: "capitalMonthTotal",
+      addBtn: "capitalAddBtn",
+      errorSummary: "capitalErrorSummary"
+    },
+    labels: {
+      newItem: "Lägg till intäkt",
+      editItem: "Redigera intäkt",
+      emptyMonth: "Inga utbetalningar denna månad.",
+      monthListTitlePrefix: "Utbetalningar",
+      monthTotalPrefix: "Totalt denna månad",
+      listPanelLegend: "Utbetalningar för kapital",
+      pageTitle: "Kapital",
+      intro: "Fyll i planerade inkomster från ränta, utdelning och avkastning.",
+      nameRequiredHint: "Ange namn.",
+      dateOnceHint: "Ange utbetalningsdatum.",
+      dateRecurringHint: "Ange första utbetalningsdatum.",
+      endDateHint: "Ogiltigt slutdatum för utbetalning.",
+      firstDateOnce: "Utbetalningsdatum",
+      firstDateRecurring: "Utbetalningsdatum",
+      endDate: "Gäller till",
+      paymentsBuildError:
+        "Inga utbetalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum."
+    }
+  },
+  gift: {
+    overlayKey: "gift",
+    incomeCategory: INCOME_CATEGORY_GIFT,
+    subcategoryField: "subcategory",
+    allowWeeklyInterval: true,
+    types: INCOME_GIFT_TYPES,
+    ids: {
+      editorCard: "giftEditorCard",
+      editorTitle: "giftEditorPanelLegend",
+      editType: "giftEditType",
+      editName: "giftEditName",
+      editInterval: "giftEditInterval",
+      editFirstDate: "giftEditFirstDate",
+      endDateRow: "giftEndDateRow",
+      editEndDate: "giftEditEndDate",
+      editAmount: "giftEditAmount",
+      deleteBtn: "giftDeleteBtn",
+      saveBtn: "giftSaveBtn",
+      cancelBtn: "giftCancelEditorBtn",
+      note: "giftNote",
+      listYear: "giftListYear",
+      listMonth: "giftListMonth",
+      listMount: "giftListMount",
+      listMonthTitle: "giftListMonthTitle",
+      monthTotal: "giftMonthTotal",
+      addBtn: "giftAddBtn",
+      errorSummary: "giftErrorSummary"
+    },
+    labels: {
+      newItem: "Lägg till intäkt",
+      editItem: "Redigera intäkt",
+      emptyMonth: "Inga utbetalningar denna månad.",
+      monthListTitlePrefix: "Utbetalningar",
+      monthTotalPrefix: "Totalt denna månad",
+      listPanelLegend: "Utbetalningar för gåva",
+      pageTitle: "Gåvor",
+      intro: "Registrera gåvor, arv och privata överföringar som en del av dina intäkter.",
+      nameRequiredHint: "Ange namn.",
+      dateOnceHint: "Ange utbetalningsdatum.",
+      dateRecurringHint: "Ange första utbetalningsdatum.",
+      endDateHint: "Ogiltigt slutdatum för utbetalning.",
+      firstDateOnce: "Utbetalningsdatum",
+      firstDateRecurring: "Utbetalningsdatum",
+      endDate: "Gäller till",
+      paymentsBuildError:
+        "Inga utbetalningar kunde skapas inom appens datumfönster. Kontrollera intervall, datum och eventuellt slutdatum."
+    }
+  }
+};
+
+const INCOME_TAGGED_KEYS = Object.keys(INCOME_TAGGED_CATEGORY_CONFIG);
+
 function getTaggedExpenseCategory(exp) {
   const c = exp?.category;
   if (c && TAGGED_CATEGORY_CONFIG[c]) return c;
@@ -3457,6 +3693,11 @@ const ui = {
     home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     children: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     savings: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
+  },
+  incomeTagged: {
+    benefit: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    capital: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    gift: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
   }
 };
 
@@ -3494,15 +3735,619 @@ function initSystemThemeListener() {
   }
 }
 
+function formatTaggedIncomeIntervalLabel(interval) {
+  const iv = String(interval || "").trim();
+  if (!iv || iv === "once") return "Engångsutbetalning";
+  if (iv === "weekly") return "Veckovis utbetalning";
+  if (iv === "monthly") return "Månadsvis utbetalning";
+  if (iv === "quarterly") return "Kvartalsvis utbetalning";
+  if (iv === "yearly") return "Årsvis utbetalning";
+  return "Engångsutbetalning";
+}
+
+function getIncomeTaggedTypeLabel(cat, typeKey) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return String(typeKey || "");
+  const k = String(typeKey || "");
+  const row = C.types.find((t) => t.key === k);
+  return row ? row.label : k || "";
+}
+
+function incomeTaggedOverlayIsOpen(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return false;
+  const el = document.querySelector(`[data-incview="${C.overlayKey}"]`);
+  return Boolean(el && !el.hidden);
+}
+
+function closeIncomeTaggedOverlay(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const el = document.querySelector(`[data-incview="${C.overlayKey}"]`);
+  if (el) el.hidden = true;
+  hideErrorSummaryById(C.ids.errorSummary);
+  if (ui.incomeTagged[cat]) {
+    ui.incomeTagged[cat].editorOpen = false;
+    ui.incomeTagged[cat].editingId = null;
+  }
+  const anyTagged = INCOME_TAGGED_KEYS.some((k) => incomeTaggedOverlayIsOpen(k));
+  if (!anyTagged && !anyIncomeSalaryOverlayOpen()) {
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
+  }
+}
+
+function applyIncomeTaggedOverlayDateBounds(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  document.querySelectorAll(`[data-incview="${C.overlayKey}"] input[type="date"]`).forEach((inp) => {
+    inp.min = min;
+    inp.max = max;
+  });
+  refreshAllDateFieldRows();
+}
+
+function updateIncomeTaggedEditorIntervalVisibility(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const interval = document.getElementById(ids.editInterval)?.value || "once";
+  const recurring = interval !== "once";
+  const endRow = document.getElementById(ids.endDateRow);
+  if (endRow) endRow.hidden = !recurring;
+  const L = C.labels || {};
+  const firstInp = document.getElementById(ids.editFirstDate);
+  if (firstInp) {
+    const text = recurring ? L.firstDateRecurring || "Utbetalningsdatum" : L.firstDateOnce || "Utbetalningsdatum";
+    firstInp.setAttribute("data-notch-label", text);
+    const host = firstInp.closest(".bb-notched-field");
+    const leg = host?.querySelector(".bb-notched-field-legend");
+    if (leg) leg.textContent = text;
+    syncDateFieldRow(firstInp);
+    applyDateFieldRowTabState(firstInp);
+  }
+  const endInp = document.getElementById(ids.editEndDate);
+  if (endInp) {
+    const endText = L.endDate || "Gäller till";
+    endInp.setAttribute("data-notch-label", endText);
+    const endHost = endInp.closest(".bb-notched-field");
+    const endLeg = endHost?.querySelector(".bb-notched-field-legend");
+    if (endLeg) endLeg.textContent = endText;
+    syncDateFieldRow(endInp);
+    applyDateFieldRowTabState(endInp);
+  }
+}
+
+function syncIncomeTaggedListPeriodSummary(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const el = document.getElementById(`${cat}ListPeriodSummary`);
+  const ys = document.getElementById(C.ids.listYear);
+  const ms = document.getElementById(C.ids.listMonth);
+  if (!el || !ys || !ms) return;
+  const u = ui.incomeTagged[cat];
+  const y = Number(u.listYear ?? ys.value);
+  const m = Number(u.listMonth ?? ms.value);
+  el.textContent =
+    Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12 ? `${monthName(m)} ${y}` : "—";
+}
+
+function clearIncomeTaggedEditorInlineErrors(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  for (const suf of ["Name", "FirstDate", "EndDate", "Amount"]) {
+    const el = document.getElementById(`${cat}Err${suf}`);
+    if (el) {
+      el.hidden = true;
+      el.textContent = "";
+    }
+  }
+  for (const id of [C.ids.editName, C.ids.editFirstDate, C.ids.editEndDate, C.ids.editAmount]) {
+    const inp = document.getElementById(id);
+    if (inp) {
+      inp.classList.remove("input-invalid");
+      inp.setAttribute("aria-invalid", "false");
+    }
+  }
+}
+
+function setIncomeTaggedEditorInlineError(cat, field, msg) {
+  if (!msg) return;
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const suf = field === "name" ? "Name" : field === "firstDate" ? "FirstDate" : field === "endDate" ? "EndDate" : "Amount";
+  const errEl = document.getElementById(`${cat}Err${suf}`);
+  const inpId =
+    field === "name"
+      ? C.ids.editName
+      : field === "firstDate"
+        ? C.ids.editFirstDate
+        : field === "endDate"
+          ? C.ids.editEndDate
+          : C.ids.editAmount;
+  const inp = document.getElementById(inpId);
+  if (errEl) {
+    errEl.textContent = msg;
+    errEl.hidden = false;
+  }
+  if (inp) {
+    inp.classList.add("input-invalid");
+    inp.setAttribute("aria-invalid", "true");
+  }
+}
+
+function syncIncomeTaggedEditorPickerSummaries(cat) {
+  const typeSel = document.getElementById(`${cat}EditType`);
+  const typeSum = document.getElementById(`${cat}EditTypeSummary`);
+  if (typeSel && typeSum) typeSum.textContent = selectOptionLabelByValue(typeSel);
+  const intSel = document.getElementById(`${cat}EditInterval`);
+  const intSum = document.getElementById(`${cat}EditIntervalSummary`);
+  if (intSel && intSum) intSum.textContent = selectOptionLabelByValue(intSel);
+}
+
+function wireIncomeTaggedEditorPickers(cat) {
+  const u = ui.incomeTagged[cat];
+  if (!u) return;
+  const bkey = `__incomePickersBound_${cat}`;
+  if (u[bkey]) return;
+  u[bkey] = true;
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  const typeBtn = document.getElementById(`${cat}EditTypeOpenBtn`);
+  const typeSel = document.getElementById(`${cat}EditType`);
+  if (typeBtn && typeSel) {
+    typeBtn.addEventListener("click", () => {
+      const options = Array.from(typeSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+      openListPickerSheet({
+        title: "Välj typ",
+        options,
+        currentValue: typeSel.value,
+        onSelect: (v) => {
+          typeSel.value = v;
+          typeSel.dispatchEvent(new Event("change", { bubbles: true }));
+          syncIncomeTaggedEditorPickerSummaries(cat);
+        }
+      });
+    });
+    typeSel.addEventListener("change", () => syncIncomeTaggedEditorPickerSummaries(cat));
+  }
+  const intBtn = document.getElementById(`${cat}EditIntervalOpenBtn`);
+  const intSel = document.getElementById(`${cat}EditInterval`);
+  if (intBtn && intSel) {
+    intBtn.addEventListener("click", () => {
+      const options = Array.from(intSel.options).map((o) => ({ value: o.value, label: o.textContent || o.value }));
+      openListPickerSheet({
+        title: "Utbetalningsintervall",
+        options,
+        currentValue: intSel.value,
+        onSelect: (v) => {
+          intSel.value = v;
+          intSel.dispatchEvent(new Event("change", { bubbles: true }));
+          syncIncomeTaggedEditorPickerSummaries(cat);
+          updateIncomeTaggedEditorIntervalVisibility(cat);
+        }
+      });
+    });
+    intSel.addEventListener("change", () => {
+      syncIncomeTaggedEditorPickerSummaries(cat);
+      updateIncomeTaggedEditorIntervalVisibility(cat);
+    });
+  }
+}
+
+function getTaggedIncomeRowsForMonth(year, month, cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  const keyField = C.subcategoryField || "subcategory";
+  const rows = [];
+  for (const inc of state.incomes || []) {
+    if (inc.category !== C.incomeCategory) continue;
+    if (inc.metadata?.salaryPeriodId) continue;
+    const key = inc[keyField] || C.types[0]?.key || "";
+    const typeLabel = getIncomeTaggedTypeLabel(cat, key);
+    const nameRaw = String(inc.name || "").trim();
+    const baseNameLine = nameRaw || typeLabel || "";
+    const intervalLine = formatTaggedIncomeIntervalLabel(inc.interval);
+    const paymentsInMonth = [];
+    for (const p of inc.payments || []) {
+      const dt = p.date ? new Date(p.date) : null;
+      if (!dt || Number.isNaN(dt.getTime())) continue;
+      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) {
+        const amt = asNumber(p.amount);
+        if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
+      }
+    }
+    if (paymentsInMonth.length === 0) continue;
+    if (inc.interval === "weekly") {
+      paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
+      for (const pm of paymentsInMonth) {
+        const dp = datePartsFromIso(pm.dateIso);
+        let nameLine = baseNameLine;
+        if (dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+        rows.push({
+          incomeId: inc.id,
+          nameLine,
+          amount: pm.amount,
+          intervalLine,
+          sortKey: pm.dateIso
+        });
+      }
+    } else {
+      const sum = paymentsInMonth.reduce((s, x) => s + x.amount, 0);
+      if (sum <= 0) continue;
+      paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
+      const dateIso = paymentsInMonth[0].dateIso;
+      rows.push({
+        incomeId: inc.id,
+        nameLine: baseNameLine,
+        amount: sum,
+        intervalLine,
+        sortKey: dateIso || "9999-12-31"
+      });
+    }
+  }
+  rows.sort(
+    (a, b) =>
+      String(a.sortKey).localeCompare(String(b.sortKey)) || a.nameLine.localeCompare(b.nameLine, "sv")
+  );
+  const total = rows.reduce((s, r) => s + r.amount, 0);
+  return { rows, total };
+}
+
+function renderTaggedIncomeListMount(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  const ids = C.ids;
+  const mount = document.getElementById(ids.listMount);
+  const totalEl = document.getElementById(ids.monthTotal);
+  const titleEl = document.getElementById(ids.listMonthTitle);
+  if (!mount) return;
+  const u = ui.incomeTagged[cat];
+  const editorOpen = Boolean(u && u.editorOpen);
+  const year = Number(u.listYear);
+  const month = Number(u.listMonth);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return;
+  const prefix = (C.labels && C.labels.monthListTitlePrefix) || "Utbetalningar";
+  if (titleEl) titleEl.textContent = `${prefix} ${monthName(month).toLowerCase()}`;
+  const { rows, total } = getTaggedIncomeRowsForMonth(year, month, cat);
+  mount.innerHTML = "";
+  if (rows.length === 0) {
+    mount.innerHTML = `<div class="tagged-expense-list-empty">${escapeHtml(C.labels.emptyMonth)}</div>`;
+  } else {
+    for (const r of rows) {
+      const row = document.createElement("div");
+      row.className = "tagged-expense-preview-row";
+      const dis = editorOpen ? "disabled" : "";
+      const ariaDis = editorOpen ? "true" : "false";
+      row.innerHTML = `
+        <button type="button" class="tagged-expense-row-btn" data-income-tagged-cat="${escapeHtml(cat)}" data-income-tagged-edit-id="${escapeHtml(
+          r.incomeId
+        )}" aria-label="Redigera intäkt" ${dis} aria-disabled="${ariaDis}">
+          <span class="tagged-expense-row-btn-main">
+            <span class="tagged-expense-row-line1">
+              <span class="tagged-expense-name">${escapeHtml(r.nameLine)}</span>
+              <span class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</span>
+            </span>
+            <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
+          </span>
+          <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
+        </button>
+      `;
+      mount.appendChild(row);
+    }
+  }
+  if (totalEl) {
+    const totalPrefix = (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+    totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
+  }
+  mount.onclick = (e) => {
+    if (editorOpen) return;
+    const btn = e.target.closest(".tagged-expense-row-btn[data-income-tagged-edit-id]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-income-tagged-edit-id");
+    const c = btn.getAttribute("data-income-tagged-cat");
+    if (!id || !c || !INCOME_TAGGED_CATEGORY_CONFIG[c]) return;
+    ui.incomeTagged[c].editingId = id;
+    ui.incomeTagged[c].editorOpen = true;
+    renderTaggedIncomeCategoryPage(c);
+  };
+}
+
+function renderTaggedIncomeCategoryPage(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.incomeTagged[cat];
+  if (!u.editorOpen) hideErrorSummaryById(ids.errorSummary);
+  if (!u.editorOpen) clearIncomeTaggedEditorInlineErrors(cat);
+
+  const listYearSel = document.getElementById(ids.listYear);
+  const listMonthSel = document.getElementById(ids.listMonth);
+  const cur = currentYearMonth();
+  const baseYear = ui.incomeYearFilter || ui.overviewYear || cur.year;
+  const appYears = getSelectableAppYears();
+  if (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear))) {
+    u.listYear = appYears.includes(baseYear) ? baseYear : appYears[1];
+  }
+  if (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12) {
+    u.listMonth = cur.month;
+  }
+  if (listYearSel) {
+    setYear3Options(listYearSel, u.listYear);
+    listYearSel.onchange = () => {
+      u.listYear = Number(listYearSel.value);
+      syncIncomeTaggedListPeriodSummary(cat);
+      renderTaggedIncomeListMount(cat);
+    };
+  }
+  if (listMonthSel) {
+    setMonthOptions(listMonthSel, u.listMonth);
+    listMonthSel.onchange = () => {
+      u.listMonth = Number(listMonthSel.value);
+      syncIncomeTaggedListPeriodSummary(cat);
+      renderTaggedIncomeListMount(cat);
+    };
+  }
+  syncIncomeTaggedListPeriodSummary(cat);
+
+  const editorCard = document.getElementById(ids.editorCard);
+  const editorTitle = document.getElementById(ids.editorTitle);
+  const typeSel = document.getElementById(ids.editType);
+  const nameInp = document.getElementById(ids.editName);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
+  const delBtn = document.getElementById(ids.deleteBtn);
+  const saveBtn = document.getElementById(ids.saveBtn);
+  const note = document.getElementById(ids.note);
+  const addBtn = document.getElementById(ids.addBtn);
+  wireIncomeTaggedEditorPickers(cat);
+  wireKrAmountInput(ids.editAmount);
+
+  if (typeSel && typeSel.options.length === 0) {
+    for (const t of C.types) {
+      const opt = document.createElement("option");
+      opt.value = t.key;
+      opt.textContent = t.label;
+      typeSel.appendChild(opt);
+    }
+  }
+
+  const editingId = u.editingId;
+  const editing = editingId
+    ? (state.incomes || []).find((x) => x.id === editingId && x.category === C.incomeCategory)
+    : null;
+
+  if (editorCard) editorCard.hidden = !u.editorOpen;
+  if (addBtn) {
+    addBtn.disabled = Boolean(u.editorOpen);
+    addBtn.setAttribute("aria-disabled", u.editorOpen ? "true" : "false");
+  }
+
+  if (u.editorOpen && nameInp && intervalSel && firstInp && endInp && amtInp) {
+    if (editorTitle) editorTitle.textContent = editing ? C.labels.editItem : C.labels.newItem;
+    if (editorCard) editorCard.setAttribute("aria-label", editing ? C.labels.editItem : C.labels.newItem);
+    if (saveBtn) saveBtn.textContent = "Spara";
+    if (delBtn) delBtn.hidden = !editing;
+
+    const kf = C.subcategoryField || "subcategory";
+    const defaultTypeKey = C.types[0]?.key;
+    if (editing) {
+      const curKey = editing[kf];
+      if (typeSel) {
+        typeSel.value = C.types.some((t) => t.key === curKey) ? curKey : C.types[0].key;
+      }
+      nameInp.value = editing.name || "";
+      intervalSel.value = ["once", "weekly", "monthly", "quarterly", "yearly"].includes(editing.interval)
+        ? editing.interval
+        : "monthly";
+      if (!C.allowWeeklyInterval && intervalSel.value === "weekly") intervalSel.value = "monthly";
+      const inf = inferScheduleMetaFromExpense(editing);
+      firstInp.value = inf.firstDate ? String(inf.firstDate).slice(0, 10) : "";
+      endInp.value = inf.endDate ? String(inf.endDate).slice(0, 10) : "";
+      amtInp.value = inf.amount > 0 ? formatKrLikeList(inf.amount) : "";
+    } else {
+      const defType = C.types.find((t) => t.key === defaultTypeKey) || C.types[0];
+      if (typeSel && defType) typeSel.value = defType.key;
+      nameInp.value = defType ? defType.label : "";
+      intervalSel.value = "once";
+      firstInp.value = "";
+      endInp.value = "";
+      amtInp.value = "";
+    }
+    updateIncomeTaggedEditorIntervalVisibility(cat);
+    if (note) note.textContent = "";
+    applyIncomeTaggedOverlayDateBounds(cat);
+    syncIncomeTaggedEditorPickerSummaries(cat);
+  }
+
+  renderTaggedIncomeListMount(cat);
+
+  if (intervalSel && intervalSel.getAttribute("data-inc-tag-interval-bound") !== cat) {
+    intervalSel.setAttribute("data-inc-tag-interval-bound", cat);
+    intervalSel.addEventListener("change", () => updateIncomeTaggedEditorIntervalVisibility(cat));
+  }
+  if (typeSel && typeSel.getAttribute("data-inc-tag-type-bound") !== cat) {
+    typeSel.setAttribute("data-inc-tag-type-bound", cat);
+    typeSel.addEventListener("change", () => {
+      if (u.editingId) return;
+      const t = C.types.find((x) => x.key === typeSel.value);
+      if (t && nameInp) nameInp.value = t.label;
+    });
+  }
+}
+
+function saveIncomeTaggedFromEditor(cat) {
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const ids = C.ids;
+  const u = ui.incomeTagged[cat];
+  const note = document.getElementById(ids.note);
+  const summaryEl = document.getElementById(ids.errorSummary);
+  hideErrorSummaryByEl(summaryEl);
+  clearIncomeTaggedEditorInlineErrors(cat);
+  const typeSel = document.getElementById(ids.editType);
+  const nameInp = document.getElementById(ids.editName);
+  const intervalSel = document.getElementById(ids.editInterval);
+  const firstInp = document.getElementById(ids.editFirstDate);
+  const endInp = document.getElementById(ids.editEndDate);
+  const amtInp = document.getElementById(ids.editAmount);
+  if (!nameInp || !intervalSel || !firstInp || !amtInp) return;
+
+  const kf = C.subcategoryField || "subcategory";
+  const name = (nameInp.value || "").trim();
+  const L = C.labels || {};
+  if (!name) {
+    const msg = L.nameRequiredHint || "Ange namn.";
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "name", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editName }]);
+    return;
+  }
+  const defaultTypeKey = C.types[0]?.key;
+  let typeKey = typeSel?.value || defaultTypeKey;
+  const interval = intervalSel.value || "once";
+  if (!C.allowWeeklyInterval && interval === "weekly") {
+    const msg = "Veckointervall stöds inte för den här kategorin.";
+    if (note) note.textContent = msg;
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editInterval }]);
+    return;
+  }
+  const firstDateISO = (firstInp.value || "").trim();
+  const firstParts = datePartsFromIso(firstDateISO);
+  if (!firstParts) {
+    const msg = interval === "once" ? L.dateOnceHint : L.dateRecurringHint;
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "firstDate", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
+    return;
+  }
+  if (!isAllowedYear(firstParts.y)) {
+    const msg = "Datum måste ligga inom appens årsspann (föregående, nuvarande, nästa år).";
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "firstDate", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
+    return;
+  }
+  const paymentDay = Math.max(1, Math.min(31, Math.floor(firstParts.d)));
+  let endDateISO = (endInp?.value || "").trim();
+  if (interval === "once") {
+    endDateISO = "";
+  } else if (endDateISO && !datePartsFromIso(endDateISO)) {
+    const msg = L.endDateHint || "Ogiltigt slutdatum.";
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "endDate", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editEndDate }]);
+    return;
+  }
+  const amount = parseKrLikeList(amtInp.value);
+  if (amount <= 0) {
+    const msg = "Ange belopp större än noll.";
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "amount", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editAmount }]);
+    return;
+  }
+  const payments = buildCarExpensePayments({
+    interval,
+    firstDateISO,
+    endDateISO,
+    paymentDay,
+    amount
+  });
+  if (!payments.length) {
+    const msg = L.paymentsBuildError || "Inga utbetalningar kunde skapas.";
+    if (note) note.textContent = msg;
+    setIncomeTaggedEditorInlineError(cat, "firstDate", msg);
+    if (summaryEl) renderErrorSummary(summaryEl, [{ label: msg, jumpId: ids.editFirstDate }]);
+    return;
+  }
+  const prevRow = u.editingId ? (state.incomes || []).find((x) => x.id === u.editingId) : null;
+  const prevMeta =
+    prevRow && typeof prevRow.metadata === "object" && prevRow.metadata && !Array.isArray(prevRow.metadata)
+      ? deepCloneJson(prevRow.metadata)
+      : {};
+  prevMeta.schedule = {
+    paymentDay: interval === "once" ? firstParts.d : paymentDay,
+    firstDate: firstDateISO,
+    endDate: endDateISO
+  };
+  const raw = {
+    id: u.editingId || uid(),
+    name,
+    interval,
+    payments,
+    category: C.incomeCategory,
+    subcategory: typeKey,
+    metadata: prevMeta
+  };
+  const normalized = normalizeIncomeRecord(raw);
+  if (u.editingId) {
+    const idx = (state.incomes || []).findIndex((x) => x.id === u.editingId);
+    if (idx >= 0) state.incomes[idx] = normalized;
+  } else {
+    state.incomes.push(normalized);
+  }
+  saveState();
+  if (note) note.textContent = "";
+  clearIncomeTaggedEditorInlineErrors(cat);
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedIncomeCategoryPage(cat);
+  renderIncomesList();
+  renderOverviewIfOnOverview();
+}
+
+function deleteIncomeTaggedFromEditor(cat) {
+  const u = ui.incomeTagged[cat];
+  if (!u.editingId) return;
+  state.incomes = (state.incomes || []).filter((x) => x.id !== u.editingId);
+  saveState();
+  u.editorOpen = false;
+  u.editingId = null;
+  renderTaggedIncomeCategoryPage(cat);
+  renderIncomesList();
+  renderOverviewIfOnOverview();
+}
+
+function openIncomeTaggedOverlay(cat, opts = {}) {
+  renderTaggedIncomeCategoryPage(cat);
+  const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+  if (!C) return;
+  const target = document.querySelector(`[data-incview="${C.overlayKey}"]`);
+  if (!target) return;
+  target.hidden = false;
+  document.documentElement.classList.add("modal-open");
+  document.body.classList.add("modal-open");
+  const subEl = document.getElementById("headerSubtitle");
+  if (subEl) subEl.textContent = C.labels.pageTitle;
+}
+
+function openIncomeTaggedEditorFromMainList(cat, incomeId) {
+  ui.incomeTagged[cat].editingId = incomeId;
+  ui.incomeTagged[cat].editorOpen = true;
+  if (parseRouteFromHash().incomeOverlay !== cat) {
+    location.hash = `#/incomes/${cat}`;
+  } else {
+    renderTaggedIncomeCategoryPage(cat);
+  }
+}
+
 function parseRouteFromHash() {
   const h = (location.hash || "#/overview").trim();
-  if (!h.startsWith("#/")) return { route: "overview", incomeSalary: false };
+  if (!h.startsWith("#/")) return { route: "overview", incomeOverlay: null };
   const part = h.slice(2).split("?")[0].trim();
   const segments = part.split("/").filter(Boolean);
   const route = segments[0] || "overview";
-  const incomeSalary =
-    route === "incomes" && String(segments[1] || "").toLowerCase() === "salary";
-  return { route, incomeSalary };
+  let incomeOverlay = null;
+  if (route === "incomes" && segments[1]) {
+    const s1 = String(segments[1]).toLowerCase();
+    if (s1 === "salary") incomeOverlay = "salary";
+    else if (s1 === "benefit") incomeOverlay = "benefit";
+    else if (s1 === "capital") incomeOverlay = "capital";
+    else if (s1 === "gift") incomeOverlay = "gift";
+  }
+  return { route, incomeOverlay, incomeSalary: incomeOverlay === "salary" };
 }
 
 function initRouting() {
@@ -3513,9 +4358,10 @@ function initRouting() {
     document.querySelectorAll("[data-view]").forEach((v) => {
       if (v.getAttribute("data-view") === routeView) v.classList.add("active");
     });
-    if (routeView !== "incomes" && anyIncomeSalaryOverlayOpen()) {
+    if (routeView !== "incomes") {
       closeIncomeSalaryOverlay({ fromHistory: false });
       incomeSalaryOverlayHistoryDepth = 0;
+      for (const k of INCOME_TAGGED_KEYS) closeIncomeTaggedOverlay(k);
     }
     if (routeView !== "expenses" && anyExpenseOverlayOpen()) {
       closeExpenseCategoryOverlay({ fromHistory: false });
@@ -3533,13 +4379,18 @@ function initRouting() {
     const parsed = parseRouteFromHash();
     let route = parsed.route;
     if (!allowed.has(route)) route = "overview";
-    const incomeSalaryOverlayFromHash = route === "incomes" && parsed.incomeSalary;
-    view(route);
-    if (route === "incomes" && !incomeSalaryOverlayFromHash && anyIncomeSalaryOverlayOpen()) {
-      closeIncomeSalaryOverlay({ fromHistory: true });
+    const incOv = route === "incomes" ? parsed.incomeOverlay : null;
+    if (route === "incomes") {
+      if (incOv !== "salary" && anyIncomeSalaryOverlayOpen()) closeIncomeSalaryOverlay({ fromHistory: true });
+      for (const k of INCOME_TAGGED_KEYS) {
+        if (incOv !== k && incomeTaggedOverlayIsOpen(k)) closeIncomeTaggedOverlay(k);
+      }
+      if (incOv === "benefit" || incOv === "capital" || incOv === "gift") ui.incomeListCategory = incOv;
+      else if (!incOv) ui.incomeListCategory = null;
     }
+    view(route);
     try {
-      renderRoute(route, { incomeSalary: incomeSalaryOverlayFromHash });
+      renderRoute(route, { incomeOverlay: incOv });
     } catch (e) {
       showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
       throw e;
@@ -7074,8 +7925,10 @@ function renderRoute(route, opts = {}) {
     }
     case "incomes": {
       renderIncomesPage();
-      if (opts.incomeSalary) {
+      if (opts.incomeOverlay === "salary") {
         queueMicrotask(() => openIncomeSalaryOverlay({ skipHistory: true }));
+      } else if (opts.incomeOverlay && INCOME_TAGGED_CATEGORY_CONFIG[opts.incomeOverlay]) {
+        queueMicrotask(() => openIncomeTaggedOverlay(opts.incomeOverlay, { skipHistory: true }));
       }
       break;
     }
@@ -7248,9 +8101,11 @@ function clampSalaryPeriodPayDay31(n) {
 function setSalaryPeriodPayDayValue(day) {
   const v = clampSalaryPeriodPayDay31(day);
   const inp = document.getElementById("salaryPeriodPayDay");
+  const disp = document.getElementById("salaryPeriodPayDayDisplay");
   const minus = document.getElementById("salaryPeriodPayDayMinus");
   const plus = document.getElementById("salaryPeriodPayDayPlus");
   if (inp) inp.value = String(v);
+  if (disp) disp.textContent = String(v);
   if (minus) {
     minus.disabled = v <= 1;
     if (v <= 1) minus.setAttribute("aria-disabled", "true");
@@ -7478,8 +8333,11 @@ function closeIncomeSalaryOverlay(opts = {}) {
   closeSalaryPeriodEditor();
   const target = document.querySelector('[data-incview="salary"]');
   if (target) target.hidden = true;
-  document.documentElement.classList.remove("modal-open");
-  document.body.classList.remove("modal-open");
+  const taggedOpen = INCOME_TAGGED_KEYS.some((k) => incomeTaggedOverlayIsOpen(k));
+  if (!taggedOpen) {
+    document.documentElement.classList.remove("modal-open");
+    document.body.classList.remove("modal-open");
+  }
   hideConfirmDeleteSalaryPeriodModal();
   if (!opts?.fromHistory && incomeSalaryOverlayHistoryDepth > 0) {
     incomeSalaryOverlayHistoryDepth = Math.max(0, incomeSalaryOverlayHistoryDepth - 1);
@@ -7497,8 +8355,8 @@ function closeIncomeSalaryOverlayFromUi() {
     history.back();
     return;
   }
-  const { route, incomeSalary } = parseRouteFromHash();
-  if (route === "incomes" && incomeSalary) {
+  const { route, incomeOverlay } = parseRouteFromHash();
+  if (route === "incomes" && incomeOverlay) {
     location.hash = "#/incomes";
     return;
   }
@@ -7557,20 +8415,7 @@ function renderIncomesPage() {
   };
   syncIncomeFilterSummaryLabel();
 
-  document.querySelectorAll("[data-income-category]").forEach((btn) => {
-    const k = btn.getAttribute("data-income-category");
-    if (k === "salary") return;
-    btn.onclick = () => {
-      if (!k) return;
-      if (ui.incomeListCategory === k) ui.incomeListCategory = null;
-      else ui.incomeListCategory = k;
-      syncIncomeCategoryTabUI();
-      renderIncomesList();
-    };
-  });
   syncIncomeCategoryTabUI();
-
-  requireEl("openIncomeOverlayBtn").onclick = () => openIncomeOverlay(null);
 
   const salPayDayInit = document.getElementById("incomeSalaryPayDay");
   if (salPayDayInit && salPayDayInit.options.length === 0) {
@@ -7622,20 +8467,6 @@ function renderIncomesPage() {
       regenerateSalaryEditorPayments();
     };
   }
-
-  document.querySelectorAll("[data-income-suggest]").forEach((btn) => {
-    btn.onclick = () => {
-      const v = btn.getAttribute("data-income-suggest") || "";
-      const nameInp = document.getElementById("incomeNameInput");
-      if (nameInp) nameInp.value = v;
-      ui.incomeEditorKind = "other";
-      if (/kapital/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_CAPITAL;
-      else if (/\b(gåva|arv)\b/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_GIFT;
-      else if (/barnbidrag|bidrag|försäkringskassan|csn/i.test(v)) ui.incomeEditorOtherCategory = INCOME_CATEGORY_BENEFIT;
-      else ui.incomeEditorOtherCategory = INCOME_CATEGORY_OTHER;
-      syncIncomeModalKindUI();
-    };
-  });
 
   requireEl("incomeIntervalSelect").onchange = () => {
     if (ui.incomeEditorKind === "salary") return;
@@ -8507,6 +9338,12 @@ function ensureIncomePaymentsListDelegation() {
     const incomeId = btn.getAttribute("data-edit-income");
     const paymentId = btn.getAttribute("data-edit-income-payment");
     const iso = btn.getAttribute("data-edit-income-iso");
+    const inc = (state.incomes || []).find((x) => x.id === incomeId);
+    const ec = inc ? incomeEffectiveListCategory(inc) : null;
+    if (ec === "benefit" || ec === "capital" || ec === "gift") {
+      openIncomeTaggedEditorFromMainList(ec, incomeId);
+      return;
+    }
     openIncomeOverlay(incomeId, { scrollToPaymentId: paymentId, scrollToPaymentDateISO: iso });
   });
 }
@@ -9244,6 +10081,45 @@ function initActions() {
   wireTaggedCategoryActions("children");
   wireTaggedCategoryActions("savings");
 
+  const wireIncomeTaggedCategoryActions = (cat) => {
+    const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+    if (!C) return;
+    const ids = C.ids;
+    const u = ui.incomeTagged[cat];
+    const addBtn = document.getElementById(ids.addBtn);
+    if (addBtn) {
+      addBtn.addEventListener("click", () => {
+        u.editingId = null;
+        u.editorOpen = true;
+        renderTaggedIncomeCategoryPage(cat);
+        const editorCard = document.getElementById(ids.editorCard);
+        if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+    const saveBtn = document.getElementById(ids.saveBtn);
+    if (saveBtn) saveBtn.addEventListener("click", () => saveIncomeTaggedFromEditor(cat));
+    const delBtn = document.getElementById(ids.deleteBtn);
+    if (delBtn) delBtn.addEventListener("click", () => deleteIncomeTaggedFromEditor(cat));
+    const cancelBtn = document.getElementById(ids.cancelBtn);
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => {
+        u.editorOpen = false;
+        u.editingId = null;
+        const note = document.getElementById(ids.note);
+        if (note) note.textContent = "";
+        clearIncomeTaggedEditorInlineErrors(cat);
+        hideErrorSummaryById(ids.errorSummary);
+        renderTaggedIncomeCategoryPage(cat);
+      });
+    }
+  };
+  wireIncomeTaggedCategoryActions("benefit");
+  wireIncomeTaggedCategoryActions("capital");
+  wireIncomeTaggedCategoryActions("gift");
+  for (const cat of INCOME_TAGGED_KEYS) {
+    document.getElementById(`${cat}ListPeriodOpenBtn`)?.addEventListener("click", () => openIncomeTaggedListPeriodSheet(cat));
+  }
+
   // FOOD
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
     const appYears = getSelectableAppYears();
@@ -9508,34 +10384,6 @@ function initActions() {
     const inp = document.getElementById("salaryPeriodPayDay");
     setSalaryPeriodPayDayValue(clampSalaryPeriodPayDay31(inp?.value) + 1);
   });
-  document.getElementById("salaryPeriodPayDay")?.addEventListener("change", () => {
-    const inp = document.getElementById("salaryPeriodPayDay");
-    setSalaryPeriodPayDayValue(inp?.value);
-  });
-  document.getElementById("salaryPeriodPayDay")?.addEventListener("blur", () => {
-    const inp = document.getElementById("salaryPeriodPayDay");
-    if (!inp) return;
-    if (String(inp.value || "").trim() === "") setSalaryPeriodPayDayValue(25);
-    else setSalaryPeriodPayDayValue(inp.value);
-  });
-  document.getElementById("salaryPeriodPayDay")?.addEventListener("input", () => {
-    const inp = document.getElementById("salaryPeriodPayDay");
-    if (!inp || inp.value === "") return;
-    const raw = Math.floor(asNumber(inp.value));
-    if (!Number.isFinite(raw) || raw < 1 || raw > 31) return;
-    const minus = document.getElementById("salaryPeriodPayDayMinus");
-    const plus = document.getElementById("salaryPeriodPayDayPlus");
-    if (minus) {
-      minus.disabled = raw <= 1;
-      if (raw <= 1) minus.setAttribute("aria-disabled", "true");
-      else minus.removeAttribute("aria-disabled");
-    }
-    if (plus) {
-      plus.disabled = raw >= 31;
-      if (raw >= 31) plus.setAttribute("aria-disabled", "true");
-      else plus.removeAttribute("aria-disabled");
-    }
-  });
   const spFirst = document.getElementById("salaryPeriodFirstDate");
   if (spFirst) {
     spFirst.addEventListener("change", () => {
@@ -9602,6 +10450,8 @@ function initActions() {
     const items = getAllSalaryPeriods()
       .filter((x) => x.id !== draft.id)
       .concat([draft]);
+    ui.salaryPeriodEditorOpen = false;
+    ui.editSalaryPeriodId = null;
     persistSalaryPeriodItems(items);
     closeSalaryPeriodEditor();
   });

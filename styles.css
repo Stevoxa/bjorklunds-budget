@@ -3309,10 +3309,6 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   margin-top: 2px;
 }
 
-.income-suggest-chips {
-  gap: 8px;
-}
-
 #incomeModal .income-payments-editor-card {
   margin-top: 4px;
 }
@@ -3382,14 +3378,73 @@ input.input-readonly-like {
 .exp-overlay[data-expview="children"],
 .exp-overlay[data-expview="savings"],
 .exp-overlay[data-expview="loans"],
-.inc-overlay[data-incview="salary"] {
+.inc-overlay[data-incview="salary"],
+.inc-overlay[data-incview="benefit"],
+.inc-overlay[data-incview="capital"],
+.inc-overlay[data-incview="gift"] {
   --bb-notched-panel-margin-extra: 22px;
 }
 
-/* Ingress under sidtitel (Hem/Bil/Barn m.fl.) */
-.exp-overlay .table-title + .tagged-exp-overlay-intro {
+/* Ingress under sidtitel (Hem/Bil/Barn m.fl., intäktsöverlägg) */
+.exp-overlay .table-title + .tagged-exp-overlay-intro,
+.inc-overlay .table-title + .tagged-exp-overlay-intro {
   margin-top: 2px;
   margin-bottom: var(--space-4);
+}
+
+/* Intäkter: ingress under huvudrubrik */
+.income-page-intro {
+  margin-top: var(--space-2);
+  max-width: 52ch;
+}
+
+/* Löneperiod: rund stegare (SJ-liknande ± runt värde) */
+.bb-stepper--round {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
+}
+
+.bb-stepper--round .bb-stepper__btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+
+.bb-stepper--round .bb-stepper__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--border) 70%, var(--text));
+}
+
+.bb-stepper--round .bb-stepper__btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.bb-stepper--round .bb-stepper__btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.bb-stepper--round .bb-stepper__value {
+  min-width: 2.25rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem;
+  font-weight: 750;
 }
 
 .tagged-exp-overlay-intro {
@@ -3417,7 +3472,10 @@ input.input-readonly-like {
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary,
-.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary {
+.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary,
+.inc-overlay[data-incview="benefit"] > .bb-error-summary.tagged-editor-error-summary,
+.inc-overlay[data-incview="capital"] > .bb-error-summary.tagged-editor-error-summary,
+.inc-overlay[data-incview="gift"] > .bb-error-summary.tagged-editor-error-summary {
   max-width: 780px;
   width: 100%;
   margin-left: auto;
@@ -3430,7 +3488,10 @@ input.input-readonly-like {
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
-.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
+.inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.inc-overlay[data-incview="benefit"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.inc-overlay[data-incview="capital"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.inc-overlay[data-incview="gift"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]) {
   margin-bottom: var(--space-4);
 }
 

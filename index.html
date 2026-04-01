@@ -100,9 +100,12 @@
         <section class="view" data-view="incomes">
           <div class="view-header">
             <h2>Intäkter</h2>
+            <p class="note income-page-intro">
+              Lägg in dina intäkter för att få en tydlig överblick över dina inkomster.
+            </p>
           </div>
 
-          <div class="subnav subnav--income" role="group" aria-label="Filtrera intäkter efter kategori">
+          <div class="subnav subnav--income" role="group" aria-label="Intäktskategorier">
             <a href="#/incomes/salary" class="subnav-btn subnav-tile" data-income-category="salary" aria-pressed="false">
               <!-- icons/intäkt-lon.svg -->
               <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -111,7 +114,7 @@
               </svg>
               <span class="subnav-tile-label">Lön</span>
             </a>
-            <button type="button" class="subnav-btn subnav-tile" data-income-category="benefit" aria-pressed="false">
+            <a href="#/incomes/benefit" class="subnav-btn subnav-tile" data-income-category="benefit" aria-pressed="false">
               <!-- icons/intakt-sedel.svg -->
               <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
@@ -119,34 +122,29 @@
                 <path d="M18 2v6M15 5h6" />
               </svg>
               <span class="subnav-tile-label">Bidrag</span>
-            </button>
-            <button type="button" class="subnav-btn subnav-tile" data-income-category="capital" aria-pressed="false">
+            </a>
+            <a href="#/incomes/capital" class="subnav-btn subnav-tile" data-income-category="capital" aria-pressed="false">
               <!-- icons/inakt-kapital.svg -->
               <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M4 20l6-6 4 4 6-6V4" />
                 <path d="M17 7l3-3 3 3" />
               </svg>
               <span class="subnav-tile-label">Kapital</span>
-            </button>
-            <button type="button" class="subnav-btn subnav-tile" data-income-category="gift" aria-pressed="false">
+            </a>
+            <a href="#/incomes/gift" class="subnav-btn subnav-tile" data-income-category="gift" aria-pressed="false">
               <!-- icons/intäkt-gova.svg -->
               <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <path d="M14 2v6h6" />
                 <path d="M12 17c-1-1.5-3 0-3 1.5 0 1 1 2 3 3 2-1 3-2 3-3 0-1.5-2-3-3-1.5z" />
               </svg>
-              <span class="subnav-tile-label">Gåva</span>
-            </button>
+              <span class="subnav-tile-label">Gåvor</span>
+            </a>
           </div>
 
           <div class="table-card">
             <div class="table-title-row">
-              <div class="table-title">Planerade inbetalningar</div>
-              <button type="button" class="bb-icon-add-btn" id="openIncomeOverlayBtn" aria-label="Lägg till intäkt">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-              </button>
+              <div class="table-title">Planerade intäkter</div>
             </div>
             <div class="filter-toolbar">
               <div class="note">0 kr visas inte. Tryck på en rad för att redigera.</div>
@@ -183,8 +181,8 @@
               </div>
               <div class="table-title">Lön</div>
               <p class="note tagged-exp-overlay-intro">
-                Skapa löneperioder med belopp och utbetalningsdag. Varje period genererar utbetalningar i listan över planerade
-                intäkter (vardagar; helg justeras till närmaste bankdag före).
+                Registrera inkomster från lön, bonus och arvoden för att planera din månadsbudget. Löneperioder genererar
+                utbetalningar i listan över planerade intäkter (vardagar; helg justeras till närmaste bankdag före).
               </p>
 
               <section id="salaryPeriodEditorSection" hidden>
@@ -233,30 +231,15 @@
                     <div id="salaryPeriodPayDayWrap" class="tagged-editor-field-wrap">
                       <div class="bb-notched-field bb-notched-field--block" role="group" aria-label="Utbetalningsdag">
                         <div class="bb-notched-field-legend">Utbetalningsdag</div>
-                        <div class="food-household-size-box">
-                          <div class="food-counter-grid">
-                            <div class="food-counter-row">
-                              <span>Dag</span>
-                              <div class="food-counter-actions">
-                                <button class="secondary" type="button" id="salaryPeriodPayDayMinus" aria-label="Minska utbetalningsdag">
-                                  -
-                                </button>
-                                <input
-                                  id="salaryPeriodPayDay"
-                                  type="number"
-                                  inputmode="numeric"
-                                  min="1"
-                                  max="31"
-                                  step="1"
-                                  value="25"
-                                  aria-label="Utbetalningsdag i månaden"
-                                />
-                                <button class="secondary" type="button" id="salaryPeriodPayDayPlus" aria-label="Öka utbetalningsdag">
-                                  +
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                        <div class="bb-stepper bb-stepper--round" role="group" aria-label="Dag i månaden">
+                          <button type="button" class="bb-stepper__btn" id="salaryPeriodPayDayMinus" aria-label="Minska utbetalningsdag">
+                            −
+                          </button>
+                          <span class="bb-stepper__value" id="salaryPeriodPayDayDisplay" aria-live="polite">25</span>
+                          <input type="hidden" id="salaryPeriodPayDay" value="25" />
+                          <button type="button" class="bb-stepper__btn" id="salaryPeriodPayDayPlus" aria-label="Öka utbetalningsdag">
+                            +
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -287,6 +270,352 @@
                   <div id="salaryPeriodsListMount" class="tagged-expense-preview-list" role="list" aria-label="Löneperioder"></div>
                 </div>
                 <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="salaryPeriodAddNewBtn">
+                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="food-mat-add-period-card__label">Lägg till</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- BIDRAG -->
+          <section class="inc-overlay" data-incview="benefit" hidden>
+            <div class="bb-error-summary tagged-editor-error-summary" id="benefitErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button type="button" class="food-mat-panel-back" data-inc-close aria-label="Tillbaka till Intäkter">Intäkter</button>
+              </div>
+              <div class="table-title">Bidrag</div>
+              <p class="note tagged-exp-overlay-intro">
+                Lägg in bidrag som barnbidrag, studiebidrag och ersättningar för att få med alla inkomster.
+              </p>
+              <div
+                class="bb-notched-panel tagged-editor-panel"
+                id="benefitEditorCard"
+                hidden
+                role="group"
+                aria-labelledby="benefitEditorPanelLegend"
+              >
+                <div class="bb-notched-panel-legend" id="benefitEditorPanelLegend">Lägg till intäkt</div>
+                <div class="form-grid narrow">
+                  <div class="bb-notched-field" role="group" aria-label="Typ">
+                    <div class="bb-notched-field-legend">Typ</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="benefitEditTypeOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="benefitEditTypeSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="benefitEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Namn">
+                      <div class="bb-notched-field-legend">Namn</div>
+                      <input id="benefitEditName" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="benefitErrName" hidden></div>
+                  </div>
+                  <label class="field">
+                    <input id="benefitEditFirstDate" type="date" data-notch-label="Utbetalningsdatum" />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="benefitErrFirstDate" hidden></div>
+                  <div class="bb-notched-field" role="group" aria-label="Utbetalningsintervall">
+                    <div class="bb-notched-field-legend">Utbetalningsintervall</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="benefitEditIntervalOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="benefitEditIntervalSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="benefitEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                    <option value="once">Inget</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                  <label class="field" id="benefitEndDateRow">
+                    <input id="benefitEditEndDate" type="date" data-notch-label="Gäller till" data-date-clear />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="benefitErrEndDate" hidden></div>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Belopp">
+                      <div class="bb-notched-field-legend">Belopp</div>
+                      <input
+                        id="benefitEditAmount"
+                        class="bb-notched-field-plain-input"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="benefitErrAmount" hidden></div>
+                  </div>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="primary" id="benefitSaveBtn" type="button">Spara</button>
+                  <button class="danger" id="benefitDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="secondary" id="benefitCancelEditorBtn" type="button">Avbryt</button>
+                </div>
+                <div class="note" id="benefitNote"></div>
+              </div>
+              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för bidrag">
+                <div class="bb-notched-panel-legend">Utbetalningar för bidrag</div>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="benefitListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="benefitListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+                <select id="benefitListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="benefitListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <h3 class="tagged-omkostnader-month-heading" id="benefitListMonthTitle">Utbetalningar</h3>
+                <div id="benefitListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="benefitMonthTotal"></p>
+                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="benefitAddBtn">
+                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="food-mat-add-period-card__label">Lägg till</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- KAPITAL -->
+          <section class="inc-overlay" data-incview="capital" hidden>
+            <div class="bb-error-summary tagged-editor-error-summary" id="capitalErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button type="button" class="food-mat-panel-back" data-inc-close aria-label="Tillbaka till Intäkter">Intäkter</button>
+              </div>
+              <div class="table-title">Kapital</div>
+              <p class="note tagged-exp-overlay-intro">
+                Fyll i planerade inkomster från ränta, utdelning och avkastning.
+              </p>
+              <div
+                class="bb-notched-panel tagged-editor-panel"
+                id="capitalEditorCard"
+                hidden
+                role="group"
+                aria-labelledby="capitalEditorPanelLegend"
+              >
+                <div class="bb-notched-panel-legend" id="capitalEditorPanelLegend">Lägg till intäkt</div>
+                <div class="form-grid narrow">
+                  <div class="bb-notched-field" role="group" aria-label="Typ">
+                    <div class="bb-notched-field-legend">Typ</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="capitalEditTypeOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="capitalEditTypeSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="capitalEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Namn">
+                      <div class="bb-notched-field-legend">Namn</div>
+                      <input id="capitalEditName" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="capitalErrName" hidden></div>
+                  </div>
+                  <label class="field">
+                    <input id="capitalEditFirstDate" type="date" data-notch-label="Utbetalningsdatum" />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="capitalErrFirstDate" hidden></div>
+                  <div class="bb-notched-field" role="group" aria-label="Utbetalningsintervall">
+                    <div class="bb-notched-field-legend">Utbetalningsintervall</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="capitalEditIntervalOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="capitalEditIntervalSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="capitalEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                    <option value="once">Inget</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                  <label class="field" id="capitalEndDateRow">
+                    <input id="capitalEditEndDate" type="date" data-notch-label="Gäller till" data-date-clear />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="capitalErrEndDate" hidden></div>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Belopp">
+                      <div class="bb-notched-field-legend">Belopp</div>
+                      <input
+                        id="capitalEditAmount"
+                        class="bb-notched-field-plain-input"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="capitalErrAmount" hidden></div>
+                  </div>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="primary" id="capitalSaveBtn" type="button">Spara</button>
+                  <button class="danger" id="capitalDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="secondary" id="capitalCancelEditorBtn" type="button">Avbryt</button>
+                </div>
+                <div class="note" id="capitalNote"></div>
+              </div>
+              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för kapital">
+                <div class="bb-notched-panel-legend">Utbetalningar för kapital</div>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="capitalListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="capitalListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+                <select id="capitalListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="capitalListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <h3 class="tagged-omkostnader-month-heading" id="capitalListMonthTitle">Utbetalningar</h3>
+                <div id="capitalListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="capitalMonthTotal"></p>
+                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="capitalAddBtn">
+                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="food-mat-add-period-card__label">Lägg till</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- GÅVA -->
+          <section class="inc-overlay" data-incview="gift" hidden>
+            <div class="bb-error-summary tagged-editor-error-summary" id="giftErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button type="button" class="food-mat-panel-back" data-inc-close aria-label="Tillbaka till Intäkter">Intäkter</button>
+              </div>
+              <div class="table-title">Gåvor</div>
+              <p class="note tagged-exp-overlay-intro">
+                Registrera gåvor, arv och privata överföringar som en del av dina intäkter.
+              </p>
+              <div class="bb-notched-panel tagged-editor-panel" id="giftEditorCard" hidden role="group" aria-labelledby="giftEditorPanelLegend">
+                <div class="bb-notched-panel-legend" id="giftEditorPanelLegend">Lägg till intäkt</div>
+                <div class="form-grid narrow">
+                  <div class="bb-notched-field" role="group" aria-label="Typ">
+                    <div class="bb-notched-field-legend">Typ</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="giftEditTypeOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="giftEditTypeSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="giftEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Namn">
+                      <div class="bb-notched-field-legend">Namn</div>
+                      <input id="giftEditName" class="bb-notched-field-plain-input" type="text" autocomplete="off" />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="giftErrName" hidden></div>
+                  </div>
+                  <label class="field">
+                    <input id="giftEditFirstDate" type="date" data-notch-label="Utbetalningsdatum" />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="giftErrFirstDate" hidden></div>
+                  <div class="bb-notched-field" role="group" aria-label="Utbetalningsintervall">
+                    <div class="bb-notched-field-legend">Utbetalningsintervall</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="giftEditIntervalOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="giftEditIntervalSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="giftEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                    <option value="once">Inget</option>
+                    <option value="weekly">Veckovis</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                  <label class="field" id="giftEndDateRow">
+                    <input id="giftEditEndDate" type="date" data-notch-label="Gäller till" data-date-clear />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="giftErrEndDate" hidden></div>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Belopp">
+                      <div class="bb-notched-field-legend">Belopp</div>
+                      <input
+                        id="giftEditAmount"
+                        class="bb-notched-field-plain-input"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="giftErrAmount" hidden></div>
+                  </div>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="primary" id="giftSaveBtn" type="button">Spara</button>
+                  <button class="danger" id="giftDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="secondary" id="giftCancelEditorBtn" type="button">Avbryt</button>
+                </div>
+                <div class="note" id="giftNote"></div>
+              </div>
+              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för gåva">
+                <div class="bb-notched-panel-legend">Utbetalningar för gåva</div>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="giftListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="giftListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+                <select id="giftListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="giftListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <h3 class="tagged-omkostnader-month-heading" id="giftListMonthTitle">Utbetalningar</h3>
+                <div id="giftListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="giftMonthTotal"></p>
+                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="giftAddBtn">
                   <span class="food-mat-add-period-card__icon" aria-hidden="true">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -1738,17 +2067,6 @@
           </div>
 
           <div id="incomeOtherSection" class="surface-soft surface-nested income-other-section">
-            <div class="field">
-              Snabbval
-              <div class="chip-row income-suggest-chips">
-                <button class="secondary chip" type="button" data-income-suggest="Kapitalinkomst">Kapitalinkomst</button>
-                <button class="secondary chip" type="button" data-income-suggest="Barnbidrag">Barnbidrag</button>
-                <button class="secondary chip" type="button" data-income-suggest="Utbetalning försäkringskassan">Försäkringskassan</button>
-                <button class="secondary chip" type="button" data-income-suggest="Arv">Arv</button>
-                <button class="secondary chip" type="button" data-income-suggest="Gåva">Gåva</button>
-              </div>
-            </div>
-
             <label class="field">
               Typ av intäktsintervall
               <select id="incomeIntervalSelect">
