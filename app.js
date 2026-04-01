@@ -8241,7 +8241,7 @@ function saveExpenseFromOverlay() {
 function renderExpensesPage(opts = {}) {
   const openSavings = opts.openSavingsOverlay === true;
   const subEl = document.getElementById("headerSubtitle");
-  if (subEl) subEl.textContent = openSavings ? "Spar" : "Utgifter";
+  if (subEl) subEl.textContent = openSavings ? "Spara" : "Utgifter";
   ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
 
   // Ensure overlays start hidden
