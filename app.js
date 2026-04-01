@@ -4565,61 +4565,11 @@ function currentYearMonth() {
 }
 
 /**
- * År för periodväljare / analys: alltid nu±1 plus år från data inom ett rimligt fönster
- * (undviker hundratals år från godtyckliga object keys i state).
+ * År för periodväljare / analys: samma fönster som resten av appen — föregående, innevarande, nästa.
+ * (Samma lista som `getSelectableAppYears()`, t.ex. 2025–2027 när klockan står i 2026.)
  */
 function getAvailableYears() {
-  const cur = currentYearMonth().year;
-  const lo = Math.max(1990, cur - 12);
-  const hi = cur + 4;
-  const years = new Set();
-  for (let y = cur - 1; y <= cur + 1; y++) years.add(y);
-
-  const addYear = (y) => {
-    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(y);
-  };
-
-  const addYearKeysFromObject = (obj) => {
-    if (!obj || typeof obj !== "object") return;
-    for (const k of Object.keys(obj)) {
-      if (!/^\d{4}$/.test(k)) continue;
-      addYear(Number(k));
-    }
-  };
-
-  addYearKeysFromObject(state.special?.car);
-  addYearKeysFromObject(state.special?.home);
-  addYearKeysFromObject(state.special?.children);
-  addYearKeysFromObject(state.special?.food);
-
-  for (const loan of state.special?.loans?.items || []) {
-    const fp = datePartsFromIso(String(loan?.firstPaymentDate || ""));
-    if (fp) addYear(fp.y);
-    if (loan?.endDate) {
-      const ep = datePartsFromIso(String(loan.endDate));
-      if (ep) addYear(ep.y);
-    }
-  }
-  for (const sp of state.special?.salaryPeriods?.items || []) {
-    const fp = datePartsFromIso(String(sp?.firstPaymentDate || ""));
-    if (fp) addYear(fp.y);
-    if (sp?.validUntil) {
-      const vp = datePartsFromIso(String(sp.validUntil));
-      if (vp) addYear(vp.y);
-    }
-  }
-
-  const addPaymentYears = (payments) => {
-    for (const p of payments || []) {
-      const dt = p?.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      addYear(dt.getFullYear());
-    }
-  };
-  for (const inc of state.incomes || []) addPaymentYears(inc.payments);
-  for (const exp of state.expenses || []) addPaymentYears(exp.payments);
-
-  return Array.from(years).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+  return [...getSelectableAppYears()];
 }
 
 function setSelectOptions(selectEl, years, selectedYear) {
@@ -9176,35 +9126,7 @@ function renderOverviewIfOnOverview() {
 
 function incomeYearsForFilter() {
   const cur = currentYearMonth().year;
-  const lo = Math.max(1990, cur - 12);
-  const hi = cur + 4;
-  const years = new Set();
-  years.add("all");
-  const addY = (y) => {
-    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(String(y));
-  };
-  for (const inc of state.incomes || []) {
-    for (const p of inc.payments || []) {
-      if (!p?.date) continue;
-      const dt = parseDateISO(String(p.date));
-      if (!dt) continue;
-      addY(dt.getFullYear());
-    }
-  }
-  for (const loan of state.special?.loans?.items || []) {
-    const fp = datePartsFromIso(String(loan?.firstPaymentDate || ""));
-    if (fp) addY(fp.y);
-    if (loan?.endDate) {
-      const ep = datePartsFromIso(String(loan.endDate));
-      if (ep) addY(ep.y);
-    }
-  }
-  addY(cur - 1);
-  addY(cur);
-  addY(cur + 1);
-  const arr = Array.from(years);
-  const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
-  return ["all", ...nums.map(String)];
+  return ["all", String(cur + 1), String(cur), String(cur - 1)];
 }
 
 function setYearFilterOptions(selectEl, selected) {
@@ -10328,27 +10250,7 @@ function renderIncomesList() {
 
 function expenseYearsForFilter() {
   const cur = currentYearMonth().year;
-  const lo = Math.max(1990, cur - 12);
-  const hi = cur + 4;
-  const years = new Set();
-  years.add("all");
-  const addY = (y) => {
-    if (Number.isFinite(y) && y >= lo && y <= hi) years.add(String(y));
-  };
-  for (const exp of state.expenses || []) {
-    for (const p of exp.payments || []) {
-      if (!p?.date) continue;
-      const dt = parseDateISO(String(p.date));
-      if (!dt) continue;
-      addY(dt.getFullYear());
-    }
-  }
-  addY(cur - 1);
-  addY(cur);
-  addY(cur + 1);
-  const arr = Array.from(years);
-  const nums = arr.filter((x) => x !== "all").map((x) => Number(x)).filter((n) => Number.isFinite(n)).sort((a, b) => b - a);
-  return ["all", ...nums.map(String)];
+  return ["all", String(cur + 1), String(cur), String(cur - 1)];
 }
 
 function setExpenseYearFilterOptions(selectEl, selected) {
