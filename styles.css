@@ -3393,9 +3393,30 @@ input.input-readonly-like {
 }
 
 /* Intäkter: ingress under huvudrubrik */
+/*
+ * Intäkter (huvudvy): rubrik + ingress ska alltid staplas — undvik space-between
+ * som trycker undan ingressen på bred skärm.
+ */
+.view[data-view="incomes"] > .view-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.view[data-view="incomes"] > .view-header h2 {
+  width: 100%;
+}
+
 .income-page-intro {
-  margin-top: var(--space-2);
-  max-width: 52ch;
+  margin-top: 0;
+  margin-bottom: 0;
+  max-width: min(52ch, 100%);
+}
+
+@media (max-width: 720px) {
+  .view[data-view="incomes"] > .view-header {
+    gap: 10px;
+  }
 }
 
 /* Löneperiod: rund stegare (SJ-liknande ± runt värde) */
@@ -3511,6 +3532,17 @@ input.input-readonly-like {
   align-items: stretch;
   gap: 0;
   min-width: 0;
+}
+
+/* Intäktsöverlägg / löneperiod: fält utan .tagged-editor-field-wrap ska spänna hela kolumnen */
+.inc-overlay .tagged-editor-panel .form-grid.narrow > label.field,
+.inc-overlay .tagged-editor-panel .form-grid.narrow > .bb-notched-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.inc-overlay .tagged-editor-panel .form-grid.narrow > .field-error.tagged-editor-field-error {
+  grid-column: 1 / -1;
 }
 
 .tagged-editor-panel .tagged-editor-field-error:not([hidden]) {
