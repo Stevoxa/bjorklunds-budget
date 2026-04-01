@@ -3494,14 +3494,18 @@ function initSystemThemeListener() {
   }
 }
 
-function initRouting() {
-  const routeFromHash = () => {
-    const h = (location.hash || "#/overview").trim();
-    if (!h.startsWith("#/")) return "overview";
-    const part = h.slice(2).split("?")[0].trim();
-    return part || "overview";
-  };
+function parseRouteFromHash() {
+  const h = (location.hash || "#/overview").trim();
+  if (!h.startsWith("#/")) return { route: "overview", incomeSalary: false };
+  const part = h.slice(2).split("?")[0].trim();
+  const segments = part.split("/").filter(Boolean);
+  const route = segments[0] || "overview";
+  const incomeSalary =
+    route === "incomes" && String(segments[1] || "").toLowerCase() === "salary";
+  return { route, incomeSalary };
+}
 
+function initRouting() {
   const view = (name) => {
     ui.activeRoute = name;
     const routeView = name === "savings" ? "expenses" : name;
@@ -3526,11 +3530,16 @@ function initRouting() {
 
   const onChange = () => {
     const allowed = new Set(["overview", "incomes", "expenses", "savings", "settings"]);
-    let route = routeFromHash();
+    const parsed = parseRouteFromHash();
+    let route = parsed.route;
     if (!allowed.has(route)) route = "overview";
+    const incomeSalaryOverlayFromHash = route === "incomes" && parsed.incomeSalary;
     view(route);
+    if (route === "incomes" && !incomeSalaryOverlayFromHash && anyIncomeSalaryOverlayOpen()) {
+      closeIncomeSalaryOverlay({ fromHistory: true });
+    }
     try {
-      renderRoute(route);
+      renderRoute(route, { incomeSalary: incomeSalaryOverlayFromHash });
     } catch (e) {
       showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
       throw e;
@@ -7044,7 +7053,7 @@ function renderSettingsPage() {
   syncFoodWeekdaySummaryLabel();
 }
 
-function renderRoute(route) {
+function renderRoute(route, opts = {}) {
   switch (route) {
     case "overview": {
       // init pickers if needed
@@ -7072,6 +7081,9 @@ function renderRoute(route) {
     }
     case "incomes": {
       renderIncomesPage();
+      if (opts.incomeSalary) {
+        queueMicrotask(() => openIncomeSalaryOverlay({ skipHistory: true }));
+      }
       break;
     }
     case "expenses": {
@@ -7440,6 +7452,11 @@ function closeIncomeSalaryOverlayFromUi() {
     history.back();
     return;
   }
+  const { route, incomeSalary } = parseRouteFromHash();
+  if (route === "incomes" && incomeSalary) {
+    location.hash = "#/incomes";
+    return;
+  }
   closeIncomeSalaryOverlay({ fromHistory: false });
 }
 
@@ -7496,13 +7513,10 @@ function renderIncomesPage() {
   syncIncomeFilterSummaryLabel();
 
   document.querySelectorAll("[data-income-category]").forEach((btn) => {
+    const k = btn.getAttribute("data-income-category");
+    if (k === "salary") return;
     btn.onclick = () => {
-      const k = btn.getAttribute("data-income-category");
       if (!k) return;
-      if (k === "salary") {
-        openIncomeSalaryOverlay();
-        return;
-      }
       if (ui.incomeListCategory === k) ui.incomeListCategory = null;
       else ui.incomeListCategory = k;
       syncIncomeCategoryTabUI();

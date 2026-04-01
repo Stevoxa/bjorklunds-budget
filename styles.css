@@ -1528,6 +1528,11 @@ tr.month-break td {
   display: none;
 }
 
+a.subnav-btn {
+  text-decoration: none;
+  color: inherit;
+}
+
 .subnav-btn {
   flex: 0 0 auto;
   scroll-snap-align: start;
