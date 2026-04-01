@@ -1580,7 +1580,9 @@ tr.month-break td {
 }
 
 .subnav-tile-icon path,
-.subnav-tile-icon circle {
+.subnav-tile-icon circle,
+.subnav-tile-icon line,
+.subnav-tile-icon polyline {
   stroke-width: inherit;
 }
 

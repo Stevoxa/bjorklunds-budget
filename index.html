@@ -146,44 +146,57 @@
 
           <div class="subnav" role="tablist" aria-label="Utgiftsområden">
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="home">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+              <!-- icons/utgift-hem.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
               <span class="subnav-tile-label">Hem</span>
             </button>
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="loans">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M7 7h10v10H7V7Z" stroke="currentColor" stroke-width="1.5" />
-                <path d="M9 11h6M9 14h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <!-- icons/utgift-lån.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <line x1="15" y1="13" x2="9" y2="19" />
+                <circle cx="10" cy="14" r="1" />
+                <circle cx="14" cy="18" r="1" />
               </svg>
               <span class="subnav-tile-label">Lån</span>
             </button>
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="car">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M5 16 6.5 11h11L19 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M5.5 16h13v2h-13v-2ZM8 16v-2M16 16v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                <path d="M7 11l1.5-3h7L17 11" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+              <!-- icons/utgift-bil.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path
+                  d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7h2"
+                />
+                <circle cx="7" cy="17" r="2" />
+                <path d="M9 17h6" />
+                <circle cx="17" cy="17" r="2" />
               </svg>
               <span class="subnav-tile-label">Bil</span>
             </button>
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="food">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M8 8c0-2 1.5-3.5 4-3.5s4 1.5 4 3.5-1 3-4 5c-3-2-4-3-4-5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-                <path d="M12 13v6M9 18h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <!-- icons/utgift-mat.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M6 8h12v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8z" />
+                <path d="M10 8V5c0-1.1.9-2 2-2s2 .9 2 2v3" />
               </svg>
               <span class="subnav-tile-label">Mat</span>
             </button>
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="children">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="9" r="3" stroke="currentColor" stroke-width="1.5" />
-                <path d="M6.5 19c.8-2.5 2.8-4 5.5-4s4.7 1.5 5.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <!-- icons/utgift-barn.svg -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="7" r="4" />
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               </svg>
               <span class="subnav-tile-label">Barn</span>
             </button>
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="savings">
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 5v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-                <path d="M8 16c0-2 1.8-3.5 4-3.5s4 1.5 4 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <!-- icons/bas-spar.svg (samma som nedre menyn; ingen utgift-spar.svg) -->
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h2v2h4v-3.8c2-1.2 2-2.7 2-4.2 0-1-.2-2.2-1-4h1" />
+                <path d="M11 4v3" />
               </svg>
               <span class="subnav-tile-label">Spar</span>
             </button>
@@ -1386,8 +1399,8 @@
         <li>
           <a href="#/overview" data-navlink="overview" aria-label="Analys">
             <span class="nav-icon-wrap" aria-hidden="true">
-              <!-- Ikon från icons/analys.svg (återställ: tidigare variant = tre <rect> i nav-icon__solid + separata outline-linjer) -->
-              <svg class="nav-icon-svg nav-icon-svg--analys" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <!-- Källa: icons/bas-analys.svg — uppdatera path här om du ändrar filen -->
+              <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <g class="nav-icon__outline" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M18 20V10M12 20V4M6 20v-6" />
                 </g>
@@ -1402,15 +1415,13 @@
         <li>
           <a href="#/incomes" data-navlink="incomes" aria-label="Intäkter">
             <span class="nav-icon-wrap" aria-hidden="true">
+              <!-- icons/bas-intakt-uppil.svg -->
               <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <g class="nav-icon__outline" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 19.5h16" />
-                  <path d="M12 4.5v8.5" />
-                  <path d="m8 12.5 4 4 4-4" />
+                  <path d="M12 19V5M5 12l7-7 7 7" />
                 </g>
-                <g class="nav-icon__solid" fill="currentColor">
-                  <path d="M3.25 19.5h17.5V21H3.25z" />
-                  <path d="M12 3.25 21 14.25h-5.25v7H8.25v-7H3L12 3.25Z" />
+                <g class="nav-icon__solid" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
                 </g>
               </svg>
             </span>
@@ -1420,15 +1431,13 @@
         <li>
           <a href="#/expenses" data-navlink="expenses" aria-label="Utgifter">
             <span class="nav-icon-wrap" aria-hidden="true">
+              <!-- icons/bas-utgift-nerpil.svg -->
               <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <g class="nav-icon__outline" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 4.5h16" />
-                  <path d="M12 19.5V11" />
-                  <path d="m8 11.5 4-4 4 4" />
+                  <path d="M12 5v14M19 12l-7 7-7-7" />
                 </g>
-                <g class="nav-icon__solid" fill="currentColor">
-                  <path d="M3.25 3H20.75v1.5H3.25z" />
-                  <path d="M12 20.75 3 9.75h5.25V3h7.5v6.75H21L12 20.75Z" />
+                <g class="nav-icon__solid" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 5v14M19 12l-7 7-7-7" />
                 </g>
               </svg>
             </span>
@@ -1438,19 +1447,15 @@
         <li>
           <a href="#/savings" data-navlink="savings" aria-label="Spar">
             <span class="nav-icon-wrap" aria-hidden="true">
+              <!-- icons/bas-spar.svg -->
               <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <g class="nav-icon__outline" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path
-                    d="M8.25 10.25c0-2.35 1.9-4.25 4.25-4.25h3c2.35 0 4.25 1.9 4.25 4.25v2.5c1.05.45 1.75 1.5 1.75 2.7V18.5c0 .85-.7 1.5-1.5 1.5H8c-.85 0-1.5-.65-1.5-1.5v-1.05c-1.2-.25-2.1-1.3-2.1-2.55 0-1.45 1.2-2.65 2.75-2.65h.6v-1.5Z"
-                  />
-                  <path d="M11.25 7.75V6c0-.7.55-1.25 1.25-1.25S13.75 5.3 13.75 6v1.75" />
-                  <path d="M5.5 14.25c-.95.35-1.6 1.15-1.6 2.1 0 1.35 1.05 2.4 2.4 2.4" />
-                  <circle cx="10.25" cy="12.35" r="0.75" fill="none" />
+                  <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h2v2h4v-3.8c2-1.2 2-2.7 2-4.2 0-1-.2-2.2-1-4h1" />
+                  <path d="M11 4v3" />
                 </g>
-                <g class="nav-icon__solid" fill="currentColor">
-                  <path
-                    d="M8.1 10.1c0-2.45 2-4.35 4.4-4.35h3c2.4 0 4.4 1.9 4.4 4.35v2.45c1.1.5 1.85 1.55 1.85 2.8v2.45c0 .9-.75 1.6-1.65 1.6H7.9c-.9 0-1.65-.7-1.65-1.6V17.5c-1.35-.2-2.4-1.35-2.4-2.75 0-1.55 1.25-2.8 2.8-2.8h.45v-1.85Z"
-                  />
+                <g class="nav-icon__solid" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h2v2h4v-3.8c2-1.2 2-2.7 2-4.2 0-1-.2-2.2-1-4h1" />
+                  <path d="M11 4v3" />
                 </g>
               </svg>
             </span>
@@ -1460,32 +1465,17 @@
         <li>
           <a href="#/settings" data-navlink="settings" aria-label="Inställningar">
             <span class="nav-icon-wrap" aria-hidden="true">
+              <!-- icons/bas-inställningar.svg -->
               <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <g
-                  class="nav-icon__outline"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                  />
+                <g class="nav-icon__outline" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
                 </g>
-                <g
-                  class="nav-icon__solid"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.1"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                  <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"
-                  />
+                <g class="nav-icon__solid" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="20" y2="12" />
+                  <line x1="4" y1="18" x2="20" y2="18" />
                 </g>
               </svg>
             </span>
