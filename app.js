@@ -4148,13 +4148,6 @@ function diffCalendarDays(a, b) {
   return Math.round((ub - ua) / 86400000);
 }
 
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 function isDateInRange(date, start, end) {
   if (!start || !end) return false;
   return date.getTime() >= start.getTime() && date.getTime() <= end.getTime();
