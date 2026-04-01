@@ -5634,24 +5634,67 @@ function wireAnalysisLayoutSettingsOnce() {
   });
 }
 
+function readThemeCssVar(name, fallback) {
+  try {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Hex (#rgb / #rrggbb) till rgba — faller till neutral grå om värdet inte är hex. */
+function cssHexToRgba(hex, alpha) {
+  const s = String(hex || "").trim();
+  if (!s.startsWith("#")) return `rgba(120, 128, 122, ${alpha})`;
+  let h = s.slice(1);
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return `rgba(120, 128, 122, ${alpha})`;
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n)) return `rgba(120, 128, 122, ${alpha})`;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function getAnalysisChartPalette() {
   const dark = resolvedDocumentTheme() === "dark";
+  const text = readThemeCssVar("--text", dark ? "#eef2ed" : "#141a16");
+  const muted = readThemeCssVar("--muted", dark ? "#9aaa9f" : "#5c6660");
+  const primary = readThemeCssVar("--primary", dark ? "#6fcf7e" : "#255f33");
+  const danger = readThemeCssVar("--danger", dark ? "#ff8a80" : "#b71c1c");
+  const success = readThemeCssVar("--success", dark ? "#81c784" : "#1b5e20");
+  const warning = readThemeCssVar("--warning", dark ? "#ffb74d" : "#e65100");
+  const card = readThemeCssVar("--card", dark ? "#141d18" : "#ffffff");
+  const chartFont = (() => {
+    try {
+      return getComputedStyle(document.body).fontFamily || "system-ui, sans-serif";
+    } catch {
+      return "system-ui, sans-serif";
+    }
+  })();
   return {
     dark,
-    text: dark ? "#eef2ed" : "#1f2a21",
-    muted: dark ? "#9aaa9f" : "#6f776d",
-    grid: dark ? "rgba(154, 170, 159, 0.16)" : "rgba(111, 119, 109, 0.14)",
-    income: dark ? "#3EC172" : "#2F9A54",
-    incomeSoft: dark ? "rgba(62,193,114,0.5)" : "rgba(47,154,84,0.42)",
-    incomeStrong: dark ? "#35b867" : "#238545",
-    expense: dark ? "#A85A45" : "#824636",
-    expenseSoft: dark ? "rgba(168,90,69,0.45)" : "rgba(130,70,54,0.42)",
-    expenseStrong: dark ? "#bc654e" : "#733828",
-    balance: dark ? "#5F7F70" : "#466357",
-    balanceSoft: dark ? "rgba(95,127,112,0.22)" : "rgba(70,99,87,0.18)",
-    saving: dark ? "#D7B95A" : "#C9A646",
-    savingSoft: dark ? "rgba(215,185,90,0.32)" : "rgba(201,166,70,0.28)",
-    mat: dark ? "#C58344" : "#B06F34"
+    chartFont,
+    text,
+    muted,
+    card,
+    tooltipBg: dark ? cssHexToRgba(card, 0.98) : cssHexToRgba(text, 0.92),
+    tooltipFg: dark ? text : card,
+    grid: cssHexToRgba(muted, dark ? 0.2 : 0.14),
+    income: primary,
+    incomeSoft: cssHexToRgba(primary, dark ? 0.48 : 0.34),
+    incomeStrong: success,
+    expense: danger,
+    expenseSoft: cssHexToRgba(danger, dark ? 0.44 : 0.34),
+    expenseStrong: danger,
+    balance: cssHexToRgba(success, dark ? 0.92 : 0.88),
+    balanceSoft: cssHexToRgba(primary, dark ? 0.22 : 0.15),
+    saving: warning,
+    savingSoft: cssHexToRgba(warning, dark ? 0.38 : 0.3),
+    mat: cssHexToRgba(warning, dark ? 0.95 : 0.9),
+    doughnutTrack: cssHexToRgba(muted, dark ? 0.12 : 0.1)
   };
 }
 
@@ -5832,6 +5875,18 @@ function bucketPaymentEventsByWeek(events) {
     }));
 }
 
+function formatIsoRangeCaptionSv(startIso, endIso) {
+  const a = datePartsFromIso(startIso);
+  const b = datePartsFromIso(endIso);
+  if (!a || !b) return "";
+  const d1 = new Date(a.y, a.m - 1, a.d);
+  const d2 = new Date(b.y, b.m - 1, b.d);
+  const o = { day: "numeric", month: "short", year: "numeric" };
+  const s1 = d1.toLocaleDateString("sv-SE", o);
+  const s2 = d2.toLocaleDateString("sv-SE", o);
+  return s1 === s2 ? s1 : `${s1} – ${s2}`;
+}
+
 function primaryPeriodBounds(range, anchorY, anchorM) {
   const d1 = isoDateFromParts(anchorY, anchorM, 1);
   const d2 = isoDateFromParts(anchorY, anchorM, daysInMonth(anchorY, anchorM));
@@ -5840,13 +5895,28 @@ function primaryPeriodBounds(range, anchorY, anchorM) {
     const ref = new Date(anchorY, anchorM - 1, 15);
     const s = startOfIsoWeekFromDate(ref);
     const e = endOfIsoWeekFromDate(ref);
-    return { startIso: dateToIsoLocal(s), endIso: dateToIsoLocal(e), label: "Vald vecka" };
+    const startIso = dateToIsoLocal(s);
+    const endIso = dateToIsoLocal(e);
+    const wn = isoWeekNumberForYmdParts(s.getFullYear(), s.getMonth() + 1, s.getDate());
+    const rangeStr = formatIsoRangeCaptionSv(startIso, endIso);
+    return {
+      startIso,
+      endIso,
+      label: rangeStr ? `Vecka ${wn} · ${rangeStr}` : `Vecka ${wn}`
+    };
   }
   return {
     startIso: `${anchorY}-01-01`,
     endIso: `${anchorY}-12-31`,
     label: String(anchorY)
   };
+}
+
+/** Kort rubrik för kategori-/UI som ska spegla vald analysperiod (inte bara kalendermånad). */
+function analysisCategoryPeriodCaption(range, bounds, anchorY) {
+  if (range === "month") return bounds.label;
+  if (range === "year") return `Helår ${anchorY}`;
+  return bounds.label;
 }
 
 function buildCashflowSlices(range, anchorY, anchorM) {
@@ -5937,7 +6007,7 @@ function foodWeeklyLimitKr() {
   return Math.max(1200, Math.round(800 * n));
 }
 
-function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
+function buildAnalysisAnalyticsModel(range, anchorY, anchorM) {
   const bounds = primaryPeriodBounds(range, anchorY, anchorM);
   const heroAgg = aggregateOverviewForIsoRange(bounds.startIso, bounds.endIso);
   const slices = buildCashflowSlices(range, anchorY, anchorM);
@@ -5982,7 +6052,7 @@ function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
   const matW = matTotalsByIsoWeekInMonth(anchorY, anchorM);
   const wLimit = foodWeeklyLimitKr();
   const savingsTarget = Math.max(1, asNumber(state.settings?.analysisSavingsTargetKr) || 5000);
-  const savingsAmt = monthOverview.seg?.savings ?? heroAgg.seg.savings;
+  const savingsAmt = heroAgg.seg.savings;
 
   const nextEv = collectPaymentEventsForRange(bounds.startIso, bounds.endIso).filter((e) => e.kind === "expense")[0];
   const incomeIdx = rawEvents.findIndex((e) => e.kind === "income");
@@ -5997,6 +6067,7 @@ function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
   return {
     range,
     bounds,
+    categoryPeriodCaption: analysisCategoryPeriodCaption(range, bounds, anchorY),
     heroAgg,
     heroRemaining: heroAgg.remaining,
     slices,
@@ -6009,7 +6080,7 @@ function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
     barVals,
     running,
     salaryIdx,
-    categorySegments: monthOverview.segments,
+    categorySegments: heroAgg.segments,
     fvLabels,
     fvFixed,
     fvVar,
@@ -6024,11 +6095,11 @@ function buildAnalysisAnalyticsModel(range, anchorY, anchorM, monthOverview) {
     needBeforeIncome,
     saveRate,
     paymentListEvents: rawEvents.slice(0, 24),
-    insights: buildAnalysisInsightCards(heroAgg, slices, monthOverview)
+    insights: buildAnalysisInsightCards(heroAgg, slices)
   };
 }
 
-function buildAnalysisInsightCards(heroAgg, slices, monthOverview) {
+function buildAnalysisInsightCards(heroAgg, slices) {
   const out = [];
   if (heroAgg.remaining < 0) {
     out.push({
@@ -6051,11 +6122,11 @@ function buildAnalysisInsightCards(heroAgg, slices, monthOverview) {
       text: `${worst.label}: netto ${formatKr(worst.remaining)} i vald serie. Se om utgifter kan flyttas eller jämnas ut.`
     });
   }
-  const top = [...monthOverview.segments].sort((a, b) => b.amount - a.amount)[0];
+  const top = [...(heroAgg.segments || [])].sort((a, b) => b.amount - a.amount)[0];
   if (top) {
     out.push({
       title: "Största utgiftsområdet",
-      text: `${top.label} står för ${formatKr(top.amount)} under vald månad i tabellerna nedan.`
+      text: `${top.label} står för ${formatKr(top.amount)} i samma period som kategoridiagrammet. Tabellerna längst ned visar fortfarande vald kalendermånad.`
     });
   }
   out.push({
@@ -6094,13 +6165,13 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
           usePointStyle: true,
           pointStyle: "circle",
           padding: 10,
-          font: { weight: "600", size: 11 }
+          font: { family: palette.chartFont, weight: "600", size: 11 }
         }
       },
       tooltip: {
-        backgroundColor: palette.dark ? "rgba(10, 16, 13, 0.96)" : "rgba(18, 25, 21, 0.92)",
-        titleColor: "#f8faf7",
-        bodyColor: "#f8faf7",
+        backgroundColor: palette.tooltipBg,
+        titleColor: palette.tooltipFg,
+        bodyColor: palette.tooltipFg,
         padding: 10,
         cornerRadius: 12,
         callbacks: {
@@ -6115,7 +6186,11 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
     scales: {
       x: {
         stacked,
-        ticks: { color: palette.muted, font: { weight: "600", size: 10 }, maxRotation: 0 },
+        ticks: {
+          color: palette.muted,
+          font: { family: palette.chartFont, weight: "600", size: 10 },
+          maxRotation: 0
+        },
         border: { display: false },
         grid: { display: false }
       },
@@ -6124,7 +6199,8 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
         beginAtZero: true,
         ticks: {
           color: palette.muted,
-          font: { size: 10 },
+          font: { family: palette.chartFont, size: 10 },
+          maxTicksLimit: 6,
           callback: (value) => (showCurrency ? formatKr(value) : value)
         },
         border: { display: false },
@@ -6142,6 +6218,7 @@ function makeAnalysisTimelinePlugin(palette, salaryIdx) {
       if (!chartArea || !scales.x || !scales.y) return;
       if (salaryIdx >= 0) {
         const x = scales.x.getPixelForValue(salaryIdx);
+        if (!Number.isFinite(x)) return;
         ctx.save();
         ctx.strokeStyle = palette.incomeSoft;
         ctx.setLineDash([4, 4]);
@@ -6153,7 +6230,7 @@ function makeAnalysisTimelinePlugin(palette, salaryIdx) {
         ctx.fillStyle = palette.incomeSoft;
         ctx.fillRect(x - 22, chartArea.top + 2, 44, 16);
         ctx.fillStyle = palette.income;
-        ctx.font = "600 10px system-ui,sans-serif";
+        ctx.font = `600 10px ${palette.chartFont}`;
         ctx.textAlign = "center";
         ctx.fillText("Lön+", x, chartArea.top + 13);
         ctx.restore();
@@ -6166,21 +6243,30 @@ function renderAnalysisCharts(model) {
   const Chart = window.Chart;
   if (!Chart) return;
   const palette = getAnalysisChartPalette();
-  const labels = model.timelineDays.map((d) => d.label || String(d.iso).slice(8, 10));
+  Chart.defaults.font.family = palette.chartFont;
+  Chart.defaults.color = palette.muted;
+
+  const hasTl = model.timelineDays.length > 0;
+  const tlLabels = hasTl
+    ? model.timelineDays.map((d) => d.label || String(d.iso).slice(8, 10))
+    : ["Ingen data"];
+  const tlBar = hasTl ? model.barVals : [0];
+  const tlRun = hasTl ? model.running : [0];
+  const tlSalaryIdx = hasTl ? model.salaryIdx : -1;
 
   const tlCanvas = document.getElementById("analysisTimelineChart");
   if (tlCanvas) {
     analysisChartInstances.timeline = new Chart(tlCanvas, {
       type: "bar",
       data: {
-        labels,
+        labels: tlLabels,
         datasets: [
           {
             type: "bar",
             label: "Netto per dag/vecka",
-            data: model.barVals,
-            backgroundColor: model.barVals.map((v) => (v >= 0 ? palette.incomeSoft : palette.expenseSoft)),
-            borderColor: model.barVals.map((v) => (v >= 0 ? palette.incomeStrong : palette.expenseStrong)),
+            data: tlBar,
+            backgroundColor: tlBar.map((v) => (v >= 0 ? palette.incomeSoft : palette.expenseSoft)),
+            borderColor: tlBar.map((v) => (v >= 0 ? palette.incomeStrong : palette.expenseStrong)),
             borderWidth: 1,
             borderRadius: 8,
             order: 2
@@ -6188,9 +6274,9 @@ function renderAnalysisCharts(model) {
           {
             type: "line",
             label: "Saldo",
-            data: model.running,
+            data: tlRun,
             borderColor: palette.balance,
-            pointRadius: 3,
+            pointRadius: hasTl ? 3 : 0,
             tension: 0.32,
             fill: false,
             order: 1
@@ -6204,7 +6290,7 @@ function renderAnalysisCharts(model) {
           y: { ...analysisCommonChartOptions(palette, true).scales.y, beginAtZero: false }
         }
       },
-      plugins: [makeAnalysisTimelinePlugin(palette, model.salaryIdx)]
+      plugins: [makeAnalysisTimelinePlugin(palette, tlSalaryIdx)]
     });
   }
 
@@ -6300,7 +6386,14 @@ function renderAnalysisCharts(model) {
         plugins: {
           legend: {
             position: "bottom",
-            labels: { color: palette.muted, boxWidth: 10, padding: 8, usePointStyle: true, pointStyle: "circle" }
+            labels: {
+              color: palette.muted,
+              boxWidth: 10,
+              padding: 8,
+              usePointStyle: true,
+              pointStyle: "circle",
+              font: { family: palette.chartFont, size: 11 }
+            }
           },
           tooltip: {
             callbacks: {
@@ -6383,7 +6476,7 @@ function renderAnalysisCharts(model) {
         datasets: [
           {
             data: [pct, Math.max(0, 100 - pct)],
-            backgroundColor: [palette.saving, palette.dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"],
+            backgroundColor: [palette.saving, palette.doughnutTrack],
             borderWidth: 0
           }
         ]
@@ -6404,9 +6497,9 @@ function renderAnalysisCharts(model) {
             ctx.save();
             ctx.textAlign = "center";
             ctx.fillStyle = palette.text;
-            ctx.font = "600 11px system-ui,sans-serif";
+            ctx.font = `600 11px ${palette.chartFont}`;
             ctx.fillText("Mål", meta.x, meta.y - 10);
-            ctx.font = "800 15px system-ui,sans-serif";
+            ctx.font = `800 15px ${palette.chartFont}`;
             ctx.fillText(`${pct}%`, meta.x, meta.y + 6);
             ctx.restore();
           }
@@ -6416,11 +6509,24 @@ function renderAnalysisCharts(model) {
   }
 }
 
-function updateAnalysisDomFromModel(model, monthOverview) {
+function updateAnalysisDomFromModel(model) {
   const fmt = (n) => formatKr(n);
   const rem = model.heroRemaining;
   const elBal = document.getElementById("analysisHeroBalance");
-  if (elBal) elBal.textContent = fmt(rem);
+  if (elBal) {
+    elBal.textContent = fmt(rem);
+    elBal.classList.remove("analysis-hero-value--pos", "analysis-hero-value--neg");
+    elBal.classList.add(rem < 0 ? "analysis-hero-value--neg" : "analysis-hero-value--pos");
+  }
+  const catPanel = document.querySelector('[data-analysis-widget="category"]');
+  if (catPanel) {
+    catPanel.classList.toggle("analysis-panel--empty-chart", !(model.categorySegments && model.categorySegments.length));
+  }
+  const catPeriod = document.getElementById("analysisCategoryPeriodNote");
+  if (catPeriod) {
+    catPeriod.textContent = model.categoryPeriodCaption ? `Period: ${model.categoryPeriodCaption}` : "";
+  }
+
   const heroMsg = document.getElementById("analysisHeroMessage");
   const heroChip = document.getElementById("analysisHeroState");
   const tight = rem < model.heroAgg.incomeAmount * 0.08 && model.heroAgg.incomeAmount > 0;
@@ -6474,9 +6580,12 @@ function updateAnalysisDomFromModel(model, monthOverview) {
   const bb = document.getElementById("analysisBufferBadge");
   if (bb) {
     if (model.minCum < 0) {
-      const idx = model.cumulative.findIndex((v) => v === model.minCum);
-      const lab = idx >= 0 ? model.slices[idx]?.label : "";
-      bb.textContent = `Under noll i ${lab || "serien"}`;
+      let minIdx = 0;
+      if (model.cumulative.length) {
+        minIdx = model.cumulative.reduce((bi, v, i, arr) => (v < arr[bi] ? i : bi), 0);
+      }
+      const lab = model.slices[minIdx]?.label || "";
+      bb.textContent = `Under noll vid ${lab || "en delperiod"}`;
       bb.className = "analysis-badge analysis-badge--danger";
     } else {
       bb.textContent = "Ingen negativ kumulativ kurva";
@@ -6496,6 +6605,7 @@ function updateAnalysisDomFromModel(model, monthOverview) {
       Spar: chartSegmentHex("savings"),
       Mat: chartSegmentHex("foodGenerated"),
       Utgifter: chartSegmentHex("recurringExpenses"),
+      "Enstaka utgifter": chartSegmentHex("oneOffExpenses"),
       Inkomst: palette.income
     };
     if (model.paymentListEvents.length === 0) {
@@ -6574,7 +6684,7 @@ function renderOverview() {
   wireAnalysisDashboardOnce();
   const overview = computeMonthOverview(year, month);
   const range = ui.analysisRange || "month";
-  const model = buildAnalysisAnalyticsModel(range, year, month, overview);
+  const model = buildAnalysisAnalyticsModel(range, year, month);
 
   const sub = document.getElementById("headerSubtitle");
   if (sub) {
@@ -6588,7 +6698,7 @@ function renderOverview() {
 
   applyAnalysisWidgetOrder();
   syncAnalysisRangeSegmentUI();
-  updateAnalysisDomFromModel(model, overview);
+  updateAnalysisDomFromModel(model);
   destroyAnalysisCharts();
   if (typeof window.Chart !== "undefined") {
     renderAnalysisCharts(model);
