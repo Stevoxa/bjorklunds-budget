@@ -859,13 +859,6 @@
               </svg>
               <span class="subnav-tile-label">Barn</span>
             </button>
-            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="savings">
-              <!-- icons/bas-stjarna.svg (outlined stjärna, samma som nedre menyn) -->
-              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M11 6.24Q12 3.55 12.96 6.24L14.09 9.15L17.19 9.3Q20.04 9.44 17.8 11.2L15.38 13.1L16.21 16.15Q16.97 18.82 14.58 17.29L12 15.55L9.42 17.29Q7.03 18.82 7.79 16.15L8.62 13.1L6.22 11.27Q3.96 9.44 6.83 9.32L9.91 9.15Z" />
-              </svg>
-              <span class="subnav-tile-label">Spara</span>
-            </button>
           </div>
 
           <div class="table-card">
@@ -873,7 +866,10 @@
               <div class="table-title">Utgifter</div>
             </div>
             <div class="filter-toolbar">
-              <div class="note">En rad per utbetalning (0 kr visas inte). Tryck på en rad för att öppna redigering.</div>
+              <div class="note">
+                En rad per utbetalning (0 kr visas inte). Planerat sparande ingår inte här — använd länken under listan eller
+                fliken Spara. Tryck på en rad för att öppna redigering.
+              </div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>
@@ -895,6 +891,13 @@
               ></div>
             </div>
             <div class="note payments-list-total-note" id="expenseListNote"></div>
+          </div>
+
+          <div class="expenses-savings-aside">
+            <p class="note expenses-savings-aside__text">
+              <strong>Planerat sparande</strong> är inte en utgift i den här listan och räknas inte in i totalen ovan.
+              <a href="#/savings" class="expenses-savings-aside__link">Öppna Spara</a>
+            </p>
           </div>
 
           <!-- HOME -->
@@ -1847,123 +1850,122 @@
               </div>
             </div>
           </section>
+        </section>
 
-          <!-- SAVINGS -->
-          <section class="exp-view exp-overlay" data-expview="savings" hidden>
-            <div class="bb-error-summary tagged-editor-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
-            <div class="table-card car-omkostnader-card">
-              <div class="food-mat-panel-top">
-                <button
-                  type="button"
-                  class="food-mat-panel-back"
-                  data-exp-close
-                  aria-label="Tillbaka till Utgifter"
-                >Utgifter</button>
-              </div>
-              <div class="table-title">Spar</div>
-              <p class="note tagged-exp-overlay-intro">
-                Planera ditt sparande och sätt mål för hur mycket du vill lägga undan över tid.
-              </p>
-              <div class="bb-notched-panel tagged-editor-panel" id="savingsEditorCard" hidden role="group" aria-label="Lägg till sparande">
-                <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till sparande</div>
-                <div class="form-grid narrow">
-                  <div class="tagged-editor-field-wrap">
-                    <div class="bb-notched-field" role="group" aria-label="Namn">
-                      <div class="bb-notched-field-legend">Namn</div>
-                      <input
-                        id="savingsEditName"
-                        class="bb-notched-field-plain-input"
-                        type="text"
-                        autocomplete="off"
-                      />
-                    </div>
-                    <div class="field-error tagged-editor-field-error" id="savingsErrName" hidden></div>
-                  </div>
-                  <label class="field">
-                    <input
-                      id="savingsEditFirstDate"
-                      type="date"
-                      data-notch-label="Spar datum"
-                    />
-                  </label>
-                  <div class="field-error tagged-editor-field-error" id="savingsErrFirstDate" hidden></div>
-                  <div class="bb-notched-field" role="group" aria-label="Intervall">
-                    <div class="bb-notched-field-legend">Intervall</div>
-                    <button
-                      type="button"
-                      class="bb-notched-field-btn"
-                      id="savingsEditIntervalOpenBtn"
-                      aria-haspopup="dialog"
-                      aria-controls="listPickerSheet"
-                    >
-                      <span class="bb-notched-field-value" id="savingsEditIntervalSummary">—</span>
-                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                    </button>
-                  </div>
-                  <select id="savingsEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                    <option value="once">Inget</option>
-                    <option value="weekly">Veckovis</option>
-                    <option value="monthly">Månad</option>
-                    <option value="quarterly">Kvartal</option>
-                    <option value="yearly">År</option>
-                  </select>
-                  <label class="field" id="savingsEndDateRow">
-                    <input
-                      id="savingsEditEndDate"
-                      type="date"
-                      data-notch-label="Gäller till"
-                      data-date-clear
-                    />
-                  </label>
-                  <div class="field-error tagged-editor-field-error" id="savingsErrEndDate" hidden></div>
-                  <div class="tagged-editor-field-wrap">
-                    <div class="bb-notched-field" role="group" aria-label="Belopp">
-                      <div class="bb-notched-field-legend">Belopp</div>
-                      <input
-                        id="savingsEditAmount"
-                        class="bb-notched-field-plain-input"
-                        type="text"
-                        inputmode="numeric"
-                        autocomplete="off"
-                      />
-                    </div>
-                    <div class="field-error tagged-editor-field-error" id="savingsErrAmount" hidden></div>
-                  </div>
-                </div>
-                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
-                  <button class="primary" id="savingsSaveBtn" type="button">Spara</button>
-                  <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
-                  <button class="secondary" id="savingsCancelEditorBtn" type="button">Avbryt</button>
-                </div>
-                <div class="note" id="savingsNote"></div>
-              </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Ditt sparande">
-                <div class="bb-notched-panel-legend">Ditt sparande</div>
-                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
-                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
-                    <div class="bb-notched-field-legend">Månad och år</div>
-                    <button type="button" class="bb-notched-field-btn" id="savingsListPeriodOpenBtn">
-                      <span class="bb-notched-field-value" id="savingsListPeriodSummary">—</span>
-                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                    </button>
-                  </div>
-                </div>
-                <select id="savingsListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                <select id="savingsListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
-                <h3 class="tagged-omkostnader-month-heading" id="savingsListMonthTitle">Sparbelopp</h3>
-                <div id="savingsListMount" class="tagged-expense-preview-list"></div>
-                <p class="tagged-omkostnader-total" id="savingsMonthTotal"></p>
-                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="savingsAddBtn">
-                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                  </span>
-                  <span class="food-mat-add-period-card__label">Lägg till</span>
-                </button>
-              </div>
+        <!-- SAVINGS -->
+        <section class="view" data-view="savings">
+          <div class="view-header">
+            <h2>Spara</h2>
+            <p class="note income-page-intro">
+              Planera ditt sparande och sätt mål för hur mycket du vill lägga undan över tid.
+            </p>
+          </div>
+
+          <div class="bb-error-summary tagged-editor-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
+
+          <div class="table-card car-omkostnader-card">
+            <div class="table-title-row">
+              <div class="table-title">Planerat sparande</div>
             </div>
-          </section>
+            <div class="bb-notched-panel tagged-editor-panel" id="savingsEditorCard" hidden role="group" aria-label="Lägg till sparande">
+              <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till sparande</div>
+              <div class="form-grid narrow">
+                <div class="tagged-editor-field-wrap">
+                  <div class="bb-notched-field" role="group" aria-label="Namn">
+                    <div class="bb-notched-field-legend">Namn</div>
+                    <input
+                      id="savingsEditName"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field-error tagged-editor-field-error" id="savingsErrName" hidden></div>
+                </div>
+                <label class="field">
+                  <input
+                    id="savingsEditFirstDate"
+                    type="date"
+                    data-notch-label="Spar datum"
+                  />
+                </label>
+                <div class="field-error tagged-editor-field-error" id="savingsErrFirstDate" hidden></div>
+                <div class="bb-notched-field" role="group" aria-label="Intervall">
+                  <div class="bb-notched-field-legend">Intervall</div>
+                  <button
+                    type="button"
+                    class="bb-notched-field-btn"
+                    id="savingsEditIntervalOpenBtn"
+                    aria-haspopup="dialog"
+                    aria-controls="listPickerSheet"
+                  >
+                    <span class="bb-notched-field-value" id="savingsEditIntervalSummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
+                <select id="savingsEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                  <option value="once">Inget</option>
+                  <option value="weekly">Veckovis</option>
+                  <option value="monthly">Månad</option>
+                  <option value="quarterly">Kvartal</option>
+                  <option value="yearly">År</option>
+                </select>
+                <label class="field" id="savingsEndDateRow">
+                  <input
+                    id="savingsEditEndDate"
+                    type="date"
+                    data-notch-label="Gäller till"
+                    data-date-clear
+                  />
+                </label>
+                <div class="field-error tagged-editor-field-error" id="savingsErrEndDate" hidden></div>
+                <div class="tagged-editor-field-wrap">
+                  <div class="bb-notched-field" role="group" aria-label="Belopp">
+                    <div class="bb-notched-field-legend">Belopp</div>
+                    <input
+                      id="savingsEditAmount"
+                      class="bb-notched-field-plain-input"
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="field-error tagged-editor-field-error" id="savingsErrAmount" hidden></div>
+                </div>
+              </div>
+              <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                <button class="primary" id="savingsSaveBtn" type="button">Spara</button>
+                <button class="danger" id="savingsDeleteBtn" type="button" hidden>Ta bort</button>
+                <button class="secondary" id="savingsCancelEditorBtn" type="button">Avbryt</button>
+              </div>
+              <div class="note" id="savingsNote"></div>
+            </div>
+            <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Planerat sparande">
+              <div class="bb-notched-panel-legend">Sparposter</div>
+              <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                  <div class="bb-notched-field-legend">Månad och år</div>
+                  <button type="button" class="bb-notched-field-btn" id="savingsListPeriodOpenBtn">
+                    <span class="bb-notched-field-value" id="savingsListPeriodSummary">—</span>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </button>
+                </div>
+              </div>
+              <select id="savingsListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <select id="savingsListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+              <h3 class="tagged-omkostnader-month-heading" id="savingsListMonthTitle">Sparbelopp</h3>
+              <div id="savingsListMount" class="tagged-expense-preview-list"></div>
+              <p class="tagged-omkostnader-total" id="savingsMonthTotal"></p>
+              <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="savingsAddBtn">
+                <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="food-mat-add-period-card__label">Lägg till</span>
+              </button>
+            </div>
+          </div>
         </section>
 
         <!-- SETTINGS -->

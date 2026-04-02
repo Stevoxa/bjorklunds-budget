@@ -3035,7 +3035,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   background: color-mix(in srgb, var(--card) 88%, transparent);
 }
 
-/* Som Mat: lägg till-kort under månadslistan (Hem / Bil / Barn / Spar) */
+/* Som Mat: lägg till-kort under månadslistan (Hem / Bil / Barn / Spara) */
 .tagged-omkostnader-panel > .tagged-omkostnader-add-card {
   margin-top: 14px;
 }
@@ -3370,13 +3370,13 @@ input.input-readonly-like {
 }
 
 /*
- * Utgiftsöverlägg (Hem/Bil/Barn/Spar): lite mer luft kring notchade paneler än standard,
+ * Utgiftsöverlägg (Hem/Bil/Barn/Spara): lite mer luft kring notchade paneler än standard,
  * i linje med Mat-flikarnas periodredigerare.
  */
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
-.exp-overlay[data-expview="savings"],
+.view[data-view="savings"],
 .exp-overlay[data-expview="loans"],
 .inc-overlay[data-incview="salary"],
 .inc-overlay[data-incview="benefit"],
@@ -3405,6 +3405,48 @@ input.input-readonly-like {
 
 .view[data-view="incomes"] > .view-header h2 {
   width: 100%;
+}
+
+.view[data-view="savings"] > .view-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.view[data-view="savings"] > .view-header h2 {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .view[data-view="savings"] > .view-header {
+    gap: 10px;
+  }
+}
+
+.expenses-savings-aside {
+  max-width: 780px;
+  margin: var(--space-5) auto 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.expenses-savings-aside__text {
+  margin: 0;
+  max-width: min(52ch, 100%);
+}
+
+.expenses-savings-aside__link {
+  display: inline-block;
+  margin-top: var(--space-2);
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.expenses-savings-aside__link:hover {
+  color: color-mix(in srgb, var(--primary) 88%, var(--text));
 }
 
 .income-page-intro {
@@ -3478,7 +3520,7 @@ input.input-readonly-like {
   margin-top: calc(var(--space-6) + var(--space-2));
 }
 
-/* Bil/Hem/Barn/Spar: editor som notchad box (Mat-likt) */
+/* Bil/Hem/Barn/Spara: editor som notchad box (Mat-likt) */
 .tagged-editor-panel {
   margin-top: var(--space-6);
   margin-bottom: var(--space-6);
@@ -3491,7 +3533,7 @@ input.input-readonly-like {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
-.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary,
+.view[data-view="savings"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary,
 .inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary,
 .inc-overlay[data-incview="benefit"] > .bb-error-summary.tagged-editor-error-summary,
@@ -3507,7 +3549,7 @@ input.input-readonly-like {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
-.exp-overlay[data-expview="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.view[data-view="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .inc-overlay[data-incview="benefit"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),

@@ -595,7 +595,7 @@ let periodSheetClosing = false;
 let periodSheetKind = "overview";
 let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
-/** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spar-vy som öppnade periodarket. */
+/** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spara-vy som öppnade periodarket. */
 let periodSheetTaggedCat = null;
 /** När periodSheetKind === "incomeTaggedList": benefit | capital | gift. */
 let periodSheetIncomeTaggedCat = null;
@@ -635,9 +635,6 @@ function closeExpenseCategoryOverlayFromUi() {
     return;
   }
   closeExpenseCategoryOverlay({ fromHistory: false });
-  if (ui.activeRoute === "savings") {
-    location.hash = "#/expenses";
-  }
 }
 
 function initExpenseOverlayHistory() {
@@ -4511,7 +4508,7 @@ function parseRouteFromHash() {
 function initRouting() {
   const view = (name) => {
     ui.activeRoute = name;
-    const routeView = name === "savings" ? "expenses" : name;
+    const routeView = name;
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     document.querySelectorAll("[data-view]").forEach((v) => {
       if (v.getAttribute("data-view") === routeView) v.classList.add("active");
@@ -5459,7 +5456,7 @@ function overviewTableGroupForExpense(exp) {
     car: "Bil",
     home: "Hem",
     children: "Barn",
-    savings: "Spar",
+    savings: "Spara",
     loans: "Lån",
     one_off: "Enstaka utgifter",
     food: "Mat"
@@ -5568,7 +5565,7 @@ function computeMonthOverview(year, month) {
     { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
     { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
     { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
-    { key: "savings", label: "Spar", amount: seg.savings, color: chartSegmentHex("savings") },
+    { key: "savings", label: "Spara", amount: seg.savings, color: chartSegmentHex("savings") },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
   ].filter((s) => s.amount > 0);
 
@@ -5868,7 +5865,7 @@ function aggregateOverviewForIsoRange(startIso, endIso) {
     { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
     { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
     { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
-    { key: "savings", label: "Spar", amount: seg.savings, color: chartSegmentHex("savings") },
+    { key: "savings", label: "Spara", amount: seg.savings, color: chartSegmentHex("savings") },
     { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
   ].filter((s) => s.amount > 0);
 
@@ -6679,7 +6676,7 @@ function updateAnalysisDomFromModel(model) {
       Hem: chartSegmentHex("housing"),
       Lån: chartSegmentHex("loans"),
       Barn: chartSegmentHex("children"),
-      Spar: chartSegmentHex("savings"),
+      Spara: chartSegmentHex("savings"),
       Mat: chartSegmentHex("foodGenerated"),
       Utgifter: chartSegmentHex("recurringExpenses"),
       "Enstaka utgifter": chartSegmentHex("oneOffExpenses"),
@@ -6846,7 +6843,12 @@ function applyTaggedOverlayDateBounds(cat) {
   if (!C) return;
   const min = getFoodDateInputMinIso();
   const max = getFoodDateInputMaxIso();
-  document.querySelectorAll(`[data-expview="${C.overlayKey}"] input[type="date"]`).forEach((inp) => {
+  const root =
+    cat === "savings"
+      ? document.querySelector('[data-view="savings"]')
+      : document.querySelector(`[data-expview="${C.overlayKey}"]`);
+  if (!root) return;
+  root.querySelectorAll('input[type="date"]').forEach((inp) => {
     inp.min = min;
     inp.max = max;
   });
@@ -9096,7 +9098,7 @@ function renderRoute(route, opts = {}) {
       break;
     }
     case "savings": {
-      renderExpensesPage({ openSavingsOverlay: true });
+      renderSavingsViewPage();
       break;
     }
     case "settings": {
@@ -9126,7 +9128,7 @@ function renderOverviewIfOnOverview() {
 
 function incomeYearsForFilter() {
   const cur = currentYearMonth().year;
-  return ["all", String(cur + 1), String(cur), String(cur - 1)];
+  return ["all", String(cur - 1), String(cur), String(cur + 1)];
 }
 
 function setYearFilterOptions(selectEl, selected) {
@@ -10250,7 +10252,7 @@ function renderIncomesList() {
 
 function expenseYearsForFilter() {
   const cur = currentYearMonth().year;
-  return ["all", String(cur + 1), String(cur), String(cur - 1)];
+  return ["all", String(cur - 1), String(cur), String(cur + 1)];
 }
 
 function setExpenseYearFilterOptions(selectEl, selected) {
@@ -10289,6 +10291,7 @@ function buildExpensePaymentRowsForList(yearFilter) {
   const rows = [];
   const monthFilter = ui.expenseMonthFilter || "all";
   for (const exp of state.expenses || []) {
+    if (exp.category === "savings") continue;
     const name = exp.name || "Utgift";
     const disp = expensePaymentRowDisplayParts(exp);
     for (const p of exp.payments || []) {
@@ -10878,10 +10881,9 @@ function saveExpenseFromOverlay() {
   renderOverviewIfOnOverview();
 }
 
-function renderExpensesPage(opts = {}) {
-  const openSavings = opts.openSavingsOverlay === true;
+function renderExpensesPage() {
   const subEl = document.getElementById("headerSubtitle");
-  if (subEl) subEl.textContent = openSavings ? "Spara" : "Utgifter";
+  if (subEl) subEl.textContent = "Utgifter";
   ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
 
   // Ensure overlays start hidden
@@ -10901,20 +10903,25 @@ function renderExpensesPage(opts = {}) {
   });
 
   renderExpensesSummaryPage();
-  if (openSavings) {
-    openExpenseCategoryOverlay("savings", { skipHistory: true });
-  }
+}
+
+function renderSavingsViewPage() {
+  requireEl("headerSubtitle").textContent = "Spara";
+  renderSavingsPage();
 }
 
 function openExpenseCategoryOverlay(key, opts = {}) {
   const skipHistory = opts.skipHistory === true;
+  if (key === "savings") {
+    location.hash = "#/savings";
+    return;
+  }
   const map = {
     home: renderHomePage,
     loans: renderLoansPage,
     car: renderCarPage,
     food: renderFoodPage,
-    children: renderChildrenPage,
-    savings: renderSavingsPage
+    children: renderChildrenPage
   };
   if (map[key]) map[key]();
   const target = document.querySelector(`[data-expview="${key}"]`);
