@@ -3473,6 +3473,81 @@ input.input-readonly-like {
   color: color-mix(in srgb, var(--primary) 88%, var(--text));
 }
 
+/* Ny analysvy — skärningsväljare */
+.analysis-new-view-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.analysis-new-view-header h2 {
+  width: 100%;
+}
+
+.analysis-mode-seg--slim {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 88%, transparent);
+  width: 100%;
+  max-width: 520px;
+  box-sizing: border-box;
+}
+
+.analysis-mode-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 750;
+  font-size: 0.78rem;
+  padding: 8px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.analysis-mode-btn.is-active {
+  background: color-mix(in srgb, var(--primary) 22%, var(--card));
+  color: var(--text);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.analysis-view-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.analysis-inline-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.analysis-anchor-note--warn {
+  border-left: 3px solid color-mix(in srgb, var(--danger) 55%, var(--border));
+  padding-left: var(--space-3);
+}
+
+.field-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.field-checkbox-row input {
+  margin-top: 0.2rem;
+}
+
 .income-page-intro {
   margin-top: 0;
   margin-bottom: 0;

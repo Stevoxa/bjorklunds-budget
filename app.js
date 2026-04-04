@@ -2674,7 +2674,12 @@ function getDefaultState() {
       lastBackupPromptAt: 0,
       foodPlanningWeekday: 1,
       analysisLayout: null,
-      analysisSavingsTargetKr: 5000
+      analysisSavingsTargetKr: 5000,
+      /** Ny analys: fast lönedag i månaden när checkbox är på */
+      salaryPeriodUseFixedDay: false,
+      salaryPeriodFixedDay: 25,
+      /** Första månad i löneåret (1 = januari) */
+      salaryYearStartMonth: 1
     },
     incomes: [],
     expenses: [],
@@ -2785,6 +2790,15 @@ function normalizeStateShape(state) {
     1,
     Math.floor(asNumber(normalized.settings.analysisSavingsTargetKr ?? base.settings.analysisSavingsTargetKr))
   );
+  normalized.settings.salaryPeriodUseFixedDay = Boolean(normalized.settings.salaryPeriodUseFixedDay);
+  {
+    const fd = Math.floor(asNumber(normalized.settings.salaryPeriodFixedDay ?? base.settings.salaryPeriodFixedDay));
+    normalized.settings.salaryPeriodFixedDay = Number.isFinite(fd) ? Math.max(1, Math.min(31, fd)) : 25;
+  }
+  {
+    const sm = Math.floor(asNumber(normalized.settings.salaryYearStartMonth ?? base.settings.salaryYearStartMonth));
+    normalized.settings.salaryYearStartMonth = Number.isFinite(sm) ? Math.max(1, Math.min(12, sm)) : 1;
+  }
 
   delete normalized.recurring;
 
@@ -3052,6 +3066,161 @@ function regenerateSalaryPeriodIncomes(root) {
     };
     root.incomes.push(normalizeIncomeRecord(rawInc));
   }
+}
+
+// --- Ny analysvy: löneperioder & löneår (ankare från största månadsintäkt) ---
+
+function getMonthlyIncomeAnchorCandidates(root) {
+  const out = [];
+  for (const inc of root?.incomes || []) {
+    if (String(inc?.interval || "") !== "monthly") continue;
+    const pays = (inc.payments || []).filter((p) => asNumber(p.amount) > 0 && p.date);
+    if (pays.length === 0) continue;
+    const maxAmt = Math.max(...pays.map((p) => asNumber(p.amount)));
+    const sorted = pays.slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const firstIso = String(sorted[0].date || "").slice(0, 10);
+    if (!datePartsFromIso(firstIso)) continue;
+    out.push({
+      inc,
+      maxAmt,
+      firstIso,
+      name: String(inc.name || "").trim() || "Intäkt"
+    });
+  }
+  out.sort((a, b) => b.maxAmt - a.maxAmt);
+  return out;
+}
+
+/**
+ * Största månadsintäkten: första utbetalningsdatum + återkommande dag (eller fast dag från inställningar).
+ */
+function getAnalysisSalaryAnchorSpec(root) {
+  const st = root?.settings || {};
+  const useFixed = Boolean(st.salaryPeriodUseFixedDay);
+  const fixedDay = Math.max(1, Math.min(31, Math.floor(asNumber(st.salaryPeriodFixedDay)) || 25));
+  const cands = getMonthlyIncomeAnchorCandidates(root);
+  if (cands.length === 0) {
+    return {
+      ok: false,
+      recurringDay: useFixed ? fixedDay : 25,
+      firstIso: null,
+      sourceLabel: null,
+      maxAmt: 0,
+      useFixed
+    };
+  }
+  const top = cands[0];
+  const fp = datePartsFromIso(top.firstIso);
+  const naturalDay = fp ? fp.d : 25;
+  const recurringDay = useFixed ? fixedDay : naturalDay;
+  return {
+    ok: true,
+    recurringDay,
+    firstIso: top.firstIso,
+    sourceLabel: top.name,
+    maxAmt: top.maxAmt,
+    useFixed,
+    naturalDay
+  };
+}
+
+function pushSalaryPayDate(set, y, m, dayRaw) {
+  const dim = daysInMonth(y, m);
+  const d0 = Math.max(1, Math.min(dim, Math.floor(dayRaw)));
+  let cand = new Date(y, m - 1, d0);
+  cand = adjustToPreviousSwedishBankDay(cand);
+  set.add(toLocalISODate(cand));
+}
+
+/** Teoretiska lönedagar från första utbetaling och återkommande dag, inom tidsfönster. */
+function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, rangeEndMs) {
+  const fp = datePartsFromIso(firstIso);
+  if (!fp) return [];
+  const set = new Set();
+  const rd = Math.max(1, Math.min(31, Math.floor(asNumber(recurringDay)) || 25));
+
+  pushSalaryPayDate(set, fp.y, fp.m, fp.d);
+
+  let y = fp.y;
+  let m = fp.m;
+  for (let guard = 0; guard < 160; guard++) {
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    pushSalaryPayDate(set, y, m, rd);
+  }
+
+  y = fp.y;
+  m = fp.m;
+  for (let guard = 0; guard < 160; guard++) {
+    m -= 1;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    pushSalaryPayDate(set, y, m, rd);
+  }
+
+  return Array.from(set)
+    .filter((iso) => {
+      const t = parseDateISO(iso).getTime();
+      return t >= rangeStartMs && t <= rangeEndMs;
+    })
+    .sort((a, b) => a.localeCompare(b));
+}
+
+function currentSalaryYearLabelForDate(now, startMonth) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const y = now.getFullYear();
+  const m = now.getMonth() + 1;
+  if (m >= sm) return y;
+  return y - 1;
+}
+
+function salaryYearInclusiveBounds(labelYear, startMonth) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const y = Math.floor(asNumber(labelYear));
+  if (!Number.isFinite(y)) return null;
+  const start = new Date(y, sm - 1, 1);
+  const end = new Date(y + 1, sm - 1, 0);
+  return { start, end };
+}
+
+function analysisStartOfLocalDayMs(ms) {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Period mellan föregående lönedag (exkl. själva lönedagen) och vald nästa lönedag (inkl.). */
+function getSalaryPeriodWindow(sortedPayIsos, nextPayIndex) {
+  if (!sortedPayIsos.length || nextPayIndex < 0 || nextPayIndex >= sortedPayIsos.length) return null;
+  const nextIso = sortedPayIsos[nextPayIndex];
+  const prevIso = nextPayIndex > 0 ? sortedPayIsos[nextPayIndex - 1] : null;
+  let startIso;
+  if (prevIso) {
+    const p = parseDateISO(prevIso);
+    if (Number.isNaN(p.getTime())) startIso = sortedPayIsos[0];
+    else startIso = toLocalISODate(addDays(p, 1));
+  } else {
+    startIso = nextIso;
+  }
+  return { startIso, endIso: nextIso, nextPayIndex };
+}
+
+function salaryYearRangeCaption(labelYear, startMonth) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const endMo = sm === 1 ? 12 : sm - 1;
+  const endY = sm === 1 ? labelYear : labelYear + 1;
+  return `${monthName(sm)} ${labelYear}–${monthName(endMo)} ${endY}`;
+}
+
+function formatAnalysisIsoRangeSv(startIso, endIso) {
+  const a = datePartsFromIso(startIso);
+  const b = datePartsFromIso(endIso);
+  if (!a || !b) return "—";
+  return `${a.d} ${monthName(a.m)} ${a.y} – ${b.d} ${monthName(b.m)} ${b.y}`;
 }
 
 function ensureIncomeIds(root) {
@@ -3782,6 +3951,12 @@ const ui = {
   overviewMonth: null,
   /** Analys: vecka | månad | år (diagramserier) */
   analysisRange: "month",
+  /** Ny analysvy: salaryYear | salaryPeriod | calendarYear */
+  analysisViewMode: "salaryPeriod",
+  /** Löneår: -1 föregående, 0 nuvarande, +1 nästa */
+  analysisSalaryYearNav: 0,
+  /** Löneperiod: offset från automatisk nuvarande period */
+  analysisSalaryPeriodOffset: 0,
   // Utgifter
   expensesYear: null,
   expensesTab: "summary",
@@ -9054,6 +9229,20 @@ function renderSettingsPage() {
   document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
+  const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
+  const salaryFixedDayInp = document.getElementById("salaryPeriodFixedDay");
+  const salaryStartMo = document.getElementById("salaryYearStartMonth");
+  if (salaryFixedCh) salaryFixedCh.checked = Boolean(state.settings.salaryPeriodUseFixedDay);
+  if (salaryFixedDayInp) salaryFixedDayInp.value = String(state.settings.salaryPeriodFixedDay ?? 25);
+  if (salaryStartMo) salaryStartMo.value = String(state.settings.salaryYearStartMonth ?? 1);
+  const syncSalaryFixedUi = () => {
+    if (salaryFixedDayInp) salaryFixedDayInp.disabled = !salaryFixedCh?.checked;
+  };
+  syncSalaryFixedUi();
+  if (salaryFixedCh && !salaryFixedCh.dataset.bound) {
+    salaryFixedCh.dataset.bound = "1";
+    salaryFixedCh.addEventListener("change", syncSalaryFixedUi);
+  }
   wireAnalysisLayoutSettingsOnce();
   renderAnalysisLayoutSettingsList();
   syncThemeModeSummaryLabel();
@@ -9127,10 +9316,145 @@ function renderRoute(route, opts = {}) {
   }
 }
 
-/** Ny analysvy (under utveckling). */
+/** Ny analysvy: skärningar löneår / löneperiod / kalenderår. */
 function renderAnalysisPage() {
   const sub = document.getElementById("headerSubtitle");
   if (sub) sub.textContent = "Analys";
+
+  const mode = ui.analysisViewMode || "salaryPeriod";
+  if (mode !== "salaryYear" && mode !== "salaryPeriod" && mode !== "calendarYear") ui.analysisViewMode = "salaryPeriod";
+
+  document.querySelectorAll("[data-analysis-view-mode]").forEach((btn) => {
+    const v = btn.getAttribute("data-analysis-view-mode");
+    const on = v === ui.analysisViewMode;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.onclick = () => {
+      if (v === ui.analysisViewMode) return;
+      ui.analysisViewMode = v;
+      if (v === "salaryYear") ui.analysisSalaryYearNav = 0;
+      if (v === "salaryPeriod") ui.analysisSalaryPeriodOffset = 0;
+      renderAnalysisPage();
+    };
+  });
+
+  const mount = document.getElementById("analysisViewDetail");
+  if (!mount) return;
+
+  const st = state.settings || {};
+  const startMo = st.salaryYearStartMonth || 1;
+  const anchor = getAnalysisSalaryAnchorSpec(state);
+  const now = new Date();
+  const winStart = new Date(now.getFullYear() - 6, 0, 1).getTime();
+  const winEnd = new Date(now.getFullYear() + 4, 11, 31, 23, 59, 59, 999).getTime();
+  const payDates =
+    anchor.ok && anchor.firstIso
+      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd)
+      : [];
+
+  const anchorNote = anchor.ok
+    ? `<p class="note analysis-anchor-note">Löneankare: <strong>${escapeHtml(anchor.sourceLabel)}</strong> (${formatKr(
+        anchor.maxAmt
+      )}/mån)${anchor.useFixed ? ` — fast dag ${anchor.recurringDay}` : ` — dag ${anchor.recurringDay} från första utbetalningen`}.</p>`
+    : `<p class="note analysis-anchor-note analysis-anchor-note--warn">Ingen månadsvis intäkt hittades. Lägg till en planerad intäkt med intervall <strong>månad</strong> (t.ex. lön), eller aktivera fast löneperiod under inställningar.</p>`;
+
+  if (ui.analysisViewMode === "calendarYear") {
+    mount.innerHTML = `
+      <div class="table-card">
+        <div class="table-title">Kalenderår</div>
+        <p class="note">Sekundär översikt per kalendermånad — denna del byggs i ett senare steg.</p>
+      </div>
+      ${anchorNote}
+    `;
+    return;
+  }
+
+  if (ui.analysisViewMode === "salaryYear") {
+    let nav = Math.round(Number(ui.analysisSalaryYearNav) || 0);
+    if (nav < -1) nav = -1;
+    if (nav > 1) nav = 1;
+    ui.analysisSalaryYearNav = nav;
+    const curLabel = currentSalaryYearLabelForDate(now, startMo);
+    const labelYear = curLabel + nav;
+    const bounds = salaryYearInclusiveBounds(labelYear, startMo);
+    const cap = salaryYearRangeCaption(labelYear, startMo);
+    const rangeLine =
+      bounds && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())
+        ? `<p class="note analysis-view-range-line">${escapeHtml(formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end)))}</p>`
+        : "";
+    mount.innerHTML = `
+      <div class="table-card">
+        <div class="table-title">Löneår ${labelYear}</div>
+        <p class="note">${escapeHtml(cap)}</p>
+        <p class="note">Används främst när du sätter budget över hela löneåret.</p>
+        ${rangeLine}
+        <div class="analysis-inline-nav">
+          <button type="button" class="secondary" id="analysisSalaryYearPrevBtn" ${nav <= -1 ? "disabled" : ""}>Föregående år</button>
+          <button type="button" class="secondary" id="analysisSalaryYearNextBtn" ${nav >= 1 ? "disabled" : ""}>Nästa år</button>
+        </div>
+      </div>
+      ${anchorNote}
+    `;
+    document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
+      ui.analysisSalaryYearNav = Math.max(-1, ui.analysisSalaryYearNav - 1);
+      renderAnalysisPage();
+    });
+    document.getElementById("analysisSalaryYearNextBtn")?.addEventListener("click", () => {
+      ui.analysisSalaryYearNav = Math.min(1, ui.analysisSalaryYearNav + 1);
+      renderAnalysisPage();
+    });
+    return;
+  }
+
+  /* Löneperiod */
+  if (!payDates.length) {
+    mount.innerHTML = `
+      <div class="table-card">
+        <div class="table-title">Löneperiod</div>
+        <p class="note">Inga lönedagar kunde beräknas ännu.</p>
+      </div>
+      ${anchorNote}
+    `;
+    return;
+  }
+
+  const today0 = analysisStartOfLocalDayMs(Date.now());
+  let nextIdx = payDates.findIndex((iso) => {
+    const t = analysisStartOfLocalDayMs(parseDateISO(iso).getTime());
+    return t >= today0;
+  });
+  if (nextIdx === -1) nextIdx = payDates.length - 1;
+  if (nextIdx < 0) nextIdx = 0;
+
+  const rawOff = Number(ui.analysisSalaryPeriodOffset) || 0;
+  const idx = Math.max(0, Math.min(payDates.length - 1, nextIdx + rawOff));
+  ui.analysisSalaryPeriodOffset = idx - nextIdx;
+
+  const win = getSalaryPeriodWindow(payDates, idx);
+  const nextPay = win ? win.endIso : "—";
+  const periodLine = win ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "—";
+
+  mount.innerHTML = `
+    <div class="table-card">
+      <div class="table-title">Löneperiod</div>
+      <p class="note">Perioden mellan två löneutbetalningar — slutar på nästa lönedag (<strong>${escapeHtml(nextPay)}</strong>).</p>
+      <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
+      <div class="analysis-inline-nav">
+        <button type="button" class="secondary" id="analysisSalaryPeriodPrevBtn" ${idx <= 0 ? "disabled" : ""}>Föregående period</button>
+        <button type="button" class="secondary" id="analysisSalaryPeriodNextBtn" ${idx >= payDates.length - 1 ? "disabled" : ""}>Nästa period</button>
+      </div>
+    </div>
+    ${anchorNote}
+  `;
+
+  document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
+    ui.analysisSalaryPeriodOffset -= 1;
+    renderAnalysisPage();
+  });
+  document.getElementById("analysisSalaryPeriodNextBtn")?.addEventListener("click", () => {
+    ui.analysisSalaryPeriodOffset += 1;
+    renderAnalysisPage();
+  });
 }
 
 function renderAnalysisViewsIfActive() {
@@ -11623,6 +11947,16 @@ function initActions() {
     state.settings.backupFilenamePattern = pat.trim();
     const fd = document.getElementById("foodPlanningWeekday");
     if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
+    const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
+    const salaryFixedDayInp = document.getElementById("salaryPeriodFixedDay");
+    const salaryStartMo = document.getElementById("salaryYearStartMonth");
+    if (salaryFixedCh) state.settings.salaryPeriodUseFixedDay = salaryFixedCh.checked;
+    if (salaryFixedDayInp) {
+      state.settings.salaryPeriodFixedDay = Math.max(1, Math.min(31, Math.floor(asNumber(salaryFixedDayInp.value)) || 25));
+    }
+    if (salaryStartMo) {
+      state.settings.salaryYearStartMonth = Math.max(1, Math.min(12, Math.floor(asNumber(salaryStartMo.value)) || 1));
+    }
     const layoutOl = document.getElementById("analysisLayoutSortable");
     if (layoutOl) {
       const ids = Array.from(layoutOl.querySelectorAll("li[data-widget-id]"))
@@ -11632,6 +11966,7 @@ function initActions() {
     }
     saveState();
     document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
+    renderAnalysisViewsIfActive();
   });
 
   // Backup modal
