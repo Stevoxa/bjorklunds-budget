@@ -19,10 +19,29 @@
 
     <main class="app-main">
       <div class="content-card">
-        <!-- OVERVIEW / ANALYS -->
-        <section class="view" data-view="overview">
-          <div class="view-header analysis-view-header">
+        <!-- ANALYSIS (new — under utveckling) -->
+        <section class="view" data-view="analysis">
+          <div class="view-header">
             <h2>Analys</h2>
+          </div>
+          <div class="table-card analysis-new-root">
+            <div class="table-title">Kommer snart</div>
+            <p class="note">
+              Här byggs den nya analysvyn. Du kan under tiden använda den tidigare vyn med alla diagram och tabeller.
+            </p>
+          </div>
+          <footer class="analysis-old-analysis-foot" aria-label="Tidigare analys">
+            <p class="note analysis-old-analysis-foot__text">
+              <a href="#/old-analysis" class="analysis-old-analysis-foot__link">Tidigare analysvy</a>
+              — referensversion med dagens diagram, tabeller och widget-ordning.
+            </p>
+          </footer>
+        </section>
+
+        <!-- OLD ANALYSIS (legacy dashboards & charts — behålls som referens) -->
+        <section class="view old-analysis-view" data-view="old-analysis">
+          <div class="view-header analysis-view-header">
+            <h2>Tidigare analys</h2>
             <div class="analysis-header-controls">
               <div class="period-picker bb-period-wrap" data-overview-period="" role="group" aria-label="Välj period">
                 <div class="bb-notched-field" role="group" aria-label="Period">
@@ -2076,7 +2095,7 @@
     <nav class="bottom-nav" aria-label="Huvudnavigation">
       <ul class="bottom-nav__list">
         <li>
-          <a href="#/overview" data-navlink="overview" aria-label="Analys">
+          <a href="#/analysis" data-navlink="analysis" aria-label="Analys">
             <span class="nav-icon-wrap" aria-hidden="true">
               <!-- Källa: icons/bas-analys.svg — uppdatera path här om du ändrar filen -->
               <svg class="nav-icon-svg" width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">

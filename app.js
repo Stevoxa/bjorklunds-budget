@@ -3776,8 +3776,8 @@ function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDa
 
 let state = null;
 const ui = {
-  activeRoute: "overview",
-  // Analys (route "overview")
+  activeRoute: "analysis",
+  // Analys: route "analysis" (ny), "old-analysis" (tidigare dashboard)
   overviewYear: null,
   overviewMonth: null,
   /** Analys: vecka | månad | år (diagramserier) */
@@ -3841,7 +3841,7 @@ function initSystemThemeListener() {
     const onChange = () => {
       if ((state.themeMode || "system") !== "system") return;
       applyTheme();
-      renderOverviewIfOnOverview();
+      renderAnalysisViewsIfActive();
     };
     if (mq.addEventListener) mq.addEventListener("change", onChange);
     else if (mq.addListener) mq.addListener(onChange);
@@ -4450,7 +4450,7 @@ function saveIncomeTaggedFromEditor(cat) {
   u.editingId = null;
   renderTaggedIncomeCategoryPage(cat);
   renderIncomesList();
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
 }
 
 function deleteIncomeTaggedFromEditor(cat) {
@@ -4462,7 +4462,7 @@ function deleteIncomeTaggedFromEditor(cat) {
   u.editingId = null;
   renderTaggedIncomeCategoryPage(cat);
   renderIncomesList();
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
 }
 
 function openIncomeTaggedOverlay(cat, opts = {}) {
@@ -4489,11 +4489,12 @@ function openIncomeTaggedEditorFromMainList(cat, incomeId) {
 }
 
 function parseRouteFromHash() {
-  const h = (location.hash || "#/overview").trim();
-  if (!h.startsWith("#/")) return { route: "overview", incomeOverlay: null };
+  const h = (location.hash || "#/analysis").trim();
+  if (!h.startsWith("#/")) return { route: "analysis", incomeOverlay: null };
   const part = h.slice(2).split("?")[0].trim();
   const segments = part.split("/").filter(Boolean);
-  const route = segments[0] || "overview";
+  let route = segments[0] || "analysis";
+  if (route === "overview") route = "analysis";
   let incomeOverlay = null;
   if (route === "incomes" && segments[1]) {
     const s1 = String(segments[1]).toLowerCase();
@@ -4530,10 +4531,10 @@ function initRouting() {
   };
 
   const onChange = () => {
-    const allowed = new Set(["overview", "incomes", "expenses", "savings", "settings"]);
+    const allowed = new Set(["analysis", "old-analysis", "incomes", "expenses", "savings", "settings"]);
     const parsed = parseRouteFromHash();
     let route = parsed.route;
-    if (!allowed.has(route)) route = "overview";
+    if (!allowed.has(route)) route = "analysis";
     const incOv = route === "incomes" ? parsed.incomeOverlay : null;
     if (route === "incomes") {
       if (incOv !== "salary" && anyIncomeSalaryOverlayOpen()) closeIncomeSalaryOverlay({ fromHistory: true });
@@ -6738,7 +6739,7 @@ function wireAnalysisDashboardOnce() {
       if (v === "week" || v === "month" || v === "year") {
         ui.analysisRange = v;
         syncAnalysisRangeSegmentUI();
-        renderOverview();
+        renderOldAnalysisDashboard();
       }
     });
   });
@@ -6750,7 +6751,8 @@ function wireAnalysisDashboardOnce() {
   });
 }
 
-function renderOverview() {
+/** Tidigare analysvy: diagram, KPI:er och månadstabeller (referens). */
+function renderOldAnalysisDashboard() {
   const year = ui.overviewYear;
   const month = ui.overviewMonth;
   if (!year || !month) return;
@@ -6761,7 +6763,7 @@ function renderOverview() {
   const model = buildAnalysisAnalyticsModel(range, year, month);
 
   const sub = document.getElementById("headerSubtitle");
-  if (sub) {
+  if (sub && ui.activeRoute === "old-analysis") {
     sub.textContent =
       range === "year"
         ? `${overview.year} · helår`
@@ -7510,7 +7512,7 @@ function saveTaggedCategoryFromEditor(cat) {
   u.editorOpen = false;
   u.editingId = null;
   renderTaggedCategoryPage(cat);
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
   renderExpensesList();
 }
 
@@ -7522,7 +7524,7 @@ function deleteTaggedCategoryFromEditor(cat) {
   u.editorOpen = false;
   u.editingId = null;
   renderTaggedCategoryPage(cat);
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
   renderExpensesList();
 }
 
@@ -9060,8 +9062,11 @@ function renderSettingsPage() {
 
 function renderRoute(route, opts = {}) {
   switch (route) {
-    case "overview": {
-      // init pickers if needed
+    case "analysis": {
+      renderAnalysisPage();
+      break;
+    }
+    case "old-analysis": {
       const { year, month } = currentYearMonth();
       ui.overviewYear = ui.overviewYear ?? year;
       ui.overviewMonth = ui.overviewMonth ?? month;
@@ -9074,14 +9079,14 @@ function renderRoute(route, opts = {}) {
 
       yearSel.onchange = () => {
         ui.overviewYear = Number(yearSel.value);
-        renderOverview();
+        renderOldAnalysisDashboard();
       };
       monthSel.onchange = () => {
         ui.overviewMonth = Number(monthSel.value);
-        renderOverview();
+        renderOldAnalysisDashboard();
       };
 
-      renderOverview();
+      renderOldAnalysisDashboard();
       break;
     }
     case "incomes": {
@@ -9110,7 +9115,7 @@ function renderRoute(route, opts = {}) {
         state.themeMode = themeModeSel.value;
         saveState();
         applyTheme();
-        renderOverviewIfOnOverview();
+        renderAnalysisViewsIfActive();
         syncThemeModeSummaryLabel();
       });
 
@@ -9118,12 +9123,19 @@ function renderRoute(route, opts = {}) {
       break;
     }
     default:
-      renderOverview();
+      renderAnalysisPage();
   }
 }
 
-function renderOverviewIfOnOverview() {
-  if (ui.activeRoute === "overview") renderOverview();
+/** Ny analysvy (under utveckling). */
+function renderAnalysisPage() {
+  const sub = document.getElementById("headerSubtitle");
+  if (sub) sub.textContent = "Analys";
+}
+
+function renderAnalysisViewsIfActive() {
+  if (ui.activeRoute === "old-analysis") renderOldAnalysisDashboard();
+  else if (ui.activeRoute === "analysis") renderAnalysisPage();
 }
 
 function incomeYearsForFilter() {
@@ -9337,7 +9349,7 @@ function persistSalaryPeriodItems(items) {
   regenerateSalaryPeriodIncomes(state);
   saveState();
   renderIncomesList();
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
   renderSalaryPeriodsPage();
 }
 
@@ -10197,7 +10209,7 @@ function saveIncomeFromOverlay() {
   saveState();
   closeIncomeOverlay();
   renderIncomesList();
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
 }
 
 function renderIncomesList() {
@@ -10408,7 +10420,7 @@ function renderExpensesSummaryPage() {
     hideConfirmDeleteExpenseModal();
     closeExpenseOverlay();
     renderExpensesList();
-    renderOverviewIfOnOverview();
+    renderAnalysisViewsIfActive();
   };
 
   renderExpensesList();
@@ -10878,7 +10890,7 @@ function saveExpenseFromOverlay() {
   saveState();
   closeExpenseOverlay();
   renderExpensesList();
-  renderOverviewIfOnOverview();
+  renderAnalysisViewsIfActive();
 }
 
 function renderExpensesPage() {
@@ -11360,7 +11372,7 @@ function initActions() {
     saveState();
     const foodNoteOk = document.getElementById("foodNote");
     if (foodNoteOk) foodNoteOk.textContent = "";
-    renderOverviewIfOnOverview();
+    renderAnalysisViewsIfActive();
     renderExpensesList();
     renderFoodPage();
     closeExpenseCategoryOverlayFromUi();
@@ -11385,7 +11397,7 @@ function initActions() {
     document.getElementById("loanNote").textContent = "Lån borttaget.";
     renderLoansPage();
     renderExpensesList();
-    renderOverviewIfOnOverview();
+    renderAnalysisViewsIfActive();
   };
   ["loanPrincipal", "loanRate", "loanAmortization"].forEach((id) => {
     document.getElementById(id).addEventListener("input", updateLoanDerivedFields);
@@ -11458,7 +11470,7 @@ function initActions() {
     closeLoanEditor();
     renderLoansPage();
     renderExpensesList();
-    renderOverviewIfOnOverview();
+    renderAnalysisViewsIfActive();
   });
 
   // LÖNEPERIODER (intäktsvy)
@@ -11602,7 +11614,7 @@ function initActions() {
     hideConfirmDeleteIncomeModal();
     closeIncomeOverlay();
     renderIncomesList();
-    renderOverviewIfOnOverview();
+    renderAnalysisViewsIfActive();
   };
 
   document.getElementById("saveSettingsBtn").addEventListener("click", () => {
@@ -11729,7 +11741,7 @@ function initActions() {
 }
 
 function initYearMonthPickersOverview() {
-  // handled in renderRoute("overview")
+  // handled in renderRoute("old-analysis")
 }
 
 async function registerServiceWorker() {

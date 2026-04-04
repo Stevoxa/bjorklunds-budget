@@ -3449,6 +3449,30 @@ input.input-readonly-like {
   color: color-mix(in srgb, var(--primary) 88%, var(--text));
 }
 
+.analysis-old-analysis-foot {
+  max-width: 780px;
+  margin: var(--space-5) auto 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  box-sizing: border-box;
+}
+
+.analysis-old-analysis-foot__text {
+  margin: 0;
+  max-width: min(52ch, 100%);
+}
+
+.analysis-old-analysis-foot__link {
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.analysis-old-analysis-foot__link:hover {
+  color: color-mix(in srgb, var(--primary) 88%, var(--text));
+}
+
 .income-page-intro {
   margin-top: 0;
   margin-bottom: 0;
