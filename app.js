@@ -3223,6 +3223,42 @@ function formatAnalysisIsoRangeSv(startIso, endIso) {
   return `${a.d} ${monthName(a.m)} ${a.y} – ${b.d} ${monthName(b.m)} ${b.y}`;
 }
 
+/** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
+function sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso) {
+  let sum = 0;
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  if (!a || !b) return 0;
+  for (const exp of root.expenses || []) {
+    if (exp.category === "savings") continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const d = String(p.date || "").slice(0, 10);
+      if (!d || d < a || d > b) continue;
+      sum += amt;
+    }
+  }
+  return sum;
+}
+
+function sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso) {
+  let sum = 0;
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  if (!a || !b) return 0;
+  for (const inc of root.incomes || []) {
+    for (const p of inc.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const d = String(p.date || "").slice(0, 10);
+      if (!d || d < a || d > b) continue;
+      sum += amt;
+    }
+  }
+  return sum;
+}
+
 function ensureIncomeIds(root) {
   if (!Array.isArray(root.incomes)) root.incomes = [];
   root.incomes = root.incomes.map((inc) => normalizeIncomeRecord(inc));
@@ -9433,11 +9469,36 @@ function renderAnalysisPage() {
   const win = getSalaryPeriodWindow(payDates, idx);
   const nextPay = win ? win.endIso : "—";
   const periodLine = win ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "—";
+  const plannedExp =
+    win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
+  const plannedInc =
+    win && win.startIso && win.endIso ? sumIncomePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
+  const kvarPlan = plannedInc - plannedExp;
+  const isInnevarandePeriod = (Number(ui.analysisSalaryPeriodOffset) || 0) === 0;
+  const heroEyebrow = isInnevarandePeriod ? "Innevarande löneperiod" : "Löneperiod";
 
   mount.innerHTML = `
-    <div class="table-card">
-      <div class="table-title">Löneperiod</div>
-      <p class="note">Perioden mellan två löneutbetalningar — slutar på nästa lönedag (<strong>${escapeHtml(nextPay)}</strong>).</p>
+    <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
+      <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>
+      <div class="analysis-salary-hero__big">${escapeHtml(formatKr(kvarPlan))}</div>
+      <p class="analysis-salary-hero__lead">
+        Kvar enligt planen till nästa lön. Visar om perioden är lugn eller tajt — inte saldo på kontot.
+      </p>
+      <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)} · nästa lön ${escapeHtml(nextPay)}</div>
+      <div class="analysis-salary-hero__minis">
+        <div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>
+          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(plannedExp))}</div>
+        </div>
+        <div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
+          <div class="analysis-salary-hero__mini-value analysis-salary-hero__mini-value--muted">—</div>
+        </div>
+      </div>
+    </section>
+    <div class="table-card analysis-salary-period-controls">
+      <div class="table-title">Byt period</div>
+      <p class="note">Växla mellan löneperioder. Slutdatum är nästa utbetalning.</p>
       <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
       <div class="analysis-inline-nav">
         <button type="button" class="secondary" id="analysisSalaryPeriodPrevBtn" ${idx <= 0 ? "disabled" : ""}>Föregående period</button>

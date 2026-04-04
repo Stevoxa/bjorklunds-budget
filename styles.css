@@ -3537,6 +3537,98 @@ input.input-readonly-like {
   padding-left: var(--space-3);
 }
 
+/* Löneperiod — grönt hero (mock-lik linje, fast text alltid ljus på mörkgrön botten) */
+.analysis-salary-hero {
+  margin-top: 0;
+  padding: var(--space-5) var(--space-4);
+  border-radius: var(--radius-card);
+  border: 1px solid color-mix(in srgb, #255f33 40%, transparent);
+  background: linear-gradient(180deg, #2f7a42 0%, #255f33 100%);
+  color: #fff;
+  box-shadow: var(--shadow-card, 0 8px 26px rgba(22, 32, 24, 0.08));
+}
+
+.analysis-salary-hero__eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  opacity: 0.92;
+}
+
+.analysis-salary-hero__big {
+  font-size: clamp(1.85rem, 6vw, 2.35rem);
+  line-height: 1.05;
+  margin-top: var(--space-3);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-salary-hero__lead {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+  margin: var(--space-3) 0 0;
+}
+
+.analysis-salary-hero__chip {
+  display: inline-flex;
+  margin-top: var(--space-3);
+  border-radius: 999px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.analysis-salary-hero__minis {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .analysis-salary-hero__minis {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.analysis-salary-hero__mini {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  padding: 13px 14px;
+}
+
+.analysis-salary-hero__mini-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 750;
+}
+
+.analysis-salary-hero__mini-value {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-salary-hero__mini-value--muted {
+  opacity: 0.75;
+  font-weight: 700;
+}
+
+.analysis-salary-period-controls {
+  margin-top: var(--space-2);
+}
+
 .field-checkbox-row {
   display: flex;
   align-items: flex-start;
