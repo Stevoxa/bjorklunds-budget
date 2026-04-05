@@ -3706,16 +3706,27 @@ input.input-readonly-like {
   stroke-width: 0.35;
 }
 
-.analysis-salary-year-chart__bar--to-meridian {
-  fill: color-mix(in srgb, #6b9fbf 82%, var(--surface));
+/* Fasta färger — undvik color-mix mot --surface (blev nästan svart i mörkt tema). */
+.analysis-salary-year-chart__bar--month-income {
+  fill: #5b9cc9;
 }
 
-.analysis-salary-year-chart__bar--over-meridian {
-  fill: color-mix(in srgb, var(--danger, #b03030) 52%, #d9a08f);
+.analysis-salary-year-chart__bar--over-income {
+  fill: color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090);
 }
 
-.analysis-salary-year-chart__bar--under-meridian {
+.analysis-salary-year-chart__bar--expense-within-income {
   fill: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
+}
+
+@media (prefers-color-scheme: dark) {
+  .analysis-salary-year-chart__bar--month-income {
+    fill: #7eb8e0;
+  }
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__bar--month-income {
+  fill: #7eb8e0;
 }
 
 .analysis-salary-year-chart__ylabel {
@@ -3775,7 +3786,29 @@ input.input-readonly-like {
 }
 
 .analysis-salary-year-chart-legend-swatch--split {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--danger, #b03030) 52%, #d9a08f) 50%, color-mix(in srgb, #6b9fbf 82%, var(--surface)) 50%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
+    #5b9cc9 50%
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  .analysis-salary-year-chart-legend-swatch--split {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
+      #7eb8e0 50%
+    );
+  }
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
+    #7eb8e0 50%
+  );
 }
 
 .analysis-salary-year-chart-detail {
@@ -3790,7 +3823,7 @@ input.input-readonly-like {
 .analysis-salary-year-chart-detail-head,
 .analysis-salary-year-chart-detail-row {
   display: grid;
-  grid-template-columns: minmax(44px, 0.9fr) 1fr 1fr;
+  grid-template-columns: minmax(40px, 0.7fr) repeat(3, minmax(0, 1fr));
   gap: var(--space-2);
   align-items: baseline;
   font-variant-numeric: tabular-nums;
