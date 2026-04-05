@@ -3387,16 +3387,17 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
     if (exp > inc + 0.01) {
       const yI = yPx(inc);
       const yE = yPx(exp);
-      const hBlue = Math.max(inc > 0.005 ? 1 : 0, axisY - yI);
+      const seam = 0.4;
+      const hBlue = Math.max(inc > 0.005 ? 1 : 0, axisY - yI + seam);
       const hRed = Math.max(1, yI - yE);
       if (hBlue > 0) {
-        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--month-income" x="${x.toFixed(2)}" y="${yI.toFixed(
+        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--month-income" x="${x.toFixed(2)}" y="${(yI - seam).toFixed(
           2
-        )}" width="${bw.toFixed(2)}" height="${hBlue.toFixed(2)}" rx="2" />`;
+        )}" width="${bw.toFixed(2)}" height="${hBlue.toFixed(2)}" />`;
       }
       rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--over-income" x="${x.toFixed(2)}" y="${yE.toFixed(
         2
-      )}" width="${bw.toFixed(2)}" height="${hRed.toFixed(2)}" rx="2" />`;
+      )}" width="${bw.toFixed(2)}" height="${hRed.toFixed(2)}" />`;
     } else {
       const yI = yPx(inc);
       const h = Math.max(inc > 0.005 ? 1.2 : 0.8, axisY - yI);

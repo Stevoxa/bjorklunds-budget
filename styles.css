@@ -3706,6 +3706,13 @@ input.input-readonly-like {
   stroke-width: 0.35;
 }
 
+/* Staplad underskottstapel: inga hörnradier eller kontur — undvik “midja” mellan blått och rött. */
+.analysis-salary-year-chart__bar--month-income,
+.analysis-salary-year-chart__bar--over-income {
+  stroke: none;
+  shape-rendering: geometricPrecision;
+}
+
 /* Fasta färger — undvik color-mix mot --surface (blev nästan svart i mörkt tema). */
 .analysis-salary-year-chart__bar--month-income {
   fill: #5b9cc9;
