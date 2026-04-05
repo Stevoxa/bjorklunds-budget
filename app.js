@@ -3215,6 +3215,16 @@ function currentSalaryYearLabelForDate(now, startMonth) {
   return y - 1;
 }
 
+/** Vilken löneårsetikett kalendermånad (y, m) tillhör. */
+function salaryYearLabelForCalendarMonth(y, m, startMonth) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const mo = Math.max(1, Math.min(12, Math.floor(asNumber(m)) || 1));
+  const yy = Math.floor(asNumber(y));
+  if (!Number.isFinite(yy)) return NaN;
+  if (mo >= sm) return yy;
+  return yy - 1;
+}
+
 function salaryYearInclusiveBounds(labelYear, startMonth) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
   const y = Math.floor(asNumber(labelYear));
@@ -3397,11 +3407,38 @@ function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo) {
   return out;
 }
 
-function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex) {
+/** Sista tre kalendermånaderna i föregående löneår (brygga in i nästa år), t.ex. jan–dec → okt–dec året innan. */
+function robinBridgeMonthYmKeysFromPrevSalaryYear(deficitY, deficitM, startMo) {
+  const L = salaryYearLabelForCalendarMonth(deficitY, deficitM, startMo);
+  if (!Number.isFinite(L)) return new Set();
+  const prevB = salaryYearInclusiveBounds(L - 1, startMo);
+  if (!prevB) return new Set();
+  const months = eachYmInSalaryYearBounds(prevB);
+  const last3 = months.slice(-3);
+  return new Set(last3.map((x) => robinYmKey(x.y, x.m)));
+}
+
+function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex, startMo) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
+  const d = snaps[deficitIndex];
+  const defLabel = salaryYearLabelForCalendarMonth(d.y, d.m, sm);
+  const legacyKeys = robinBridgeMonthYmKeysFromPrevSalaryYear(d.y, d.m, sm);
   const rev = [];
   for (let i = deficitIndex - 1; i >= 0; i--) {
     if (snaps[i].net < -ROBIN_HOOD_EPS) break;
-    if (snaps[i].net > ROBIN_HOOD_EPS) rev.push(i);
+    if (snaps[i].net <= ROBIN_HOOD_EPS) continue;
+    const s = snaps[i];
+    const lab = salaryYearLabelForCalendarMonth(s.y, s.m, sm);
+    if (lab === defLabel) {
+      rev.push(i);
+      continue;
+    }
+    const k = robinYmKey(s.y, s.m);
+    if (legacyKeys.has(k)) {
+      rev.push(i);
+      continue;
+    }
+    break;
   }
   return rev.reverse();
 }
@@ -3480,7 +3517,8 @@ function allocateRobinFromCarriers(need, carrierIndicesOldestFirst, snaps, used)
   return { allocated: need - remaining, byIndex, shortfall: remaining };
 }
 
-function computeRobinHoodAllocation(snaps) {
+function computeRobinHoodAllocation(snaps, startMo) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
   const n = snaps.length;
   const deficitIndices = [];
   for (let i = 0; i < n; i++) {
@@ -3498,7 +3536,7 @@ function computeRobinHoodAllocation(snaps) {
     for (const di of deficitIndices) {
       let need = outstanding[di] || 0;
       if (need <= ROBIN_HOOD_EPS) continue;
-      const carriers = findRobinCarrierIndicesBeforeDeficit(snaps, di);
+      const carriers = findRobinCarrierIndicesBeforeDeficit(snaps, di, sm);
       const prevDef = carriers.length ? findRobinPrevDeficitSnapIndex(snaps, carriers[0]) : -1;
       const res = allocateRobinFromCarriers(need, carriers, snaps, used);
       if (res.allocated > ROBIN_HOOD_EPS) {
@@ -3607,7 +3645,7 @@ function syncRobinHoodGeneratedExpenses(root, payDatesSorted, startMo) {
     root.expenses = without;
     return;
   }
-  const alloc = computeRobinHoodAllocation(snaps);
+  const alloc = computeRobinHoodAllocation(snaps, startMo);
   const built = buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted);
   root.expenses = without.concat(built.map((x) => canonicalizeExpenseRecord(x)));
 }
@@ -3638,17 +3676,19 @@ function syncRobinHoodIntoState() {
   syncRobinHoodGeneratedExpenses(state, payDates, startMo);
 }
 
-function sumRobinHoodSignedInIsoRange(root, startIso, endIso) {
+/** Endast avsättningsposter (positiva belopp) inom intervall. */
+function sumRobinHoodSetasideInIsoRange(root, startIso, endIso) {
   let sum = 0;
   const a = String(startIso || "").slice(0, 10);
   const b = String(endIso || "").slice(0, 10);
   if (!a || !b) return 0;
   for (const exp of root.expenses || []) {
     if (!isRobinHoodGeneratedExpense(exp)) continue;
+    if (exp.metadata?.robinHood?.kind !== "setaside") continue;
     for (const p of exp.payments || []) {
       const d = String(p.date || "").slice(0, 10);
       if (!d || d < a || d > b) continue;
-      sum += asNumber(p.amount);
+      sum += Math.max(0, asNumber(p.amount));
     }
   }
   return sum;
@@ -3666,211 +3706,118 @@ function robinYmKey(y, m) {
   return `${y}-${pad2(m)}`;
 }
 
-function robinEachYmKeySetInBounds(bounds) {
-  const s = new Set();
-  if (!bounds?.start || !bounds?.end) return s;
-  for (const x of eachYmInSalaryYearBounds(bounds)) {
-    s.add(robinYmKey(x.y, x.m));
-  }
-  return s;
-}
-
-function robinExpandYmByFlows(R, flows, gSnaps) {
-  const set = R instanceof Set ? R : new Set(R);
-  let changed = true;
-  let guard = 0;
-  while (changed && guard < 64) {
-    guard++;
-    changed = false;
-    for (const f of flows || []) {
-      if (Math.round(asNumber(f.amount)) <= 0) continue;
-      const fromS = gSnaps[f.fromIdx];
-      const toS = gSnaps[f.toIdx];
-      if (!fromS || !toS) continue;
-      const kf = robinYmKey(fromS.y, fromS.m);
-      const kt = robinYmKey(toS.y, toS.m);
-      if (set.has(kf) || set.has(kt)) {
-        if (!set.has(kf)) {
-          set.add(kf);
-          changed = true;
-        }
-        if (!set.has(kt)) {
-          set.add(kt);
-          changed = true;
-        }
-      }
-    }
-  }
-  return set;
-}
-
-/** Kalendermånader som påverkar avsättning för ett löneår: intervallet + bärare före underskott + sammankopplade flöden. */
-function robinBuildRelevantYmKeys(boundsSlide, gSnaps, flows, ymToGi) {
-  const R = robinEachYmKeySetInBounds(boundsSlide);
-  const inSlide = robinEachYmKeySetInBounds(boundsSlide);
-  for (const ymk of inSlide) {
-    const gi = ymToGi.get(ymk);
-    if (gi == null) continue;
-    if (gSnaps[gi].net >= -ROBIN_HOOD_EPS) continue;
-    const carriers = findRobinCarrierIndicesBeforeDeficit(gSnaps, gi);
-    for (const ci of carriers) {
-      const s = gSnaps[ci];
-      R.add(robinYmKey(s.y, s.m));
-    }
-  }
-  robinExpandYmByFlows(R, flows, gSnaps);
-  return R;
-}
-
-function robinYmKeysToContiguousStrip(keySet) {
-  const keys = [...keySet];
-  if (!keys.length) return [];
-  const parsed = keys
-    .map((k) => {
-      const p = k.split("-");
-      const y = Number(p[0]);
-      const mo = Number(p[1]);
-      if (!Number.isFinite(y) || !Number.isFinite(mo)) return null;
-      return { y, m: mo, k: robinYmKey(y, mo) };
-    })
-    .filter(Boolean)
-    .sort((a, b) => (a.y !== b.y ? a.y - b.y : a.m - b.m));
-  const min = parsed[0];
-  const max = parsed[parsed.length - 1];
-  const out = [];
-  let cy = min.y;
-  let cm = min.m;
-  for (;;) {
-    out.push({ y: cy, m: cm, k: robinYmKey(cy, cm) });
-    if (cy === max.y && cm === max.m) break;
-    cm += 1;
-    if (cm > 12) {
-      cm = 1;
-      cy += 1;
-    }
-  }
-  return out;
-}
-
-function buildRobinStripSlideForLabelYear(_root, labelYearLY, startMo, gSnaps, gAlloc, ymToGi) {
-  const boundsSlide = salaryYearInclusiveBounds(labelYearLY, startMo);
-  if (!boundsSlide) {
-    return { strip: [], setaside: [], nets: [], inSlideYear: [], boundsSlide: null };
-  }
-  const R = robinBuildRelevantYmKeys(boundsSlide, gSnaps, gAlloc.flows, ymToGi);
-  const strip = robinYmKeysToContiguousStrip(R);
-  const inYearKeys = robinEachYmKeySetInBounds(boundsSlide);
-  const outFromG = robinHoodSetasideOutByGlobalSnapIndex(gSnaps, gAlloc);
-  const setaside = [];
-  const nets = [];
-  const inSlideYear = [];
-  for (const row of strip) {
-    const gi = ymToGi.get(row.k);
-    setaside.push(gi != null ? Math.max(0, Math.round(outFromG[gi] || 0)) : 0);
-    nets.push(gi != null ? gSnaps[gi].net : 0);
-    inSlideYear.push(inYearKeys.has(row.k));
-  }
-  return { strip, setaside, nets, inSlideYear, boundsSlide };
-}
-
-/** Horisontell tidslinje (kan bli bred — lägg i scroll-container). */
-function renderRobinStripSetasideChartSvg(strip, setaside, inSlideYear, _nets) {
-  const n = strip.length;
-  if (!n) return "";
-  const H = 208;
-  const padL = 40;
-  const padR = 14;
-  const padT = 22;
-  const padB = 38;
+/** Ett löneår i taget, fast bredd/höjd — svep byter löneår (samma som knapparna). */
+function renderRobinSalaryYearSetasideChartSvg(snaps, valuesPerSnap) {
+  const W = 340;
+  const H = 200;
+  const padL = 46;
+  const padR = 12;
+  const padT = 24;
+  const padB = 32;
+  const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const slot = Math.max(16, Math.min(28, Math.floor(520 / Math.max(n, 1))));
-  const W = padL + padR + n * slot;
-  const plotW = n * slot;
-  const vals = setaside.map((v) => Math.max(0, asNumber(v)));
+  const n = snaps.length;
+  if (!n) return "";
+  const vals = snaps.map((_, i) => Math.max(0, asNumber(valuesPerSnap[i])));
   const vMax = Math.max(1, ...vals) * 1.08;
   const axisY = padT + plotH;
-  const xAxisEnd = padL + plotW;
+  const x1 = padL + plotW;
   const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
-  const bw = Math.max(3, Math.min(18, slot * 0.48));
+  const slot = plotW / n;
+  const bw = Math.max(4, Math.min(20, slot * 0.52));
   let rects = "";
   for (let i = 0; i < n; i++) {
     const v = vals[i];
+    if (v <= 0.5) continue;
     const xMid = padL + slot * (i + 0.5);
     const x = xMid - bw / 2;
-    const outsideCls = inSlideYear[i] ? "" : " analysis-robin-chart__bar--outside-year";
-    if (v > 0.5) {
-      const yTop = yPx(v);
-      const h = Math.max(1.2, axisY - yTop);
-      rects += `<rect class="analysis-robin-chart__bar${outsideCls}" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(
-        2
-      )}" height="${h.toFixed(2)}" rx="2" />`;
-    }
+    const yTop = yPx(v);
+    const h = Math.max(1.2, axisY - yTop);
+    rects += `<rect class="analysis-robin-chart__bar" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(
+      2
+    )}" height="${h.toFixed(2)}" rx="2" />`;
   }
   let labels = "";
   for (let i = 0; i < n; i++) {
-    const row = strip[i];
-    const shortM = salaryYearChartMonthShort(row.m);
-    const yy = String(row.y).slice(2);
+    const label = salaryYearChartMonthShort(snaps[i].m);
     const xMid = padL + slot * (i + 0.5);
-    labels += `<text class="analysis-robin-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 20}">${escapeHtml(shortM)}</text>`;
-    labels += `<text class="analysis-robin-chart__xlabel analysis-robin-chart__xlabel-year" x="${xMid.toFixed(2)}" y="${H - 6}">’${escapeHtml(
-      yy
-    )}</text>`;
+    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(label)}</text>`;
   }
   const yMid = (padT + axisY) / 2;
-  const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="10" y="${yMid.toFixed(1)}" transform="rotate(-90 10 ${yMid.toFixed(1)})">kr</text>`;
+  const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
   const peak = vals.reduce((m, x) => Math.max(m, x), 0);
-  const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 4).toFixed(
+  const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 5).toFixed(
     1
   )}" y="${(padT + 11).toFixed(1)}" text-anchor="end">${escapeHtml(formatKr(peak))}</text>`;
-  const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 4).toFixed(
+  const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 5).toFixed(
     1
   )}" y="${(axisY - 2).toFixed(1)}" text-anchor="end">0</text>`;
   return `
-    <svg class="analysis-robin-chart analysis-robin-chart--strip" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar längs utvidgad månadskedja">
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar per månad i valt löneår">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
-      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${xAxisEnd}" y2="${axisY}" />
+      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
       ${rects}
       ${labels}
     </svg>`;
 }
 
-function buildRobinHoodCarouselHtml(labelYear, startMo, gSnaps, gAlloc, ymToGi) {
-  const years = [labelYear - 1, labelYear, labelYear + 1];
-  const slides = years
-    .map((ly) => {
-      const slide = buildRobinStripSlideForLabelYear(null, ly, startMo, gSnaps, gAlloc, ymToGi);
-      const cap = salaryYearRangeCaption(ly, startMo);
-      const rangeLine =
-        slide.boundsSlide && !Number.isNaN(slide.boundsSlide.start.getTime()) && !Number.isNaN(slide.boundsSlide.end.getTime())
-          ? formatAnalysisIsoRangeSv(toLocalISODate(slide.boundsSlide.start), toLocalISODate(slide.boundsSlide.end))
-          : "—";
-      const svg =
-        slide.strip.length > 0
-          ? renderRobinStripSetasideChartSvg(slide.strip, slide.setaside, slide.inSlideYear, slide.nets)
-          : `<p class="note analysis-robin-slide-empty">Ingen utvidgad månadskedja för detta löneår.</p>`;
-      const mid = ly === labelYear ? ` is-current-robin-slide` : "";
-      return `<div class="analysis-robin-carousel-slide${mid}" data-robin-slide-year="${ly}" role="group" aria-roledescription="kort" aria-label="Löneår ${ly}">
-        <div class="analysis-robin-slide-head">
-          <span class="analysis-robin-slide-title">${escapeHtml(cap)}</span>
-          <span class="analysis-robin-slide-range">${escapeHtml(rangeLine)}</span>
-        </div>
-        <div class="analysis-robin-strip-scroll">
-          ${svg}
-        </div>
-      </div>`;
-    })
-    .join("");
-  return `
-    <div class="analysis-robin-carousel-wrap">
-      <p class="note analysis-robin-carousel-hint">Svep sidled: <strong>föregående</strong> · <strong>valt</strong> · <strong>nästa</strong> löneår. Staplar = avsättning (≥ 0) per kalendermånad längs hela kedjan som hör till det löneåret (inkl. månader utanför intervallet som bär eller kopplas via flöden). Nedtonade staplar = utanför löneårets kalenderintervall. Årtal under staplarna.</p>
-      <div class="analysis-robin-carousel" id="analysisRobinCarousel" tabindex="0">
-        ${slides}
-      </div>
-    </div>`;
+/** Svep på diagrammet: samma löneår-nav som knapparna (ingen vertikal rörelse i ytan). */
+function wireAnalysisRobinYearSwipeArea() {
+  const el = document.getElementById("analysisRobinYearSwipe");
+  if (!el) return;
+  let x0 = null;
+  let y0 = null;
+  const reset = () => {
+    x0 = null;
+    y0 = null;
+  };
+  const trySwipe = (clientX, clientY) => {
+    if (x0 == null) return;
+    const dx = clientX - x0;
+    const dy = clientY - y0;
+    reset();
+    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+    if (dx < 0) {
+      if (ui.analysisSalaryYearNav < 1) {
+        ui.analysisSalaryYearNav += 1;
+        renderAnalysisPage();
+      }
+    } else if (ui.analysisSalaryYearNav > -1) {
+      ui.analysisSalaryYearNav -= 1;
+      renderAnalysisPage();
+    }
+  };
+  el.addEventListener(
+    "touchstart",
+    (e) => {
+      if (!e.touches[0]) return;
+      x0 = e.touches[0].clientX;
+      y0 = e.touches[0].clientY;
+    },
+    { passive: true }
+  );
+  el.addEventListener(
+    "touchend",
+    (e) => {
+      if (!e.changedTouches[0]) return;
+      trySwipe(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    },
+    { passive: true }
+  );
+  el.addEventListener("touchcancel", reset, { passive: true });
+  el.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    x0 = e.clientX;
+    y0 = e.clientY;
+    const up = (e2) => {
+      document.removeEventListener("mouseup", up);
+      trySwipe(e2.clientX, e2.clientY);
+    };
+    document.addEventListener("mouseup", up);
+  });
 }
 
 function calendarMonthsFromDateToDate(startDate, endDate) {
@@ -10302,13 +10249,17 @@ function renderAnalysisPage() {
     let robinBlock = "";
     if (syModel && risks.length > 0 && bounds) {
       const gSnaps = mergeRobinHoodSalarySnaps(state, labelYear - 2, labelYear + 2, startMo);
-      const gAlloc = computeRobinHoodAllocation(gSnaps);
+      const gAlloc = computeRobinHoodAllocation(gSnaps, startMo);
       const ymToGi = new Map();
       gSnaps.forEach((s, i) => ymToGi.set(robinYmKey(s.y, s.m), i));
-      const stripCur = buildRobinStripSlideForLabelYear(null, labelYear, startMo, gSnaps, gAlloc, ymToGi);
+      const outFromG = robinHoodSetasideOutByGlobalSnapIndex(gSnaps, gAlloc);
+      const setasideVals = syModel.snaps.map((s) => {
+        const gi = ymToGi.get(robinYmKey(s.y, s.m));
+        return gi != null ? Math.max(0, Math.round(outFromG[gi] || 0)) : 0;
+      });
       const annualNeedPot = Math.round(risks.reduce((acc, r) => acc + -r.net, 0));
       const monthlyRef = risks.length ? Math.round(annualNeedPot / risks.length) : 0;
-      const robinCarouselHtml = buildRobinHoodCarouselHtml(labelYear, startMo, gSnaps, gAlloc, ymToGi);
+      const robinYearSvg = renderRobinSalaryYearSetasideChartSvg(syModel.snaps, setasideVals);
       const todayIso = toLocalISODate(now);
       let accSet = 0;
       const y0 = toLocalISODate(bounds.start);
@@ -10333,15 +10284,10 @@ function renderAnalysisPage() {
           )} · utgift ${escapeHtml(formatKr(r.exp))} · netto ${escapeHtml(formatKr(r.net))}</span>${hint}</li>`;
         })
         .join("");
-      const strongRows = stripCur.strip
-        .map((row, i) => ({ row, v: stripCur.setaside[i], inY: stripCur.inSlideYear[i] }))
+      const strongRows = syModel.snaps
+        .map((s, i) => ({ s, v: setasideVals[i] }))
         .filter((x) => x.v > 0)
-        .map(
-          (x) =>
-            `<li>${escapeHtml(monthName(x.row.m))} ${x.row.y} · avsättning ${escapeHtml(formatKr(x.v))}${
-              x.inY ? "" : " · utanför valt löneårs intervall"
-            }</li>`
-        )
+        .map((x) => `<li>${escapeHtml(x.s.monthLabel)} · avsättning ${escapeHtml(formatKr(x.v))}</li>`)
         .join("");
       let robinWarns = "";
       if (isInnevarandeYear && annualNeedPot > 0 && accSet + ROBIN_HOOD_EPS < annualNeedPot && capAcc >= y0) {
@@ -10364,7 +10310,7 @@ function renderAnalysisPage() {
       robinBlock = `
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
-        <p class="note">Systemberäknade sparposter (25 % → upp till 100 % → proportionellt från månader med överskott före ett underskott). Redigeras inte manuellt — visas under Spara. Netto = planerade intäkter minus utgifter per <strong>kalendermånad</strong> (sparande räknas inte som utgift).</p>
+        <p class="note">Systemberäknade sparposter (25 % → upp till 100 % → proportionellt). Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
         <div class="analysis-robin-kpis">
           <div class="analysis-salary-hero__mini">
             <div class="analysis-salary-hero__mini-label">Årlig behovspott</div>
@@ -10379,8 +10325,9 @@ function renderAnalysisPage() {
         </div>
         ${robinWarns}
         <div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
-          <div class="analysis-salary-year-chart-head"><span>Avsättning längs utvidgad kedja</span><span>${escapeHtml(payBreakpointHint)}</span></div>
-          ${robinCarouselHtml}
+          <div class="analysis-salary-year-chart-head"><span>Avsättning per månad (valt löneår)</span><span>${escapeHtml(payBreakpointHint)}</span></div>
+          <p class="note analysis-robin-swipe-hint">Svep vänster/höger på diagrammet för föregående/nästa löneår (samma som knapparna nedan). Höjden är fast så sidan hoppar inte.</p>
+          <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
         </div>
         <div class="analysis-robin-columns">
           <div>
@@ -10388,7 +10335,7 @@ function renderAnalysisPage() {
             <ul class="analysis-robin-list">${weakList}</ul>
           </div>
           <div>
-            <div class="analysis-robin-subtitle">Månader med avsättning (valt år + ev. tidigare månader i kedjan)</div>
+            <div class="analysis-robin-subtitle">Månader med avsättning</div>
             <ul class="analysis-robin-list">${strongRows || "<li>—</li>"}</ul>
           </div>
         </div>
@@ -10426,23 +10373,7 @@ function renderAnalysisPage() {
       ui.analysisSalaryYearNav = Math.min(1, ui.analysisSalaryYearNav + 1);
       renderAnalysisPage();
     });
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const car = document.getElementById("analysisRobinCarousel");
-        if (!car) return;
-        if (car.scrollWidth > car.clientWidth + 2) {
-          car.scrollLeft = car.clientWidth;
-        }
-        car.addEventListener("keydown", (e) => {
-          if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-          const w = car.clientWidth;
-          if (w <= 0) return;
-          e.preventDefault();
-          if (e.key === "ArrowRight") car.scrollBy({ left: w, behavior: "smooth" });
-          else car.scrollBy({ left: -w, behavior: "smooth" });
-        });
-      });
-    });
+    wireAnalysisRobinYearSwipeArea();
     return;
   }
 
@@ -10480,9 +10411,26 @@ function renderAnalysisPage() {
   const kvarPlan = plannedInc - plannedExp;
   const isInnevarandePeriod = (Number(ui.analysisSalaryPeriodOffset) || 0) === 0;
   const heroEyebrow = isInnevarandePeriod ? "Innevarande löneperiod" : "Löneperiod";
-  const rhPeriodNet =
-    win && win.startIso && win.endIso ? sumRobinHoodSignedInIsoRange(state, win.startIso, win.endIso) : 0;
-  const rhPeriodCls = rhPeriodNet < 0 ? " analysis-salary-hero__mini-value--neg" : "";
+  const periodRefDate = win?.endIso
+    ? parseDateISO(win.endIso)
+    : win?.startIso
+      ? parseDateISO(win.startIso)
+      : null;
+  const prd =
+    periodRefDate && !Number.isNaN(periodRefDate.getTime()) ? periodRefDate : new Date();
+  const periodSalaryYearLabel = currentSalaryYearLabelForDate(prd, startMo);
+  const periodSyBounds = salaryYearInclusiveBounds(periodSalaryYearLabel, startMo);
+  const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds) : null;
+  const periodSalaryYearHasDeficits = periodSyModel && periodSyModel.risks.length > 0;
+  const rhSetasideOnly =
+    win && win.startIso && win.endIso ? sumRobinHoodSetasideInIsoRange(state, win.startIso, win.endIso) : 0;
+  const rhSparMiniBlock = periodSalaryYearHasDeficits
+    ? `<div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
+          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhSetasideOnly))}</div>
+          <div class="analysis-salary-hero__mini-hint">Endast avsättningar (0kr om ingen)</div>
+        </div>`
+    : "";
 
   mount.innerHTML = `
     <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
@@ -10497,11 +10445,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(plannedExp))}</div>
         </div>
-        <div class="analysis-salary-hero__mini">
-          <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
-          <div class="analysis-salary-hero__mini-value${rhPeriodCls}">${escapeHtml(formatKr(rhPeriodNet))}</div>
-          <div class="analysis-salary-hero__mini-hint">Avsättning och täckning (system)</div>
-        </div>
+        ${rhSparMiniBlock}
       </div>
     </section>
     <div class="table-card analysis-salary-period-controls">
