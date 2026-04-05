@@ -3658,6 +3658,104 @@ input.input-readonly-like {
   margin-top: var(--space-2);
 }
 
+.analysis-salary-year-periods {
+  margin-top: var(--space-2);
+}
+
+.analysis-salary-year-chart-wrap {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface-2, #fbfcfb) 88%, var(--surface));
+}
+
+.analysis-salary-year-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 650;
+  margin-bottom: 10px;
+}
+
+.analysis-salary-year-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.analysis-salary-year-chart__axis {
+  stroke: color-mix(in srgb, var(--text) 22%, var(--border));
+  stroke-width: 1;
+}
+
+.analysis-salary-year-chart__zero {
+  stroke: color-mix(in srgb, var(--text) 35%, transparent);
+  stroke-width: 1;
+}
+
+.analysis-salary-year-chart__line-income {
+  fill: none;
+  stroke: var(--accent-strong, #255f33);
+  stroke-width: 2.25;
+  stroke-dasharray: 6 5;
+  stroke-linecap: round;
+  opacity: 0.92;
+}
+
+.analysis-salary-year-chart__bar {
+  stroke: color-mix(in srgb, var(--text) 8%, transparent);
+  stroke-width: 0.35;
+}
+
+.analysis-salary-year-chart__bar--pos {
+  fill: #a7c8de;
+}
+
+.analysis-salary-year-chart__bar--neg {
+  fill: #d9c1a0;
+}
+
+.analysis-salary-year-chart__bar--neg-deep {
+  fill: #dfb0b0;
+}
+
+.analysis-salary-year-chart__xlabel {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+.analysis-salary-year-chart-legend {
+  margin-top: var(--space-3);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.analysis-salary-year-chart-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.analysis-salary-year-chart-legend-dash {
+  flex: 0 0 22px;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent-strong, #255f33) 0 5px,
+    transparent 5px 10px
+  );
+  opacity: 0.85;
+}
+
 .field-checkbox-row {
   display: flex;
   align-items: flex-start;
