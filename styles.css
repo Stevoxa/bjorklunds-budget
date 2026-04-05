@@ -3755,6 +3755,10 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--month-income {
   font-weight: 700;
 }
 
+.analysis-salary-year-chart__ytick--peak {
+  font-weight: 750;
+}
+
 .analysis-salary-year-chart__xlabel {
   fill: var(--muted);
   font-size: 11px;
@@ -3828,6 +3832,12 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   color: var(--muted);
 }
 
+.analysis-salary-year-chart-detail-rows {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
 .analysis-salary-year-chart-detail-head,
 .analysis-salary-year-chart-detail-row {
   display: grid;
@@ -3835,6 +3845,23 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   gap: var(--space-2);
   align-items: baseline;
   font-variant-numeric: tabular-nums;
+  min-width: min(100%, 280px);
+}
+
+.analysis-salary-year-chart-detail-head span:nth-child(n + 2),
+.analysis-salary-year-chart-detail-row span:nth-child(n + 2) {
+  text-align: right;
+  justify-self: end;
+}
+
+.analysis-salary-year-chart-detail-cell--max {
+  font-weight: 800;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent-strong, #255f33) 14%, var(--surface));
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin: -2px -4px;
+  box-decoration-break: clone;
 }
 
 .analysis-salary-year-chart-detail-head {
@@ -3860,7 +3887,11 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   font-weight: 700;
 }
 
-@media (orientation: landscape) and (min-height: 320px) {
+/*
+ * Visa månadstabell: min-bredd (pålitlig i Chrome mobil liggande) eller liggande med smal skärm.
+ * Enbart orientation: landscape misslyckas ofta på mobil (adressfält, viewport, OS).
+ */
+@media (min-width: 34rem), (orientation: landscape) and (min-width: 20rem) {
   .analysis-salary-year-chart-detail {
     display: block;
   }

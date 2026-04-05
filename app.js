@@ -3106,13 +3106,34 @@ function getAnalysisSalaryAnchorSpec(root) {
       firstIso: null,
       sourceLabel: null,
       maxAmt: 0,
-      useFixed
+      useFixed,
+      useNominalPaySchedule: false,
+      scheduleStartParts: null
     };
   }
   const top = cands[0];
   const fp = datePartsFromIso(top.firstIso);
   const naturalDay = fp ? fp.d : 25;
-  const recurringDay = useFixed ? fixedDay : naturalDay;
+
+  let scheduleStartParts = null;
+  let recurringFromSalaryPeriod = null;
+  const spId = top.inc?.metadata?.salaryPeriodId;
+  if (spId) {
+    const periods = getAllSalaryPeriodsFromRoot(root);
+    const sp = periods.find((p) => String(p.id) === String(spId));
+    if (sp?.firstPaymentDate) {
+      const sfp = datePartsFromIso(sp.firstPaymentDate);
+      if (sfp) {
+        scheduleStartParts = sfp;
+        recurringFromSalaryPeriod = Math.max(1, Math.min(31, Math.floor(asNumber(sp.payDay)) || sfp.d));
+      }
+    }
+  }
+
+  const recurringDay =
+    useFixed ? fixedDay : recurringFromSalaryPeriod != null ? recurringFromSalaryPeriod : naturalDay;
+  const useNominalPaySchedule = scheduleStartParts != null;
+
   return {
     ok: true,
     recurringDay,
@@ -3120,7 +3141,9 @@ function getAnalysisSalaryAnchorSpec(root) {
     sourceLabel: top.name,
     maxAmt: top.maxAmt,
     useFixed,
-    naturalDay
+    naturalDay,
+    useNominalPaySchedule,
+    scheduleStartParts
   };
 }
 
@@ -3132,14 +3155,26 @@ function pushSalaryPayDate(set, y, m, dayRaw) {
   set.add(toLocalISODate(cand));
 }
 
-/** Teoretiska lönedagar från första utbetaling och återkommande dag, inom tidsfönster. */
-function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, rangeEndMs) {
-  const fp = datePartsFromIso(firstIso);
+/** Kalenderdag som användaren angivit (ingen bankdagsjustering) — för löneperioder från löneperiod-post. */
+function pushSalaryPayDateNominal(set, y, m, dayRaw) {
+  const dim = daysInMonth(y, m);
+  const d0 = Math.max(1, Math.min(dim, Math.floor(dayRaw)));
+  set.add(toLocalISODate(new Date(y, m - 1, d0)));
+}
+
+/**
+ * Teoretiska lönedagar inom fönster.
+ * @param {object} [opts] — om `nominal` och `scheduleStartParts` sätts (löneperiod-källa): kalenderdagar utan bankjustering.
+ */
+function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, rangeEndMs, opts) {
+  const nominal = Boolean(opts?.nominal && opts?.scheduleStartParts);
+  const fp = nominal ? opts.scheduleStartParts : datePartsFromIso(firstIso);
   if (!fp) return [];
   const set = new Set();
   const rd = Math.max(1, Math.min(31, Math.floor(asNumber(recurringDay)) || 25));
+  const pushOne = nominal ? pushSalaryPayDateNominal : pushSalaryPayDate;
 
-  pushSalaryPayDate(set, fp.y, fp.m, fp.d);
+  pushOne(set, fp.y, fp.m, fp.d);
 
   let y = fp.y;
   let m = fp.m;
@@ -3149,7 +3184,7 @@ function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, ran
       m = 1;
       y += 1;
     }
-    pushSalaryPayDate(set, y, m, rd);
+    pushOne(set, y, m, rd);
   }
 
   y = fp.y;
@@ -3160,7 +3195,7 @@ function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, ran
       m = 12;
       y -= 1;
     }
-    pushSalaryPayDate(set, y, m, rd);
+    pushOne(set, y, m, rd);
   }
 
   return Array.from(set)
@@ -3365,6 +3400,10 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   const incs = snaps.map((s) => s.inc);
   const maxExp = exps.reduce((a, b) => Math.max(a, b), 0);
   const maxInc = incs.reduce((a, b) => Math.max(a, b), 0);
+  const tallestBar = snaps.reduce((m, s) => {
+    const h = s.exp > s.inc + 0.01 ? s.exp : s.inc;
+    return Math.max(m, h);
+  }, 0);
   let vMax = Math.max(maxExp, maxInc, mer, 1);
   if (!Number.isFinite(vMax) || vMax <= 0) vMax = 1;
   vMax *= 1.1;
@@ -3420,9 +3459,9 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   }
 
   const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
-  const yMaxTick = `<text class="analysis-salary-year-chart__ytick" x="${(padL - 5).toFixed(1)}" y="${(padT + 11).toFixed(1)}" text-anchor="end">${escapeHtml(
-    formatKr(vMax)
-  )}</text>`;
+  const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 5).toFixed(1)}" y="${(padT + 11).toFixed(
+    1
+  )}" text-anchor="end">${escapeHtml(formatKr(tallestBar))}</text>`;
   const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 5).toFixed(1)}" y="${(
     axisY - 2
   ).toFixed(1)}" text-anchor="end">0</text>`;
@@ -9566,7 +9605,10 @@ function renderAnalysisPage() {
   const winEnd = new Date(now.getFullYear() + 4, 11, 31, 23, 59, 59, 999).getTime();
   const payDates =
     anchor.ok && anchor.firstIso
-      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd)
+      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd, {
+          nominal: anchor.useNominalPaySchedule,
+          scheduleStartParts: anchor.scheduleStartParts
+        })
       : [];
 
   const anchorNote = anchor.ok
@@ -9659,15 +9701,23 @@ function renderAnalysisPage() {
         ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, avgMonthlyIncomeFromYear)
         : "";
     const payBreakpointHint = anchor.ok ? svPaydayBreakpointHint(anchor.recurringDay) : "—";
-    const landscapeDetailRows =
-      syModel && syModel.snaps.length > 0
-        ? syModel.snaps
-            .map((s) => {
-              const lab = salaryYearChartMonthShort(s.m);
-              return `<div class="analysis-salary-year-chart-detail-row"><span>${escapeHtml(lab)}</span><span>${escapeHtml(formatKr(s.inc))}</span><span>${escapeHtml(formatKr(s.exp))}</span><span class="analysis-salary-year-chart-detail-net${s.net < 0 ? " is-neg" : ""}">${escapeHtml(formatKr(s.net))}</span></div>`;
-            })
-            .join("")
-        : "";
+    let landscapeDetailRows = "";
+    if (syModel && syModel.snaps.length > 0) {
+      const maxTableVal = syModel.snaps.reduce((m, s) => Math.max(m, s.inc, s.exp), 0);
+      const nearMax = (v) => maxTableVal > 0 && Math.abs(v - maxTableVal) < 0.02;
+      landscapeDetailRows = syModel.snaps
+        .map((s) => {
+          const lab = salaryYearChartMonthShort(s.m);
+          const incMax = nearMax(s.inc);
+          const expMax = nearMax(s.exp);
+          const incCls = `analysis-salary-year-chart-detail-cell${incMax ? " analysis-salary-year-chart-detail-cell--max" : ""}`;
+          const expCls = `analysis-salary-year-chart-detail-cell${expMax ? " analysis-salary-year-chart-detail-cell--max" : ""}`;
+          const incTitle = incMax ? ` title="Störst intäkt/utgift i tabellen"` : "";
+          const expTitle = expMax ? ` title="Störst intäkt/utgift i tabellen"` : "";
+          return `<div class="analysis-salary-year-chart-detail-row"><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(lab)}</span><span class="${incCls}"${incTitle}>${escapeHtml(formatKr(s.inc))}</span><span class="${expCls}"${expTitle}>${escapeHtml(formatKr(s.exp))}</span><span class="analysis-salary-year-chart-detail-cell analysis-salary-year-chart-detail-net${s.net < 0 ? " is-neg" : ""}">${escapeHtml(formatKr(s.net))}</span></div>`;
+        })
+        .join("");
+    }
     const periodsBlock =
       chartSvg
         ? `
