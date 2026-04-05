@@ -3692,11 +3692,6 @@ input.input-readonly-like {
   stroke-width: 1;
 }
 
-.analysis-salary-year-chart__zero {
-  stroke: color-mix(in srgb, var(--text) 35%, transparent);
-  stroke-width: 1;
-}
-
 .analysis-salary-year-chart__line-income {
   fill: none;
   stroke: var(--accent-strong, #255f33);
