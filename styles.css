@@ -3625,6 +3625,35 @@ input.input-readonly-like {
   font-weight: 700;
 }
 
+.analysis-salary-hero__dip {
+  font-size: clamp(1.25rem, 4.5vw, 1.65rem);
+  font-weight: 800;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-salary-hero__dip--neg {
+  color: #ffd4d4;
+}
+
+.analysis-salary-hero__mini-hint {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.78);
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.analysis-salary-hero__mini-value--neg {
+  color: #ffd4d4;
+}
+
+@media (min-width: 720px) {
+  .analysis-salary-hero__minis--year {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .analysis-salary-period-controls {
   margin-top: var(--space-2);
 }

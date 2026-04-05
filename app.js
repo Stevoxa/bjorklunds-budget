@@ -3259,6 +3259,69 @@ function sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   return sum;
 }
 
+/** Kalendermånader som helt ingår i löneårets [start,end]. */
+function eachYmInSalaryYearBounds(bounds) {
+  if (!bounds?.start || !bounds?.end) return [];
+  const out = [];
+  const eTime = bounds.end.getTime();
+  let y = bounds.start.getFullYear();
+  let m = bounds.start.getMonth() + 1;
+  for (;;) {
+    const firstOfMonth = new Date(y, m - 1, 1);
+    if (firstOfMonth.getTime() > eTime) break;
+    const dim = daysInMonth(y, m);
+    out.push({
+      y,
+      m,
+      startIso: `${y}-${pad2(m)}-01`,
+      endIso: `${y}-${pad2(m)}-${pad2(dim)}`
+    });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Per månad: intäkter, utgifter (exkl. sparande), netto. Löneår: svagaste månad, riskmånader (netto < 0), årsnetto, största överskott.
+ */
+function buildSalaryYearAnalysisModel(root, bounds) {
+  const months = eachYmInSalaryYearBounds(bounds);
+  const snaps = months.map(({ y, m, startIso, endIso }) => {
+    const inc = sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso);
+    const exp = sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso);
+    return {
+      y,
+      m,
+      monthLabel: monthName(m),
+      startIso,
+      endIso,
+      inc,
+      exp,
+      net: inc - exp
+    };
+  });
+  if (snaps.length === 0) {
+    return { snaps: [], yearNet: 0, weakest: null, risks: [], bestSurplus: null };
+  }
+  let weakest = snaps[0];
+  for (const s of snaps) {
+    if (s.net < weakest.net) weakest = s;
+  }
+  const risks = snaps.filter((s) => s.net < 0);
+  let bestSurplus = null;
+  for (const s of snaps) {
+    if (s.net > 0 && (!bestSurplus || s.net > bestSurplus.net)) bestSurplus = s;
+  }
+  const totalInc = snaps.reduce((acc, x) => acc + x.inc, 0);
+  const totalExp = snaps.reduce((acc, x) => acc + x.exp, 0);
+  const yearNet = totalInc - totalExp;
+  return { snaps, yearNet, weakest, risks, bestSurplus };
+}
+
 function ensureIncomeIds(root) {
   if (!Array.isArray(root.incomes)) root.incomes = [];
   root.incomes = root.incomes.map((inc) => normalizeIncomeRecord(inc));
@@ -9416,14 +9479,76 @@ function renderAnalysisPage() {
     const cap = salaryYearRangeCaption(labelYear, startMo);
     const rangeLine =
       bounds && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())
-        ? `<p class="note analysis-view-range-line">${escapeHtml(formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end)))}</p>`
-        : "";
+        ? formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end))
+        : "—";
+    const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds) : null;
+    const weakest = syModel?.weakest;
+    const risks = syModel?.risks || [];
+    const yearNet = syModel?.yearNet ?? 0;
+    const bestSurplus = syModel?.bestSurplus;
+    const isInnevarandeYear = nav === 0;
+    const yearEyebrow = isInnevarandeYear ? "Innevarande löneår" : "Löneår";
+
+    let riskMini = "";
+    if (risks.length > 0) {
+      const names = risks.map((r) => r.monthLabel.toLowerCase());
+      let hint = "";
+      if (names.length <= 4) hint = names.join(", ");
+      else hint = `${names.slice(0, 3).join(", ")} (+${names.length - 3})`;
+      riskMini = `
+        <div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Riskperioder</div>
+          <div class="analysis-salary-hero__mini-value">${risks.length} st</div>
+          <div class="analysis-salary-hero__mini-hint">${escapeHtml(hint)}</div>
+        </div>`;
+    }
+
+    const balanceNegClass = yearNet < 0 ? " analysis-salary-hero__mini-value--neg" : "";
+    const balanceMini = `
+      <div class="analysis-salary-hero__mini">
+        <div class="analysis-salary-hero__mini-label">Löneår balansräkning</div>
+        <div class="analysis-salary-hero__mini-value${balanceNegClass}">${escapeHtml(formatKr(yearNet))}</div>
+        <div class="analysis-salary-hero__mini-hint">Intäkter − utgifter (sparande exkluderat)</div>
+      </div>`;
+
+    let surplusMini = "";
+    if (bestSurplus) {
+      surplusMini = `
+        <div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Period med störst överskott</div>
+          <div class="analysis-salary-hero__mini-value">${escapeHtml(bestSurplus.monthLabel)} lön</div>
+          <div class="analysis-salary-hero__mini-hint">${escapeHtml(formatKr(bestSurplus.net))}</div>
+        </div>`;
+    }
+
+    const heroMainBlock =
+      weakest != null
+        ? `
+      <div class="analysis-salary-hero__big">${escapeHtml(weakest.monthLabel)} lön</div>
+      <div class="analysis-salary-hero__dip${weakest.net < 0 ? " analysis-salary-hero__dip--neg" : ""}">${escapeHtml(formatKr(weakest.net))}</div>
+      <p class="analysis-salary-hero__lead">
+        Svagaste lönemånaden enligt planen (lägsta netto per kalendermånad i löneåret). Kopplar årsplanering till vardagslogik mellan två löner.
+      </p>
+      <div class="analysis-salary-hero__chip">${escapeHtml(cap)} · ${escapeHtml(rangeLine)}</div>`
+        : `
+      <div class="analysis-salary-hero__big">—</div>
+      <p class="analysis-salary-hero__lead">Inga månader kunde beräknas för valt löneår.</p>
+      <div class="analysis-salary-hero__chip">${escapeHtml(cap)}</div>`;
+
     mount.innerHTML = `
-      <div class="table-card">
-        <div class="table-title">Löneår ${labelYear}</div>
-        <p class="note">${escapeHtml(cap)}</p>
-        <p class="note">Används främst när du sätter budget över hela löneåret.</p>
-        ${rangeLine}
+      <section class="analysis-salary-hero analysis-salary-hero--year card" aria-label="Löneår ${labelYear}">
+        <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
+        ${heroMainBlock}
+        <div class="analysis-salary-hero__minis analysis-salary-hero__minis--year">
+          ${riskMini}
+          ${balanceMini}
+          ${surplusMini}
+        </div>
+      </section>
+      <div class="table-card analysis-salary-period-controls">
+        <div class="table-title">Byt löneår</div>
+        <p class="note">Visa innevarande, föregående eller nästa löneår.</p>
+        <p class="note analysis-view-range-line">${escapeHtml(rangeLine)}</p>
         <div class="analysis-inline-nav">
           <button type="button" class="secondary" id="analysisSalaryYearPrevBtn" ${nav <= -1 ? "disabled" : ""}>Föregående år</button>
           <button type="button" class="secondary" id="analysisSalaryYearNextBtn" ${nav >= 1 ? "disabled" : ""}>Nästa år</button>
