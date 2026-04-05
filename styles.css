@@ -3942,6 +3942,71 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   opacity: 0.85;
 }
 
+.analysis-robin-section .analysis-robin-kpis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+@media (max-width: 28rem) {
+  .analysis-robin-section .analysis-robin-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analysis-robin-warn {
+  margin-top: var(--space-3);
+  color: var(--danger, #b03030);
+}
+
+.analysis-robin-chart-wrap {
+  margin-top: var(--space-3);
+}
+
+.analysis-robin-chart__bar {
+  fill: color-mix(in srgb, var(--accent-strong, #255f33) 55%, #8fb896);
+}
+
+html[data-theme="dark"] .analysis-robin-chart__bar {
+  fill: color-mix(in srgb, var(--accent-strong, #6abf7a) 45%, #3d5c44);
+}
+
+.analysis-robin-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 28rem) {
+  .analysis-robin-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analysis-robin-subtitle {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: var(--space-2);
+}
+
+.analysis-robin-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.tagged-expense-amt--neg {
+  color: var(--danger, #b03030);
+}
+
+.tagged-expense-row-btn--system {
+  opacity: 0.92;
+}
+
 .field-checkbox-row {
   display: flex;
   align-items: flex-start;

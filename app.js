@@ -2739,6 +2739,7 @@ function canonicalizeExpenseRecord(raw) {
   if (origin !== "system" && origin !== "user") {
     if (category === "loans" && meta.loanId) origin = "system";
     else if (meta.food?.generated) origin = "system";
+    else if (meta.robinHoodGenerated) origin = "system";
     else origin = "user";
   }
 
@@ -3359,6 +3360,383 @@ function buildSalaryYearAnalysisModel(root, bounds) {
   return { snaps, yearNet, weakest, risks, bestSurplus, totalInc, avgMonthlyIncome };
 }
 
+const ROBIN_HOOD_EPS = 0.5;
+
+function isRobinHoodGeneratedExpense(exp) {
+  return Boolean(exp?.metadata?.robinHoodGenerated);
+}
+
+/** Slår ihop månadssnaps över flera löneårsetiketter (unika kalendermånader). */
+function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo) {
+  const seen = new Set();
+  const out = [];
+  const lo = Math.floor(asNumber(minLabelYear));
+  const hi = Math.floor(asNumber(maxLabelYear));
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return out;
+  for (let ly = lo; ly <= hi; ly++) {
+    const bounds = salaryYearInclusiveBounds(ly, startMo);
+    if (!bounds) continue;
+    const model = buildSalaryYearAnalysisModel(root, bounds);
+    for (const s of model.snaps) {
+      const k = `${s.y}-${pad2(s.m)}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({
+        y: s.y,
+        m: s.m,
+        monthLabel: s.monthLabel,
+        startIso: s.startIso,
+        endIso: s.endIso,
+        inc: s.inc,
+        exp: s.exp,
+        net: s.net
+      });
+    }
+  }
+  out.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.m - b.m));
+  return out;
+}
+
+function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex) {
+  const rev = [];
+  for (let i = deficitIndex - 1; i >= 0; i--) {
+    if (snaps[i].net < -ROBIN_HOOD_EPS) break;
+    if (snaps[i].net > ROBIN_HOOD_EPS) rev.push(i);
+  }
+  return rev.reverse();
+}
+
+function findRobinPrevDeficitSnapIndex(snaps, firstCarrierIndex) {
+  for (let i = firstCarrierIndex - 1; i >= 0; i--) {
+    if (snaps[i].net < -ROBIN_HOOD_EPS) return i;
+  }
+  return -1;
+}
+
+/**
+ * Fas 1: upp till 25 % av kvarvarande överskott per bärare (skalas om summan överstiger behovet).
+ * Fas 2: i kronologisk ordning upp till 100 % kvar per bärare.
+ * Fas 3: proportionellt mot kvarvarande kapacitet om behov kvarstår.
+ */
+function allocateRobinFromCarriers(need, carrierIndicesOldestFirst, snaps, used) {
+  const byIndex = {};
+  let remaining = need;
+  if (remaining <= ROBIN_HOOD_EPS || !carrierIndicesOldestFirst.length) {
+    return { allocated: 0, byIndex, shortfall: remaining };
+  }
+  const getAvail = (idx) => Math.max(0, snaps[idx].net - (used[idx] || 0));
+  const caps = carrierIndicesOldestFirst
+    .map((idx) => ({ idx, avail: getAvail(idx) }))
+    .filter((x) => x.avail > ROBIN_HOOD_EPS);
+  if (!caps.length) return { allocated: 0, byIndex, shortfall: remaining };
+
+  let targets = caps.map((c) => 0.25 * c.avail);
+  let sumT = targets.reduce((a, b) => a + b, 0);
+  if (sumT > remaining + ROBIN_HOOD_EPS) {
+    const k = remaining / sumT;
+    targets = targets.map((t) => t * k);
+  }
+  for (let i = 0; i < caps.length; i++) {
+    const idx = caps[i].idx;
+    const take = Math.min(targets[i], getAvail(idx), remaining);
+    if (take > ROBIN_HOOD_EPS) {
+      byIndex[idx] = (byIndex[idx] || 0) + take;
+      used[idx] = (used[idx] || 0) + take;
+      remaining -= take;
+    }
+  }
+  if (remaining <= ROBIN_HOOD_EPS) {
+    return { allocated: need - remaining, byIndex, shortfall: 0 };
+  }
+  for (const c of caps) {
+    if (remaining <= ROBIN_HOOD_EPS) break;
+    const idx = c.idx;
+    const take = Math.min(getAvail(idx), remaining);
+    if (take > ROBIN_HOOD_EPS) {
+      byIndex[idx] = (byIndex[idx] || 0) + take;
+      used[idx] = (used[idx] || 0) + take;
+      remaining -= take;
+    }
+  }
+  if (remaining <= ROBIN_HOOD_EPS) {
+    return { allocated: need - remaining, byIndex, shortfall: 0 };
+  }
+  const still = caps
+    .map((c) => ({ idx: c.idx, avail: getAvail(c.idx) }))
+    .filter((x) => x.avail > ROBIN_HOOD_EPS);
+  const sumAv = still.reduce((a, x) => a + x.avail, 0);
+  if (sumAv <= ROBIN_HOOD_EPS) {
+    return { allocated: need - remaining, byIndex, shortfall: remaining };
+  }
+  for (const x of still) {
+    if (remaining <= ROBIN_HOOD_EPS) break;
+    const take = Math.min(remaining * (x.avail / sumAv), x.avail, remaining);
+    if (take > ROBIN_HOOD_EPS) {
+      byIndex[x.idx] = (byIndex[x.idx] || 0) + take;
+      used[x.idx] = (used[x.idx] || 0) + take;
+      remaining -= take;
+    }
+  }
+  return { allocated: need - remaining, byIndex, shortfall: remaining };
+}
+
+function computeRobinHoodAllocation(snaps) {
+  const n = snaps.length;
+  const deficitIndices = [];
+  for (let i = 0; i < n; i++) {
+    if (snaps[i].net < -ROBIN_HOOD_EPS) deficitIndices.push(i);
+  }
+  const outstanding = Object.create(null);
+  for (const i of deficitIndices) outstanding[i] = -snaps[i].net;
+  const used = Object.create(null);
+  const flowMap = new Map();
+  let iter = 0;
+  let changed = true;
+  while (changed && iter < 80) {
+    iter++;
+    changed = false;
+    for (const di of deficitIndices) {
+      let need = outstanding[di] || 0;
+      if (need <= ROBIN_HOOD_EPS) continue;
+      const carriers = findRobinCarrierIndicesBeforeDeficit(snaps, di);
+      const prevDef = carriers.length ? findRobinPrevDeficitSnapIndex(snaps, carriers[0]) : -1;
+      const res = allocateRobinFromCarriers(need, carriers, snaps, used);
+      if (res.allocated > ROBIN_HOOD_EPS) {
+        changed = true;
+        for (const idxStr of Object.keys(res.byIndex)) {
+          const ci = Number(idxStr);
+          const k = `${ci}|${di}`;
+          flowMap.set(k, (flowMap.get(k) || 0) + res.byIndex[ci]);
+        }
+      }
+      const shortfall = need - res.allocated;
+      outstanding[di] = 0;
+      if (shortfall > ROBIN_HOOD_EPS) {
+        if (prevDef >= 0) {
+          outstanding[prevDef] = (outstanding[prevDef] || 0) + shortfall;
+          changed = true;
+        } else {
+          outstanding[di] = shortfall;
+        }
+      }
+    }
+  }
+  const flows = [];
+  for (const [k, amt] of flowMap) {
+    const parts = k.split("|");
+    const fromIdx = Number(parts[0]);
+    const toIdx = Number(parts[1]);
+    const r = Math.round(amt);
+    if (r > 0 && Number.isFinite(fromIdx) && Number.isFinite(toIdx)) flows.push({ fromIdx, toIdx, amount: r });
+  }
+  return { flows };
+}
+
+function robinHoodPayIsoAfterSalaryInMonth(sortedPayIsos, y, m) {
+  const pref = `${y}-${pad2(m)}`;
+  const inMonth = (sortedPayIsos || []).filter((iso) => String(iso || "").slice(0, 7) === pref);
+  if (inMonth.length > 0) {
+    const d = parseDateISO(inMonth[0]);
+    if (d && !Number.isNaN(d.getTime())) return toLocalISODate(addDays(d, 1));
+  }
+  const dim = daysInMonth(y, m);
+  return `${y}-${pad2(m)}-${pad2(dim)}`;
+}
+
+function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
+  const out = [];
+  for (const f of alloc.flows || []) {
+    const fromS = snaps[f.fromIdx];
+    const toS = snaps[f.toIdx];
+    if (!fromS || !toS) continue;
+    const amt = Math.round(asNumber(f.amount));
+    if (amt <= 0) continue;
+    const payIso = robinHoodPayIsoAfterSalaryInMonth(payDatesSorted, fromS.y, fromS.m);
+    const id = `rh_set_${fromS.y}_${pad2(fromS.m)}_${toS.y}_${pad2(toS.m)}`;
+    out.push({
+      id,
+      name: `Avsättning → ${monthName(toS.m)} ${toS.y}`,
+      category: "savings",
+      subcategory: "robin",
+      interval: "once",
+      origin: "system",
+      metadata: {
+        robinHoodGenerated: true,
+        robinHood: { version: 1, kind: "setaside", fromY: fromS.y, fromM: fromS.m, toY: toS.y, toM: toS.m }
+      },
+      payments: [{ id: `${id}_p`, date: payIso, amount: amt }]
+    });
+  }
+  const inflowByTo = Object.create(null);
+  for (const f of alloc.flows || []) {
+    const toS = snaps[f.toIdx];
+    if (!toS) continue;
+    inflowByTo[f.toIdx] = (inflowByTo[f.toIdx] || 0) + Math.round(asNumber(f.amount));
+  }
+  for (const toIdxStr of Object.keys(inflowByTo)) {
+    const toIdx = Number(toIdxStr);
+    const total = inflowByTo[toIdx];
+    if (total <= 0) continue;
+    const toS = snaps[toIdx];
+    if (!toS) continue;
+    const id = `rh_wd_${toS.y}_${pad2(toS.m)}`;
+    const payIso = robinHoodPayIsoAfterSalaryInMonth(payDatesSorted, toS.y, toS.m);
+    out.push({
+      id,
+      name: `Täckning underskott (${monthName(toS.m)} ${toS.y})`,
+      category: "savings",
+      subcategory: "robin",
+      interval: "once",
+      origin: "system",
+      metadata: {
+        robinHoodGenerated: true,
+        robinHood: { version: 1, kind: "withdraw", toY: toS.y, toM: toS.m }
+      },
+      payments: [{ id: `${id}_p`, date: payIso, amount: -Math.round(total) }]
+    });
+  }
+  return out;
+}
+
+function syncRobinHoodGeneratedExpenses(root, payDatesSorted, startMo) {
+  if (!Array.isArray(root.expenses)) root.expenses = [];
+  const curLabel = currentSalaryYearLabelForDate(new Date(), startMo);
+  const snaps = mergeRobinHoodSalarySnaps(root, curLabel - 2, curLabel + 2, startMo);
+  const without = root.expenses.filter((e) => !isRobinHoodGeneratedExpense(e));
+  if (!snaps.length) {
+    root.expenses = without;
+    return;
+  }
+  const alloc = computeRobinHoodAllocation(snaps);
+  const built = buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted);
+  root.expenses = without.concat(built.map((x) => canonicalizeExpenseRecord(x)));
+}
+
+function getAnalysisPayDatesWindow(root = state) {
+  const st = root.settings || {};
+  const startMo = st.salaryYearStartMonth || 1;
+  const anchor = getAnalysisSalaryAnchorSpec(root);
+  const now = new Date();
+  const winStart = new Date(now.getFullYear() - 6, 0, 1).getTime();
+  const winEnd = new Date(now.getFullYear() + 4, 11, 31, 23, 59, 59, 999).getTime();
+  const payDates =
+    anchor.ok && anchor.firstIso
+      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd, {
+          nominal: anchor.useNominalPaySchedule,
+          scheduleStartParts: anchor.scheduleStartParts
+        })
+      : [];
+  return { startMo, anchor, payDates, now };
+}
+
+function syncRobinHoodIntoState() {
+  const { startMo, payDates } = getAnalysisPayDatesWindow();
+  if (!payDates.length) {
+    state.expenses = (state.expenses || []).filter((e) => !isRobinHoodGeneratedExpense(e));
+    return;
+  }
+  syncRobinHoodGeneratedExpenses(state, payDates, startMo);
+}
+
+function sumRobinHoodSignedInIsoRange(root, startIso, endIso) {
+  let sum = 0;
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  if (!a || !b) return 0;
+  for (const exp of root.expenses || []) {
+    if (!isRobinHoodGeneratedExpense(exp)) continue;
+    for (const p of exp.payments || []) {
+      const d = String(p.date || "").slice(0, 10);
+      if (!d || d < a || d > b) continue;
+      sum += asNumber(p.amount);
+    }
+  }
+  return sum;
+}
+
+function robinHoodSetasideOutByGlobalSnapIndex(snaps, alloc) {
+  const out = Object.create(null);
+  for (const f of alloc.flows || []) {
+    out[f.fromIdx] = (out[f.fromIdx] || 0) + Math.round(asNumber(f.amount));
+  }
+  return out;
+}
+
+/** Staplar avsättning (≥ 0) per lönemånad i visat löneår. */
+function renderSalaryYearRobinHoodSetasideChartSvg(snaps, valuesPerSnap) {
+  const W = 340;
+  const H = 200;
+  const padL = 46;
+  const padR = 12;
+  const padT = 24;
+  const padB = 32;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const n = snaps.length;
+  if (!n) return "";
+  const vals = snaps.map((_, i) => Math.max(0, asNumber(valuesPerSnap[i])));
+  const vMax = Math.max(1, ...vals) * 1.08;
+  const axisY = padT + plotH;
+  const x1 = padL + plotW;
+  const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
+  const slot = plotW / n;
+  const bw = Math.max(4, Math.min(20, slot * 0.52));
+  let rects = "";
+  for (let i = 0; i < n; i++) {
+    const v = vals[i];
+    if (v <= 0.5) continue;
+    const xMid = padL + slot * (i + 0.5);
+    const x = xMid - bw / 2;
+    const yTop = yPx(v);
+    const h = Math.max(1.2, axisY - yTop);
+    rects += `<rect class="analysis-robin-chart__bar" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(
+      2
+    )}" height="${h.toFixed(2)}" rx="2" />`;
+  }
+  let labels = "";
+  for (let i = 0; i < n; i++) {
+    const label = salaryYearChartMonthShort(snaps[i].m);
+    const xMid = padL + slot * (i + 0.5);
+    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(label)}</text>`;
+  }
+  const yMid = (padT + axisY) / 2;
+  const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
+  const peak = vals.reduce((m, x) => Math.max(m, x), 0);
+  const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 5).toFixed(
+    1
+  )}" y="${(padT + 11).toFixed(1)}" text-anchor="end">${escapeHtml(formatKr(peak))}</text>`;
+  const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 5).toFixed(
+    1
+  )}" y="${(axisY - 2).toFixed(1)}" text-anchor="end">0</text>`;
+  return `
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar per lönemånad">
+      ${krLabel}
+      ${yMaxTick}
+      ${yZeroTick}
+      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
+      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
+      ${rects}
+      ${labels}
+    </svg>`;
+}
+
+function calendarMonthsFromDateToDate(startDate, endDate) {
+  let y = startDate.getFullYear();
+  let m = startDate.getMonth() + 1;
+  const ey = endDate.getFullYear();
+  const em = endDate.getMonth() + 1;
+  let n = 0;
+  while (y < ey || (y === ey && m < em)) {
+    n++;
+    m++;
+    if (m > 12) {
+      m = 1;
+      y++;
+    }
+  }
+  return n;
+}
+
 /** T.ex. "25:e som brytpunkt" för diagramrubrik. */
 function svPaydayBreakpointHint(day) {
   const n = Math.max(1, Math.min(31, Math.floor(asNumber(day)) || 25));
@@ -3878,7 +4256,8 @@ const TAGGED_CATEGORY_CONFIG = {
     subcategoryField: "subcategory",
     types: [
       { key: "own", label: "Eget sparande" },
-      { key: "system", label: "System Sparande" }
+      { key: "system", label: "System Sparande" },
+      { key: "robin", label: "Avsättning (system)" }
     ],
     hideTypeInEditor: true,
     defaultTypeKey: "own",
@@ -4255,6 +4634,7 @@ function loadState() {
 }
 
 function saveState() {
+  syncRobinHoodIntoState();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -7415,13 +7795,16 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
       cat === "savings" ? formatTaggedSavingsIntervalLabel(exp.interval) : formatTaggedIntervalPaymentLabel(exp.interval);
 
     const paymentsInMonth = [];
+    const rh = isRobinHoodGeneratedExpense(exp);
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
       if (!yAll && dt.getFullYear() !== yNum) continue;
       if (!mAll && dt.getMonth() + 1 !== mNum) continue;
       const amt = asNumber(p.amount);
-      if (amt > 0 && p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
+      if (amt === 0) continue;
+      if (amt < 0 && !rh) continue;
+      if (p.date) paymentsInMonth.push({ dateIso: String(p.date), amount: amt });
     }
     if (paymentsInMonth.length === 0) continue;
 
@@ -7436,12 +7819,13 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
           nameLine,
           amount: pm.amount,
           intervalLine,
-          sortKey: pm.dateIso
+          sortKey: pm.dateIso,
+          robinHood: rh
         });
       }
     } else {
       const sum = paymentsInMonth.reduce((s, x) => s + x.amount, 0);
-      if (sum <= 0) continue;
+      if (sum === 0) continue;
       paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
       const dateIso = paymentsInMonth[0].dateIso;
       rows.push({
@@ -7449,7 +7833,8 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
         nameLine: baseNameLine,
         amount: sum,
         intervalLine,
-        sortKey: dateIso || "9999-12-31"
+        sortKey: dateIso || "9999-12-31",
+        robinHood: rh
       });
     }
   }
@@ -7493,15 +7878,17 @@ function renderTaggedExpenseListMount(cat) {
     for (const r of rows) {
       const row = document.createElement("div");
       row.className = "tagged-expense-preview-row";
-      const dis = editorOpen ? "disabled" : "";
-      const ariaDis = editorOpen ? "true" : "false";
+      const rh = Boolean(r.robinHood);
+      const dis = editorOpen || rh ? "disabled" : "";
+      const ariaDis = editorOpen || rh ? "true" : "false";
       const editAria = cat === "savings" ? "Redigera sparande" : "Redigera utgift";
+      const amtCls = r.amount < 0 ? " tagged-expense-amt--neg" : "";
       row.innerHTML = `
-        <button type="button" class="tagged-expense-row-btn" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="${escapeHtml(editAria)}" ${dis} aria-disabled="${ariaDis}">
+        <button type="button" class="tagged-expense-row-btn${rh ? " tagged-expense-row-btn--system" : ""}" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="${escapeHtml(editAria)}" ${dis} aria-disabled="${ariaDis}">
           <span class="tagged-expense-row-btn-main">
             <span class="tagged-expense-row-line1">
               <span class="tagged-expense-name">${escapeHtml(r.nameLine)}</span>
-              <span class="tagged-expense-amt">${escapeHtml(formatKr(r.amount))}</span>
+              <span class="tagged-expense-amt${amtCls}">${escapeHtml(formatKr(r.amount))}</span>
             </span>
             <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
           </span>
@@ -7517,7 +7904,7 @@ function renderTaggedExpenseListMount(cat) {
       year === "all" || month === "all"
         ? "Totalt i urvalet"
         : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
-    totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
+    totalEl.textContent = total !== 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
   }
 
   mount.onclick = (e) => {
@@ -7527,6 +7914,8 @@ function renderTaggedExpenseListMount(cat) {
     const id = btn.getAttribute("data-tagged-edit-id");
     const c = btn.getAttribute("data-tagged-cat");
     if (!id || !c || !TAGGED_CATEGORY_CONFIG[c]) return;
+    const tapped = (state.expenses || []).find((x) => x.id === id);
+    if (tapped && isRobinHoodGeneratedExpense(tapped)) return;
     ui.tagged[c].editingId = id;
     ui.tagged[c].editorOpen = true;
     if (c === "car") renderCarPage();
@@ -7539,6 +7928,7 @@ function renderTaggedExpenseListMount(cat) {
 function renderTaggedCategoryPage(cat) {
   const C = TAGGED_CATEGORY_CONFIG[cat];
   if (!C) return;
+  if (cat === "savings") syncRobinHoodIntoState();
   const ids = C.ids;
   const u = ui.tagged[cat];
 
@@ -7606,8 +7996,14 @@ function renderTaggedCategoryPage(cat) {
     }
   }
 
-  const editingId = u.editingId;
-  const editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.category === C.category) : null;
+  let editingId = u.editingId;
+  let editing = editingId ? (state.expenses || []).find((x) => x.id === editingId && x.category === C.category) : null;
+  if (u.editorOpen && editing && isRobinHoodGeneratedExpense(editing)) {
+    u.editorOpen = false;
+    u.editingId = null;
+    editingId = null;
+    editing = null;
+  }
 
   if (editorCard) editorCard.hidden = !u.editorOpen;
   if (addBtn) {
@@ -7827,6 +8223,10 @@ function saveTaggedCategoryFromEditor(cat) {
   if (!C) return;
   const ids = C.ids;
   const u = ui.tagged[cat];
+  if (u.editingId) {
+    const ex = (state.expenses || []).find((x) => x.id === u.editingId);
+    if (ex && isRobinHoodGeneratedExpense(ex)) return;
+  }
   const note = document.getElementById(ids.note);
   const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
   const summaryEl = summaryId ? document.getElementById(summaryId) : null;
@@ -7950,6 +8350,8 @@ function saveTaggedCategoryFromEditor(cat) {
 function deleteTaggedCategoryFromEditor(cat) {
   const u = ui.tagged[cat];
   if (!u.editingId) return;
+  const prev = (state.expenses || []).find((x) => x.id === u.editingId);
+  if (prev && isRobinHoodGeneratedExpense(prev)) return;
   state.expenses = (state.expenses || []).filter((x) => x.id !== u.editingId);
   saveState();
   u.editorOpen = false;
@@ -9597,19 +9999,9 @@ function renderAnalysisPage() {
   const mount = document.getElementById("analysisViewDetail");
   if (!mount) return;
 
-  const st = state.settings || {};
-  const startMo = st.salaryYearStartMonth || 1;
-  const anchor = getAnalysisSalaryAnchorSpec(state);
-  const now = new Date();
-  const winStart = new Date(now.getFullYear() - 6, 0, 1).getTime();
-  const winEnd = new Date(now.getFullYear() + 4, 11, 31, 23, 59, 59, 999).getTime();
-  const payDates =
-    anchor.ok && anchor.firstIso
-      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd, {
-          nominal: anchor.useNominalPaySchedule,
-          scheduleStartParts: anchor.scheduleStartParts
-        })
-      : [];
+  syncRobinHoodIntoState();
+
+  const { startMo, anchor, payDates, now } = getAnalysisPayDatesWindow();
 
   const anchorNote = anchor.ok
     ? `<p class="note analysis-anchor-note">Löneankare: <strong>${escapeHtml(anchor.sourceLabel)}</strong> (${formatKr(
@@ -9754,6 +10146,91 @@ function renderAnalysisPage() {
       </div>`
         : "";
 
+    let robinBlock = "";
+    if (syModel && risks.length > 0 && bounds) {
+      const gSnaps = mergeRobinHoodSalarySnaps(state, labelYear - 1, labelYear + 1, startMo);
+      const gAlloc = computeRobinHoodAllocation(gSnaps);
+      const outFromG = robinHoodSetasideOutByGlobalSnapIndex(gSnaps, gAlloc);
+      const ymToGi = new Map();
+      gSnaps.forEach((s, i) => ymToGi.set(`${s.y}-${s.m}`, i));
+      const setasideVals = syModel.snaps.map((s) => {
+        const gi = ymToGi.get(`${s.y}-${s.m}`);
+        return gi != null ? Math.max(0, Math.round(outFromG[gi] || 0)) : 0;
+      });
+      const annualNeedPot = Math.round(risks.reduce((acc, r) => acc + -r.net, 0));
+      const monthlyRef = risks.length ? Math.round(annualNeedPot / risks.length) : 0;
+      const robinSvg = renderSalaryYearRobinHoodSetasideChartSvg(syModel.snaps, setasideVals);
+      const todayIso = toLocalISODate(now);
+      let accSet = 0;
+      const y0 = toLocalISODate(bounds.start);
+      const y1 = toLocalISODate(bounds.end);
+      const capAcc = todayIso < y1 ? todayIso : y1;
+      for (const exp of state.expenses || []) {
+        if (!isRobinHoodGeneratedExpense(exp) || exp.metadata?.robinHood?.kind !== "setaside") continue;
+        for (const p of exp.payments || []) {
+          const d = String(p.date || "").slice(0, 10);
+          if (!d || d < y0 || d > capAcc) continue;
+          accSet += asNumber(p.amount);
+        }
+      }
+      const weakList = risks.map((r) => `<li>${escapeHtml(r.monthLabel)} — ${escapeHtml(formatKr(r.net))}</li>`).join("");
+      const strongRows = syModel.snaps
+        .map((s, i) => ({ s, v: setasideVals[i] }))
+        .filter((x) => x.v > 0)
+        .map((x) => `<li>${escapeHtml(x.s.monthLabel)} — ${escapeHtml(formatKr(x.v))}</li>`)
+        .join("");
+      let robinWarns = "";
+      if (isInnevarandeYear && annualNeedPot > 0 && accSet + ROBIN_HOOD_EPS < annualNeedPot && capAcc >= y0) {
+        robinWarns += `<p class="note analysis-robin-warn">Hittills avsatt ${escapeHtml(formatKr(accSet))} av beräknad årlig behovspott ${escapeHtml(
+          formatKr(annualNeedPot)
+        )} (avsättningar t.o.m. ${escapeHtml(capAcc)}).</p>`;
+      }
+      const nextB = salaryYearInclusiveBounds(curLabel + 1, startMo);
+      const nextModel = nextB ? buildSalaryYearAnalysisModel(state, nextB) : null;
+      const weakNext = nextModel && nextModel.yearNet < -ROBIN_HOOD_EPS;
+      const mToBreak =
+        nextB && nextB.start && !Number.isNaN(nextB.start.getTime())
+          ? calendarMonthsFromDateToDate(new Date(now.getFullYear(), now.getMonth(), 1), nextB.start)
+          : 999;
+      if (mToBreak < 4 && mToBreak >= 0 && weakNext) {
+        robinWarns += `<p class="note analysis-robin-warn">Under fyra kalendermånader till nästa löneår — planen för nästa år ser svag ut (balans ${escapeHtml(
+          formatKr(nextModel.yearNet)
+        )}).</p>`;
+      }
+      robinBlock = `
+      <div class="table-card analysis-robin-section">
+        <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
+        <p class="note">Systemberäknade sparposter (25 % → upp till 100 % → proportionellt från månader med överskott före ett underskott). Redigeras inte manuellt — visas under Spara.</p>
+        <div class="analysis-robin-kpis">
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Årlig behovspott</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(annualNeedPot))}</div>
+            <div class="analysis-salary-hero__mini-hint">Summan av negativa netton (spar exkl.) i löneåret</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Snitt / riskmånad</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(monthlyRef))}</div>
+            <div class="analysis-salary-hero__mini-hint">Behov riktmärke om fördelat jämnt</div>
+          </div>
+        </div>
+        ${robinWarns}
+        <div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
+          <div class="analysis-salary-year-chart-head"><span>Avsättning per månad (≥ 0)</span><span>${escapeHtml(payBreakpointHint)}</span></div>
+          ${robinSvg}
+        </div>
+        <div class="analysis-robin-columns">
+          <div>
+            <div class="analysis-robin-subtitle">Underskottsmånader</div>
+            <ul class="analysis-robin-list">${weakList}</ul>
+          </div>
+          <div>
+            <div class="analysis-robin-subtitle">Månader med avsättning</div>
+            <ul class="analysis-robin-list">${strongRows || "<li>—</li>"}</ul>
+          </div>
+        </div>
+      </div>`;
+    }
+
     mount.innerHTML = `
       <section class="analysis-salary-hero analysis-salary-hero--year card" aria-label="Löneår ${labelYear}">
         <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
@@ -9765,6 +10242,7 @@ function renderAnalysisPage() {
         </div>
       </section>
       ${periodsBlock}
+      ${robinBlock}
       <div class="table-card analysis-salary-period-controls">
         <div class="table-title">Byt löneår</div>
         <p class="note">Visa innevarande, föregående eller nästa löneår.</p>
@@ -9821,6 +10299,9 @@ function renderAnalysisPage() {
   const kvarPlan = plannedInc - plannedExp;
   const isInnevarandePeriod = (Number(ui.analysisSalaryPeriodOffset) || 0) === 0;
   const heroEyebrow = isInnevarandePeriod ? "Innevarande löneperiod" : "Löneperiod";
+  const rhPeriodNet =
+    win && win.startIso && win.endIso ? sumRobinHoodSignedInIsoRange(state, win.startIso, win.endIso) : 0;
+  const rhPeriodCls = rhPeriodNet < 0 ? " analysis-salary-hero__mini-value--neg" : "";
 
   mount.innerHTML = `
     <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
@@ -9837,7 +10318,8 @@ function renderAnalysisPage() {
         </div>
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
-          <div class="analysis-salary-hero__mini-value analysis-salary-hero__mini-value--muted">—</div>
+          <div class="analysis-salary-hero__mini-value${rhPeriodCls}">${escapeHtml(formatKr(rhPeriodNet))}</div>
+          <div class="analysis-salary-hero__mini-hint">Avsättning och täckning (system)</div>
         </div>
       </div>
     </section>
