@@ -3209,33 +3209,6 @@ function getSalaryPeriodWindow(sortedPayIsos, nextPayIndex) {
   return { startIso, endIso: nextIso, nextPayIndex };
 }
 
-/**
- * Per löneperiod som överlappar löneåret: utgifter (sparande exkl.) inom klippt datumintervall.
- * Referens: yearTotalInc = intäkter hela löneåret; incomePerTwelfth = yearTotalInc / 12.
- */
-function buildSalaryYearPeriodExpenseChartSeries(root, sortedPayIsos, bounds) {
-  if (!bounds?.start || !bounds?.end || !sortedPayIsos?.length) {
-    return { periods: [], yearTotalInc: 0, incomePerTwelfth: 0 };
-  }
-  const yearStartIso = toLocalISODate(bounds.start);
-  const yearEndIso = toLocalISODate(bounds.end);
-  const yearTotalInc = sumIncomePaymentsInIsoRangeInclusive(root, yearStartIso, yearEndIso);
-  const incomePerTwelfth = yearTotalInc / 12;
-  const periods = [];
-  for (let i = 0; i < sortedPayIsos.length; i++) {
-    const win = getSalaryPeriodWindow(sortedPayIsos, i);
-    if (!win) continue;
-    const clipStart = win.startIso > yearStartIso ? win.startIso : yearStartIso;
-    const clipEnd = win.endIso < yearEndIso ? win.endIso : yearEndIso;
-    if (clipStart > clipEnd) continue;
-    const expenses = sumExpensePaymentsInIsoRangeInclusive(root, clipStart, clipEnd);
-    const parts = datePartsFromIso(win.endIso);
-    const label = parts ? `${parts.d} ${monthShortLabelSv(parts.y, parts.m)}` : String(win.endIso).slice(0, 10);
-    periods.push({ label, expenses, endIso: win.endIso });
-  }
-  return { periods, yearTotalInc, incomePerTwelfth };
-}
-
 function salaryYearRangeCaption(labelYear, startMonth) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
   const endMo = sm === 1 ? 12 : sm - 1;
@@ -3362,64 +3335,95 @@ function svPaydayBreakpointHint(day) {
   return `${n}${suf} som brytpunkt`;
 }
 
-/** Stapeldiagram: utgifter per löneperiod; streckad linje = löneårets totala intäkt / 12. */
-function renderSalaryYearPeriodsOverYearChartSvg(periods, incomePerTwelfth) {
+/** Kort månadsetikett för diagram (t.ex. Jan, Maj). index 1–12 */
+function salaryYearChartMonthShort(m) {
+  const names = ["", "Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"];
+  const i = Math.max(1, Math.min(12, Math.floor(asNumber(m)) || 1));
+  return names[i] || "?";
+}
+
+/**
+ * Månadsstaplar: utgifter (sparande exkl.) vs intäktsmeridian (löneårets totala intäkt ÷ 12).
+ * Över meridian: blå del upp till linjen, röd del = överskjutande utgift. Under/= meridian: en grön stapel.
+ */
+function renderSalaryYearMonthlyExpenseChartSvg(snaps, incomeMeridian) {
   const W = 340;
-  const H = 228;
-  const padL = 40;
+  const H = 236;
+  const padL = 46;
   const padR = 12;
-  const padT = 26;
-  const padB = 34;
+  const padT = 30;
+  const padB = 32;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const n = periods.length;
+  const n = snaps.length;
   if (!n) return "";
 
-  const exps = periods.map((p) => p.expenses);
+  const mer = Math.max(0, incomeMeridian);
+  const exps = snaps.map((s) => s.exp);
   const maxExp = exps.reduce((a, b) => Math.max(a, b), 0);
-  let vMax = Math.max(maxExp, incomePerTwelfth, 1);
+  let vMax = Math.max(maxExp, mer, 1);
   if (!Number.isFinite(vMax) || vMax <= 0) vMax = 1;
-  vMax *= 1.12;
+  vMax *= 1.1;
 
   const axisY = padT + plotH;
   const x0 = padL;
   const x1 = padL + plotW;
-  const yPx = (v) => axisY - (Math.max(0, v) / vMax) * plotH;
-  const yRef = yPx(incomePerTwelfth);
+  const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
+  const yRef = yPx(mer);
   const slot = plotW / n;
   const bw = Math.max(4, Math.min(20, slot * 0.52));
+  const yMid = (padT + axisY) / 2;
 
   let rects = "";
   for (let i = 0; i < n; i++) {
     const exp = exps[i];
-    const yTop = yPx(exp);
-    const h = Math.max(1.2, axisY - yTop);
-    let barClass = "analysis-salary-year-chart__bar analysis-salary-year-chart__bar--pos";
-    if (exp > incomePerTwelfth + 0.01) {
-      const isPeak = maxExp > incomePerTwelfth + 0.01 && Math.abs(exp - maxExp) < 0.01;
-      barClass = isPeak
-        ? "analysis-salary-year-chart__bar analysis-salary-year-chart__bar--neg-deep"
-        : "analysis-salary-year-chart__bar analysis-salary-year-chart__bar--neg";
-    }
     const xMid = padL + slot * (i + 0.5);
     const x = xMid - bw / 2;
-    rects += `<rect class="${barClass}" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="2" />`;
+    if (exp > mer + 0.01) {
+      const yM = yPx(mer);
+      const yE = yPx(exp);
+      const hBlue = Math.max(0, axisY - yM);
+      const hRed = Math.max(1, yM - yE);
+      rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--to-meridian" x="${x.toFixed(2)}" y="${yM.toFixed(
+        2
+      )}" width="${bw.toFixed(2)}" height="${hBlue.toFixed(2)}" rx="2" />`;
+      rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--over-meridian" x="${x.toFixed(2)}" y="${yE.toFixed(
+        2
+      )}" width="${bw.toFixed(2)}" height="${hRed.toFixed(2)}" rx="2" />`;
+    } else {
+      const yE = yPx(exp);
+      const h = Math.max(exp > 0.005 ? 1.2 : 0.8, axisY - yE);
+      rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--under-meridian" x="${x.toFixed(2)}" y="${yE.toFixed(
+        2
+      )}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="2" />`;
+    }
   }
 
-  const refInView = yRef >= padT - 1 && yRef <= axisY + 1;
+  const refInView = yRef >= padT - 0.5 && yRef <= axisY + 0.5;
   const refLine = refInView
     ? `<line class="analysis-salary-year-chart__line-income" x1="${x0}" y1="${yRef.toFixed(2)}" x2="${x1}" y2="${yRef.toFixed(2)}" />`
     : "";
 
   let labels = "";
   for (let i = 0; i < n; i++) {
-    const label = periods[i].label;
+    const label = salaryYearChartMonthShort(snaps[i].m);
     const xMid = padL + slot * (i + 0.5);
-    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 8}">${escapeHtml(label)}</text>`;
+    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(label)}</text>`;
   }
 
+  const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
+  const yMaxTick = `<text class="analysis-salary-year-chart__ytick" x="${(padL - 5).toFixed(1)}" y="${(padT + 11).toFixed(1)}" text-anchor="end">${escapeHtml(
+    formatKr(vMax)
+  )}</text>`;
+  const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 5).toFixed(1)}" y="${(
+    axisY - 2
+  ).toFixed(1)}" text-anchor="end">0</text>`;
+
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter per löneperiod i löneåret">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter per lönemånad jämfört med intäktsmeridian">
+      ${krLabel}
+      ${yMaxTick}
+      ${yZeroTick}
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
       ${rects}
@@ -9641,31 +9645,43 @@ function renderAnalysisPage() {
       <p class="analysis-salary-hero__lead">Inga månader kunde beräknas för valt löneår.</p>
       <div class="analysis-salary-hero__chip">${escapeHtml(cap)}</div>`;
 
-    const periodExpenseSeries =
-      bounds && payDates.length ? buildSalaryYearPeriodExpenseChartSeries(state, payDates, bounds) : null;
-    const incomeTwelfth = periodExpenseSeries?.incomePerTwelfth ?? 0;
+    const incomeMeridian = syModel && syModel.totalInc != null ? syModel.totalInc / 12 : 0;
     const chartSvg =
-      periodExpenseSeries && periodExpenseSeries.periods.length > 0
-        ? renderSalaryYearPeriodsOverYearChartSvg(periodExpenseSeries.periods, incomeTwelfth)
+      syModel && syModel.snaps.length > 0
+        ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, incomeMeridian)
         : "";
     const payBreakpointHint = anchor.ok ? svPaydayBreakpointHint(anchor.recurringDay) : "—";
+    const landscapeDetailRows =
+      syModel && syModel.snaps.length > 0
+        ? syModel.snaps
+            .map((s) => {
+              const lab = salaryYearChartMonthShort(s.m);
+              return `<div class="analysis-salary-year-chart-detail-row"><span>${escapeHtml(lab)}</span><span>${escapeHtml(formatKr(s.exp))}</span><span class="analysis-salary-year-chart-detail-net${s.net < 0 ? " is-neg" : ""}">${escapeHtml(formatKr(s.net))}</span></div>`;
+            })
+            .join("")
+        : "";
     const periodsBlock =
       chartSvg
         ? `
       <div class="table-card analysis-salary-year-periods">
         <div class="table-title">Löneperioder över året</div>
-        <p class="note">Planerade utgifter per löneperiod (sparande exkluderat), klippt till löneåret. Streckad linje: löneårets planerade intäkter delat med 12.</p>
+        <p class="note">Planerade utgifter per lönemånad (sparande exkluderat). Vertikal skala visar kr. Grön stapel när utgiften ligger på eller under intäktsmeridianen; blå upp till meridianen och röd ovanför när utgiften är högre.</p>
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
-            <span>Utgifter per löneperiod</span>
+            <span>Utgifter per månad</span>
             <span>${escapeHtml(payBreakpointHint)}</span>
           </div>
           ${chartSvg}
           <div class="analysis-salary-year-chart-legend">
-            <span class="analysis-salary-year-chart-legend-item">
-              <span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span>
-              <span><strong>Intäktsår</strong> — ${escapeHtml(formatKr(incomeTwelfth))}/mån (total intäkt löneår ÷ 12)</span>
-            </span>
+            <div class="analysis-salary-year-chart-legend-grid">
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--under" aria-hidden="true"></span> Under meridian: grön stapel = utgift</span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span> Över meridian: blå till linjen, röd = överskjutande</span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span> <strong>Intäktsmeridian</strong> — ${escapeHtml(formatKr(incomeMeridian))}/mån (total intäkt löneår ÷ 12)</span>
+            </div>
+          </div>
+          <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per månad">
+            <div class="analysis-salary-year-chart-detail-head"><span>Månad</span><span>Utgift</span><span>Netto</span></div>
+            <div class="analysis-salary-year-chart-detail-rows">${landscapeDetailRows}</div>
           </div>
         </div>
       </div>`

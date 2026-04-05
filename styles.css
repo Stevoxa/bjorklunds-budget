@@ -3702,20 +3702,38 @@ input.input-readonly-like {
 }
 
 .analysis-salary-year-chart__bar {
-  stroke: color-mix(in srgb, var(--text) 8%, transparent);
+  stroke: color-mix(in srgb, var(--text) 10%, transparent);
   stroke-width: 0.35;
 }
 
-.analysis-salary-year-chart__bar--pos {
-  fill: #a7c8de;
+.analysis-salary-year-chart__bar--to-meridian {
+  fill: color-mix(in srgb, #6b9fbf 82%, var(--surface));
 }
 
-.analysis-salary-year-chart__bar--neg {
-  fill: #d9c1a0;
+.analysis-salary-year-chart__bar--over-meridian {
+  fill: color-mix(in srgb, var(--danger, #b03030) 52%, #d9a08f);
 }
 
-.analysis-salary-year-chart__bar--neg-deep {
-  fill: #dfb0b0;
+.analysis-salary-year-chart__bar--under-meridian {
+  fill: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
+}
+
+.analysis-salary-year-chart__ylabel {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-anchor: middle;
+}
+
+.analysis-salary-year-chart__ytick {
+  fill: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-salary-year-chart__ytick--zero {
+  font-weight: 700;
 }
 
 .analysis-salary-year-chart__xlabel {
@@ -3727,15 +3745,84 @@ input.input-readonly-like {
 
 .analysis-salary-year-chart-legend {
   margin-top: var(--space-3);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.analysis-salary-year-chart-legend-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .analysis-salary-year-chart-legend-item {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+}
+
+.analysis-salary-year-chart-legend-swatch {
+  flex: 0 0 14px;
+  height: 14px;
+  border-radius: 4px;
+  margin-top: 2px;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.analysis-salary-year-chart-legend-swatch--under {
+  background: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
+}
+
+.analysis-salary-year-chart-legend-swatch--split {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger, #b03030) 52%, #d9a08f) 50%, color-mix(in srgb, #6b9fbf 82%, var(--surface)) 50%);
+}
+
+.analysis-salary-year-chart-detail {
+  display: none;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.analysis-salary-year-chart-detail-head,
+.analysis-salary-year-chart-detail-row {
+  display: grid;
+  grid-template-columns: minmax(44px, 0.9fr) 1fr 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-salary-year-chart-detail-head {
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.65rem;
+  margin-bottom: 6px;
+  color: color-mix(in srgb, var(--muted) 92%, var(--text));
+}
+
+.analysis-salary-year-chart-detail-row {
+  padding: 4px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.analysis-salary-year-chart-detail-row:last-child {
+  border-bottom: none;
+}
+
+.analysis-salary-year-chart-detail-net.is-neg {
+  color: var(--danger, #b03030);
+  font-weight: 700;
+}
+
+@media (orientation: landscape) and (min-height: 320px) {
+  .analysis-salary-year-chart-detail {
+    display: block;
+  }
 }
 
 .analysis-salary-year-chart-legend-dash {
