@@ -3343,10 +3343,12 @@ function salaryYearChartMonthShort(m) {
 }
 
 /**
- * Månadsstaplar: utgifter (sparande exkl.). Intäktsmeridian (löneårets intäkt ÷ 12) = fristående referenslinje.
- * Utgift ≤ månadens intäkt: grön stapel = utgift. Utgift &gt; intäkt: blå = månadens intäkt, röd = överskjutande utgift.
+ * Månadsstaplar (lönemånad): utgifter (sparande exkl.).
+ * Utgift &gt; intäkt: totalhöjd = utgift; blå = intäkt; röd = utgift − intäkt.
+ * Intäkt ≥ utgift: grön stapelhöjd = utgift.
+ * Horisontellt streck: medelvärde intäkter = löneårets totala intäkt ÷ 12 (referens).
  */
-function renderSalaryYearMonthlyExpenseChartSvg(snaps, incomeMeridian) {
+function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear) {
   const W = 340;
   const H = 236;
   const padL = 46;
@@ -3358,7 +3360,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, incomeMeridian) {
   const n = snaps.length;
   if (!n) return "";
 
-  const mer = Math.max(0, incomeMeridian);
+  const mer = Math.max(0, avgMonthlyIncomeFromYear);
   const exps = snaps.map((s) => s.exp);
   const incs = snaps.map((s) => s.inc);
   const maxExp = exps.reduce((a, b) => Math.max(a, b), 0);
@@ -3425,7 +3427,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, incomeMeridian) {
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per lönemånad med intäktsmeridian">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per lönemånad med medelvärde intäkter som referenslinje">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
@@ -9650,10 +9652,10 @@ function renderAnalysisPage() {
       <p class="analysis-salary-hero__lead">Inga månader kunde beräknas för valt löneår.</p>
       <div class="analysis-salary-hero__chip">${escapeHtml(cap)}</div>`;
 
-    const incomeMeridian = syModel && syModel.totalInc != null ? syModel.totalInc / 12 : 0;
+    const avgMonthlyIncomeFromYear = syModel && syModel.totalInc != null ? syModel.totalInc / 12 : 0;
     const chartSvg =
       syModel && syModel.snaps.length > 0
-        ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, incomeMeridian)
+        ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, avgMonthlyIncomeFromYear)
         : "";
     const payBreakpointHint = anchor.ok ? svPaydayBreakpointHint(anchor.recurringDay) : "—";
     const landscapeDetailRows =
@@ -9670,7 +9672,7 @@ function renderAnalysisPage() {
         ? `
       <div class="table-card analysis-salary-year-periods">
         <div class="table-title">Löneperioder över året</div>
-        <p class="note">Planerade utgifter per lönemånad (sparande exkluderat). Vertikal skala i kr. Grön stapel när utgiften inte överstiger månadens intäkt. Blå visar månadens intäkt och röd den utgift som sticker över intäkten. Streckad linje är intäktsmeridian (jämförelse, total intäkt löneår ÷ 12).</p>
+        <p class="note">Per lönemånad (sparande exkluderat). Om intäkt &lt; utgift: stapelns totala höjd = utgift i kr; blå del = månadens intäkt; röd del = utgift minus intäkt. Om intäkt ≥ utgift: grön stapel = utgiftens höjd. Streckad linje = medelvärde för intäkter (löneårets totala intäkt ÷ 12).</p>
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
             <span>Utgifter per månad</span>
@@ -9679,9 +9681,9 @@ function renderAnalysisPage() {
           ${chartSvg}
           <div class="analysis-salary-year-chart-legend">
             <div class="analysis-salary-year-chart-legend-grid">
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--under" aria-hidden="true"></span> Utgift ≤ månadens intäkt: grön stapel = utgift</span>
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span> Utgift &gt; månadens intäkt: blå = intäkt, röd = överskjutande utgift</span>
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span> <strong>Intäktsmeridian</strong> (referens) — ${escapeHtml(formatKr(incomeMeridian))}/mån (total intäkt löneår ÷ 12)</span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--under" aria-hidden="true"></span> Intäkt ≥ utgift: grön stapelhöjd = utgift (lönemånad)</span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span> Intäkt &lt; utgift: blå = intäkt, röd = utgift − intäkt; total höjd = utgift</span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span> <strong>Medelvärde intäkter</strong> (referens) — ${escapeHtml(formatKr(avgMonthlyIncomeFromYear))}/mån (löneårets totala intäkt ÷ 12)</span>
             </div>
           </div>
           <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per månad">
