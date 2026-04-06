@@ -3207,6 +3207,38 @@ function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, ran
     .sort((a, b) => a.localeCompare(b));
 }
 
+/**
+ * Justerar teoretiska lönedagar mot **faktiska** utbetalningsdatum i största månadsintäkten (ankaret),
+ * per kalendermånad (YYYY-MM). Löneperioden ska följa när lönen verkligen ligger (t.ex. 23:e), inte
+ * en bankjusterad eller avvikande återkommande dag från inställning.
+ */
+function alignPayDatesWithAnchorIncome(root, sortedPayIsos) {
+  if (!sortedPayIsos?.length) return sortedPayIsos || [];
+  const cands = getMonthlyIncomeAnchorCandidates(root);
+  if (!cands.length) return sortedPayIsos;
+  const byYmEarliest = Object.create(null);
+  for (const p of cands[0].inc.payments || []) {
+    if (asNumber(p.amount) <= 0) continue;
+    const iso = String(p.date || "").slice(0, 10);
+    if (!datePartsFromIso(iso)) continue;
+    const ym = iso.slice(0, 7);
+    if (!byYmEarliest[ym] || iso.localeCompare(byYmEarliest[ym]) < 0) byYmEarliest[ym] = iso;
+  }
+  if (Object.keys(byYmEarliest).length === 0) return sortedPayIsos;
+  const aligned = sortedPayIsos
+    .map((iso) => {
+      const ym = String(iso).slice(0, 7);
+      return byYmEarliest[ym] || iso;
+    })
+    .sort((a, b) => a.localeCompare(b));
+  const dedup = [];
+  for (const iso of aligned) {
+    if (dedup.length && dedup[dedup.length - 1] === iso) continue;
+    dedup.push(iso);
+  }
+  return dedup;
+}
+
 function currentSalaryYearLabelForDate(now, startMonth) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
   const y = now.getFullYear();
@@ -3777,12 +3809,19 @@ function getAnalysisPayDatesWindow(root = state) {
   const now = new Date();
   const winStart = new Date(now.getFullYear() - 6, 0, 1).getTime();
   const winEnd = new Date(now.getFullYear() + 4, 11, 31, 23, 59, 59, 999).getTime();
+  const scheduleParts =
+    anchor.useNominalPaySchedule && anchor.scheduleStartParts
+      ? anchor.scheduleStartParts
+      : datePartsFromIso(anchor.firstIso);
   const payDates =
-    anchor.ok && anchor.firstIso
-      ? collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd, {
-          nominal: anchor.useNominalPaySchedule,
-          scheduleStartParts: anchor.scheduleStartParts
-        })
+    anchor.ok && anchor.firstIso && scheduleParts
+      ? alignPayDatesWithAnchorIncome(
+          root,
+          collectSalaryPayDatesInWindow(anchor.firstIso, anchor.recurringDay, winStart, winEnd, {
+            nominal: true,
+            scheduleStartParts: scheduleParts
+          })
+        )
       : [];
   return { startMo, anchor, payDates, now };
 }
