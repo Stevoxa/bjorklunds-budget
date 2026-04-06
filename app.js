@@ -3037,6 +3037,13 @@ function generatePaymentsForSalaryPeriod(sp) {
       seen.add(iso);
       out.push({ id: uid(), date: iso, amount });
     }
+    // Nästa månad ska följa den **faktiska** utbetalningsmånaden (efter bankjustering), inte bara
+    // nominellt (y,m) i loopen. Annars hoppar vi en månad om t.ex. 1 jan → 30 dec föregående år.
+    const emitted = datePartsFromIso(iso);
+    if (emitted) {
+      y = emitted.y;
+      m = emitted.m;
+    }
     isFirst = false;
     m += 1;
     if (m > 12) {
@@ -3387,6 +3394,24 @@ function sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso) {
     }
   }
   return sum;
+}
+
+/** True om någon månadsvis lön (eller löneperiod-genererad intäkt) har positiv post exakt på `iso`. */
+function hasPositiveSalaryLikeIncomeOnIso(root, iso) {
+  const d0 = String(iso || "").slice(0, 10);
+  if (!datePartsFromIso(d0)) return false;
+  for (const inc of root?.incomes || []) {
+    if (String(inc?.interval || "") !== "monthly") continue;
+    const isSalary =
+      inc?.category === INCOME_CATEGORY_SALARY || Boolean(inc?.metadata?.salaryPeriodId);
+    if (!isSalary) continue;
+    for (const p of inc.payments || []) {
+      if (asNumber(p.amount) <= 0) continue;
+      const d = String(p.date || "").slice(0, 10);
+      if (d === d0) return true;
+    }
+  }
+  return false;
 }
 
 /** Kalendermånader som helt ingår i löneårets [start,end]. */
@@ -10712,9 +10737,14 @@ function renderAnalysisPage() {
       }
       const weakListCore = risks
         .map((r) => {
-          const noInc = r.inc <= ROBIN_HOOD_EPS;
-          const hint = noInc
-            ? `<span class="analysis-robin-inline-hint">Saknar planerad intäkt denna kalendermånad — kontrollera löneperioder och manuella intäkter.</span>`
+          const noIncInPeriodWindow = r.inc <= ROBIN_HOOD_EPS;
+          const salOnPayIso =
+            r.payIso && hasPositiveSalaryLikeIncomeOnIso(state, r.payIso);
+          const showMissingIncHint =
+            noIncInPeriodWindow &&
+            !salOnPayIso;
+          const hint = showMissingIncHint
+            ? `<span class="analysis-robin-inline-hint">Saknar planerad intäkt i periodens datumintervall — kontrollera löneperioder och manuella intäkter.</span>`
             : "";
           return `<li class="analysis-robin-stat-item"><div class="analysis-robin-stat-row"><span class="analysis-robin-stat-row__name">${escapeHtml(
             r.monthLabel
