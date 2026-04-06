@@ -3428,29 +3428,30 @@ function robinBridgeMonthYmKeysFromPrevSalaryYear(deficitY, deficitM, startMo) {
   return new Set(last3.map((x) => robinYmKey(x.y, x.m)));
 }
 
+/** Bärare närmast underskottet först (t.ex. okt-underskott → sep, aug, jul …), sedan äldre; samma löneår + ev. brygga tre sista månader föregående år. */
 function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex, startMo) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
   const d = snaps[deficitIndex];
   const defLabel = salaryYearLabelForCalendarMonth(d.y, d.m, sm);
   const legacyKeys = robinBridgeMonthYmKeysFromPrevSalaryYear(d.y, d.m, sm);
-  const rev = [];
+  const out = [];
   for (let i = deficitIndex - 1; i >= 0; i--) {
     if (snaps[i].net < -ROBIN_HOOD_EPS) break;
     if (snaps[i].net <= ROBIN_HOOD_EPS) continue;
     const s = snaps[i];
     const lab = salaryYearLabelForCalendarMonth(s.y, s.m, sm);
     if (lab === defLabel) {
-      rev.push(i);
+      out.push(i);
       continue;
     }
     const k = robinYmKey(s.y, s.m);
     if (legacyKeys.has(k)) {
-      rev.push(i);
+      out.push(i);
       continue;
     }
     break;
   }
-  return rev.reverse();
+  return out;
 }
 
 function findRobinPrevDeficitSnapIndex(snaps, firstCarrierIndex) {
@@ -3461,31 +3462,28 @@ function findRobinPrevDeficitSnapIndex(snaps, firstCarrierIndex) {
 }
 
 /**
- * Fas 1: upp till 25 % av kvarvarande överskott per bärare (skalas om summan överstiger behovet).
- * Fas 2: i kronologisk ordning upp till 100 % kvar per bärare.
+ * Fas 1: i bärarordning (närmast underskottet först), upp till 25 % av överskott per månad tills behovet är täckt.
+ * Fas 2: samma ordning, upp till 100 % kvar per bärare.
  * Fas 3: proportionellt mot kvarvarande kapacitet om behov kvarstår.
  */
-function allocateRobinFromCarriers(need, carrierIndicesOldestFirst, snaps, used) {
+function allocateRobinFromCarriers(need, carrierIndicesNearDeficitFirst, snaps, used) {
   const byIndex = {};
   let remaining = need;
-  if (remaining <= ROBIN_HOOD_EPS || !carrierIndicesOldestFirst.length) {
+  if (remaining <= ROBIN_HOOD_EPS || !carrierIndicesNearDeficitFirst.length) {
     return { allocated: 0, byIndex, shortfall: remaining };
   }
   const getAvail = (idx) => Math.max(0, snaps[idx].net - (used[idx] || 0));
-  const caps = carrierIndicesOldestFirst
+  const caps = carrierIndicesNearDeficitFirst
     .map((idx) => ({ idx, avail: getAvail(idx) }))
     .filter((x) => x.avail > ROBIN_HOOD_EPS);
   if (!caps.length) return { allocated: 0, byIndex, shortfall: remaining };
 
-  let targets = caps.map((c) => 0.25 * c.avail);
-  let sumT = targets.reduce((a, b) => a + b, 0);
-  if (sumT > remaining + ROBIN_HOOD_EPS) {
-    const k = remaining / sumT;
-    targets = targets.map((t) => t * k);
-  }
-  for (let i = 0; i < caps.length; i++) {
-    const idx = caps[i].idx;
-    const take = Math.min(targets[i], getAvail(idx), remaining);
+  for (const c of caps) {
+    if (remaining <= ROBIN_HOOD_EPS) break;
+    const idx = c.idx;
+    const avail = getAvail(idx);
+    const cap25 = 0.25 * avail;
+    const take = Math.min(cap25, avail, remaining);
     if (take > ROBIN_HOOD_EPS) {
       byIndex[idx] = (byIndex[idx] || 0) + take;
       used[idx] = (used[idx] || 0) + take;
@@ -10519,7 +10517,7 @@ function renderAnalysisPage() {
       robinBlock = `
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
-        <p class="note">Systemberäknade sparposter (25 % → upp till 100 % → proportionellt). Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
+        <p class="note">Systemberäknade sparposter: <strong>25 % per månad</strong> i ordning <strong>närmast underskottet först</strong> (t.ex. okt-underskott → sep, aug, jul …) tills behovet täcks, därefter upp till 100 % i samma ordning, därefter proportionellt. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
         <div class="analysis-robin-kpis">
           <div class="analysis-salary-hero__mini">
             <div class="analysis-salary-hero__mini-label">Löneårets avsättningsbehov</div>
