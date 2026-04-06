@@ -3670,6 +3670,34 @@ input.input-readonly-like {
   color: var(--muted-fg, rgba(0, 0, 0, 0.55));
 }
 
+/* Löneår: kompakt inforad (mock: info-strip) */
+.analysis-year-info-strip {
+  margin: 0 0 var(--space-3);
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 9%, var(--card-2));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.analysis-year-info-strip strong {
+  font-weight: 800;
+}
+
+.analysis-year-desc {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.analysis-year-nav-card .table-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
 .analysis-salary-year-periods {
   margin-top: var(--space-2);
   font-family: var(--font-sans);
@@ -3819,8 +3847,8 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
 
 .analysis-salary-year-chart-legend {
   margin-top: var(--space-3);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.45;
   color: var(--muted);
 }
 
@@ -4215,16 +4243,24 @@ html[data-theme="dark"] .analysis-robin-traffic__dot[data-level="3"].is-active {
   margin-top: var(--space-3);
 }
 
-.analysis-robin-swipe-hint {
-  margin-top: var(--space-2);
-  margin-bottom: 0;
+.analysis-robin-section .analysis-robin-section__title.table-title {
+  font-size: 1.375rem;
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
 }
 
-.analysis-robin-bar-legend {
-  font-size: 0.78rem;
-  line-height: 1.4;
+.analysis-robin-section > .note.analysis-year-desc {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+.analysis-robin-chart-meta {
   margin-top: var(--space-2);
   margin-bottom: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--muted);
   font-weight: 600;
 }
