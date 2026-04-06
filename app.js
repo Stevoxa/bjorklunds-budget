@@ -10332,16 +10332,15 @@ function renderAnalysisPage() {
           )}</span></div>${hint}</li>`;
         })
         .join("");
-      /** Endast avsättning från föregående löneår → underskott i visat löneår (t.ex. visar 2026: flöden till 2026 från 2025). */
-      const prevSalaryYearLabel = labelYear - 1;
+      /** Alla flöden vars mål är underskott i visat löneår — grupperat efter avsättningsmånadens löneår (föregående år, samma år t.ex. jan→feb, ev. brygga). */
       const fromYmTotals = new Map();
       for (const f of gAlloc.flows || []) {
         const toS = gSnaps[f.toIdx];
         const fromS = gSnaps[f.fromIdx];
         if (!toS || !fromS) continue;
         const toLab = salaryYearLabelForCalendarMonth(toS.y, toS.m, startMo);
+        if (toLab !== labelYear) continue;
         const fromLab = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, startMo);
-        if (toLab !== labelYear || fromLab !== prevSalaryYearLabel) continue;
         const amt = Math.round(asNumber(f.amount));
         if (amt <= ROBIN_HOOD_EPS) continue;
         const key = robinYmKey(fromS.y, fromS.m);
@@ -10436,7 +10435,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini analysis-robin-stat-card">
             <div class="analysis-salary-hero__mini-label">Månader med planerade avsättningar</div>
             <div class="analysis-robin-stat-card__body">${allocationBodyHtml}</div>
-            <div class="analysis-salary-hero__mini-hint">Avsättningar i löneår ${prevSalaryYearLabel} som täcker underskott i visat löneår (${labelYear}).</div>
+            <div class="analysis-salary-hero__mini-hint">Planerade avsättningar som täcker underskott i löneår ${labelYear}, grupperade efter avsättningsmånadens löneår.</div>
           </div>
         </div>
       </div>`;
