@@ -3744,6 +3744,12 @@ input.input-readonly-like {
   shape-rendering: geometricPrecision;
 }
 
+.analysis-salary-year-chart__bar--expense-within-income,
+.analysis-salary-year-chart__bar--surplus-on-income {
+  stroke: none;
+  shape-rendering: geometricPrecision;
+}
+
 /* Fasta färger — undvik color-mix mot --surface (blev nästan svart i mörkt tema). */
 .analysis-salary-year-chart__bar--month-income {
   fill: #5b9cc9;
@@ -3753,19 +3759,33 @@ input.input-readonly-like {
   fill: color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090);
 }
 
-/* Intäkt ≥ utgift: stapel visar intäktens höjd (inte utgift). */
+/* Intäkt ≥ utgift: nedre del = utgifter (befintlig grön), övre = överskott (ljusare, lägre opacitet). */
 .analysis-salary-year-chart__bar--expense-within-income {
   fill: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
+}
+
+.analysis-salary-year-chart__bar--surplus-on-income {
+  fill: color-mix(in srgb, var(--accent-strong, #255f33) 22%, #d2efd8);
+  opacity: 0.72;
 }
 
 @media (prefers-color-scheme: dark) {
   .analysis-salary-year-chart__bar--month-income {
     fill: #7eb8e0;
   }
+  .analysis-salary-year-chart__bar--surplus-on-income {
+    fill: color-mix(in srgb, #b8e8c4 70%, #3d5c45);
+    opacity: 0.68;
+  }
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--month-income {
   fill: #7eb8e0;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
+  fill: color-mix(in srgb, #b8e8c4 70%, #3d5c45);
+  opacity: 0.68;
 }
 
 .analysis-salary-year-chart__ylabel {
@@ -3833,7 +3853,14 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--month-income {
 }
 
 .analysis-salary-year-chart-legend-swatch--green {
-  background: #8fb496;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent-strong, #255f33) 22%, #d2efd8) 0%,
+    color-mix(in srgb, var(--accent-strong, #255f33) 22%, #d2efd8) 48%,
+    color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896) 52%,
+    color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896) 100%
+  );
+  opacity: 0.92;
 }
 
 .analysis-salary-year-chart-legend-swatch--under {

@@ -4290,7 +4290,7 @@ function salaryYearChartMonthShort(m) {
 /**
  * Staplar per löneperiod (eller kalendermånad i fallback): utgifter (sparande exkl.) och intäkter.
  * Intäkt &lt; utgift: totalhöjd = utgift; blå = intäkt; röd = utgift − intäkt.
- * Intäkt ≥ utgift: grön stapelhöjd = intäkt.
+ * Intäkt ≥ utgift: stapelhöjd = intäkt; nedre del (grön) = utgift; övre (ljusare grön) = överskott.
  * Horisontellt streck: medel intäkt = löneårets totala intäkt ÷ antal perioder (referens).
  */
 function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear) {
@@ -4348,11 +4348,26 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
         2
       )}" width="${bw.toFixed(2)}" height="${hRed.toFixed(2)}" />`;
     } else {
-      const yI = yPx(inc);
-      const h = Math.max(inc > 0.005 ? 1.2 : 0.8, axisY - yI);
-      rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--expense-within-income" x="${x.toFixed(2)}" y="${yI.toFixed(
-        2
-      )}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" rx="2" />`;
+      const incV = Math.max(0, inc);
+      const expV = Math.max(0, exp);
+      const yI = yPx(incV);
+      let hTotal = axisY - yI;
+      hTotal = Math.max(incV > 0.005 ? 1.2 : 0.8, hTotal);
+      const yBarTop = axisY - hTotal;
+      const ratioExp = incV > 0.005 ? Math.min(1, expV / incV) : 0;
+      const hExpPix = hTotal * ratioExp;
+      const hSurPix = hTotal - hExpPix;
+      if (hSurPix > 0.005) {
+        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--surplus-on-income" x="${x.toFixed(2)}" y="${yBarTop.toFixed(
+          2
+        )}" width="${bw.toFixed(2)}" height="${hSurPix.toFixed(2)}" />`;
+      }
+      if (hExpPix > 0.005) {
+        const yExp = yBarTop + hSurPix;
+        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--expense-within-income" x="${x.toFixed(2)}" y="${yExp.toFixed(
+          2
+        )}" width="${bw.toFixed(2)}" height="${hExpPix.toFixed(2)}" />`;
+      }
     }
   }
 
@@ -4377,7 +4392,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per löneperiod med medel intäkt som referenslinje">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per löneperiod; vid överskott ljusare grönt ovanför utgiftsdelen; medel intäkt som streckad referenslinje">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
@@ -10668,7 +10683,7 @@ function renderAnalysisPage() {
           ${chartSvg}
           <div class="analysis-salary-year-chart-legend">
             <div class="analysis-salary-year-chart-legend-grid">
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span>Intäkterna (grön) överstiger utgifterna</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span>Intäkt över utgift: grön bas = utgifter, ljusare grönt upptill = överskott (hela stapeln = intäkt)</span></span>
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span><span>Det finns ett underskott då utgifterna (röd) överstiger intäkterna (blå) för perioden</span></span>
               <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medel intäkt: <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
             </div>
