@@ -3620,7 +3620,7 @@ function computeRobinHoodAllocation(snaps, startMo) {
     const r = Math.round(amt);
     if (r > 0 && Number.isFinite(fromIdx) && Number.isFinite(toIdx)) flows.push({ fromIdx, toIdx, amount: r });
   }
-  return { flows };
+  return { flows, outstanding };
 }
 
 function robinHoodPayIsoAfterSalaryInMonth(sortedPayIsos, y, m) {
@@ -3760,33 +3760,50 @@ function robinYmKey(y, m) {
 }
 
 /**
- * Risk för analysvyn: röd endast om underskott i **visat** löneår inte täcks fullt ut.
- * Gul om någon bärare till underskott i visat **eller nästa** löneår avsätter >25 % av sitt överskott (total belastning).
+ * Risk för analysvyn: röd endast om Robin-kedjan lämnar kvarvarande behov på något underskott i **visat** löneår
+ * (samma som allokeringens logik: obetalt flyttas bakåt till föregående underskott, inkl. föregående löneår /
+ * bryggmånader — då räcker det att avsättningar där täcker, utan att kräva direkt inflow till varje månad).
+ * Nästa löneårs underskott ingår inte i rött. Gul om någon bärare till underskott i visat **eller nästa** löneår avsätter >25 % av sitt överskott (total belastning).
  */
 function robinRiskLevelForAnalysisView(snapsGlobal, alloc, viewedSnaps, labelYear, startMo) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
   const ly = Math.floor(asNumber(labelYear));
   if (!Number.isFinite(ly)) return 1;
   const flows = alloc.flows || [];
-  const ymViewed = new Set((viewedSnaps || []).map((s) => robinYmKey(s.y, s.m)));
-  const deficitIdxViewedOnly = new Set();
-  for (let i = 0; i < snapsGlobal.length; i++) {
-    const s = snapsGlobal[i];
-    if (!ymViewed.has(robinYmKey(s.y, s.m))) continue;
-    if (s.net < -ROBIN_HOOD_EPS) deficitIdxViewedOnly.add(i);
+  const outstanding = alloc.outstanding || null;
+  if (outstanding) {
+    for (let i = 0; i < snapsGlobal.length; i++) {
+      const s = snapsGlobal[i];
+      if (s.net >= -ROBIN_HOOD_EPS) continue;
+      if (salaryYearLabelForCalendarMonth(s.y, s.m, sm) !== ly) continue;
+      const rem = asNumber(outstanding[i]);
+      if (rem > ROBIN_HOOD_EPS) return 3;
+    }
+  } else {
+    const ymViewed = new Set((viewedSnaps || []).map((s) => robinYmKey(s.y, s.m)));
+    const deficitIdxViewedOnly = new Set();
+    for (let i = 0; i < snapsGlobal.length; i++) {
+      const s = snapsGlobal[i];
+      if (!ymViewed.has(robinYmKey(s.y, s.m))) continue;
+      if (s.net < -ROBIN_HOOD_EPS) deficitIdxViewedOnly.add(i);
+    }
+    const inflow = Object.create(null);
+    for (const f of flows) {
+      const amt = Math.round(asNumber(f.amount));
+      if (amt <= 0) continue;
+      inflow[f.toIdx] = (inflow[f.toIdx] || 0) + amt;
+    }
+    for (const i of deficitIdxViewedOnly) {
+      const need = -snapsGlobal[i].net;
+      const got = inflow[i] || 0;
+      if (got + ROBIN_HOOD_EPS < need) return 3;
+    }
   }
-  const inflow = Object.create(null);
   const outflow = Object.create(null);
   for (const f of flows) {
     const amt = Math.round(asNumber(f.amount));
     if (amt <= 0) continue;
-    inflow[f.toIdx] = (inflow[f.toIdx] || 0) + amt;
     outflow[f.fromIdx] = (outflow[f.fromIdx] || 0) + amt;
-  }
-  for (const i of deficitIdxViewedOnly) {
-    const need = -snapsGlobal[i].net;
-    const got = inflow[i] || 0;
-    if (got + ROBIN_HOOD_EPS < need) return 3;
   }
   const deficitIdxForYellow = new Set();
   for (let i = 0; i < snapsGlobal.length; i++) {
@@ -10454,7 +10471,7 @@ function renderAnalysisPage() {
       const robinRiskLevel = robinRiskLevelForAnalysisView(gSnaps, gAlloc, syModel.snaps, labelYear, startMo);
       const robinRiskHint =
         robinRiskLevel === 3
-          ? "Underskott i visat löneår kan inte täckas fullt ut med planerade avsättningar. Justering av budgeten krävs."
+          ? "Visat löneår har kvarvarande underskott som inte täcks av Robin-flöden (inkl. avsättningar från föregående löneår där reglerna tillåter). Justering av budgeten krävs."
           : robinRiskLevel === 2
             ? "Underskott i visat eller nästa löneår täcks, men någon bärarmånad avsätter över 25 % av sitt överskott."
             : "Ingen bärarmånad överstiger 25 % av överskottet för täckning av underskott i visat eller nästa löneår.";
