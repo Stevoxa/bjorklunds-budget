@@ -3750,20 +3750,20 @@ function robinYmKey(y, m) {
 }
 
 /**
- * Risk 1/2/3 utifrån Robin-flöden för visat löneår och nästa löneår.
- * Röd = något underskott i något av åren täcks inte fullt ut. Gul = täcks, men någon bärare avsätter >25 % av sitt överskott.
+ * Risk för analysvyn: röd endast om underskott i **visat** löneår inte täcks fullt ut.
+ * Gul om någon bärare till underskott i visat **eller nästa** löneår avsätter >25 % av sitt överskott (total belastning).
  */
-function robinRiskLevelForViewedAndNextSalaryYear(snapsGlobal, alloc, viewedSnaps, nextSnaps) {
-  const ymUnion = new Set();
-  for (const s of viewedSnaps || []) ymUnion.add(robinYmKey(s.y, s.m));
-  for (const s of nextSnaps || []) ymUnion.add(robinYmKey(s.y, s.m));
-  if (!ymUnion.size) return 1;
+function robinRiskLevelForAnalysisView(snapsGlobal, alloc, viewedSnaps, labelYear, startMo) {
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
+  const ly = Math.floor(asNumber(labelYear));
+  if (!Number.isFinite(ly)) return 1;
   const flows = alloc.flows || [];
-  const deficitIdxUnion = new Set();
+  const ymViewed = new Set((viewedSnaps || []).map((s) => robinYmKey(s.y, s.m)));
+  const deficitIdxViewedOnly = new Set();
   for (let i = 0; i < snapsGlobal.length; i++) {
     const s = snapsGlobal[i];
-    if (!ymUnion.has(robinYmKey(s.y, s.m))) continue;
-    if (s.net < -ROBIN_HOOD_EPS) deficitIdxUnion.add(i);
+    if (!ymViewed.has(robinYmKey(s.y, s.m))) continue;
+    if (s.net < -ROBIN_HOOD_EPS) deficitIdxViewedOnly.add(i);
   }
   const inflow = Object.create(null);
   const outflow = Object.create(null);
@@ -3773,16 +3773,23 @@ function robinRiskLevelForViewedAndNextSalaryYear(snapsGlobal, alloc, viewedSnap
     inflow[f.toIdx] = (inflow[f.toIdx] || 0) + amt;
     outflow[f.fromIdx] = (outflow[f.fromIdx] || 0) + amt;
   }
-  for (const i of deficitIdxUnion) {
+  for (const i of deficitIdxViewedOnly) {
     const need = -snapsGlobal[i].net;
     const got = inflow[i] || 0;
     if (got + ROBIN_HOOD_EPS < need) return 3;
   }
-  const carrierFromUnionDeficits = new Set();
-  for (const f of flows) {
-    if (deficitIdxUnion.has(f.toIdx)) carrierFromUnionDeficits.add(f.fromIdx);
+  const deficitIdxForYellow = new Set();
+  for (let i = 0; i < snapsGlobal.length; i++) {
+    const s = snapsGlobal[i];
+    if (s.net >= -ROBIN_HOOD_EPS) continue;
+    const lab = salaryYearLabelForCalendarMonth(s.y, s.m, sm);
+    if (lab === ly || lab === ly + 1) deficitIdxForYellow.add(i);
   }
-  for (const i of carrierFromUnionDeficits) {
+  const carrierFromYellowDeficits = new Set();
+  for (const f of flows) {
+    if (deficitIdxForYellow.has(f.toIdx)) carrierFromYellowDeficits.add(f.fromIdx);
+  }
+  for (const i of carrierFromYellowDeficits) {
     const s = snapsGlobal[i];
     const out = outflow[i] || 0;
     if (out <= ROBIN_HOOD_EPS) continue;
@@ -10432,22 +10439,15 @@ function renderAnalysisPage() {
         setasideToNextFromViewedYear += Math.round(asNumber(f.amount));
       }
       setasideToNextFromViewedYear = Math.max(0, setasideToNextFromViewedYear);
+      const showTotalAllocationNeed = setasideToNextFromViewedYear > ROBIN_HOOD_EPS;
       const totalAllocationNeedPot = Math.round(annualNeedPot + setasideToNextFromViewedYear);
-      const nextRiskBounds = salaryYearInclusiveBounds(labelYear + 1, startMo);
-      const nextSyModelForRisk = nextRiskBounds ? buildSalaryYearAnalysisModel(state, nextRiskBounds) : null;
-      const nextSnapsForRisk = nextSyModelForRisk?.snaps?.length ? nextSyModelForRisk.snaps : [];
-      const robinRiskLevel = robinRiskLevelForViewedAndNextSalaryYear(
-        gSnaps,
-        gAlloc,
-        syModel.snaps,
-        nextSnapsForRisk
-      );
+      const robinRiskLevel = robinRiskLevelForAnalysisView(gSnaps, gAlloc, syModel.snaps, labelYear, startMo);
       const robinRiskHint =
         robinRiskLevel === 3
-          ? "Budgeten kan inte balanseras med avsättningar för att täcka underskott i visat eller nästa löneår. Justering av budgeten krävs för att skapa balans."
+          ? "Underskott i visat löneår kan inte täckas fullt ut med planerade avsättningar. Justering av budgeten krävs."
           : robinRiskLevel === 2
-            ? "Balans kan uppnås med avsättningar, men någon bärarmånad avsätter över 25 % av sitt överskott (inkl. mot nästa löneår)."
-            : "Avsättningarna överstiger inte 25 % av överskottet i någon bärarmånad, för underskott i visat och nästa löneår.";
+            ? "Underskott i visat eller nästa löneår täcks, men någon bärarmånad avsätter över 25 % av sitt överskott."
+            : "Ingen bärarmånad överstiger 25 % av överskottet för täckning av underskott i visat eller nästa löneår.";
       const robinSetasideChartModel = buildRobinSetasideChartColumns(
         labelYear,
         startMo,
@@ -10486,13 +10486,13 @@ function renderAnalysisPage() {
         .join("");
       const weakListNextYearRow =
         setasideToNextFromViewedYear > ROBIN_HOOD_EPS
-          ? `<li class="analysis-robin-stat-item analysis-robin-stat-item--next-year-line"><div class="analysis-robin-stat-row"><span class="analysis-robin-stat-row__name">Löneår ${labelYear + 1}</span><span class="analysis-robin-stat-row__amt">${escapeHtml(
-              formatKr(setasideToNextFromViewedYear)
+          ? `<li class="analysis-robin-stat-item analysis-robin-stat-item--next-year-line"><div class="analysis-robin-stat-row"><span class="analysis-robin-stat-row__name">Löneår ${labelYear + 1}</span><span class="analysis-robin-stat-row__amt analysis-robin-stat-row__amt--neg">${escapeHtml(
+              formatKr(-setasideToNextFromViewedYear)
             )}</span></div></li>`
           : "";
       const weakListNextYearHint =
         setasideToNextFromViewedYear > ROBIN_HOOD_EPS
-          ? `<div class="analysis-salary-hero__mini-hint analysis-robin-next-year-underskott-hint">Notera att det finns underskott som behöver täckas under nästa löneår.</div>`
+          ? `<div class="analysis-salary-hero__mini-hint analysis-robin-next-year-underskott-hint">Underskott i löneår ${labelYear + 1} ska täckas med avsättningar som görs under löneår ${labelYear} (beloppet motsvarar planerade avsättningar).</div>`
           : "";
       const weakList = `${weakListCore}${weakListNextYearRow}`;
       /**
@@ -10593,18 +10593,22 @@ function renderAnalysisPage() {
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
         <p class="note">Systemberäknade sparposter: <strong>25 % per månad</strong> i ordning <strong>närmast underskottet först</strong> tills behovet täcks; därefter fördelas resten <strong>proportionellt</strong> mot kvarvarande överskott i alla bärarmånader (så närmaste månader inte töms helt i onödan om flera kan dela). Om kapaciteten inte räcker töms bärare tills behovet täcks. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
-        <div class="analysis-robin-kpis analysis-robin-kpis--with-total">
+        <div class="analysis-robin-kpis${showTotalAllocationNeed ? " analysis-robin-kpis--with-total" : ""}">
           <div class="analysis-robin-kpis__stack">
             <div class="analysis-salary-hero__mini">
               <div class="analysis-salary-hero__mini-label">Löneårets avsättningsbehov</div>
               <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(annualNeedPot))}</div>
               <div class="analysis-salary-hero__mini-hint">Summan av negativa netton (spar exkl.) i löneåret</div>
             </div>
-            <div class="analysis-salary-hero__mini">
+            ${
+              showTotalAllocationNeed
+                ? `<div class="analysis-salary-hero__mini">
               <div class="analysis-salary-hero__mini-label">Totalt avsättningsbehov</div>
               <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(totalAllocationNeedPot))}</div>
               <div class="analysis-salary-hero__mini-hint">Summan av löneårets behov och avsättningar som behövs för att täcka underskott i nästkommande löneår</div>
-            </div>
+            </div>`
+                : ""
+            }
           </div>
           <div class="analysis-salary-hero__mini analysis-robin-risk-mini analysis-robin-kpis__risk">
             <div class="analysis-salary-hero__mini-label">Risk nivå</div>

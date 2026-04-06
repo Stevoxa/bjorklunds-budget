@@ -3971,10 +3971,14 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   min-height: 100%;
 }
 
-.analysis-robin-stat-item--next-year-line {
+.analysis-robin-stat-list .analysis-robin-stat-item:not(.analysis-robin-stat-item--next-year-line):has(+ .analysis-robin-stat-item--next-year-line)
+  .analysis-robin-stat-row {
+  border-bottom: none;
+}
+
+.analysis-robin-stat-item--next-year-line .analysis-robin-stat-row {
   border-top: 1px solid var(--border);
-  margin-top: 4px;
-  padding-top: 6px;
+  padding-top: 8px;
 }
 
 .analysis-robin-next-year-underskott-hint {
