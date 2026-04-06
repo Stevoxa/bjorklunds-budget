@@ -3234,6 +3234,16 @@ function salaryYearInclusiveBounds(labelYear, startMonth) {
   return { start, end };
 }
 
+/** True om kalendermånad (y,m) ingår i löneårets [start,end] (samma logik som månadssnaps). */
+function calendarYmInsideSalaryYearBounds(y, m, bounds) {
+  if (!bounds?.start || !bounds?.end) return false;
+  const yy = Math.floor(asNumber(y));
+  const mm = Math.floor(asNumber(m));
+  if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return false;
+  const firstOfMonth = new Date(yy, mm - 1, 1).getTime();
+  return firstOfMonth >= bounds.start.getTime() && firstOfMonth <= bounds.end.getTime();
+}
+
 function analysisStartOfLocalDayMs(ms) {
   const d = new Date(ms);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -3746,8 +3756,63 @@ function robinRiskLevelForViewedSalaryYear(snapsGlobal, alloc, viewedSnaps) {
   return 1;
 }
 
+/**
+ * Kolumner för avsättningsdiagram: valfri sammanslagen stapel från föregående löneår (vänster),
+ * därefter endast månader med avsättning > 0 i visat löneår.
+ */
+function buildRobinSetasideChartColumns(labelYear, startMo, syModelSnaps, setasideVals, gSnaps, gAlloc, ymToGi) {
+  const prevLy = labelYear - 1;
+  const nextLy = labelYear + 1;
+  let priorYearTotal = 0;
+  for (const f of gAlloc.flows || []) {
+    const toS = gSnaps[f.toIdx];
+    const fromS = gSnaps[f.fromIdx];
+    if (!toS || !fromS) continue;
+    const toLab = salaryYearLabelForCalendarMonth(toS.y, toS.m, startMo);
+    const fromLab = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, startMo);
+    if (toLab !== labelYear || fromLab !== prevLy) continue;
+    priorYearTotal += Math.round(asNumber(f.amount));
+  }
+  priorYearTotal = Math.max(0, priorYearTotal);
+
+  const monthCols = [];
+  for (let i = 0; i < syModelSnaps.length; i++) {
+    const s = syModelSnaps[i];
+    const v = Math.max(0, Math.round(asNumber(setasideVals[i] || 0)));
+    if (v <= ROBIN_HOOD_EPS) continue;
+    const gi = ymToGi.get(robinYmKey(s.y, s.m));
+    const highRisk = s.net > ROBIN_HOOD_EPS && v > s.net * 0.25 + ROBIN_HOOD_EPS;
+    let tagsNextYear = false;
+    if (gi != null) {
+      for (const f of gAlloc.flows || []) {
+        if (f.fromIdx !== gi) continue;
+        const tS = gSnaps[f.toIdx];
+        if (!tS) continue;
+        if (salaryYearLabelForCalendarMonth(tS.y, tS.m, startMo) === nextLy) {
+          tagsNextYear = true;
+          break;
+        }
+      }
+    }
+    monthCols.push({
+      kind: "month",
+      value: v,
+      monthShort: salaryYearChartMonthShort(s.m),
+      highRisk,
+      verticalYear: tagsNextYear ? nextLy : null
+    });
+  }
+
+  const cols = [];
+  if (priorYearTotal > ROBIN_HOOD_EPS) {
+    cols.push({ kind: "prior", value: priorYearTotal, verticalYear: prevLy });
+  }
+  for (const c of monthCols) cols.push(c);
+  return { cols, peak: cols.length ? Math.max(...cols.map((c) => c.value)) : 0 };
+}
+
 /** Ett löneår i taget, fast bredd/höjd — svep byter löneår (samma som knapparna). */
-function renderRobinSalaryYearSetasideChartSvg(snaps, valuesPerSnap) {
+function renderRobinSalaryYearSetasideChartSvg(chartModel) {
   const W = 340;
   const H = 200;
   const padL = 46;
@@ -3756,36 +3821,51 @@ function renderRobinSalaryYearSetasideChartSvg(snaps, valuesPerSnap) {
   const padB = 32;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
-  const n = snaps.length;
-  if (!n) return "";
-  const vals = snaps.map((_, i) => Math.max(0, asNumber(valuesPerSnap[i])));
-  const vMax = Math.max(1, ...vals) * 1.08;
+  const { cols, peak } = chartModel || { cols: [], peak: 0 };
+  const n = cols.length;
+  if (!n) {
+    return `
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Inga avsättningar att visa">
+      <text class="analysis-salary-year-chart__xlabel" x="${(W / 2).toFixed(1)}" y="${(H / 2).toFixed(1)}" text-anchor="middle">Inga avsättningar</text>
+    </svg>`;
+  }
+  const vMax = Math.max(1, peak * 1.08);
   const axisY = padT + plotH;
   const x1 = padL + plotW;
   const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
   const slot = plotW / n;
   const bw = Math.max(4, Math.min(20, slot * 0.52));
   let rects = "";
+  let overlays = "";
+  let labels = "";
   for (let i = 0; i < n; i++) {
-    const v = vals[i];
-    if (v <= 0.5) continue;
+    const col = cols[i];
+    const v = col.value;
     const xMid = padL + slot * (i + 0.5);
     const x = xMid - bw / 2;
     const yTop = yPx(v);
     const h = Math.max(1.2, axisY - yTop);
-    rects += `<rect class="analysis-robin-chart__bar" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(
+    let barClass = "analysis-robin-chart__bar";
+    if (col.kind === "prior") barClass += " analysis-robin-chart__bar--prior-year";
+    else if (col.highRisk) barClass += " analysis-robin-chart__bar--risk-high";
+    rects += `<rect class="${barClass}" x="${x.toFixed(2)}" y="${yTop.toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(
       2
-    )}" height="${h.toFixed(2)}" rx="2" />`;
-  }
-  let labels = "";
-  for (let i = 0; i < n; i++) {
-    const label = salaryYearChartMonthShort(snaps[i].m);
-    const xMid = padL + slot * (i + 0.5);
-    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(label)}</text>`;
+    )}" rx="2" />`;
+    if (col.verticalYear != null && Number.isFinite(col.verticalYear)) {
+      const cx = xMid;
+      const cy = yTop + h / 2;
+      const yr = String(Math.floor(col.verticalYear));
+      overlays += `<text class="analysis-robin-chart__bar-year" x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${cx.toFixed(2)} ${cy.toFixed(2)})">${escapeHtml(
+        yr
+      )}</text>`;
+    }
+    const xLab = col.kind === "month" && col.monthShort ? col.monthShort : "";
+    if (xLab) {
+      labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(xLab)}</text>`;
+    }
   }
   const yMid = (padT + axisY) / 2;
   const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
-  const peak = vals.reduce((m, x) => Math.max(m, x), 0);
   const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 5).toFixed(
     1
   )}" y="${(padT + 11).toFixed(1)}" text-anchor="end">${escapeHtml(formatKr(peak))}</text>`;
@@ -3793,13 +3873,14 @@ function renderRobinSalaryYearSetasideChartSvg(snaps, valuesPerSnap) {
     1
   )}" y="${(axisY - 2).toFixed(1)}" text-anchor="end">0</text>`;
   return `
-    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar per månad i valt löneår">
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar: ${n} kolumner i valt löneår">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
       ${rects}
+      ${overlays}
       ${labels}
     </svg>`;
 }
@@ -10305,7 +10386,16 @@ function renderAnalysisPage() {
           : robinRiskLevel === 2
             ? "Budgeten är balanserad med avsättningar, men avsättningen överstiger 25 % av överskottet i minst en månad."
             : "Budgeten är balanserad med avsättningar som inte överskrider 25 % av överskottet någon enskild månad.";
-      const robinYearSvg = renderRobinSalaryYearSetasideChartSvg(syModel.snaps, setasideVals);
+      const robinSetasideChartModel = buildRobinSetasideChartColumns(
+        labelYear,
+        startMo,
+        syModel.snaps,
+        setasideVals,
+        gSnaps,
+        gAlloc,
+        ymToGi
+      );
+      const robinYearSvg = renderRobinSalaryYearSetasideChartSvg(robinSetasideChartModel);
       const todayIso = toLocalISODate(now);
       let accSet = 0;
       const y0 = toLocalISODate(bounds.start);
@@ -10332,17 +10422,25 @@ function renderAnalysisPage() {
           )}</span></div>${hint}</li>`;
         })
         .join("");
-      /** Alla flöden vars mål är underskott i visat löneår — grupperat efter avsättningsmånadens löneår (föregående år, samma år t.ex. jan→feb, ev. brygga). */
+      /**
+       * Visat löneår: flöden till underskott i labelYear.
+       * Dessutom: avsättningar som sker i visat löneårets kalendermånader men går till underskott i nästa löneår (t.ex. nov/dec 2025 → 2026).
+       */
       const fromYmTotals = new Map();
+      const crossYearSourceYmKeys = new Set();
       for (const f of gAlloc.flows || []) {
         const toS = gSnaps[f.toIdx];
         const fromS = gSnaps[f.fromIdx];
         if (!toS || !fromS) continue;
         const toLab = salaryYearLabelForCalendarMonth(toS.y, toS.m, startMo);
-        if (toLab !== labelYear) continue;
-        const fromLab = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, startMo);
         const amt = Math.round(asNumber(f.amount));
         if (amt <= ROBIN_HOOD_EPS) continue;
+        const toThisYear = toLab === labelYear;
+        const fromViewedYearToNext =
+          toLab === labelYear + 1 && calendarYmInsideSalaryYearBounds(fromS.y, fromS.m, bounds);
+        if (!toThisYear && !fromViewedYearToNext) continue;
+        if (fromViewedYearToNext) crossYearSourceYmKeys.add(robinYmKey(fromS.y, fromS.m));
+        const fromLab = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, startMo);
         const key = robinYmKey(fromS.y, fromS.m);
         const ex = fromYmTotals.get(key);
         if (ex) ex.v += amt;
@@ -10354,6 +10452,24 @@ function renderAnalysisPage() {
             monthLabel: fromS.monthLabel,
             v: amt
           });
+      }
+      let robinCrossYearHintHtml = "";
+      if (crossYearSourceYmKeys.size > 0) {
+        const sortedCrossKeys = [...crossYearSourceYmKeys].sort((ka, kb) => {
+          const [ya, ma] = ka.split("-").map((x) => Math.floor(asNumber(x)));
+          const [yb, mb] = kb.split("-").map((x) => Math.floor(asNumber(x)));
+          return ya !== yb ? ya - yb : ma - mb;
+        });
+        const crossNames = sortedCrossKeys.map((k) => fromYmTotals.get(k)?.monthLabel || "").filter(Boolean);
+        const listSv =
+          crossNames.length === 1
+            ? crossNames[0]
+            : crossNames.length === 2
+              ? `${crossNames[0]} och ${crossNames[1]}`
+              : `${crossNames.slice(0, -1).join(", ")} och ${crossNames[crossNames.length - 1]}`;
+        robinCrossYearHintHtml = `<p class="note analysis-robin-cross-year-hint">${escapeHtml(
+          listSv
+        )} har planerade avsättningar som täcker underskott i löneår ${labelYear + 1}.</p>`;
       }
       const setasideGlobalRows = [...fromYmTotals.values()].sort((a, b) =>
         a.ly !== b.ly ? a.ly - b.ly : a.y !== b.y ? a.y - b.y : a.m - b.m
@@ -10422,8 +10538,9 @@ function renderAnalysisPage() {
         </div>
         ${robinWarns}
         <div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
-          <div class="analysis-salary-year-chart-head"><span>Avsättning per månad (valt löneår)</span><span>${escapeHtml(payBreakpointHint)}</span></div>
+          <div class="analysis-salary-year-chart-head"><span>Avsättningar i valt löneår</span><span>${escapeHtml(payBreakpointHint)}</span></div>
           <p class="note analysis-robin-swipe-hint">Svep vänster/höger på diagrammet för föregående/nästa löneår (samma som knapparna nedan). Höjden är fast så sidan hoppar inte.</p>
+          <p class="note analysis-robin-bar-legend">Visas endast månader med avsättning (samt vid behov en första stapel: total avsättning från föregående löneår). Grön stapel: högst 25 % av månadens överskott. Gul: avsättning över 25 %. Lodrätt årtal = från föregående löneår (första stapeln) eller avsättning mot nästa löneår.</p>
           <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
         </div>
         <div class="analysis-robin-columns">
@@ -10435,6 +10552,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini analysis-robin-stat-card">
             <div class="analysis-salary-hero__mini-label">Månader med planerade avsättningar</div>
             <div class="analysis-robin-stat-card__body">${allocationBodyHtml}</div>
+            ${robinCrossYearHintHtml}
             <div class="analysis-salary-hero__mini-hint">Planerade avsättningar som täcker underskott i löneår ${labelYear}, grupperade efter avsättningsmånadens löneår.</div>
           </div>
         </div>
