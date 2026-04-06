@@ -3125,7 +3125,9 @@ function getAnalysisSalaryAnchorSpec(root) {
     if (sp?.firstPaymentDate) {
       const sfp = datePartsFromIso(sp.firstPaymentDate);
       if (sfp) {
-        scheduleStartParts = sfp;
+        const actualFirst = datePartsFromIso(top.firstIso);
+        scheduleStartParts =
+          actualFirst && actualFirst.y === sfp.y && actualFirst.m === sfp.m ? actualFirst : sfp;
         recurringFromSalaryPeriod = Math.max(1, Math.min(31, Math.floor(asNumber(sp.payDay)) || sfp.d));
       }
     }
@@ -3208,22 +3210,34 @@ function collectSalaryPayDatesInWindow(firstIso, recurringDay, rangeStartMs, ran
 }
 
 /**
- * Justerar teoretiska lönedagar mot **faktiska** utbetalningsdatum i största månadsintäkten (ankaret),
- * per kalendermånad (YYYY-MM). Löneperioden ska följa när lönen verkligen ligger (t.ex. 23:e), inte
- * en bankjusterad eller avvikande återkommande dag från inställning.
+ * Per kalendermånad (YYYY-MM): tidigaste datum bland **faktiska** planerade utbetalningar för alla
+ * månadsvisa lön-intäkter (byte av arbetsgivare m.m. — ankaret kan sakna historik).
+ */
+function buildByYmEarliestActualSalaryPayments(root) {
+  const byYm = Object.create(null);
+  for (const inc of root?.incomes || []) {
+    if (String(inc?.interval || "") !== "monthly") continue;
+    const isSalary =
+      inc?.category === INCOME_CATEGORY_SALARY || Boolean(inc?.metadata?.salaryPeriodId);
+    if (!isSalary) continue;
+    for (const p of inc.payments || []) {
+      if (asNumber(p.amount) <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!datePartsFromIso(iso)) continue;
+      const ym = iso.slice(0, 7);
+      if (!byYm[ym] || iso.localeCompare(byYm[ym]) < 0) byYm[ym] = iso;
+    }
+  }
+  return byYm;
+}
+
+/**
+ * Justerar teoretiska lönedagar mot **faktiska** utbetalningsdatum per månad (alla månadsvisa löner),
+ * inte bara största intäkten — så 2025 följer t.ex. "Tidigare lön" när ankaret är nuvarande jobb.
  */
 function alignPayDatesWithAnchorIncome(root, sortedPayIsos) {
   if (!sortedPayIsos?.length) return sortedPayIsos || [];
-  const cands = getMonthlyIncomeAnchorCandidates(root);
-  if (!cands.length) return sortedPayIsos;
-  const byYmEarliest = Object.create(null);
-  for (const p of cands[0].inc.payments || []) {
-    if (asNumber(p.amount) <= 0) continue;
-    const iso = String(p.date || "").slice(0, 10);
-    if (!datePartsFromIso(iso)) continue;
-    const ym = iso.slice(0, 7);
-    if (!byYmEarliest[ym] || iso.localeCompare(byYmEarliest[ym]) < 0) byYmEarliest[ym] = iso;
-  }
+  const byYmEarliest = buildByYmEarliestActualSalaryPayments(root);
   if (Object.keys(byYmEarliest).length === 0) return sortedPayIsos;
   const aligned = sortedPayIsos
     .map((iso) => {
