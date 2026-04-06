@@ -3706,6 +3706,46 @@ function robinYmKey(y, m) {
   return `${y}-${pad2(m)}`;
 }
 
+/**
+ * Risk för visat löneår utifrån Robin-flöden: 1 grön, 2 gul, 3 röd.
+ * Röd = underskott i löneåret täcks inte fullt ut. Gul = täcks, men någon bärarmånad avsätter >25 % av sitt överskott.
+ */
+function robinRiskLevelForViewedSalaryYear(snapsGlobal, alloc, viewedSnaps) {
+  const flows = alloc.flows || [];
+  const ymViewed = new Set((viewedSnaps || []).map((s) => robinYmKey(s.y, s.m)));
+  const deficitIdxViewed = new Set();
+  for (let i = 0; i < snapsGlobal.length; i++) {
+    const s = snapsGlobal[i];
+    if (!ymViewed.has(robinYmKey(s.y, s.m))) continue;
+    if (s.net < -ROBIN_HOOD_EPS) deficitIdxViewed.add(i);
+  }
+  const inflow = Object.create(null);
+  const outflow = Object.create(null);
+  for (const f of flows) {
+    const amt = Math.round(asNumber(f.amount));
+    if (amt <= 0) continue;
+    inflow[f.toIdx] = (inflow[f.toIdx] || 0) + amt;
+    outflow[f.fromIdx] = (outflow[f.fromIdx] || 0) + amt;
+  }
+  for (const i of deficitIdxViewed) {
+    const need = -snapsGlobal[i].net;
+    const got = inflow[i] || 0;
+    if (got + ROBIN_HOOD_EPS < need) return 3;
+  }
+  const carrierFromViewedDeficits = new Set();
+  for (const f of flows) {
+    if (deficitIdxViewed.has(f.toIdx)) carrierFromViewedDeficits.add(f.fromIdx);
+  }
+  for (const i of carrierFromViewedDeficits) {
+    const s = snapsGlobal[i];
+    const out = outflow[i] || 0;
+    if (out <= ROBIN_HOOD_EPS) continue;
+    if (s.net <= ROBIN_HOOD_EPS) continue;
+    if (out > s.net * 0.25 + ROBIN_HOOD_EPS) return 2;
+  }
+  return 1;
+}
+
 /** Ett löneår i taget, fast bredd/höjd — svep byter löneår (samma som knapparna). */
 function renderRobinSalaryYearSetasideChartSvg(snaps, valuesPerSnap) {
   const W = 340;
@@ -10258,7 +10298,13 @@ function renderAnalysisPage() {
         return gi != null ? Math.max(0, Math.round(outFromG[gi] || 0)) : 0;
       });
       const annualNeedPot = Math.round(risks.reduce((acc, r) => acc + -r.net, 0));
-      const monthlyRef = risks.length ? Math.round(annualNeedPot / risks.length) : 0;
+      const robinRiskLevel = robinRiskLevelForViewedSalaryYear(gSnaps, gAlloc, syModel.snaps);
+      const robinRiskHint =
+        robinRiskLevel === 3
+          ? "Budgeten kan inte balanseras med avsättningar för att täcka underskottet. Justering av löneårets budget krävs för att skapa balans."
+          : robinRiskLevel === 2
+            ? "Budgeten är balanserad med avsättningar, men avsättningen överstiger 25 % av överskottet i minst en månad."
+            : "Budgeten är balanserad med avsättningar som inte överskrider 25 % av överskottet någon enskild månad.";
       const robinYearSvg = renderRobinSalaryYearSetasideChartSvg(syModel.snaps, setasideVals);
       const todayIso = toLocalISODate(now);
       let accSet = 0;
@@ -10339,7 +10385,7 @@ function renderAnalysisPage() {
       }
       let robinWarns = "";
       if (isInnevarandeYear && annualNeedPot > 0 && accSet + ROBIN_HOOD_EPS < annualNeedPot && capAcc >= y0) {
-        robinWarns += `<p class="note analysis-robin-warn">Hittills avsatt ${escapeHtml(formatKr(accSet))} av beräknad årlig behovspott ${escapeHtml(
+        robinWarns += `<p class="note analysis-robin-warn">Hittills avsatt ${escapeHtml(formatKr(accSet))} av beräknat löneårets avsättningsbehov ${escapeHtml(
           formatKr(annualNeedPot)
         )} (avsättningar t.o.m. ${escapeHtml(capAcc)}). Avsättning kan bara tas från månader med överskott före underskott — lågt överskott i januari ger därför liten avsättning trots stort underskott senare.</p>`;
       }
@@ -10361,14 +10407,18 @@ function renderAnalysisPage() {
         <p class="note">Systemberäknade sparposter (25 % → upp till 100 % → proportionellt). Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
         <div class="analysis-robin-kpis">
           <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Årlig behovspott</div>
+            <div class="analysis-salary-hero__mini-label">Löneårets avsättningsbehov</div>
             <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(annualNeedPot))}</div>
             <div class="analysis-salary-hero__mini-hint">Summan av negativa netton (spar exkl.) i löneåret</div>
           </div>
-          <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Snitt / riskmånad</div>
-            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(monthlyRef))}</div>
-            <div class="analysis-salary-hero__mini-hint">Behov riktmärke om fördelat jämnt</div>
+          <div class="analysis-salary-hero__mini analysis-robin-risk-mini">
+            <div class="analysis-salary-hero__mini-label">Risk nivå</div>
+            <div class="analysis-robin-traffic" role="img" aria-label="Risknivå ${robinRiskLevel} av 3">
+              <span class="analysis-robin-traffic__dot${robinRiskLevel === 1 ? " is-active" : ""}" data-level="1"></span>
+              <span class="analysis-robin-traffic__dot${robinRiskLevel === 2 ? " is-active" : ""}" data-level="2"></span>
+              <span class="analysis-robin-traffic__dot${robinRiskLevel === 3 ? " is-active" : ""}" data-level="3"></span>
+            </div>
+            <div class="analysis-salary-hero__mini-hint analysis-robin-risk-mini__desc">${escapeHtml(robinRiskHint)}</div>
           </div>
         </div>
         ${robinWarns}
@@ -10384,7 +10434,7 @@ function renderAnalysisPage() {
             <div class="analysis-salary-hero__mini-hint">Månader som har ett underskott som behöver täckas i budgeten.</div>
           </div>
           <div class="analysis-salary-hero__mini analysis-robin-stat-card">
-            <div class="analysis-salary-hero__mini-label">Månader med avsättning</div>
+            <div class="analysis-salary-hero__mini-label">Månader med planerade avsättningar</div>
             <div class="analysis-robin-stat-card__body">${allocationBodyHtml}</div>
             <div class="analysis-salary-hero__mini-hint">Avsättningar i löneår ${prevSalaryYearLabel} som täcker underskott i visat löneår (${labelYear}).</div>
           </div>
