@@ -3249,20 +3249,38 @@ function analysisStartOfLocalDayMs(ms) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** Period mellan föregående lönedag (exkl. själva lönedagen) och vald nästa lönedag (inkl.). */
+/**
+ * Löneperiod (förskottslogik): från **utbetalningsdagen** för föregående lön till **dagen före** nästa utbetalning.
+ * `nextPayIndex` pekar på den utbetalning som namnger perioden (chip: ”Nästa lön” = payIso).
+ * Exempel lön den 25:e: januarilön → 25 dec–24 jan, februarilön → 25 jan–24 feb.
+ */
 function getSalaryPeriodWindow(sortedPayIsos, nextPayIndex) {
   if (!sortedPayIsos.length || nextPayIndex < 0 || nextPayIndex >= sortedPayIsos.length) return null;
-  const nextIso = sortedPayIsos[nextPayIndex];
-  const prevIso = nextPayIndex > 0 ? sortedPayIsos[nextPayIndex - 1] : null;
-  let startIso;
-  if (prevIso) {
-    const p = parseDateISO(prevIso);
-    if (Number.isNaN(p.getTime())) startIso = sortedPayIsos[0];
-    else startIso = toLocalISODate(addDays(p, 1));
-  } else {
-    startIso = nextIso;
+  const payIso = String(sortedPayIsos[nextPayIndex]).slice(0, 10);
+  const nextD = parseDateISO(payIso);
+  if (!nextD || Number.isNaN(nextD.getTime())) return null;
+
+  if (nextPayIndex === 0 && sortedPayIsos.length > 1) {
+    const p1 = String(sortedPayIsos[1]).slice(0, 10);
+    const d1 = parseDateISO(p1);
+    if (!d1 || Number.isNaN(d1.getTime())) return null;
+    const end0 = toLocalISODate(addDays(d1, -1));
+    return { startIso: payIso, endIso: end0, nextPayIndex, payIso };
   }
-  return { startIso, endIso: nextIso, nextPayIndex };
+
+  const endIso = toLocalISODate(addDays(nextD, -1));
+  let startIso;
+  if (nextPayIndex > 0) {
+    startIso = String(sortedPayIsos[nextPayIndex - 1]).slice(0, 10);
+  } else {
+    startIso = payIso;
+  }
+
+  if (sortedPayIsos.length === 1) {
+    return { startIso: payIso, endIso: payIso, nextPayIndex, payIso };
+  }
+
+  return { startIso, endIso, nextPayIndex, payIso };
 }
 
 function salaryYearRangeCaption(labelYear, startMonth) {
@@ -3279,7 +3297,7 @@ function formatAnalysisIsoRangeSv(startIso, endIso) {
   return `${a.d} ${monthName(a.m)} ${a.y} – ${b.d} ${monthName(b.m)} ${b.y}`;
 }
 
-/** Löneperiod-chip: månad/år för utbetalningen + tydlig nästa lön (samma datum som periodens slut). */
+/** Chip: månad/år för **kommande** utbetalning + datum för den lönen (själva löneperioden slutar dagen före). */
 function formatSalaryPeriodLabelNextPaySv(endIso) {
   const p = datePartsFromIso(String(endIso || "").slice(0, 10));
   if (!p) return "—";
@@ -3351,20 +3369,61 @@ function eachYmInSalaryYearBounds(bounds) {
   return out;
 }
 
+/** Löneperioder (en per utbetalning) som överlappar löneårets kalender [bounds]. */
+function payPeriodsOverlappingSalaryYearBounds(bounds, sortedPayIsos) {
+  if (!bounds?.start || !bounds?.end || !sortedPayIsos?.length) return [];
+  const bs = toLocalISODate(bounds.start);
+  const be = toLocalISODate(bounds.end);
+  const out = [];
+  for (let i = 0; i < sortedPayIsos.length; i++) {
+    const win = getSalaryPeriodWindow(sortedPayIsos, i);
+    if (!win) continue;
+    if (win.endIso < bs || win.startIso > be) continue;
+    const payD = parseDateISO(win.payIso);
+    if (!payD || Number.isNaN(payD.getTime())) continue;
+    const payY = payD.getFullYear();
+    const payM = payD.getMonth() + 1;
+    out.push({
+      startIso: win.startIso,
+      endIso: win.endIso,
+      payIso: win.payIso,
+      y: payY,
+      m: payM,
+      monthLabel: monthName(payM)
+    });
+  }
+  out.sort((a, b) => a.startIso.localeCompare(b.startIso));
+  return out;
+}
+
 /**
- * Per månad: intäkter, utgifter (exkl. sparande), netto. Löneår: svagaste månad, riskmånader (netto < 0), årsnetto, största överskott.
+ * Löneår: intäkter/utgifter per **löneperiod** om payDates finns, annars per kalendermånad i bounds (fallback).
+ * y/m/monthLabel följer utbetalningsmånad (namnet på perioden).
  */
-function buildSalaryYearAnalysisModel(root, bounds) {
-  const months = eachYmInSalaryYearBounds(bounds);
-  const snaps = months.map(({ y, m, startIso, endIso }) => {
-    const inc = sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso);
-    const exp = sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso);
+function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
+  let periods;
+  if (sortedPayIsos?.length) {
+    periods = payPeriodsOverlappingSalaryYearBounds(bounds, sortedPayIsos);
+  } else {
+    periods = eachYmInSalaryYearBounds(bounds).map((x) => ({
+      startIso: x.startIso,
+      endIso: x.endIso,
+      payIso: null,
+      y: x.y,
+      m: x.m,
+      monthLabel: monthName(x.m)
+    }));
+  }
+  const snaps = periods.map((per) => {
+    const inc = sumIncomePaymentsInIsoRangeInclusive(root, per.startIso, per.endIso);
+    const exp = sumExpensePaymentsInIsoRangeInclusive(root, per.startIso, per.endIso);
     return {
-      y,
-      m,
-      monthLabel: monthName(m),
-      startIso,
-      endIso,
+      y: per.y,
+      m: per.m,
+      monthLabel: per.monthLabel,
+      startIso: per.startIso,
+      endIso: per.endIso,
+      payIso: per.payIso,
       inc,
       exp,
       net: inc - exp
@@ -3396,8 +3455,8 @@ function isRobinHoodGeneratedExpense(exp) {
   return Boolean(exp?.metadata?.robinHoodGenerated);
 }
 
-/** Slår ihop månadssnaps över flera löneårsetiketter (unika kalendermånader). */
-function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo) {
+/** Slår ihop löneperiodssnaps (eller kalendermånader utan payDates) över flera löneårsetiketter. */
+function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo, sortedPayIsos) {
   const seen = new Set();
   const out = [];
   const lo = Math.floor(asNumber(minLabelYear));
@@ -3406,9 +3465,9 @@ function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo) {
   for (let ly = lo; ly <= hi; ly++) {
     const bounds = salaryYearInclusiveBounds(ly, startMo);
     if (!bounds) continue;
-    const model = buildSalaryYearAnalysisModel(root, bounds);
+    const model = buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos);
     for (const s of model.snaps) {
-      const k = `${s.y}-${pad2(s.m)}`;
+      const k = s.payIso ? String(s.payIso) : `${s.y}-${pad2(s.m)}`;
       if (seen.has(k)) continue;
       seen.add(k);
       out.push({
@@ -3417,33 +3476,41 @@ function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo) {
         monthLabel: s.monthLabel,
         startIso: s.startIso,
         endIso: s.endIso,
+        payIso: s.payIso,
         inc: s.inc,
         exp: s.exp,
         net: s.net
       });
     }
   }
-  out.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.m - b.m));
+  out.sort((a, b) => String(a.payIso || a.startIso).localeCompare(String(b.payIso || b.startIso)));
   return out;
 }
 
-/** Sista tre kalendermånaderna i föregående löneår (brygga in i nästa år), t.ex. jan–dec → okt–dec året innan. */
-function robinBridgeMonthYmKeysFromPrevSalaryYear(deficitY, deficitM, startMo) {
+/**
+ * Sista tre löneperioderna i föregående löneår (brygga), om payDates finns; annars sista tre kalendermånaderna.
+ */
+function robinBridgeMonthYmKeysFromPrevSalaryYear(deficitY, deficitM, startMo, root, sortedPayIsos) {
   const L = salaryYearLabelForCalendarMonth(deficitY, deficitM, startMo);
   if (!Number.isFinite(L)) return new Set();
   const prevB = salaryYearInclusiveBounds(L - 1, startMo);
   if (!prevB) return new Set();
+  if (sortedPayIsos?.length && root) {
+    const prevModel = buildSalaryYearAnalysisModel(root, prevB, sortedPayIsos);
+    const last3 = prevModel.snaps.slice(-3);
+    return new Set(last3.map((s) => robinYmKey(s.y, s.m)));
+  }
   const months = eachYmInSalaryYearBounds(prevB);
   const last3 = months.slice(-3);
   return new Set(last3.map((x) => robinYmKey(x.y, x.m)));
 }
 
-/** Bärare närmast underskottet först (t.ex. okt-underskott → sep, aug, jul …), sedan äldre; samma löneår + ev. brygga tre sista månader föregående år. */
-function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex, startMo) {
+/** Bärare närmast underskottet först (t.ex. okt-underskott → sep, aug, jul …), sedan äldre; samma löneår + ev. brygga tre sista perioderna/månaderna föregående år. */
+function findRobinCarrierIndicesBeforeDeficit(snaps, deficitIndex, startMo, root, sortedPayIsos) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
   const d = snaps[deficitIndex];
   const defLabel = salaryYearLabelForCalendarMonth(d.y, d.m, sm);
-  const legacyKeys = robinBridgeMonthYmKeysFromPrevSalaryYear(d.y, d.m, sm);
+  const legacyKeys = robinBridgeMonthYmKeysFromPrevSalaryYear(d.y, d.m, sm, root, sortedPayIsos);
   const out = [];
   for (let i = deficitIndex - 1; i >= 0; i--) {
     if (snaps[i].net < -ROBIN_HOOD_EPS) break;
@@ -3570,7 +3637,7 @@ function allocateRobinFromCarriers(need, carrierIndicesNearDeficitFirst, snaps, 
   return { allocated: need - remaining, byIndex, shortfall: remaining };
 }
 
-function computeRobinHoodAllocation(snaps, startMo) {
+function computeRobinHoodAllocation(snaps, startMo, root, sortedPayIsos) {
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
   const n = snaps.length;
   const deficitIndices = [];
@@ -3589,7 +3656,7 @@ function computeRobinHoodAllocation(snaps, startMo) {
     for (const di of deficitIndices) {
       let need = outstanding[di] || 0;
       if (need <= ROBIN_HOOD_EPS) continue;
-      const carriers = findRobinCarrierIndicesBeforeDeficit(snaps, di, sm);
+      const carriers = findRobinCarrierIndicesBeforeDeficit(snaps, di, sm, root, sortedPayIsos);
       const prevDef = carriers.length ? findRobinPrevDeficitSnapIndex(snaps, carriers[0]) : -1;
       const res = allocateRobinFromCarriers(need, carriers, snaps, used);
       if (res.allocated > ROBIN_HOOD_EPS) {
@@ -3692,13 +3759,13 @@ function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
 function syncRobinHoodGeneratedExpenses(root, payDatesSorted, startMo) {
   if (!Array.isArray(root.expenses)) root.expenses = [];
   const curLabel = currentSalaryYearLabelForDate(new Date(), startMo);
-  const snaps = mergeRobinHoodSalarySnaps(root, curLabel - 2, curLabel + 2, startMo);
+  const snaps = mergeRobinHoodSalarySnaps(root, curLabel - 2, curLabel + 2, startMo, payDatesSorted);
   const without = root.expenses.filter((e) => !isRobinHoodGeneratedExpense(e));
   if (!snaps.length) {
     root.expenses = without;
     return;
   }
-  const alloc = computeRobinHoodAllocation(snaps, startMo);
+  const alloc = computeRobinHoodAllocation(snaps, startMo, root, payDatesSorted);
   const built = buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted);
   root.expenses = without.concat(built.map((x) => canonicalizeExpenseRecord(x)));
 }
@@ -4124,7 +4191,7 @@ function calendarMonthsFromDateToDate(startDate, endDate) {
   return n;
 }
 
-/** T.ex. "25:e som brytpunkt" för diagramrubrik. */
+/** T.ex. utbetalningsdag som brytpunkt mellan löneperioder (diagramrubrik). */
 function svPaydayBreakpointHint(day) {
   const n = Math.max(1, Math.min(31, Math.floor(asNumber(day)) || 25));
   const lastTwo = n % 100;
@@ -4132,7 +4199,7 @@ function svPaydayBreakpointHint(day) {
   let suf = ":e";
   if (last === 1 && lastTwo !== 11) suf = ":a";
   else if (last === 2 && lastTwo !== 12) suf = ":a";
-  return `${n}${suf} som brytpunkt`;
+  return `Lön ${n}${suf} — ny period från utbetalningsdagen`;
 }
 
 /** Kort månadsetikett för diagram (t.ex. Jan, Maj). index 1–12 */
@@ -4143,10 +4210,10 @@ function salaryYearChartMonthShort(m) {
 }
 
 /**
- * Månadsstaplar (lönemånad): utgifter (sparande exkl.) och intäkter.
+ * Staplar per löneperiod (eller kalendermånad i fallback): utgifter (sparande exkl.) och intäkter.
  * Intäkt &lt; utgift: totalhöjd = utgift; blå = intäkt; röd = utgift − intäkt.
  * Intäkt ≥ utgift: grön stapelhöjd = intäkt.
- * Horisontellt streck: medelvärde intäkter = löneårets totala intäkt ÷ 12 (referens).
+ * Horisontellt streck: medel intäkt = löneårets totala intäkt ÷ antal perioder (referens).
  */
 function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear) {
   const W = 340;
@@ -4232,7 +4299,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per lönemånad med medelvärde intäkter som referenslinje">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per löneperiod med medel intäkt som referenslinje">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
@@ -10420,7 +10487,7 @@ function renderAnalysisPage() {
       bounds && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())
         ? formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end))
         : "—";
-    const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds) : null;
+    const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds, payDates) : null;
     const weakest = syModel?.weakest;
     const risks = syModel?.risks || [];
     const yearNet = syModel?.yearNet ?? 0;
@@ -10466,15 +10533,18 @@ function renderAnalysisPage() {
       <div class="analysis-salary-hero__big">${escapeHtml(weakest.monthLabel)} lön</div>
       <div class="analysis-salary-hero__dip${weakest.net < 0 ? " analysis-salary-hero__dip--neg" : ""}">${escapeHtml(formatKr(weakest.net))}</div>
       <p class="analysis-salary-hero__lead">
-        Svagaste lönemånaden enligt planen (lägsta netto per kalendermånad i löneåret). Kopplar årsplanering till vardagslogik mellan två löner.
+        Svagaste löneperioden enligt planen (lägsta netto i löneåret). Kopplar årsplanering till vardagslogik mellan två löner.
       </p>
       <div class="analysis-salary-hero__chip">${escapeHtml(cap)} · ${escapeHtml(rangeLine)}</div>`
         : `
       <div class="analysis-salary-hero__big">—</div>
-      <p class="analysis-salary-hero__lead">Inga månader kunde beräknas för valt löneår.</p>
+      <p class="analysis-salary-hero__lead">Inga löneperioder kunde beräknas för valt löneår.</p>
       <div class="analysis-salary-hero__chip">${escapeHtml(cap)}</div>`;
 
-    const avgMonthlyIncomeFromYear = syModel && syModel.totalInc != null ? syModel.totalInc / 12 : 0;
+    const avgMonthlyIncomeFromYear =
+      syModel && syModel.totalInc != null
+        ? syModel.totalInc / (syModel.snaps.length > 0 ? syModel.snaps.length : 12)
+        : 0;
     const chartSvg =
       syModel && syModel.snaps.length > 0
         ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, avgMonthlyIncomeFromYear)
@@ -10514,7 +10584,7 @@ function renderAnalysisPage() {
         <p class="note analysis-salary-year-ingress">${escapeHtml(yearChartIngressText)}</p>
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
-            <span>Utgifter per månad</span>
+            <span>Utgifter per löneperiod</span>
             <span>${escapeHtml(payBreakpointHint)}</span>
           </div>
           ${chartSvg}
@@ -10522,11 +10592,11 @@ function renderAnalysisPage() {
             <div class="analysis-salary-year-chart-legend-grid">
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span>Intäkterna (grön) överstiger utgifterna</span></span>
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span><span>Det finns ett underskott då utgifterna (röd) överstiger intäkterna (blå) för perioden</span></span>
-              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medelvärdet för löneårets intäkter : <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
+              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medel intäkt per löneperiod (årssumma ÷ antal perioder): <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
             </div>
           </div>
-          <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per månad">
-            <div class="analysis-salary-year-chart-detail-head"><span>Månad</span><span>Intäkt</span><span>Utgift</span><span>Netto</span></div>
+          <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per löneperiod">
+            <div class="analysis-salary-year-chart-detail-head"><span>Period</span><span>Intäkt</span><span>Utgift</span><span>Netto</span></div>
             <div class="analysis-salary-year-chart-detail-rows">${landscapeDetailRows}</div>
           </div>
         </div>
@@ -10535,8 +10605,8 @@ function renderAnalysisPage() {
 
     let robinBlock = "";
     if (syModel && risks.length > 0 && bounds) {
-      const gSnaps = mergeRobinHoodSalarySnaps(state, labelYear - 2, labelYear + 2, startMo);
-      const gAlloc = computeRobinHoodAllocation(gSnaps, startMo);
+      const gSnaps = mergeRobinHoodSalarySnaps(state, labelYear - 2, labelYear + 2, startMo, payDates);
+      const gAlloc = computeRobinHoodAllocation(gSnaps, startMo, state, payDates);
       const ymToGi = new Map();
       gSnaps.forEach((s, i) => ymToGi.set(robinYmKey(s.y, s.m), i));
       const outFromG = robinHoodSetasideOutByGlobalSnapIndex(gSnaps, gAlloc);
@@ -10694,7 +10764,7 @@ function renderAnalysisPage() {
         )} (avsättningar t.o.m. ${escapeHtml(capAcc)}). Avsättning kan bara tas från månader med överskott före underskott — lågt överskott i januari ger därför liten avsättning trots stort underskott senare.</p>`;
       }
       const nextB = salaryYearInclusiveBounds(curLabel + 1, startMo);
-      const nextModel = nextB ? buildSalaryYearAnalysisModel(state, nextB) : null;
+      const nextModel = nextB ? buildSalaryYearAnalysisModel(state, nextB, payDates) : null;
       const weakNext = nextModel && nextModel.yearNet < -ROBIN_HOOD_EPS;
       const mToBreak =
         nextB && nextB.start && !Number.isNaN(nextB.start.getTime())
@@ -10708,7 +10778,7 @@ function renderAnalysisPage() {
       robinBlock = `
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
-        <p class="note">Systemberäknade sparposter: <strong>25 % per månad</strong> i ordning <strong>närmast underskottet först</strong> tills behovet täcks; därefter fördelas resten <strong>proportionellt</strong> mot kvarvarande överskott i alla bärarmånader (så närmaste månader inte töms helt i onödan om flera kan dela). Om kapaciteten inte räcker töms bärare tills behovet täcks. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
+        <p class="note">Systemberäknade sparposter: <strong>25 % per bärarperiod</strong> i ordning <strong>närmast underskottet först</strong> tills behovet täcks; därefter fördelas resten <strong>proportionellt</strong> mot kvarvarande överskott i alla bärarperioder (så närmaste perioder inte töms helt i onödan om flera kan dela). Om kapaciteten inte räcker töms bärare tills behovet täcks. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista löneperioderna</strong> i det året (vid kända lönedagar). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per löneperiod i modellen (spar exkl.; utan lönedagar faller modellen tillbaka till kalendermånad).</p>
         <div class="analysis-robin-kpis${showTotalAllocationNeed ? " analysis-robin-kpis--with-total" : ""}">
           <div class="analysis-robin-kpis__stack">
             <div class="analysis-salary-hero__mini">
@@ -10740,7 +10810,7 @@ function renderAnalysisPage() {
         <div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
           <div class="analysis-salary-year-chart-head"><span>Avsättningar i valt löneår</span><span>${escapeHtml(payBreakpointHint)}</span></div>
           <p class="note analysis-robin-swipe-hint">Svep vänster/höger på diagrammet för föregående/nästa löneår (samma som knapparna nedan). Höjden är fast så sidan hoppar inte.</p>
-          <p class="note analysis-robin-bar-legend">Visas endast månader med avsättning (samt vid behov en första stapel: total avsättning från föregående löneår). Grön stapel: högst 25 % av månadens överskott. Gul: avsättning över 25 % av månadens överskott. Första stapeln (föregående år) blir gul om minst en månad i innevarande år är gul. Lodrätt årtal = från föregående löneår (första stapeln) eller avsättning mot nästa löneår.</p>
+          <p class="note analysis-robin-bar-legend">Visas endast löneperioder med avsättning (samt vid behov en första stapel: total avsättning från föregående löneår). Grön stapel: högst 25 % av periodens överskott. Gul: avsättning över 25 % av periodens överskott. Första stapeln (föregående år) blir gul om minst en period i innevarande år är gul. Lodrätt årtal = från föregående löneår (första stapeln) eller avsättning mot nästa löneår.</p>
           <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
         </div>
         <div class="analysis-robin-columns">
@@ -10820,7 +10890,7 @@ function renderAnalysisPage() {
   ui.analysisSalaryPeriodOffset = idx - nextIdx;
 
   const win = getSalaryPeriodWindow(payDates, idx);
-  const periodLine = win?.endIso ? formatSalaryPeriodLabelNextPaySv(win.endIso) : "—";
+  const periodLine = win?.payIso ? formatSalaryPeriodLabelNextPaySv(win.payIso) : "—";
   const plannedExp =
     win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
   const plannedInc =
@@ -10828,8 +10898,8 @@ function renderAnalysisPage() {
   const kvarPlan = plannedInc - plannedExp;
   const isInnevarandePeriod = (Number(ui.analysisSalaryPeriodOffset) || 0) === 0;
   const heroEyebrow = isInnevarandePeriod ? "Innevarande löneperiod" : "Löneperiod";
-  const periodRefDate = win?.endIso
-    ? parseDateISO(win.endIso)
+  const periodRefDate = win?.payIso
+    ? parseDateISO(win.payIso)
     : win?.startIso
       ? parseDateISO(win.startIso)
       : null;
@@ -10837,7 +10907,7 @@ function renderAnalysisPage() {
     periodRefDate && !Number.isNaN(periodRefDate.getTime()) ? periodRefDate : new Date();
   const periodSalaryYearLabel = currentSalaryYearLabelForDate(prd, startMo);
   const periodSyBounds = salaryYearInclusiveBounds(periodSalaryYearLabel, startMo);
-  const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds) : null;
+  const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds, payDates) : null;
   const periodSalaryYearHasDeficits = periodSyModel && periodSyModel.risks.length > 0;
   const rhAgg =
     win && payDates.length > 1 ? robinHoodSetasideAggForPayPeriodTowardNext(state, payDates, idx) : { total: 0, rows: [] };
@@ -10864,7 +10934,7 @@ function renderAnalysisPage() {
       <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>
       <div class="analysis-salary-hero__big">${escapeHtml(formatKr(kvarPlan))}</div>
       <p class="analysis-salary-hero__lead">
-        Kvar enligt planen till nästa lön. Visar om perioden är lugn eller tajt — inte saldo på kontot.
+        Planerade intäkter minus planerade utgifter inom <strong>denna löneperiod</strong> (sparande exkluderat). Perioden = från föregående utbetalningsdag till dagen före nästa (förskottslogik). Visar om perioden är lugn eller tajt — inte saldo på kontot.
       </p>
       <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)}</div>
       <div class="analysis-salary-hero__minis">
@@ -10877,7 +10947,7 @@ function renderAnalysisPage() {
     </section>
     <div class="table-card analysis-salary-period-controls">
       <div class="table-title">Byt period</div>
-      <p class="note">Växla mellan löneperioder. Slutdatum är nästa utbetalning.</p>
+      <p class="note">Växla mellan löneperioder. Varje period börjar på <strong>utbetalningsdagen</strong> och slutar <strong>dagen före nästa lön</strong> (datumraden nedan). Chipet visar vilken lön som avslutar vyn framåt.</p>
       <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
       ${
         calendarSpanForPeriod
