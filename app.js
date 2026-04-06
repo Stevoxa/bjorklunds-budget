@@ -3768,6 +3768,69 @@ function robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso) {
   return { total, rows };
 }
 
+/** Sant om kalendermånad y–m överlappar löneperioden [startIso,endIso] (minst en dag). */
+function ymMonthTouchesPayWindow(y, m, startIso, endIso) {
+  const s = parseDateISO(String(startIso || "").slice(0, 10));
+  const e = parseDateISO(String(endIso || "").slice(0, 10));
+  if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
+  const yy = Math.floor(asNumber(y));
+  const mm = Math.floor(asNumber(m));
+  if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return false;
+  const dim = daysInMonth(yy, mm);
+  const fm = new Date(yy, mm - 1, 1).getTime();
+  const lm = new Date(yy, mm - 1, dim).getTime();
+  const st = s.getTime();
+  const et = e.getTime();
+  return lm >= st && fm <= et;
+}
+
+/**
+ * Löneperiodskort: avsättningar vars **bokföringsdatum** ligger i denna period och vars målunderskott (toY/toM)
+ * tillhör **nästa** löneperiod men **inte** denna (överlapp med kalenderdagar). Då bokförs t.ex. täckning av
+ * februaripers underskott i januariperioden (26 dec–25 jan); februariperioden visar 0 för samma underskott.
+ */
+function robinHoodSetasideAggForPayPeriodTowardNext(root, sortedPayIsos, periodIndex) {
+  const n = sortedPayIsos?.length || 0;
+  const idx = Math.floor(asNumber(periodIndex));
+  if (!Number.isFinite(idx) || idx < 0 || idx + 1 >= n || n < 2) return { total: 0, rows: [] };
+  const win = getSalaryPeriodWindow(sortedPayIsos, idx);
+  const winNext = getSalaryPeriodWindow(sortedPayIsos, idx + 1);
+  if (!win?.startIso || !win?.endIso || !winNext?.startIso || !winNext?.endIso) return { total: 0, rows: [] };
+  const a = String(win.startIso).slice(0, 10);
+  const b = String(win.endIso).slice(0, 10);
+
+  const byTarget = new Map();
+  let total = 0;
+  for (const exp of root.expenses || []) {
+    if (!isRobinHoodGeneratedExpense(exp)) continue;
+    if (exp.metadata?.robinHood?.kind !== "setaside") continue;
+    const meta = exp.metadata.robinHood;
+    const ty = Math.floor(asNumber(meta.toY));
+    const tm = Math.floor(asNumber(meta.toM));
+    if (!Number.isFinite(ty) || !Number.isFinite(tm) || tm < 1 || tm > 12) continue;
+    if (!ymMonthTouchesPayWindow(ty, tm, winNext.startIso, winNext.endIso)) continue;
+    if (ymMonthTouchesPayWindow(ty, tm, win.startIso, win.endIso)) continue;
+    for (const p of exp.payments || []) {
+      const d = String(p.date || "").slice(0, 10);
+      if (!d || d < a || d > b) continue;
+      const amt = Math.max(0, Math.round(asNumber(p.amount)));
+      if (amt <= ROBIN_HOOD_EPS) continue;
+      const tk = robinYmKey(ty, tm);
+      byTarget.set(tk, (byTarget.get(tk) || 0) + amt);
+    }
+  }
+  const rows = [];
+  for (const [k, amount] of byTarget) {
+    total += amount;
+    const [ys, ms] = k.split("-");
+    const y = Math.floor(asNumber(ys));
+    const m = Math.floor(asNumber(ms));
+    rows.push({ y, m, amount, monthLabel: monthName(m) });
+  }
+  rows.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.m - b.m));
+  return { total, rows };
+}
+
 /** Endast avsättningsposter (positiva belopp) inom intervall. */
 function sumRobinHoodSetasideInIsoRange(root, startIso, endIso) {
   return robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso).total;
@@ -10777,21 +10840,20 @@ function renderAnalysisPage() {
   const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds) : null;
   const periodSalaryYearHasDeficits = periodSyModel && periodSyModel.risks.length > 0;
   const rhAgg =
-    win && win.startIso && win.endIso
-      ? robinHoodSetasideAggByCarrierInIsoRange(state, win.startIso, win.endIso)
-      : { total: 0, rows: [] };
-  const rhCarrierBreakdownLine = rhAgg.rows
-    .map((r) => `${r.monthLabel} ${r.y}: ${formatKr(r.amount)}`)
-    .join(" · ");
+    win && payDates.length > 1 ? robinHoodSetasideAggForPayPeriodTowardNext(state, payDates, idx) : { total: 0, rows: [] };
+  const rhTargetBreakdownLine =
+    rhAgg.total > 0 && rhAgg.rows.length > 0
+      ? rhAgg.rows.map((r) => `Mot underskott ${r.monthLabel} ${r.y}: ${formatKr(r.amount)}`).join(" · ")
+      : "";
   const calendarSpanForPeriod =
     win && win.startIso && win.endIso ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "";
   const rhSparMiniBlock = periodSalaryYearHasDeficits
     ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>
-          <div class="analysis-salary-hero__mini-hint">Samma poster som i löneårsvyn. Bokföringsdatum = <strong>dagen efter lön</strong> i bärarmånad. Allt som ligger i periodens kalenderdagar (t.ex. <strong>26 dec</strong> i intervallet efter 25 dec-lön till 25 jan-lön) ingår i <strong>denna</strong> löneperiod — även om bärarmånad i listan är annan (t.ex. december).${
-            rhCarrierBreakdownLine
-              ? `<br><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(rhCarrierBreakdownLine)}</span>`
+          <div class="analysis-salary-hero__mini-hint">Poster <strong>bokförda i denna löneperiod</strong> som täcker underskott som tillhör <strong>nästa</strong> löneperiod (inte underskott som redan ligger i denna period). Sista löneperioden i listan: inget ”nästa” — 0kr.${
+            rhTargetBreakdownLine
+              ? `<br><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(rhTargetBreakdownLine)}</span>`
               : ""
           }</div>
         </div>`
