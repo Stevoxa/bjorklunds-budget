@@ -3729,22 +3729,48 @@ function syncRobinHoodIntoState() {
   syncRobinHoodGeneratedExpenses(state, payDates, startMo);
 }
 
-/** Endast avsättningsposter (positiva belopp) inom intervall. */
-function sumRobinHoodSetasideInIsoRange(root, startIso, endIso) {
-  let sum = 0;
+/**
+ * Robint-avsättningar vars bokföringsdatum ligger i [startIso,endIso].
+ * Grupperat per bärarkalendermånad (fromY/fromM) — samma månadsbelopp som under ”Månader med planerade avsättningar” i löneårsvyn.
+ * (Datum sätts till dagen efter utbetald lön i bärarmånaden.)
+ */
+function robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso) {
   const a = String(startIso || "").slice(0, 10);
   const b = String(endIso || "").slice(0, 10);
-  if (!a || !b) return 0;
+  const byKey = new Map();
+  if (!a || !b) return { total: 0, rows: [] };
   for (const exp of root.expenses || []) {
     if (!isRobinHoodGeneratedExpense(exp)) continue;
     if (exp.metadata?.robinHood?.kind !== "setaside") continue;
+    const meta = exp.metadata.robinHood;
+    const fy = Math.floor(asNumber(meta.fromY));
+    const fm = Math.floor(asNumber(meta.fromM));
+    if (!Number.isFinite(fy) || !Number.isFinite(fm) || fm < 1 || fm > 12) continue;
     for (const p of exp.payments || []) {
       const d = String(p.date || "").slice(0, 10);
       if (!d || d < a || d > b) continue;
-      sum += Math.max(0, asNumber(p.amount));
+      const amt = Math.max(0, Math.round(asNumber(p.amount)));
+      if (amt <= ROBIN_HOOD_EPS) continue;
+      const k = robinYmKey(fy, fm);
+      byKey.set(k, (byKey.get(k) || 0) + amt);
     }
   }
-  return sum;
+  let total = 0;
+  const rows = [];
+  for (const [k, amount] of byKey) {
+    total += amount;
+    const [ys, ms] = k.split("-");
+    const y = Math.floor(asNumber(ys));
+    const m = Math.floor(asNumber(ms));
+    rows.push({ y, m, amount, monthLabel: monthName(m) });
+  }
+  rows.sort((a, b) => (a.y !== b.y ? a.y - b.y : a.m - b.m));
+  return { total, rows };
+}
+
+/** Endast avsättningsposter (positiva belopp) inom intervall. */
+function sumRobinHoodSetasideInIsoRange(root, startIso, endIso) {
+  return robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso).total;
 }
 
 function robinHoodSetasideOutByGlobalSnapIndex(snaps, alloc) {
@@ -10750,13 +10776,24 @@ function renderAnalysisPage() {
   const periodSyBounds = salaryYearInclusiveBounds(periodSalaryYearLabel, startMo);
   const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds) : null;
   const periodSalaryYearHasDeficits = periodSyModel && periodSyModel.risks.length > 0;
-  const rhSetasideOnly =
-    win && win.startIso && win.endIso ? sumRobinHoodSetasideInIsoRange(state, win.startIso, win.endIso) : 0;
+  const rhAgg =
+    win && win.startIso && win.endIso
+      ? robinHoodSetasideAggByCarrierInIsoRange(state, win.startIso, win.endIso)
+      : { total: 0, rows: [] };
+  const rhCarrierBreakdownLine = rhAgg.rows
+    .map((r) => `${r.monthLabel} ${r.y}: ${formatKr(r.amount)}`)
+    .join(" · ");
+  const calendarSpanForPeriod =
+    win && win.startIso && win.endIso ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "";
   const rhSparMiniBlock = periodSalaryYearHasDeficits
     ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
-          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhSetasideOnly))}</div>
-          <div class="analysis-salary-hero__mini-hint">Endast avsättningar (0kr om ingen)</div>
+          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>
+          <div class="analysis-salary-hero__mini-hint">Samma poster som i löneårsvyn. Bokföringsdatum = <strong>dagen efter lön</strong> i bärarmånad. Allt som ligger i periodens kalenderdagar (t.ex. <strong>26 dec</strong> i intervallet efter 25 dec-lön till 25 jan-lön) ingår i <strong>denna</strong> löneperiod — även om bärarmånad i listan är annan (t.ex. december).${
+            rhCarrierBreakdownLine
+              ? `<br><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(rhCarrierBreakdownLine)}</span>`
+              : ""
+          }</div>
         </div>`
     : "";
 
@@ -10780,6 +10817,13 @@ function renderAnalysisPage() {
       <div class="table-title">Byt period</div>
       <p class="note">Växla mellan löneperioder. Slutdatum är nästa utbetalning.</p>
       <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
+      ${
+        calendarSpanForPeriod
+          ? `<p class="note analysis-view-range-line analysis-salary-period-controls__calendar-span">${escapeHtml(
+              calendarSpanForPeriod
+            )}</p>`
+          : ""
+      }
       <div class="analysis-inline-nav">
         <button type="button" class="secondary" id="analysisSalaryPeriodPrevBtn" ${idx <= 0 ? "disabled" : ""}>Föregående period</button>
         <button type="button" class="secondary" id="analysisSalaryPeriodNextBtn" ${idx >= payDates.length - 1 ? "disabled" : ""}>Nästa period</button>
