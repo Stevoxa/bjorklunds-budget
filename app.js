@@ -10286,15 +10286,31 @@ function renderAnalysisPage() {
           )}</span></div>${hint}</li>`;
         })
         .join("");
-      const setasideGlobalRows = [];
-      for (let gi = 0; gi < gSnaps.length; gi++) {
-        const v = Math.max(0, Math.round(outFromG[gi] || 0));
-        if (v <= ROBIN_HOOD_EPS) continue;
-        const s = gSnaps[gi];
-        const ly = salaryYearLabelForCalendarMonth(s.y, s.m, startMo);
-        setasideGlobalRows.push({ ly, y: s.y, m: s.m, monthLabel: s.monthLabel, v });
+      /** Endast avsättning från föregående löneår → underskott i visat löneår (t.ex. visar 2026: flöden till 2026 från 2025). */
+      const prevSalaryYearLabel = labelYear - 1;
+      const fromYmTotals = new Map();
+      for (const f of gAlloc.flows || []) {
+        const toS = gSnaps[f.toIdx];
+        const fromS = gSnaps[f.fromIdx];
+        if (!toS || !fromS) continue;
+        const toLab = salaryYearLabelForCalendarMonth(toS.y, toS.m, startMo);
+        const fromLab = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, startMo);
+        if (toLab !== labelYear || fromLab !== prevSalaryYearLabel) continue;
+        const amt = Math.round(asNumber(f.amount));
+        if (amt <= ROBIN_HOOD_EPS) continue;
+        const key = robinYmKey(fromS.y, fromS.m);
+        const ex = fromYmTotals.get(key);
+        if (ex) ex.v += amt;
+        else
+          fromYmTotals.set(key, {
+            ly: fromLab,
+            y: fromS.y,
+            m: fromS.m,
+            monthLabel: fromS.monthLabel,
+            v: amt
+          });
       }
-      setasideGlobalRows.sort((a, b) =>
+      const setasideGlobalRows = [...fromYmTotals.values()].sort((a, b) =>
         a.ly !== b.ly ? a.ly - b.ly : a.y !== b.y ? a.y - b.y : a.m - b.m
       );
       const bySetasideLy = new Map();
@@ -10370,7 +10386,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini analysis-robin-stat-card">
             <div class="analysis-salary-hero__mini-label">Månader med avsättning</div>
             <div class="analysis-robin-stat-card__body">${allocationBodyHtml}</div>
-            <div class="analysis-salary-hero__mini-hint">Avsättningar som behövs för att täcka utgifter i löneår ${labelYear}.</div>
+            <div class="analysis-salary-hero__mini-hint">Avsättningar i löneår ${prevSalaryYearLabel} som täcker underskott i visat löneår (${labelYear}).</div>
           </div>
         </div>
       </div>`;
