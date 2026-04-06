@@ -3461,10 +3461,47 @@ function findRobinPrevDeficitSnapIndex(snaps, firstCarrierIndex) {
   return -1;
 }
 
+/** Delar ut `total` kr (heltal) över poster med kapacitet `w`, proportionellt mot w. Summa = min(total, summa w). */
+function robinProportionalKrByWeights(total, items) {
+  const pos = items.filter((x) => x.w > ROBIN_HOOD_EPS);
+  const out = new Map();
+  if (!pos.length || total <= ROBIN_HOOD_EPS) return out;
+  const S = pos.reduce((a, x) => a + x.w, 0);
+  const need = Math.min(Math.round(asNumber(total)), Math.max(0, Math.floor(S + ROBIN_HOOD_EPS)));
+  if (need <= 0) return out;
+  if (need >= S - ROBIN_HOOD_EPS) {
+    for (const x of pos) out.set(x.idx, Math.round(x.w));
+    return out;
+  }
+  const raw = pos.map((x) => ({ idx: x.idx, w: x.w, ideal: (need * x.w) / S }));
+  const assign = raw.map((r) => Math.floor(r.ideal));
+  let deficit = need - assign.reduce((a, b) => a + b, 0);
+  const order = raw.map((r, j) => ({ j, frac: r.ideal - assign[j] })).sort((a, b) => b.frac - a.frac);
+  let guard = 0;
+  while (deficit > 0 && guard < need + pos.length + 8) {
+    let progressed = false;
+    for (const { j } of order) {
+      if (deficit <= 0) break;
+      if (assign[j] < raw[j].w - ROBIN_HOOD_EPS) {
+        assign[j]++;
+        deficit--;
+        progressed = true;
+      }
+    }
+    if (!progressed) break;
+    guard++;
+  }
+  for (let j = 0; j < raw.length; j++) {
+    const t = Math.min(raw[j].w, assign[j]);
+    if (t > ROBIN_HOOD_EPS) out.set(raw[j].idx, t);
+  }
+  return out;
+}
+
 /**
- * Fas 1: i bärarordning (närmast underskottet först), upp till 25 % av överskott per månad tills behovet är täckt.
- * Fas 2: samma ordning, upp till 100 % kvar per bärare.
- * Fas 3: proportionellt mot kvarvarande kapacitet om behov kvarstår.
+ * Fas 1: närmast underskott först, upp till 25 % per månad tills behovet täcks.
+ * Fas 2: kvarvarande behov fördelas proportionellt mot kvarvarande överskott bland alla bärare (jämnare än att tömma närmast först).
+ * Om total kapacitet < behov töms alla; upprepas vid kronsnurr tills behov täckt eller kapacitet slut.
  */
 function allocateRobinFromCarriers(need, carrierIndicesNearDeficitFirst, snaps, used) {
   const byIndex = {};
@@ -3493,34 +3530,32 @@ function allocateRobinFromCarriers(need, carrierIndicesNearDeficitFirst, snaps, 
   if (remaining <= ROBIN_HOOD_EPS) {
     return { allocated: need - remaining, byIndex, shortfall: 0 };
   }
-  for (const c of caps) {
-    if (remaining <= ROBIN_HOOD_EPS) break;
-    const idx = c.idx;
-    const take = Math.min(getAvail(idx), remaining);
-    if (take > ROBIN_HOOD_EPS) {
-      byIndex[idx] = (byIndex[idx] || 0) + take;
-      used[idx] = (used[idx] || 0) + take;
-      remaining -= take;
+  while (remaining > ROBIN_HOOD_EPS) {
+    const pool = caps
+      .map((c) => ({ idx: c.idx, w: getAvail(c.idx) }))
+      .filter((x) => x.w > ROBIN_HOOD_EPS);
+    if (!pool.length) break;
+    const S = pool.reduce((a, x) => a + x.w, 0);
+    if (S <= ROBIN_HOOD_EPS) break;
+    if (remaining + ROBIN_HOOD_EPS >= S) {
+      for (const x of pool) {
+        const t = x.w;
+        byIndex[x.idx] = (byIndex[x.idx] || 0) + t;
+        used[x.idx] = (used[x.idx] || 0) + t;
+        remaining -= t;
+      }
+      continue;
     }
-  }
-  if (remaining <= ROBIN_HOOD_EPS) {
-    return { allocated: need - remaining, byIndex, shortfall: 0 };
-  }
-  const still = caps
-    .map((c) => ({ idx: c.idx, avail: getAvail(c.idx) }))
-    .filter((x) => x.avail > ROBIN_HOOD_EPS);
-  const sumAv = still.reduce((a, x) => a + x.avail, 0);
-  if (sumAv <= ROBIN_HOOD_EPS) {
-    return { allocated: need - remaining, byIndex, shortfall: remaining };
-  }
-  for (const x of still) {
-    if (remaining <= ROBIN_HOOD_EPS) break;
-    const take = Math.min(remaining * (x.avail / sumAv), x.avail, remaining);
-    if (take > ROBIN_HOOD_EPS) {
-      byIndex[x.idx] = (byIndex[x.idx] || 0) + take;
-      used[x.idx] = (used[x.idx] || 0) + take;
-      remaining -= take;
+    const dist = robinProportionalKrByWeights(remaining, pool);
+    let took = 0;
+    for (const [idx, t] of dist) {
+      if (t <= ROBIN_HOOD_EPS) continue;
+      byIndex[idx] = (byIndex[idx] || 0) + t;
+      used[idx] = (used[idx] || 0) + t;
+      took += t;
     }
+    if (took <= ROBIN_HOOD_EPS) break;
+    remaining -= took;
   }
   return { allocated: need - remaining, byIndex, shortfall: remaining };
 }
@@ -10517,7 +10552,7 @@ function renderAnalysisPage() {
       robinBlock = `
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
-        <p class="note">Systemberäknade sparposter: <strong>25 % per månad</strong> i ordning <strong>närmast underskottet först</strong> (t.ex. okt-underskott → sep, aug, jul …) tills behovet täcks, därefter upp till 100 % i samma ordning, därefter proportionellt. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
+        <p class="note">Systemberäknade sparposter: <strong>25 % per månad</strong> i ordning <strong>närmast underskottet först</strong> tills behovet täcks; därefter fördelas resten <strong>proportionellt</strong> mot kvarvarande överskott i alla bärarmånader (så närmaste månader inte töms helt i onödan om flera kan dela). Om kapaciteten inte räcker töms bärare tills behovet täcks. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista kalendermånaderna</strong> i det året (t.ex. jan–dec-löneår: okt–dec året innan). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per kalendermånad (spar exkl.).</p>
         <div class="analysis-robin-kpis">
           <div class="analysis-salary-hero__mini">
             <div class="analysis-salary-hero__mini-label">Löneårets avsättningsbehov</div>
