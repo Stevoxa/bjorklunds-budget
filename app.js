@@ -4191,7 +4191,7 @@ function calendarMonthsFromDateToDate(startDate, endDate) {
   return n;
 }
 
-/** T.ex. utbetalningsdag som brytpunkt mellan löneperioder (diagramrubrik). */
+/** T.ex. "25:e som brytpunkt" för diagramrubrik. */
 function svPaydayBreakpointHint(day) {
   const n = Math.max(1, Math.min(31, Math.floor(asNumber(day)) || 25));
   const lastTwo = n % 100;
@@ -4199,7 +4199,7 @@ function svPaydayBreakpointHint(day) {
   let suf = ":e";
   if (last === 1 && lastTwo !== 11) suf = ":a";
   else if (last === 2 && lastTwo !== 12) suf = ":a";
-  return `Lön ${n}${suf} — ny period från utbetalningsdagen`;
+  return `${n}${suf} som brytpunkt`;
 }
 
 /** Kort månadsetikett för diagram (t.ex. Jan, Maj). index 1–12 */
@@ -10592,7 +10592,7 @@ function renderAnalysisPage() {
             <div class="analysis-salary-year-chart-legend-grid">
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span>Intäkterna (grön) överstiger utgifterna</span></span>
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span><span>Det finns ett underskott då utgifterna (röd) överstiger intäkterna (blå) för perioden</span></span>
-              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medel intäkt per löneperiod (årssumma ÷ antal perioder): <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
+              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medel intäkt: <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
             </div>
           </div>
           <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per löneperiod">
@@ -10778,7 +10778,7 @@ function renderAnalysisPage() {
       robinBlock = `
       <div class="table-card analysis-robin-section">
         <div class="table-title">Avsättning för att täcka andra perioders underskott</div>
-        <p class="note">Systemberäknade sparposter: <strong>25 % per bärarperiod</strong> i ordning <strong>närmast underskottet först</strong> tills behovet täcks; därefter fördelas resten <strong>proportionellt</strong> mot kvarvarande överskott i alla bärarperioder (så närmaste perioder inte töms helt i onödan om flera kan dela). Om kapaciteten inte räcker töms bärare tills behovet täcks. Överskott från <strong>föregående löneår</strong> får bara användas från de <strong>tre sista löneperioderna</strong> i det året (vid kända lönedagar). Redigeras inte manuellt — visas under Spara. Netto = intäkter − utgifter per löneperiod i modellen (spar exkl.; utan lönedagar faller modellen tillbaka till kalendermånad).</p>
+        <p class="note">Systemberäknade sparposter: 25 %, närmast underskott först; därefter proportionellt. Föregående löneår: högst tre sista perioderna som bärare. Redigeras under Spara. Netto = intäkter − utgifter per period (spar exkl.).</p>
         <div class="analysis-robin-kpis${showTotalAllocationNeed ? " analysis-robin-kpis--with-total" : ""}">
           <div class="analysis-robin-kpis__stack">
             <div class="analysis-salary-hero__mini">
@@ -10810,7 +10810,7 @@ function renderAnalysisPage() {
         <div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
           <div class="analysis-salary-year-chart-head"><span>Avsättningar i valt löneår</span><span>${escapeHtml(payBreakpointHint)}</span></div>
           <p class="note analysis-robin-swipe-hint">Svep vänster/höger på diagrammet för föregående/nästa löneår (samma som knapparna nedan). Höjden är fast så sidan hoppar inte.</p>
-          <p class="note analysis-robin-bar-legend">Visas endast löneperioder med avsättning (samt vid behov en första stapel: total avsättning från föregående löneår). Grön stapel: högst 25 % av periodens överskott. Gul: avsättning över 25 % av periodens överskott. Första stapeln (föregående år) blir gul om minst en period i innevarande år är gul. Lodrätt årtal = från föregående löneår (första stapeln) eller avsättning mot nästa löneår.</p>
+          <p class="note analysis-robin-bar-legend">Grön stapel: högst 25 % av överskottet i perioden. Gul: över 25 %.</p>
           <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
         </div>
         <div class="analysis-robin-columns">
@@ -10921,7 +10921,7 @@ function renderAnalysisPage() {
     ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>
-          <div class="analysis-salary-hero__mini-hint">Poster <strong>bokförda i denna löneperiod</strong> som täcker underskott som tillhör <strong>nästa</strong> löneperiod (inte underskott som redan ligger i denna period). Sista löneperioden i listan: inget ”nästa” — 0kr.${
+          <div class="analysis-salary-hero__mini-hint">Robint mot nästa löneperiod.${
             rhTargetBreakdownLine
               ? `<br><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(rhTargetBreakdownLine)}</span>`
               : ""
@@ -10934,7 +10934,7 @@ function renderAnalysisPage() {
       <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>
       <div class="analysis-salary-hero__big">${escapeHtml(formatKr(kvarPlan))}</div>
       <p class="analysis-salary-hero__lead">
-        Planerade intäkter minus planerade utgifter inom <strong>denna löneperiod</strong> (sparande exkluderat). Perioden = från föregående utbetalningsdag till dagen före nästa (förskottslogik). Visar om perioden är lugn eller tajt — inte saldo på kontot.
+        Kvar enligt planen till nästa lön. Visar om perioden är lugn eller tajt — inte saldo på kontot.
       </p>
       <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)}</div>
       <div class="analysis-salary-hero__minis">
@@ -10947,7 +10947,7 @@ function renderAnalysisPage() {
     </section>
     <div class="table-card analysis-salary-period-controls">
       <div class="table-title">Byt period</div>
-      <p class="note">Växla mellan löneperioder. Varje period börjar på <strong>utbetalningsdagen</strong> och slutar <strong>dagen före nästa lön</strong> (datumraden nedan). Chipet visar vilken lön som avslutar vyn framåt.</p>
+      <p class="note">Växla mellan löneperioder.</p>
       <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
       ${
         calendarSpanForPeriod

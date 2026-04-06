@@ -2054,9 +2054,6 @@
 
           <div class="table-card settings-salary-analysis-card">
             <div class="table-title">Ny analys — löneperiod</div>
-            <p class="note">
-              I analysen räknas en <strong>löneperiod</strong> från <strong>utbetalningsdagen</strong> till <strong>dagen före nästa lön</strong> (förskottslogik). Exempel lön den 25:e: januarilön = 25 dec–24 jan, februarilön = 25 jan–24 feb.
-            </p>
             <div class="form-grid narrow">
               <label class="field field-checkbox-row">
                 <input id="salaryPeriodUseFixedDay" type="checkbox" />
@@ -2065,7 +2062,7 @@
               <label class="field">
                 Fast lönedag i månaden
                 <input id="salaryPeriodFixedDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                <span class="field-help">Används när kryssrutan ovan är ikryssad (standard 25). Annars härleds dagen från första utbetalningen för den största månadsvisa intäkten. Analysens löneår bygger på samma utbetalningsdagar som löneperioderna (inte hela kalendermånader).</span>
+                <span class="field-help">Används när kryssrutan ovan är ikryssad (standard 25). Annars härleds dagen från första utbetalningen för den största månadsvisa intäkten.</span>
               </label>
               <label class="field">
                 Löneåret börjar
