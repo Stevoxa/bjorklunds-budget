@@ -10277,18 +10277,50 @@ function renderAnalysisPage() {
         .map((r) => {
           const noInc = r.inc <= ROBIN_HOOD_EPS;
           const hint = noInc
-            ? ` <span class="analysis-robin-inline-hint">Saknar planerad intäkt denna kalendermånad — kontrollera löneperioder och manuella intäkter.</span>`
+            ? `<span class="analysis-robin-inline-hint">Saknar planerad intäkt denna kalendermånad — kontrollera löneperioder och manuella intäkter.</span>`
             : "";
-          return `<li><span class="analysis-robin-deficit-line">${escapeHtml(r.monthLabel)} · intäkt ${escapeHtml(
-            formatKr(r.inc)
-          )} · utgift ${escapeHtml(formatKr(r.exp))} · netto ${escapeHtml(formatKr(r.net))}</span>${hint}</li>`;
+          return `<li class="analysis-robin-stat-item"><div class="analysis-robin-stat-row"><span class="analysis-robin-stat-row__name">${escapeHtml(
+            r.monthLabel
+          )}</span><span class="analysis-robin-stat-row__amt analysis-robin-stat-row__amt--neg">${escapeHtml(
+            formatKr(r.net)
+          )}</span></div>${hint}</li>`;
         })
         .join("");
-      const strongRows = syModel.snaps
-        .map((s, i) => ({ s, v: setasideVals[i] }))
-        .filter((x) => x.v > 0)
-        .map((x) => `<li>${escapeHtml(x.s.monthLabel)} · avsättning ${escapeHtml(formatKr(x.v))}</li>`)
-        .join("");
+      const setasideGlobalRows = [];
+      for (let gi = 0; gi < gSnaps.length; gi++) {
+        const v = Math.max(0, Math.round(outFromG[gi] || 0));
+        if (v <= ROBIN_HOOD_EPS) continue;
+        const s = gSnaps[gi];
+        const ly = salaryYearLabelForCalendarMonth(s.y, s.m, startMo);
+        setasideGlobalRows.push({ ly, y: s.y, m: s.m, monthLabel: s.monthLabel, v });
+      }
+      setasideGlobalRows.sort((a, b) =>
+        a.ly !== b.ly ? a.ly - b.ly : a.y !== b.y ? a.y - b.y : a.m - b.m
+      );
+      const bySetasideLy = new Map();
+      for (const row of setasideGlobalRows) {
+        if (!bySetasideLy.has(row.ly)) bySetasideLy.set(row.ly, []);
+        bySetasideLy.get(row.ly).push(row);
+      }
+      let allocationBodyHtml = "";
+      if (bySetasideLy.size === 0) {
+        allocationBodyHtml = `<ul class="analysis-robin-stat-list"><li class="analysis-robin-stat-empty">—</li></ul>`;
+      } else {
+        allocationBodyHtml = [...bySetasideLy.keys()]
+          .sort((a, b) => a - b)
+          .map((ly) => {
+            const rows = (bySetasideLy.get(ly) || [])
+              .map(
+                (row) =>
+                  `<li class="analysis-robin-stat-item"><div class="analysis-robin-stat-row"><span class="analysis-robin-stat-row__name">${escapeHtml(
+                    row.monthLabel
+                  )}</span><span class="analysis-robin-stat-row__amt">${escapeHtml(formatKr(row.v))}</span></div></li>`
+              )
+              .join("");
+            return `<div class="analysis-robin-stat-year-block"><div class="analysis-robin-stat-year-label">Löneår ${ly}</div><ul class="analysis-robin-stat-list">${rows}</ul></div>`;
+          })
+          .join("");
+      }
       let robinWarns = "";
       if (isInnevarandeYear && annualNeedPot > 0 && accSet + ROBIN_HOOD_EPS < annualNeedPot && capAcc >= y0) {
         robinWarns += `<p class="note analysis-robin-warn">Hittills avsatt ${escapeHtml(formatKr(accSet))} av beräknad årlig behovspott ${escapeHtml(
@@ -10330,13 +10362,15 @@ function renderAnalysisPage() {
           <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
         </div>
         <div class="analysis-robin-columns">
-          <div>
-            <div class="analysis-robin-subtitle">Underskottsmånader</div>
-            <ul class="analysis-robin-list">${weakList}</ul>
+          <div class="analysis-salary-hero__mini analysis-robin-stat-card">
+            <div class="analysis-salary-hero__mini-label">Underskottsmånader</div>
+            <ul class="analysis-robin-stat-list">${weakList}</ul>
+            <div class="analysis-salary-hero__mini-hint">Månader som har ett underskott som behöver täckas i budgeten.</div>
           </div>
-          <div>
-            <div class="analysis-robin-subtitle">Månader med avsättning</div>
-            <ul class="analysis-robin-list">${strongRows || "<li>—</li>"}</ul>
+          <div class="analysis-salary-hero__mini analysis-robin-stat-card">
+            <div class="analysis-salary-hero__mini-label">Månader med avsättning</div>
+            <div class="analysis-robin-stat-card__body">${allocationBodyHtml}</div>
+            <div class="analysis-salary-hero__mini-hint">Avsättningar som behövs för att täcka utgifter i löneår ${labelYear}.</div>
           </div>
         </div>
       </div>`;

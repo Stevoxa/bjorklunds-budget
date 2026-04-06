@@ -3955,6 +3955,112 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   }
 }
 
+/* Robin: samma minikort som löneår-hero men med tema-läsbara färger (ljust + mörkt) */
+.analysis-robin-section .analysis-salary-hero__mini {
+  background: color-mix(in srgb, var(--primary) 11%, var(--card-2));
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  color: var(--text);
+}
+
+.analysis-robin-section .analysis-salary-hero__mini-label {
+  color: color-mix(in srgb, var(--muted) 55%, var(--primary) 45%);
+}
+
+.analysis-robin-section .analysis-salary-hero__mini-value {
+  color: var(--text);
+}
+
+.analysis-robin-section .analysis-salary-hero__mini-value--muted {
+  color: var(--muted);
+}
+
+.analysis-robin-section .analysis-salary-hero__mini-hint {
+  color: var(--muted);
+}
+
+.analysis-robin-section .analysis-salary-hero__mini-value--neg,
+.analysis-robin-section .analysis-salary-hero__dip--neg {
+  color: var(--danger);
+}
+
+.analysis-robin-stat-card .analysis-robin-stat-card__body {
+  margin-top: 10px;
+}
+
+.analysis-robin-stat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.analysis-robin-stat-card > .analysis-robin-stat-list {
+  margin-top: 10px;
+}
+
+.analysis-robin-stat-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.analysis-robin-stat-item:last-child .analysis-robin-stat-row {
+  border-bottom: none;
+}
+
+.analysis-robin-stat-row__name {
+  color: var(--text);
+}
+
+.analysis-robin-stat-row__amt {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.analysis-robin-stat-row__amt--neg {
+  color: var(--danger);
+}
+
+.analysis-robin-stat-year-block {
+  margin-top: var(--space-3);
+}
+
+.analysis-robin-stat-year-block:first-child {
+  margin-top: 0;
+}
+
+.analysis-robin-stat-year-label {
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.analysis-robin-stat-empty {
+  padding: 6px 0;
+  color: var(--muted);
+}
+
+.analysis-robin-stat-item .analysis-robin-inline-hint {
+  display: block;
+  margin-top: 6px;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analysis-robin-stat-card > .analysis-salary-hero__mini-hint {
+  margin-top: var(--space-3);
+}
+
 .analysis-robin-warn {
   margin-top: var(--space-3);
   color: var(--danger, #b03030);
