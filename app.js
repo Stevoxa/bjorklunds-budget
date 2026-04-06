@@ -3279,6 +3279,16 @@ function formatAnalysisIsoRangeSv(startIso, endIso) {
   return `${a.d} ${monthName(a.m)} ${a.y} – ${b.d} ${monthName(b.m)} ${b.y}`;
 }
 
+/** Löneperiod-chip: månad/år för utbetalningen + tydlig nästa lön (samma datum som periodens slut). */
+function formatSalaryPeriodLabelNextPaySv(endIso) {
+  const p = datePartsFromIso(String(endIso || "").slice(0, 10));
+  if (!p) return "—";
+  const capMo = monthName(p.m);
+  const monthYear = `${capMo} ${p.y}`;
+  const nextPayPhrase = `${p.d} ${capMo.toLowerCase()} ${p.y}`;
+  return `${monthYear} – Nästa lön ${nextPayPhrase}`;
+}
+
 /** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
 function sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   let sum = 0;
@@ -10704,8 +10714,7 @@ function renderAnalysisPage() {
   ui.analysisSalaryPeriodOffset = idx - nextIdx;
 
   const win = getSalaryPeriodWindow(payDates, idx);
-  const nextPay = win ? win.endIso : "—";
-  const periodLine = win ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "—";
+  const periodLine = win?.endIso ? formatSalaryPeriodLabelNextPaySv(win.endIso) : "—";
   const plannedExp =
     win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
   const plannedInc =
@@ -10741,7 +10750,7 @@ function renderAnalysisPage() {
       <p class="analysis-salary-hero__lead">
         Kvar enligt planen till nästa lön. Visar om perioden är lugn eller tajt — inte saldo på kontot.
       </p>
-      <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)} · nästa lön ${escapeHtml(nextPay)}</div>
+      <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)}</div>
       <div class="analysis-salary-hero__minis">
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>
