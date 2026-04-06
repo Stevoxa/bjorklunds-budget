@@ -3440,7 +3440,11 @@ function eachYmInSalaryYearBounds(bounds) {
   return out;
 }
 
-/** Löneperioder (en per utbetalning) som överlappar löneårets kalender [bounds]. */
+/**
+ * Löneperioder vars **utbetalningsdag** (payIso) ligger inom löneårets [bounds] (inklusive).
+ * Enbart fönsteröverlapp räcker inte: perioden före januari nästa år överlappar december i året men
+ * ska inte visas i löneår jan–dec (ingen extra januaristapel till höger).
+ */
 function payPeriodsOverlappingSalaryYearBounds(bounds, sortedPayIsos) {
   if (!bounds?.start || !bounds?.end || !sortedPayIsos?.length) return [];
   const bs = toLocalISODate(bounds.start);
@@ -3450,6 +3454,8 @@ function payPeriodsOverlappingSalaryYearBounds(bounds, sortedPayIsos) {
     const win = getSalaryPeriodWindow(sortedPayIsos, i);
     if (!win) continue;
     if (win.endIso < bs || win.startIso > be) continue;
+    const payIsoStr = String(win.payIso || "").slice(0, 10);
+    if (!payIsoStr || payIsoStr < bs || payIsoStr > be) continue;
     const payD = parseDateISO(win.payIso);
     if (!payD || Number.isNaN(payD.getTime())) continue;
     const payY = payD.getFullYear();
