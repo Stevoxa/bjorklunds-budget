@@ -13028,7 +13028,7 @@ function initActions() {
     }
     const text = await file.text();
     const parsed = safeParseJson(text);
-    if (!parsed || parsed.version !== 1) {
+    if (!parsed || Number(parsed?.version) !== 2) {
       document.getElementById("backupRestoreNote").textContent = "Filen verkar inte vara en giltig Björklunds-budget-backup.";
       return;
     }
