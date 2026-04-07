@@ -3761,11 +3761,12 @@ input.input-readonly-like {
   opacity: 0.95;
 }
 
-/* Medelutgift: mörkgrön heldragen */
+/* Medelutgift: mörkgrön streckad (annat streckmönster än medelintäkt) */
 .analysis-salary-year-chart__line-expense-avg {
   fill: none;
   stroke: var(--accent-strong, #255f33);
   stroke-width: 2.25;
+  stroke-dasharray: 9 6;
   stroke-linecap: round;
   opacity: 0.95;
 }
@@ -4052,7 +4053,11 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   height: 2px;
   margin-top: 7px;
   border-radius: 1px;
-  background: var(--accent-strong, #255f33);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent-strong, #255f33) 0 5px,
+    transparent 5px 9px
+  );
   opacity: 0.95;
 }
 
@@ -4073,7 +4078,11 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--income-avg {
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
-  background: color-mix(in srgb, #81c784 70%, #2e4a35);
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, #81c784 70%, #2e4a35) 0 5px,
+    transparent 5px 9px
+  );
 }
 
 .analysis-robin-section .analysis-robin-kpis {

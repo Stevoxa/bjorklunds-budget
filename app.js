@@ -4308,7 +4308,7 @@ function salaryYearChartMonthShort(m) {
  * Staplar per löneperiod (eller kalendermånad i fallback): utgifter (sparande exkl.) och intäkter.
  * Intäkt &lt; utgift: totalhöjd = utgift; mörkgrön = intäkt; röd = utgift − intäkt.
  * Intäkt ≥ utgift: stapelhöjd = intäkt; nedre del (mörkgrön) = utgiftstäckning; övre (ljusgrön) = överskott.
- * Referenslinjer: ljusgrön streckad = medelintäkt; mörkgrön heldragen = medelutgift.
+ * Referenslinjer: ljusgrön streckad = medelintäkt; mörkgrön streckad (annat mönster) = medelutgift.
  */
 function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear, avgMonthlyExpenseFromYear) {
   const W = 340;
@@ -4414,7 +4414,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear,
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Intäkter och utgifter per löneperiod med medelintäkt streckad ljusgrön och medelutgift heldragen mörkgrön">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Intäkter och utgifter per löneperiod med streckade referenslinjer för medelintäkt (ljusgrön) och medelutgift (mörkgrön)">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
