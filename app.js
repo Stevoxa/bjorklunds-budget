@@ -3897,14 +3897,18 @@ function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
 function syncRobinHoodGeneratedExpenses(root, payDatesSorted, startMo) {
   if (!Array.isArray(root.expenses)) root.expenses = [];
   const curLabel = currentSalaryYearLabelForDate(new Date(), startMo);
-  const snaps = mergeRobinHoodSalarySnaps(root, curLabel - 2, curLabel + 2, startMo, payDatesSorted);
   const without = root.expenses.filter((e) => !isRobinHoodGeneratedExpense(e));
+  const rootClean = { ...root, expenses: without };
+  const minLy = curLabel - 2;
+  const maxLy = curLabel + 2;
+  const snaps = mergeRobinHoodSalarySnaps(rootClean, minLy, maxLy, startMo, payDatesSorted);
   if (!snaps.length) {
     root.expenses = without;
     return;
   }
-  const alloc = computeRobinHoodAllocation(snaps, startMo, root, payDatesSorted);
-  const built = buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted);
+  const alloc = computeRobinHoodAllocation(snaps, startMo, rootClean, payDatesSorted);
+  const allocPersist = filterRobinAllocationFlowsExcludingRedSalaryYears(snaps, alloc, startMo, minLy, maxLy);
+  const built = buildRobinHoodExpenseRecords(snaps, allocPersist, payDatesSorted);
   root.expenses = without.concat(built.map((x) => canonicalizeExpenseRecord(x)));
 }
 
@@ -4110,6 +4114,50 @@ function robinRiskLevelForAnalysisView(snapsGlobal, alloc, labelYear, startMo) {
     if (out > s.net * 0.25 + ROBIN_HOOD_EPS) return 2;
   }
   return 1;
+}
+
+/** Löneårsetiketter i [minLy,maxLy] där full Robin-allokering fortfarande lämnar otäckta underskott (risk 3). */
+function robinSalaryYearLabelsAtRisk3(snaps, alloc, startMo, minLy, maxLy) {
+  const red = new Set();
+  const lo = Math.floor(asNumber(minLy));
+  const hi = Math.floor(asNumber(maxLy));
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return red;
+  for (let L = lo; L <= hi; L++) {
+    if (robinRiskLevelForAnalysisView(snaps, alloc, L, startMo) === 3) red.add(L);
+  }
+  return red;
+}
+
+/**
+ * Tar bort flöden som rör något löneår med risk 3 — inga genererade avsättningar/uttag sparas för de åren.
+ */
+function filterRobinAllocationFlowsExcludingRedSalaryYears(snaps, alloc, startMo, minLy, maxLy) {
+  const redYears = robinSalaryYearLabelsAtRisk3(snaps, alloc, startMo, minLy, maxLy);
+  if (redYears.size === 0) return alloc;
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMo)) || 1));
+  const flows = (alloc.flows || []).filter((f) => {
+    const fromS = snaps[f.fromIdx];
+    const toS = snaps[f.toIdx];
+    if (!fromS || !toS) return false;
+    const lf = salaryYearLabelForCalendarMonth(fromS.y, fromS.m, sm);
+    const lt = salaryYearLabelForCalendarMonth(toS.y, toS.m, sm);
+    return !redYears.has(lf) && !redYears.has(lt);
+  });
+  return { flows, outstanding: alloc.outstanding };
+}
+
+/** Robin-risk 1|2|3 för löneår `labelYear`, utan befintliga RH-poster i underlaget. */
+function robinRiskLevelForSalaryYearLabelClean(root, labelYear, payDatesSorted, startMo) {
+  const cleanExpenses = (root.expenses || []).filter((e) => !isRobinHoodGeneratedExpense(e));
+  const rootClean = { ...root, expenses: cleanExpenses };
+  const bounds = salaryYearInclusiveBounds(labelYear, startMo);
+  if (!bounds || !payDatesSorted.length) return 1;
+  const syModel = buildSalaryYearAnalysisModel(rootClean, bounds, payDatesSorted);
+  if (!syModel.risks || syModel.risks.length === 0) return 1;
+  const gSnaps = mergeRobinHoodSalarySnaps(rootClean, labelYear - 2, labelYear + 2, startMo, payDatesSorted);
+  if (!gSnaps.length) return 1;
+  const gAlloc = computeRobinHoodAllocation(gSnaps, startMo, rootClean, payDatesSorted);
+  return robinRiskLevelForAnalysisView(gSnaps, gAlloc, labelYear, startMo);
 }
 
 /**
@@ -5960,9 +6008,12 @@ function initRouting() {
       if (incOv === "benefit" || incOv === "capital" || incOv === "gift") ui.incomeListCategory = incOv;
       else if (!incOv) ui.incomeListCategory = null;
     }
+    const prevNavRoute = ui._lastRenderedNavRoute;
+    ui._lastRenderedNavRoute = route;
+    const enteringAnalysis = route === "analysis" && prevNavRoute !== "analysis";
     view(route);
     try {
-      renderRoute(route, { incomeOverlay: incOv });
+      renderRoute(route, { incomeOverlay: incOv, enteringAnalysis });
     } catch (e) {
       showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
       throw e;
@@ -10788,6 +10839,16 @@ function renderSettingsPage() {
 function renderRoute(route, opts = {}) {
   switch (route) {
     case "analysis": {
+      if (opts.enteringAnalysis && state) {
+        const { startMo, payDates, now } = getAnalysisPayDatesWindow();
+        if (payDates.length) {
+          const curLabel = currentSalaryYearLabelForDate(now, startMo);
+          if (robinRiskLevelForSalaryYearLabelClean(state, curLabel, payDates, startMo) === 3) {
+            ui.analysisViewMode = "salaryYear";
+            ui.analysisSalaryYearNav = 0;
+          }
+        }
+      }
       renderAnalysisPage();
       break;
     }
@@ -10956,7 +11017,7 @@ function renderAnalysisPage() {
     if (robinBudgetBroken) {
       surplusMini = `
         <div class="analysis-salary-hero__mini analysis-salary-hero__mini--imbalance">
-          <div class="analysis-salary-hero__mini-label">Obalans</div>
+          <div class="analysis-salary-hero__mini-label">Varning</div>
           <div class="analysis-salary-hero__mini-hint analysis-salary-hero__mini-hint--imbalance-primary">Budgeten saknar täckning för utgifter</div>
           <div class="analysis-salary-hero__mini-hint analysis-salary-hero__mini-hint--imbalance-secondary">Du behöver se över dina utgifter och intäkter</div>
         </div>`;
