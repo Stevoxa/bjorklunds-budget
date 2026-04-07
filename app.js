@@ -7296,6 +7296,260 @@ function aggregateOverviewForIsoRange(startIso, endIso) {
   };
 }
 
+/** Löneår — utgiftsdonut: endast Hem, Lån, Bil, Mat, Barn; aldrig spar eller Robin-systemrader. */
+const SALARY_YEAR_SPEND_MAIN_ORDER = [
+  { key: "home", label: "Hem", chartKey: "housing" },
+  { key: "loans", label: "Lån", chartKey: "loans" },
+  { key: "car", label: "Bil", chartKey: "car" },
+  { key: "food", label: "Mat", chartKey: "foodGenerated" },
+  { key: "children", label: "Barn", chartKey: "children" }
+];
+
+function loanSpendTypeLabel(typeKey) {
+  const k = String(typeKey || "").trim();
+  if (k === "interest") return "Ränta";
+  if (k === "amortization") return "Amortering";
+  if (!k || k === "other") return "Lån";
+  return k;
+}
+
+function salaryYearSpendMainKeyForExpense(exp) {
+  if (!exp || isRobinHoodGeneratedExpense(exp)) return null;
+  const cat = exp.category || "";
+  if (cat === "savings") return null;
+  if (isMatLikeExpense(exp)) return "food";
+  if (cat === "home") return "home";
+  if (cat === "loans") return "loans";
+  if (cat === "car") return "car";
+  if (cat === "children") return "children";
+  return null;
+}
+
+function salaryYearSpendTypeBucketKey(exp, mainKey) {
+  if (mainKey === "food") {
+    const wk = exp.metadata?.food?.weekKey;
+    if (wk) return `w:${wk}`;
+    const n = String(exp.name || "").trim();
+    return n ? `n:${n}` : "n:Mat";
+  }
+  if (mainKey === "loans") return String(exp.subcategory || "other").trim() || "other";
+  return String(exp.subcategory || "other").trim() || "other";
+}
+
+function salaryYearSpendTypeLabel(exp, mainKey, bucketKey) {
+  if (mainKey === "food") {
+    if (String(bucketKey).startsWith("n:")) return String(bucketKey).slice(2) || "Mat";
+    return String(exp.name || "").trim() || "Mat";
+  }
+  if (mainKey === "loans") return loanSpendTypeLabel(bucketKey);
+  return getTaggedTypeLabel(mainKey, bucketKey);
+}
+
+function hexToRgbTriplet(hex) {
+  let h = String(hex || "").replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function rgbTripletToHex(r, g, b) {
+  const x = (v) => Math.max(0, Math.min(255, Math.round(v)));
+  return `#${[x(r), x(g), x(b)]
+    .map((c) => c.toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function mixHex(a, b, t) {
+  const A = hexToRgbTriplet(a);
+  const B = hexToRgbTriplet(b);
+  if (!A || !B) return a;
+  const u = Math.max(0, Math.min(1, t));
+  return rgbTripletToHex(A[0] + (B[0] - A[0]) * u, A[1] + (B[1] - A[1]) * u, A[2] + (B[2] - A[2]) * u);
+}
+
+function salaryYearSpendAlternatingTypeColors(baseHex, count) {
+  const dark = resolvedDocumentTheme() === "dark";
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const darker = i % 2 === 0;
+    out.push(
+      darker
+        ? mixHex(baseHex, "#000000", dark ? 0.28 : 0.2)
+        : mixHex(baseHex, "#ffffff", dark ? 0.22 : 0.34)
+    );
+  }
+  return out;
+}
+
+/**
+ * Summerar planerade utgiftsbetalningar inom [startIso,endIso] per huvudkategori och typ.
+ * @returns {{ portrait: { labels: string[], data: number[], colors: string[] }, landscape: { labels: string[], data: number[], colors: string[] }, empty: boolean }}
+ */
+function buildSalaryYearExpenseSpendChartModel(root, startIso, endIso) {
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  const buckets = new Map();
+  for (const def of SALARY_YEAR_SPEND_MAIN_ORDER) {
+    buckets.set(def.key, { total: 0, types: new Map() });
+  }
+
+  for (const exp of root.expenses || []) {
+    const mainKey = salaryYearSpendMainKeyForExpense(exp);
+    if (!mainKey || !buckets.has(mainKey)) continue;
+    const bk = salaryYearSpendTypeBucketKey(exp, mainKey);
+    const payInRange = (payments) => {
+      let s = 0;
+      for (const p of payments || []) {
+        const amt = asNumber(p.amount);
+        if (amt <= 0) continue;
+        const iso = String(p.date || "").slice(0, 10);
+        if (!isoInRange(iso, a, b)) continue;
+        s += amt;
+      }
+      return s;
+    };
+    const add = payInRange(exp.payments);
+    if (add <= 0) continue;
+    const bucket = buckets.get(mainKey);
+    bucket.total += add;
+    const prev = bucket.types.get(bk) || { amount: 0, label: salaryYearSpendTypeLabel(exp, mainKey, bk) };
+    prev.amount += add;
+    if (!prev.label) prev.label = salaryYearSpendTypeLabel(exp, mainKey, bk);
+    bucket.types.set(bk, prev);
+  }
+
+  const portrait = { labels: [], data: [], colors: [] };
+  for (const def of SALARY_YEAR_SPEND_MAIN_ORDER) {
+    const bucket = buckets.get(def.key);
+    if (!bucket || bucket.total <= 0) continue;
+    portrait.labels.push(def.label);
+    portrait.data.push(Math.round(bucket.total));
+    portrait.colors.push(chartSegmentHex(def.chartKey));
+  }
+
+  const landscape = { labels: [], data: [], colors: [] };
+  for (const def of SALARY_YEAR_SPEND_MAIN_ORDER) {
+    const bucket = buckets.get(def.key);
+    if (!bucket || bucket.total <= 0) continue;
+    const baseHex = chartSegmentHex(def.chartKey);
+    const rows = [...bucket.types.entries()]
+      .map(([k, v]) => ({ key: k, amount: v.amount, label: v.label || salaryYearSpendTypeLabel({ name: "" }, def.key, k) }))
+      .filter((r) => r.amount > 0)
+      .sort((x, y) => y.amount - x.amount);
+    if (rows.length === 0) continue;
+    const pal = salaryYearSpendAlternatingTypeColors(baseHex, rows.length);
+    rows.forEach((r, i) => {
+      landscape.labels.push(`${def.label}: ${r.label}`);
+      landscape.data.push(Math.round(r.amount));
+      landscape.colors.push(pal[i] || baseHex);
+    });
+  }
+
+  const empty = portrait.data.length === 0;
+  return { portrait, landscape, empty };
+}
+
+let salaryYearSpendOrientationCleanup = null;
+
+function teardownSalaryYearSpendChart() {
+  if (typeof salaryYearSpendOrientationCleanup === "function") {
+    try {
+      salaryYearSpendOrientationCleanup();
+    } catch {
+      /* ignore */
+    }
+    salaryYearSpendOrientationCleanup = null;
+  }
+  const inst = analysisChartInstances.salaryYearSpend;
+  if (inst) {
+    try {
+      inst.destroy();
+    } catch {
+      /* ignore */
+    }
+    delete analysisChartInstances.salaryYearSpend;
+  }
+}
+
+function analysisSalaryYearSpendLandscapeMode() {
+  try {
+    return window.matchMedia("(orientation: landscape)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function wireSalaryYearSpendChart(spendModel) {
+  const rootEl = document.querySelector("[data-salary-year-spend-root]");
+  const canvas = document.getElementById("analysisSalaryYearSpendChart");
+  if (!spendModel || spendModel.empty || typeof window.Chart === "undefined" || !canvas) {
+    if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", analysisSalaryYearSpendLandscapeMode());
+    return;
+  }
+
+  const palette = getAnalysisChartPalette();
+  const isLm = analysisSalaryYearSpendLandscapeMode();
+  const pack = isLm ? spendModel.landscape : spendModel.portrait;
+  if (!pack.labels.length) return;
+
+  if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", isLm);
+
+  const mq = window.matchMedia("(orientation: landscape)");
+  const onOrient = () => {
+    if (ui.analysisViewMode !== "salaryYear") return;
+    renderAnalysisPage();
+  };
+  if (mq.addEventListener) mq.addEventListener("change", onOrient);
+  else mq.addListener(onOrient);
+  salaryYearSpendOrientationCleanup = () => {
+    if (mq.removeEventListener) mq.removeEventListener("change", onOrient);
+    else mq.removeListener(onOrient);
+  };
+
+  analysisChartInstances.salaryYearSpend = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: pack.labels,
+      datasets: [
+        {
+          data: pack.data,
+          backgroundColor: pack.colors,
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: isLm ? "52%" : "62%",
+      layout: {
+        padding: isLm ? { top: 4, right: 6, bottom: 4, left: 4 } : { top: 2, right: 2, bottom: 2, left: 2 }
+      },
+      plugins: {
+        legend: {
+          position: isLm ? "right" : "bottom",
+          align: isLm ? "center" : "center",
+          labels: {
+            color: palette.muted,
+            boxWidth: isLm ? 8 : 10,
+            padding: isLm ? 6 : 8,
+            usePointStyle: true,
+            pointStyle: "circle",
+            font: { family: palette.chartFont, size: isLm ? 10 : 11 }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${formatKr(ctx.raw)}`
+          }
+        }
+      }
+    }
+  });
+}
+
 function collectPaymentEventsForRange(startIso, endIso) {
   const out = [];
   for (const exp of state.expenses || []) {
@@ -7628,6 +7882,7 @@ function buildAnalysisInsightCards(heroAgg, slices) {
 }
 
 function destroyAnalysisCharts() {
+  teardownSalaryYearSpendChart();
   Object.values(analysisChartInstances).forEach((c) => {
     try {
       c.destroy();
@@ -10603,6 +10858,7 @@ function renderAnalysisPage() {
 
   const mount = document.getElementById("analysisViewDetail");
   if (!mount) return;
+  teardownSalaryYearSpendChart();
 
   syncRobinHoodIntoState();
 
@@ -11003,6 +11259,25 @@ function renderAnalysisPage() {
       </div>`;
     }
 
+    let salaryYearSpendModel = null;
+    let salaryYearSpendBlock = "";
+    if (bounds && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())) {
+      const sySpendIso0 = toLocalISODate(bounds.start);
+      const sySpendIso1 = toLocalISODate(bounds.end);
+      salaryYearSpendModel = buildSalaryYearExpenseSpendChartModel(state, sySpendIso0, sySpendIso1);
+      salaryYearSpendBlock = `
+      <div class="table-card analysis-salary-year-spend" data-salary-year-spend-root>
+        <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
+        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter över året</p>
+        <p class="note analysis-salary-year-spend__period"><strong>${escapeHtml(cap)}</strong></p>
+        ${
+          salaryYearSpendModel.empty
+            ? `<p class="note analysis-salary-year-spend__empty">Inga planerade utgifter i valt löneår inom Hem, Lån, Bil, Mat eller Barn.</p>`
+            : `<div class="analysis-salary-year-spend__canvas-wrap"><canvas id="analysisSalaryYearSpendChart" aria-label="Utgifter per kategori i löneår"></canvas></div>`
+        }
+      </div>`;
+    }
+
     mount.innerHTML = `
       <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneår">
         <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryYearPrevBtn" ${
@@ -11024,6 +11299,7 @@ function renderAnalysisPage() {
       </section>
       ${periodsBlock}
       ${robinBlock}
+      ${salaryYearSpendBlock}
       ${anchorNote}
     `;
     document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
@@ -11035,6 +11311,7 @@ function renderAnalysisPage() {
       renderAnalysisPage();
     });
     wireAnalysisRobinYearSwipeArea();
+    wireSalaryYearSpendChart(salaryYearSpendModel);
     return;
   }
 
