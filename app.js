@@ -3358,19 +3358,43 @@ function formatAnalysisLongDateSv(iso) {
   return `${p.d} ${monthName(p.m)} ${p.y}`;
 }
 
-/** För löneår-hero: första/sista planerade utbetalning inom året, annars kalenderintervall. */
+/** Ett datum per löneår-hero-chip: "23 December 2025 - 22 december 2026". */
+function formatSalaryYearHeroChipRangeSv(startIso, endIso) {
+  const a = datePartsFromIso(String(startIso || "").slice(0, 10));
+  const b = datePartsFromIso(String(endIso || "").slice(0, 10));
+  if (!a || !b) return "—";
+  return `${a.d} ${monthName(a.m)} ${a.y} - ${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
+}
+
+/**
+ * Löneår-hero: spannet för löneperioderna i året — från första periodens start (föregående utbetalningsdag)
+ * till dagen före sista utbetalningen i året (samma logik som löneperiodsfönstret).
+ */
 function salaryYearHeroPayDateChip(syModel, bounds) {
   const snaps = syModel?.snaps;
   if (snaps?.length) {
-    const first = snaps[0]?.payIso;
-    const last = snaps[snaps.length - 1]?.payIso;
-    if (first && last) {
-      const main = `${formatAnalysisLongDateSv(first)} – ${formatAnalysisLongDateSv(last)}`;
-      return { main, mode: "pay" };
+    const first = snaps[0];
+    const last = snaps[snaps.length - 1];
+    const startIso = String(first.startIso || "").slice(0, 10);
+    const lastPay = String(last.payIso || "").slice(0, 10);
+    if (startIso && lastPay) {
+      const lastPayD = parseDateISO(lastPay);
+      if (lastPayD && !Number.isNaN(lastPayD.getTime())) {
+        const endIso = toLocalISODate(addDays(lastPayD, -1));
+        const main = formatSalaryYearHeroChipRangeSv(startIso, endIso);
+        if (main !== "—") return { main, mode: "pay" };
+      }
+    }
+    const fp = String(first.payIso || "").slice(0, 10);
+    const lp = String(last.payIso || "").slice(0, 10);
+    const lpD2 = parseDateISO(lp);
+    if (fp && lp && lpD2 && !Number.isNaN(lpD2.getTime())) {
+      const main = formatSalaryYearHeroChipRangeSv(fp, toLocalISODate(addDays(lpD2, -1)));
+      if (main !== "—") return { main, mode: "pay" };
     }
   }
   if (bounds?.start && bounds?.end && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())) {
-    const main = formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end));
+    const main = formatSalaryYearHeroChipRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end));
     return { main, mode: "cal" };
   }
   return { main: "—", mode: "cal" };
@@ -7468,6 +7492,8 @@ function teardownSalaryYearSpendChart() {
     }
     delete analysisChartInstances.salaryYearSpend;
   }
+  const leg = document.getElementById("analysisSalaryYearSpendLegend");
+  if (leg) leg.innerHTML = "";
 }
 
 function analysisSalaryYearSpendLandscapeMode() {
@@ -7478,75 +7504,26 @@ function analysisSalaryYearSpendLandscapeMode() {
   }
 }
 
-/** Kort etikett i mitten av donut-segment (liggande): typdel efter "Kategori: ". */
-function salaryYearSpendShortArcLabel(fullLabel) {
-  const s = String(fullLabel || "");
-  const idx = s.indexOf(": ");
-  const inner = idx >= 0 ? s.slice(idx + 2).trim() : s.trim();
-  if (!inner) return "";
-  let t = inner;
-  if (t.length > 20) t = `${t.slice(0, 18)}…`;
-  return t;
-}
-
-function createSalaryYearSpendArcLabelPlugin(fontFamily) {
-  return {
-    id: "salaryYearSpendArcLabels",
-    afterDatasetsDraw(chart) {
-      const plug = chart.options.plugins?.salaryYearSpendArcLabels;
-      if (!plug?.enabled) return;
-      const { ctx } = chart;
-      const meta = chart.getDatasetMeta(0);
-      if (!meta?.data?.length) return;
-      const labels = chart.data.labels || [];
-      const minAngle = 0.13;
-      const ff = fontFamily || "system-ui, sans-serif";
-      ctx.save();
-      ctx.font = `600 9px ${ff}`;
-      ctx.lineJoin = "round";
-      meta.data.forEach((arc, i) => {
-        if (!arc || arc.skip || arc.hidden) return;
-        const { x, y, startAngle, endAngle, innerRadius, outerRadius } = arc;
-        if (
-          startAngle == null ||
-          endAngle == null ||
-          innerRadius == null ||
-          outerRadius == null ||
-          endAngle - startAngle < minAngle
-        ) {
-          return;
-        }
-        const mid = (startAngle + endAngle) / 2;
-        const r = (innerRadius + outerRadius) / 2;
-        const lx = x + Math.cos(mid) * r;
-        const ly = y + Math.sin(mid) * r;
-        const text = salaryYearSpendShortArcLabel(labels[i]);
-        if (!text) return;
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.48)";
-        ctx.lineWidth = 2.5;
-        ctx.fillStyle = "#ffffff";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.strokeText(text, lx, ly);
-        ctx.fillText(text, lx, ly);
-      });
-      ctx.restore();
-    }
-  };
-}
-
 function wireSalaryYearSpendChart(spendModel) {
   const rootEl = document.querySelector("[data-salary-year-spend-root]");
   const canvas = document.getElementById("analysisSalaryYearSpendChart");
+  const legendEl = document.getElementById("analysisSalaryYearSpendLegend");
+  const clearSpendLegend = () => {
+    if (legendEl) legendEl.innerHTML = "";
+  };
+
   if (!spendModel || spendModel.empty || typeof window.Chart === "undefined" || !canvas) {
+    clearSpendLegend();
     if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", analysisSalaryYearSpendLandscapeMode());
     return;
   }
 
-  const palette = getAnalysisChartPalette();
   const isLm = analysisSalaryYearSpendLandscapeMode();
   const pack = isLm ? spendModel.landscape : spendModel.portrait;
-  if (!pack.labels.length) return;
+  if (!pack.labels.length) {
+    clearSpendLegend();
+    return;
+  }
 
   if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", isLm);
 
@@ -7562,9 +7539,22 @@ function wireSalaryYearSpendChart(spendModel) {
     else mq.removeListener(onOrient);
   };
 
+  clearSpendLegend();
+  if (legendEl) {
+    legendEl.innerHTML = pack.labels
+      .map((lab, i) => {
+        const col = pack.colors[i] || "#888";
+        return `<div class="analysis-salary-year-spend__legend-row">
+        <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(col)}" aria-hidden="true"></span>
+        <span class="analysis-salary-year-spend__legend-label">${escapeHtml(lab)}</span>
+        <span class="analysis-salary-year-spend__legend-amt">${escapeHtml(formatKr(pack.data[i]))}</span>
+      </div>`;
+      })
+      .join("");
+  }
+
   analysisChartInstances.salaryYearSpend = new Chart(canvas, {
     type: "doughnut",
-    plugins: [createSalaryYearSpendArcLabelPlugin(palette.chartFont)],
     data: {
       labels: pack.labels,
       datasets: [
@@ -7578,30 +7568,14 @@ function wireSalaryYearSpendChart(spendModel) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      events: [],
       cutout: isLm ? "52%" : "62%",
       layout: {
-        padding: isLm ? { top: 10, right: 10, bottom: 10, left: 10 } : { top: 2, right: 2, bottom: 2, left: 2 }
+        padding: { top: 4, right: 4, bottom: 4, left: 4 }
       },
       plugins: {
-        salaryYearSpendArcLabels: { enabled: isLm },
-        legend: {
-          display: !isLm,
-          position: "bottom",
-          align: "center",
-          labels: {
-            color: palette.muted,
-            boxWidth: 10,
-            padding: 8,
-            usePointStyle: true,
-            pointStyle: "circle",
-            font: { family: palette.chartFont, size: 11 }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${formatKr(ctx.raw)}`
-          }
-        }
+        legend: { display: false },
+        tooltip: { enabled: false }
       }
     }
   });
@@ -10949,9 +10923,9 @@ function renderAnalysisPage() {
     const cap = salaryYearRangeCaption(labelYear, startMo);
     const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds, payDates) : null;
     const payChip = salaryYearHeroPayDateChip(syModel, bounds);
-    const payChipHtmlHero = `<div class="analysis-salary-hero__chip">${escapeHtml(cap)}${
-      payChip.main && payChip.main !== "—" ? ` · ${escapeHtml(payChip.main)}` : ""
-    }</div>`;
+    const payChipHtmlHero = `<div class="analysis-salary-hero__chip">${escapeHtml(
+      payChip.main && payChip.main !== "—" ? payChip.main : cap
+    )}</div>`;
     const weakest = syModel?.weakest;
     const risks = syModel?.risks || [];
     const yearNet = syModel?.yearNet ?? 0;
@@ -11323,7 +11297,12 @@ function renderAnalysisPage() {
         ${
           salaryYearSpendModel.empty
             ? `<p class="note analysis-salary-year-spend__empty">Inga planerade utgifter i valt löneår inom Hem, Lån, Bil, Mat eller Barn.</p>`
-            : `<div class="analysis-salary-year-spend__canvas-wrap"><canvas id="analysisSalaryYearSpendChart" aria-label="Utgifter per kategori i löneår"></canvas></div>`
+            : `<div class="analysis-salary-year-spend__body">
+            <div class="analysis-salary-year-spend__canvas-wrap">
+              <canvas id="analysisSalaryYearSpendChart" aria-label="Utgifter per kategori i löneår"></canvas>
+            </div>
+            <div class="analysis-salary-year-spend__legend" id="analysisSalaryYearSpendLegend" aria-label="Fördelning och belopp"></div>
+          </div>`
         }
       </div>`;
     }
