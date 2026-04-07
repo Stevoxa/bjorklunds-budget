@@ -3585,6 +3585,24 @@ input.input-readonly-like {
   flex-wrap: wrap;
 }
 
+.analysis-salary-hero__chip--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.analysis-salary-hero__chip-line-primary {
+  display: block;
+}
+
+.analysis-salary-hero__chip-line-sub {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.88);
+}
+
 .analysis-salary-hero__minis {
   display: grid;
   grid-template-columns: 1fr;
@@ -3670,20 +3688,37 @@ input.input-readonly-like {
   color: var(--muted-fg, rgba(0, 0, 0, 0.55));
 }
 
-/* Löneår: kompakt inforad (mock: info-strip) */
-.analysis-year-info-strip {
+.analysis-salary-year-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
   margin: 0 0 var(--space-3);
-  padding: 14px 16px;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--text);
-  background: color-mix(in srgb, var(--primary) 9%, var(--card-2));
-  border: 1px solid var(--border);
-  border-radius: 18px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
-.analysis-year-info-strip strong {
-  font-weight: 800;
+.analysis-salary-year-nav .analysis-salary-year-nav__btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+}
+
+.analysis-salary-year-nav__sep {
+  padding: 0 var(--space-1);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.82rem;
+  user-select: none;
+}
+
+.analysis-salary-year-nav .analysis-range-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 .analysis-year-desc {
@@ -4092,9 +4127,57 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
   margin-top: var(--space-3);
 }
 
+.analysis-robin-section .analysis-robin-kpis > *,
+.analysis-robin-columns > * {
+  min-width: 0;
+}
+
 @media (max-width: 28rem) {
   .analysis-robin-section .analysis-robin-kpis {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .analysis-robin-section .analysis-robin-kpis {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+
+  .analysis-robin-kpis__stack {
+    gap: var(--space-2);
+  }
+
+  .analysis-robin-risk-legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: var(--space-3);
+    row-gap: 6px;
+    margin-top: var(--space-2);
+    font-size: 0.62rem;
+  }
+
+  .analysis-robin-risk-legend__row {
+    flex: 1 1 42%;
+    min-width: min(100%, 9.5rem);
+  }
+
+  .analysis-robin-year-swipe {
+    min-height: 168px;
+    height: 168px;
+    max-height: 168px;
+    margin-top: var(--space-1);
+  }
+
+  .analysis-robin-columns {
+    margin-top: var(--space-3);
+    gap: var(--space-3);
+  }
+
+  .analysis-robin-chart-legend {
+    margin-top: var(--space-2);
+    font-size: 10px;
   }
 }
 

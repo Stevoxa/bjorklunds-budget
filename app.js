@@ -32,10 +32,12 @@ function monthKey(monthIndex1to12) {
 }
 
 function formatKr(value) {
-  // Whole kr only, with space as thousands separator.
-  // Example: 99000 -> "99 000kr" (no space before "kr").
+  // Whole kr only: thousands separator + space before "kr"; negative: "- 12 345 kr".
   const n = Math.round(Number(value) || 0);
-  return `${n.toLocaleString("sv-SE")}kr`;
+  const abs = Math.abs(n);
+  const body = `${abs.toLocaleString("sv-SE")} kr`;
+  if (n < 0) return `- ${body}`;
+  return body;
 }
 
 /** Listrads-chevron (tunn stroke, rundade ändar), vanlig i appar med tydliga listrader. */
@@ -3348,6 +3350,39 @@ function formatAnalysisIsoRangeSv(startIso, endIso) {
   const b = datePartsFromIso(endIso);
   if (!a || !b) return "—";
   return `${a.d} ${monthName(a.m)} ${a.y} – ${b.d} ${monthName(b.m)} ${b.y}`;
+}
+
+function formatAnalysisLongDateSv(iso) {
+  const p = datePartsFromIso(String(iso || "").slice(0, 10));
+  if (!p) return "—";
+  return `${p.d} ${monthName(p.m)} ${p.y}`;
+}
+
+function formatAnalysisPaydayPhraseSv(iso) {
+  const p = datePartsFromIso(String(iso || "").slice(0, 10));
+  if (!p) return "";
+  return `den ${p.d} ${monthName(p.m).toLowerCase()} ${p.y}`;
+}
+
+/** För löneår-hero: första/sista planerade utbetalning inom året, annars kalenderintervall. */
+function salaryYearHeroPayDateChip(syModel, bounds) {
+  const snaps = syModel?.snaps;
+  if (snaps?.length) {
+    const first = snaps[0]?.payIso;
+    const last = snaps[snaps.length - 1]?.payIso;
+    if (first && last) {
+      const main = `${formatAnalysisLongDateSv(first)} – ${formatAnalysisLongDateSv(last)}`;
+      const a = formatAnalysisPaydayPhraseSv(first);
+      const b = formatAnalysisPaydayPhraseSv(last);
+      const sub = a && b ? `Lön betalas ut ${a} och ${b}.` : "";
+      return { main, sub, mode: "pay" };
+    }
+  }
+  if (bounds?.start && bounds?.end && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())) {
+    const main = formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end));
+    return { main, sub: "", mode: "cal" };
+  }
+  return { main: "—", sub: "", mode: "cal" };
 }
 
 /** Chip: månad/år för **kommande** utbetalning + datum för den lönen (själva löneperioden slutar dagen före). */
@@ -8014,7 +8049,7 @@ function updateAnalysisDomFromModel(model) {
   const k2 = document.getElementById("analysisKpiNetPeriod");
   if (k2) {
     const n = model.heroAgg.incomeAmount - model.heroAgg.plannedExpensesAmount;
-    k2.textContent = (n >= 0 ? "+" : "") + fmt(n);
+    k2.textContent = (n >= 0 ? "+ " : "") + fmt(n);
     k2.className = "analysis-kpi-value " + (n >= 0 ? "analysis-kpi-value--income" : "analysis-kpi-value--expense");
   }
   const k3 = document.getElementById("analysisKpiBuffer");
@@ -8080,7 +8115,7 @@ function updateAnalysisDomFromModel(model) {
               <div class="analysis-payment-kind">${e.kind === "income" ? "Inkomst" : "Utgift"} · ${escapeHtml(e.category)}</div>
             </div>
           </div>
-          <div class="analysis-payment-amt ${e.kind === "income" ? "analysis-payment-amt--income" : "analysis-payment-amt--expense"}">${e.kind === "income" ? "+" : "−"}${formatKr(e.amount)}</div>`;
+          <div class="analysis-payment-amt ${e.kind === "income" ? "analysis-payment-amt--income" : "analysis-payment-amt--expense"}">${e.kind === "income" ? "+ " : "− "}${formatKr(e.amount)}</div>`;
         payMount.appendChild(row);
       }
     }
@@ -10599,11 +10634,17 @@ function renderAnalysisPage() {
     const labelYear = curLabel + nav;
     const bounds = salaryYearInclusiveBounds(labelYear, startMo);
     const cap = salaryYearRangeCaption(labelYear, startMo);
-    const rangeLine =
-      bounds && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())
-        ? formatAnalysisIsoRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end))
-        : "—";
     const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds, payDates) : null;
+    const payChip = salaryYearHeroPayDateChip(syModel, bounds);
+    const payChipHtmlHero =
+      payChip.mode === "pay" && payChip.sub
+        ? `<div class="analysis-salary-hero__chip analysis-salary-hero__chip--stacked">
+         <span class="analysis-salary-hero__chip-line-primary">${escapeHtml(payChip.main)}</span>
+         <span class="analysis-salary-hero__chip-line-sub">${escapeHtml(payChip.sub)}</span>
+       </div>`
+        : `<div class="analysis-salary-hero__chip">${escapeHtml(cap)}${
+            payChip.main && payChip.main !== "—" ? ` · ${escapeHtml(payChip.main)}` : ""
+          }</div>`;
     const weakest = syModel?.weakest;
     const risks = syModel?.risks || [];
     const yearNet = syModel?.yearNet ?? 0;
@@ -10649,13 +10690,13 @@ function renderAnalysisPage() {
       <div class="analysis-salary-hero__big">${escapeHtml(weakest.monthLabel)} lön</div>
       <div class="analysis-salary-hero__dip${weakest.net < 0 ? " analysis-salary-hero__dip--neg" : ""}">${escapeHtml(formatKr(weakest.net))}</div>
       <p class="analysis-salary-hero__lead">
-        Svagaste perioden enligt planen — lägst netto i löneåret.
+        Svagaste löneperioden enligt planen
       </p>
-      <div class="analysis-salary-hero__chip">${escapeHtml(cap)} · ${escapeHtml(rangeLine)}</div>`
+      ${payChipHtmlHero}`
         : `
       <div class="analysis-salary-hero__big">—</div>
       <p class="analysis-salary-hero__lead">Inga löneperioder kunde beräknas för valt löneår.</p>
-      <div class="analysis-salary-hero__chip">${escapeHtml(cap)}</div>`;
+      ${payChipHtmlHero}`;
 
     const avgMonthlyIncomeFromYear =
       syModel && syModel.totalInc != null
@@ -10963,7 +11004,15 @@ function renderAnalysisPage() {
     }
 
     mount.innerHTML = `
-      <p class="analysis-year-info-strip"><strong>Löneåret</strong> är översikten per löneperiod — var planen darrar och hur avsättningar fördelas.</p>
+      <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneår">
+        <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryYearPrevBtn" ${
+          nav <= -1 ? "disabled" : ""
+        } aria-label="Föregående löneår">‹ Föregående år</button>
+        <span class="analysis-salary-year-nav__sep" aria-hidden="true">|</span>
+        <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryYearNextBtn" ${
+          nav >= 1 ? "disabled" : ""
+        } aria-label="Nästa löneår">Nästa år ›</button>
+      </div>
       <section class="analysis-salary-hero analysis-salary-hero--year card" aria-label="Löneår ${labelYear}">
         <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
         ${heroMainBlock}
@@ -10975,15 +11024,6 @@ function renderAnalysisPage() {
       </section>
       ${periodsBlock}
       ${robinBlock}
-      <div class="table-card analysis-salary-period-controls analysis-year-nav-card">
-        <div class="table-title">Byt år</div>
-        <p class="note analysis-year-desc">Föregående, innevarande eller nästa löneår.</p>
-        <p class="note analysis-view-range-line">${escapeHtml(rangeLine)}</p>
-        <div class="analysis-inline-nav">
-          <button type="button" class="secondary" id="analysisSalaryYearPrevBtn" ${nav <= -1 ? "disabled" : ""}>Föregående år</button>
-          <button type="button" class="secondary" id="analysisSalaryYearNextBtn" ${nav >= 1 ? "disabled" : ""}>Nästa år</button>
-        </div>
-      </div>
       ${anchorNote}
     `;
     document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
