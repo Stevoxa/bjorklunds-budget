@@ -4187,7 +4187,7 @@ function renderRobinSalaryYearSetasideChartSvg(chartModel) {
   const n = cols.length;
   if (!n) {
     return `
-    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Inga avsättningar att visa">
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Inga avsättningar att visa">
       <text class="analysis-salary-year-chart__xlabel" x="${(W / 2).toFixed(1)}" y="${(H / 2).toFixed(1)}" text-anchor="middle">Inga avsättningar</text>
     </svg>`;
   }
@@ -4236,7 +4236,7 @@ function renderRobinSalaryYearSetasideChartSvg(chartModel) {
     1
   )}" y="${(axisY - 2).toFixed(1)}" text-anchor="end">0</text>`;
   return `
-    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Avsättningar: ${n} kolumner i valt löneår">
+    <svg class="analysis-robin-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Avsättningar: ${n} kolumner i valt löneår">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}

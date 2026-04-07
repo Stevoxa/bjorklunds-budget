@@ -4125,6 +4125,26 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
   margin-top: var(--space-3);
+  align-items: stretch;
+}
+
+.analysis-robin-kpis__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 100%;
+  height: 100%;
+}
+
+.analysis-robin-kpis__risk {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+
+.analysis-robin-kpis__risk .analysis-robin-risk-legend {
+  flex: 1 1 auto;
 }
 
 .analysis-robin-section .analysis-robin-kpis > *,
@@ -4183,18 +4203,6 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
 
 .analysis-robin-section .analysis-robin-kpis--with-total {
   align-items: stretch;
-}
-
-.analysis-robin-kpis__stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.analysis-robin-kpis__risk {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
 }
 
 .analysis-robin-stat-list .analysis-robin-stat-item:not(.analysis-robin-stat-item--next-year-line):has(+ .analysis-robin-stat-item--next-year-line)
@@ -4415,6 +4423,16 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
   margin-top: 10px;
 }
 
+.analysis-robin-columns .analysis-robin-stat-card .analysis-robin-stat-card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.analysis-robin-columns .analysis-robin-stat-card > .analysis-robin-stat-list {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .analysis-robin-stat-list {
   margin: 0;
   padding: 0;
@@ -4498,6 +4516,7 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
 
 .analysis-robin-chart-wrap {
   margin-top: var(--space-3);
+  overflow: hidden;
 }
 
 .analysis-robin-section .analysis-robin-section__title.table-title {
@@ -4527,15 +4546,23 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .analysis-robin-year-swipe .analysis-robin-chart {
-  flex-shrink: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
   max-width: 100%;
-  height: auto;
+  max-height: 100%;
+  flex-shrink: 1;
+  box-sizing: border-box;
 }
 
 .analysis-robin-chart__bar {
@@ -4582,11 +4609,27 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
   margin-top: var(--space-4);
+  align-items: stretch;
+}
+
+.analysis-robin-columns .analysis-robin-stat-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
 @media (max-width: 28rem) {
   .analysis-robin-columns {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Liggande mobil/surfplatta: jämn höjd på minikort i vänster KPI-kolumn */
+@media (orientation: landscape) and (max-width: 60rem) {
+  .analysis-robin-kpis__stack > .analysis-salary-hero__mini {
+    flex: 1 1 0;
+    min-height: 0;
   }
 }
 
