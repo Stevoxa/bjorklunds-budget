@@ -3835,12 +3835,20 @@ input.input-readonly-like {
 
 .analysis-salary-year-spend__legend-row {
   display: flex;
+  justify-content: space-between;
   align-items: baseline;
   flex-wrap: nowrap;
-  gap: 8px;
-  font-size: 0.8125rem;
+  gap: 10px;
+  font-size: 0.72rem;
   line-height: 1.4;
   width: 100%;
+}
+
+.analysis-salary-year-spend__legend-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .analysis-salary-year-spend__legend-dot {
@@ -3854,31 +3862,30 @@ input.input-readonly-like {
 }
 
 .analysis-salary-year-spend__legend-label {
-  flex: 0 1 auto;
   min-width: 0;
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .analysis-salary-year-spend__legend-amt {
   flex: 0 0 auto;
-  margin-left: 2px;
+  text-align: right;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--muted);
 }
 
 .analysis-salary-year-spend__total {
   margin-top: var(--space-3);
   margin-bottom: 0;
-  font-size: 0.9rem;
-  font-weight: 650;
-  line-height: 1.45;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
   color: var(--muted);
 }
 
 .analysis-salary-year-spend__total strong {
-  font-weight: 800;
+  font-weight: 700;
   color: color-mix(in srgb, var(--text) 72%, var(--muted));
 }
 

@@ -7545,8 +7545,10 @@ function wireSalaryYearSpendChart(spendModel) {
       .map((lab, i) => {
         const col = pack.colors[i] || "#888";
         return `<div class="analysis-salary-year-spend__legend-row">
-        <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(col)}" aria-hidden="true"></span>
-        <span class="analysis-salary-year-spend__legend-label">${escapeHtml(lab)}</span>
+        <span class="analysis-salary-year-spend__legend-left">
+          <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(col)}" aria-hidden="true"></span>
+          <span class="analysis-salary-year-spend__legend-label">${escapeHtml(lab)}</span>
+        </span>
         <span class="analysis-salary-year-spend__legend-amt">${escapeHtml(formatKr(pack.data[i]))}</span>
       </div>`;
       })
@@ -11337,7 +11339,6 @@ function renderAnalysisPage() {
       ${periodsBlock}
       ${robinBlock}
       ${salaryYearSpendBlock}
-      ${anchorNote}
     `;
     document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
       ui.analysisSalaryYearNav = Math.max(-1, ui.analysisSalaryYearNav - 1);
