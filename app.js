@@ -11201,7 +11201,7 @@ function renderAnalysisPage() {
         )}).</p>`;
       }
       robinBlock = `
-      <div class="table-card analysis-robin-section">
+      <div class="table-card analysis-robin-section" data-robin-risk="${robinRiskLevel}">
         <div class="table-title analysis-robin-section__title">Avsättning för att täcka andra perioders underskott</div>
         <p class="note analysis-year-desc">Hur mycket som behöver läggas undan i starkare perioder för att svagare perioder ska gå runt</p>
         <div class="analysis-robin-kpis${showTotalAllocationNeed ? " analysis-robin-kpis--with-total" : ""}">
@@ -11290,6 +11290,9 @@ function renderAnalysisPage() {
       const sySpendIso0 = toLocalISODate(bounds.start);
       const sySpendIso1 = toLocalISODate(bounds.end);
       salaryYearSpendModel = buildSalaryYearExpenseSpendChartModel(state, sySpendIso0, sySpendIso1);
+      const salaryYearSpendTotalKr = salaryYearSpendModel.empty
+        ? 0
+        : salaryYearSpendModel.portrait.data.reduce((s, v) => s + asNumber(v), 0);
       salaryYearSpendBlock = `
       <div class="table-card analysis-salary-year-spend" data-salary-year-spend-root>
         <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
@@ -11297,12 +11300,17 @@ function renderAnalysisPage() {
         ${
           salaryYearSpendModel.empty
             ? `<p class="note analysis-salary-year-spend__empty">Inga planerade utgifter i valt löneår inom Hem, Lån, Bil, Mat eller Barn.</p>`
-            : `<div class="analysis-salary-year-spend__body">
-            <div class="analysis-salary-year-spend__canvas-wrap">
-              <canvas id="analysisSalaryYearSpendChart" aria-label="Utgifter per kategori i löneår"></canvas>
+            : `<div class="analysis-salary-year-chart-wrap analysis-salary-year-spend__viz">
+            <div class="analysis-salary-year-spend__body">
+              <div class="analysis-salary-year-spend__canvas-wrap">
+                <canvas id="analysisSalaryYearSpendChart" aria-label="Utgifter per kategori i löneår"></canvas>
+              </div>
+              <div class="analysis-salary-year-spend__legend-wrap">
+                <div class="analysis-salary-year-spend__legend" id="analysisSalaryYearSpendLegend" aria-label="Fördelning och belopp"></div>
+              </div>
             </div>
-            <div class="analysis-salary-year-spend__legend" id="analysisSalaryYearSpendLegend" aria-label="Fördelning och belopp"></div>
-          </div>`
+          </div>
+          <p class="analysis-salary-year-spend__total">Utgifter totalt: <strong>${escapeHtml(formatKr(salaryYearSpendTotalKr))}</strong></p>`
         }
       </div>`;
     }

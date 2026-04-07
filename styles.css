@@ -3784,14 +3784,15 @@ input.input-readonly-like {
 .analysis-salary-year-spend__body {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-3);
-  margin-top: var(--space-3);
-  align-items: stretch;
+  width: 100%;
 }
 
 .analysis-salary-year-spend--landscape .analysis-salary-year-spend__body {
   flex-direction: row;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: flex-start;
   gap: var(--space-4);
 }
@@ -3803,31 +3804,43 @@ input.input-readonly-like {
   max-height: 320px;
   min-height: 220px;
   width: 100%;
+  max-width: 280px;
 }
 
 .analysis-salary-year-spend--landscape .analysis-salary-year-spend__canvas-wrap {
-  flex: 0 1 42%;
-  width: auto;
+  flex: 0 0 auto;
+  width: 260px;
   max-width: 260px;
-  min-width: 160px;
   height: min(48vh, 280px);
   min-height: 200px;
 }
 
+.analysis-salary-year-spend__legend-wrap {
+  width: 100%;
+  max-width: 280px;
+}
+
+.analysis-salary-year-spend--landscape .analysis-salary-year-spend__legend-wrap {
+  flex: 0 1 240px;
+  max-width: min(240px, 42vw);
+  min-width: 0;
+}
+
 .analysis-salary-year-spend__legend {
-  flex: 1 1 12rem;
-  min-width: min(100%, 11rem);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  width: 100%;
 }
 
 .analysis-salary-year-spend__legend-row {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 8px;
   font-size: 0.8125rem;
   line-height: 1.4;
+  width: 100%;
 }
 
 .analysis-salary-year-spend__legend-dot {
@@ -3841,17 +3854,32 @@ input.input-readonly-like {
 }
 
 .analysis-salary-year-spend__legend-label {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   color: var(--text);
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .analysis-salary-year-spend__legend-amt {
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  margin-left: 2px;
   font-variant-numeric: tabular-nums;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--muted);
+}
+
+.analysis-salary-year-spend__total {
+  margin-top: var(--space-3);
+  margin-bottom: 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.analysis-salary-year-spend__total strong {
+  font-weight: 800;
+  color: color-mix(in srgb, var(--text) 72%, var(--muted));
 }
 
 .analysis-salary-year-chart-wrap {
@@ -3860,6 +3888,10 @@ input.input-readonly-like {
   border: 1px solid var(--border);
   border-radius: 20px;
   background: color-mix(in srgb, var(--surface-2, #fbfcfb) 92%, var(--surface));
+}
+
+.analysis-salary-year-spend__viz.analysis-salary-year-chart-wrap {
+  margin-top: var(--space-3);
 }
 
 .analysis-salary-year-chart-head {
@@ -3943,22 +3975,35 @@ input.input-readonly-like {
 }
 
 @media (prefers-color-scheme: dark) {
-  .analysis-salary-year-chart__bar--deficit-income-slice {
-    fill: color-mix(in srgb, var(--accent-strong, #66bb6a) 42%, #4a6b55);
+  .analysis-salary-year-chart__bar--deficit-income-slice,
+  .analysis-salary-year-chart__bar--expense-within-income {
+    fill: #3a5246;
   }
   .analysis-salary-year-chart__bar--surplus-on-income {
-    fill: color-mix(in srgb, #b8e8c4 70%, #3d5c45);
-    opacity: 0.68;
+    fill: #9fe2b4;
+    opacity: 1;
+  }
+  .analysis-salary-year-chart-legend-swatch--under {
+    background: #3a5246;
+  }
+  .analysis-salary-year-chart-legend-swatch--surplus-only {
+    background: #9fe2b4;
+    opacity: 1;
+  }
+  .analysis-salary-year-chart-legend-swatch--green {
+    background: linear-gradient(180deg, #9fe2b4 0%, #9fe2b4 48%, #3a5246 52%, #3a5246 100%);
+    opacity: 1;
   }
 }
 
-html[data-theme="dark"] .analysis-salary-year-chart__bar--deficit-income-slice {
-  fill: color-mix(in srgb, #7bc88e 35%, #3d5c45);
+html[data-theme="dark"] .analysis-salary-year-chart__bar--deficit-income-slice,
+html[data-theme="dark"] .analysis-salary-year-chart__bar--expense-within-income {
+  fill: #355445;
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
-  fill: color-mix(in srgb, #b8e8c4 70%, #3d5c45);
-  opacity: 0.68;
+  fill: #a8f0c0;
+  opacity: 1;
 }
 
 .analysis-salary-year-chart__ylabel {
@@ -4067,7 +4112,7 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
-      color-mix(in srgb, #7bc88e 40%, #3d5c45) 50%
+      #3a5246 50%
     );
   }
 }
@@ -4077,8 +4122,28 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
-    color-mix(in srgb, #7bc88e 40%, #3d5c45) 50%
+    #355445 50%
   );
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--under {
+  background: #355445;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--surplus-only {
+  background: #a8f0c0;
+  opacity: 1;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--green {
+  background: linear-gradient(
+    180deg,
+    #a8f0c0 0%,
+    #a8f0c0 48%,
+    #355445 52%,
+    #355445 100%
+  );
+  opacity: 1;
 }
 
 .analysis-salary-year-chart-detail {
@@ -4217,6 +4282,31 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
     color-mix(in srgb, #81c784 70%, #2e4a35) 0 5px,
     transparent 5px 9px
   );
+}
+
+/* Riskton på kortet: mycket svag grön → tydligare gul → tydligast (men fortfarande subtil) röd */
+.analysis-robin-section[data-robin-risk="1"].table-card {
+  background: color-mix(in srgb, #2e7d32 5%, var(--card));
+}
+
+.analysis-robin-section[data-robin-risk="2"].table-card {
+  background: color-mix(in srgb, #f9a825 11%, var(--card));
+}
+
+.analysis-robin-section[data-robin-risk="3"].table-card {
+  background: color-mix(in srgb, var(--danger, #c62828) 14%, var(--card));
+}
+
+html[data-theme="dark"] .analysis-robin-section[data-robin-risk="1"].table-card {
+  background: color-mix(in srgb, #66bb6a 7%, var(--card));
+}
+
+html[data-theme="dark"] .analysis-robin-section[data-robin-risk="2"].table-card {
+  background: color-mix(in srgb, #ffb74d 12%, var(--card));
+}
+
+html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card {
+  background: color-mix(in srgb, var(--danger) 17%, var(--card));
 }
 
 .analysis-robin-section .analysis-robin-kpis {
