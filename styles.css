@@ -3751,13 +3751,23 @@ input.input-readonly-like {
   stroke-width: 1;
 }
 
-.analysis-salary-year-chart__line-income {
+/* Medelintäkt: ljusgrön streckad */
+.analysis-salary-year-chart__line-income-avg {
   fill: none;
-  stroke: var(--accent-strong, #255f33);
+  stroke: color-mix(in srgb, var(--accent-strong, #255f33) 28%, #b8d9c0);
   stroke-width: 2.25;
   stroke-dasharray: 6 5;
   stroke-linecap: round;
-  opacity: 0.92;
+  opacity: 0.95;
+}
+
+/* Medelutgift: mörkgrön heldragen */
+.analysis-salary-year-chart__line-expense-avg {
+  fill: none;
+  stroke: var(--accent-strong, #255f33);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  opacity: 0.95;
 }
 
 .analysis-salary-year-chart__bar {
@@ -3765,8 +3775,8 @@ input.input-readonly-like {
   stroke-width: 0.35;
 }
 
-/* Staplad underskottstapel: inga hörnradier eller kontur — undvik “midja” mellan blått och rött. */
-.analysis-salary-year-chart__bar--month-income,
+/* Underskott: mörkgrön intäktsdel + röd överskjutande utgift */
+.analysis-salary-year-chart__bar--deficit-income-slice,
 .analysis-salary-year-chart__bar--over-income {
   stroke: none;
   shape-rendering: geometricPrecision;
@@ -3779,8 +3789,8 @@ input.input-readonly-like {
 }
 
 /* Fasta färger — undvik color-mix mot --surface (blev nästan svart i mörkt tema). */
-.analysis-salary-year-chart__bar--month-income {
-  fill: #5b9cc9;
+.analysis-salary-year-chart__bar--deficit-income-slice {
+  fill: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
 }
 
 .analysis-salary-year-chart__bar--over-income {
@@ -3798,8 +3808,8 @@ input.input-readonly-like {
 }
 
 @media (prefers-color-scheme: dark) {
-  .analysis-salary-year-chart__bar--month-income {
-    fill: #7eb8e0;
+  .analysis-salary-year-chart__bar--deficit-income-slice {
+    fill: color-mix(in srgb, var(--accent-strong, #66bb6a) 42%, #4a6b55);
   }
   .analysis-salary-year-chart__bar--surplus-on-income {
     fill: color-mix(in srgb, #b8e8c4 70%, #3d5c45);
@@ -3807,8 +3817,8 @@ input.input-readonly-like {
   }
 }
 
-html[data-theme="dark"] .analysis-salary-year-chart__bar--month-income {
-  fill: #7eb8e0;
+html[data-theme="dark"] .analysis-salary-year-chart__bar--deficit-income-slice {
+  fill: color-mix(in srgb, #7bc88e 35%, #3d5c45);
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
@@ -3895,29 +3905,44 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
   background: color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896);
 }
 
+.analysis-salary-year-chart-legend-swatch--surplus-only {
+  background: color-mix(in srgb, var(--accent-strong, #255f33) 22%, #d2efd8);
+  opacity: 0.88;
+}
+
+.analysis-salary-year-chart-legend-swatch--deficit-split {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
+    color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896) 50%
+  );
+}
+
 .analysis-salary-year-chart-legend-swatch--split {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
-    #5b9cc9 50%
+    color-mix(in srgb, var(--accent-strong, #255f33) 38%, #8fb896) 50%
   );
 }
 
 @media (prefers-color-scheme: dark) {
+  .analysis-salary-year-chart-legend-swatch--deficit-split,
   .analysis-salary-year-chart-legend-swatch--split {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
-      #7eb8e0 50%
+      color-mix(in srgb, #7bc88e 40%, #3d5c45) 50%
     );
   }
 }
 
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--deficit-split,
 html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--danger, #c43838) 58%, #e0a090) 50%,
-    #7eb8e0 50%
+    color-mix(in srgb, #7bc88e 40%, #3d5c45) 50%
   );
 }
 
@@ -4007,6 +4032,48 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--split {
     transparent 5px 10px
   );
   opacity: 0.85;
+}
+
+.analysis-salary-year-chart-legend-dash--income-avg {
+  flex: 0 0 28px;
+  height: 2px;
+  margin-top: 7px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-strong, #255f33) 28%, #a8d4b2) 0 5px,
+    transparent 5px 10px
+  );
+  opacity: 0.95;
+}
+
+.analysis-salary-year-chart-legend-dash--expense-avg {
+  flex: 0 0 28px;
+  height: 2px;
+  margin-top: 7px;
+  border-radius: 1px;
+  background: var(--accent-strong, #255f33);
+  opacity: 0.95;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__line-income-avg {
+  stroke: color-mix(in srgb, #9fdfae 50%, #4a6b55);
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__line-expense-avg {
+  stroke: color-mix(in srgb, var(--accent-strong, #66bb6a) 75%, #c8e6c9);
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--income-avg {
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, #9fdfae 55%, #4a6b55) 0 5px,
+    transparent 5px 10px
+  );
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-dash--expense-avg {
+  background: color-mix(in srgb, #81c784 70%, #2e4a35);
 }
 
 .analysis-robin-section .analysis-robin-kpis {

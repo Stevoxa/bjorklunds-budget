@@ -3507,7 +3507,17 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
     };
   });
   if (snaps.length === 0) {
-    return { snaps: [], yearNet: 0, weakest: null, risks: [], bestSurplus: null, totalInc: 0, avgMonthlyIncome: 0 };
+    return {
+      snaps: [],
+      yearNet: 0,
+      weakest: null,
+      risks: [],
+      bestSurplus: null,
+      totalInc: 0,
+      totalExp: 0,
+      avgMonthlyIncome: 0,
+      avgMonthlyExpense: 0
+    };
   }
   let weakest = snaps[0];
   for (const s of snaps) {
@@ -3523,7 +3533,8 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
   const yearNet = totalInc - totalExp;
   const n = snaps.length;
   const avgMonthlyIncome = n > 0 ? totalInc / n : 0;
-  return { snaps, yearNet, weakest, risks, bestSurplus, totalInc, avgMonthlyIncome };
+  const avgMonthlyExpense = n > 0 ? totalExp / n : 0;
+  return { snaps, yearNet, weakest, risks, bestSurplus, totalInc, totalExp, avgMonthlyIncome, avgMonthlyExpense };
 }
 
 const ROBIN_HOOD_EPS = 0.5;
@@ -4295,11 +4306,11 @@ function salaryYearChartMonthShort(m) {
 
 /**
  * Staplar per löneperiod (eller kalendermånad i fallback): utgifter (sparande exkl.) och intäkter.
- * Intäkt &lt; utgift: totalhöjd = utgift; blå = intäkt; röd = utgift − intäkt.
- * Intäkt ≥ utgift: stapelhöjd = intäkt; nedre del (grön) = utgift; övre (ljusare grön) = överskott.
- * Horisontellt streck: medel intäkt = löneårets totala intäkt ÷ antal perioder (referens).
+ * Intäkt &lt; utgift: totalhöjd = utgift; mörkgrön = intäkt; röd = utgift − intäkt.
+ * Intäkt ≥ utgift: stapelhöjd = intäkt; nedre del (mörkgrön) = utgiftstäckning; övre (ljusgrön) = överskott.
+ * Referenslinjer: ljusgrön streckad = medelintäkt; mörkgrön heldragen = medelutgift.
  */
-function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear) {
+function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear, avgMonthlyExpenseFromYear) {
   const W = 340;
   const H = 236;
   const padL = 46;
@@ -4312,6 +4323,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   if (!n) return "";
 
   const mer = Math.max(0, avgMonthlyIncomeFromYear);
+  const mee = Math.max(0, avgMonthlyExpenseFromYear);
   const exps = snaps.map((s) => s.exp);
   const incs = snaps.map((s) => s.inc);
   const maxExp = exps.reduce((a, b) => Math.max(a, b), 0);
@@ -4320,7 +4332,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
     const h = s.exp > s.inc + 0.01 ? s.exp : s.inc;
     return Math.max(m, h);
   }, 0);
-  let vMax = Math.max(maxExp, maxInc, mer, 1);
+  let vMax = Math.max(maxExp, maxInc, mer, mee, 1);
   if (!Number.isFinite(vMax) || vMax <= 0) vMax = 1;
   vMax *= 1.1;
 
@@ -4328,7 +4340,8 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   const x0 = padL;
   const x1 = padL + plotW;
   const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
-  const yRef = yPx(mer);
+  const yRefInc = yPx(mer);
+  const yRefExp = yPx(mee);
   const slot = plotW / n;
   const bw = Math.max(4, Math.min(20, slot * 0.52));
   const yMid = (padT + axisY) / 2;
@@ -4343,12 +4356,12 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
       const yI = yPx(inc);
       const yE = yPx(exp);
       const seam = 0.4;
-      const hBlue = Math.max(inc > 0.005 ? 1 : 0, axisY - yI + seam);
+      const hIncSlice = Math.max(inc > 0.005 ? 1 : 0, axisY - yI + seam);
       const hRed = Math.max(1, yI - yE);
-      if (hBlue > 0) {
-        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--month-income" x="${x.toFixed(2)}" y="${(yI - seam).toFixed(
+      if (hIncSlice > 0) {
+        rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--deficit-income-slice" x="${x.toFixed(2)}" y="${(yI - seam).toFixed(
           2
-        )}" width="${bw.toFixed(2)}" height="${hBlue.toFixed(2)}" />`;
+        )}" width="${bw.toFixed(2)}" height="${hIncSlice.toFixed(2)}" />`;
       }
       rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--over-income" x="${x.toFixed(2)}" y="${yE.toFixed(
         2
@@ -4377,9 +4390,12 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
     }
   }
 
-  const refInView = yRef >= padT - 0.5 && yRef <= axisY + 0.5;
-  const refLine = refInView
-    ? `<line class="analysis-salary-year-chart__line-income" x1="${x0}" y1="${yRef.toFixed(2)}" x2="${x1}" y2="${yRef.toFixed(2)}" />`
+  const inView = (y) => y >= padT - 0.5 && y <= axisY + 0.5;
+  const refLineInc = inView(yRefInc)
+    ? `<line class="analysis-salary-year-chart__line-income-avg" x1="${x0}" y1="${yRefInc.toFixed(2)}" x2="${x1}" y2="${yRefInc.toFixed(2)}" />`
+    : "";
+  const refLineExp = inView(yRefExp)
+    ? `<line class="analysis-salary-year-chart__line-expense-avg" x1="${x0}" y1="${yRefExp.toFixed(2)}" x2="${x1}" y2="${yRefExp.toFixed(2)}" />`
     : "";
 
   let labels = "";
@@ -4398,14 +4414,15 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear)
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Utgifter och intäkter per löneperiod; vid överskott ljusare grönt ovanför utgiftsdelen; medel intäkt som streckad referenslinje">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Intäkter och utgifter per löneperiod med medelintäkt streckad ljusgrön och medelutgift heldragen mörkgrön">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
       <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
       ${rects}
-      ${refLine}
+      ${refLineExp}
+      ${refLineInc}
       ${labels}
     </svg>`;
 }
@@ -10644,9 +10661,15 @@ function renderAnalysisPage() {
       syModel && syModel.totalInc != null
         ? syModel.totalInc / (syModel.snaps.length > 0 ? syModel.snaps.length : 12)
         : 0;
+    const avgMonthlyExpenseFromYear =
+      syModel && syModel.avgMonthlyExpense != null
+        ? syModel.avgMonthlyExpense
+        : syModel && syModel.totalExp != null && syModel.snaps.length > 0
+          ? syModel.totalExp / syModel.snaps.length
+          : 0;
     const chartSvg =
       syModel && syModel.snaps.length > 0
-        ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, avgMonthlyIncomeFromYear)
+        ? renderSalaryYearMonthlyExpenseChartSvg(syModel.snaps, avgMonthlyIncomeFromYear, avgMonthlyExpenseFromYear)
         : "";
     const payBreakpointHint = anchor.ok ? svPaydayBreakpointHint(anchor.recurringDay) : "—";
     let landscapeDetailRows = "";
@@ -10666,14 +10689,11 @@ function renderAnalysisPage() {
         })
         .join("");
     }
-    const yearHasAnyDeficit =
-      syModel && syModel.snaps.some((s) => s.exp > s.inc + 0.01);
     const yearChartIngressText = syModel
-      ? yearHasAnyDeficit
-        ? "Varje stapel är en löneperiod. Höjd = intäkt; du har minst en period med underskott."
-        : "Varje stapel är en löneperiod. Höjd = intäkt (grön bas = utgift, ljusare = överskott)."
+      ? "Intäkternas fördelning ut över löneåret i förhållande till utgifterna."
       : "";
     const avgIncLegendSpaced = `${Math.round(asNumber(avgMonthlyIncomeFromYear)).toLocaleString("sv-SE")} kr`;
+    const avgExpLegendSpaced = `${Math.round(asNumber(avgMonthlyExpenseFromYear)).toLocaleString("sv-SE")} kr`;
 
     const periodsBlock =
       chartSvg
@@ -10683,15 +10703,18 @@ function renderAnalysisPage() {
         <p class="note analysis-salary-year-ingress">${escapeHtml(yearChartIngressText)}</p>
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
-            <span>Intäkt och utgift</span>
+            <span>Intäkter per löneperiod</span>
             <span>${escapeHtml(payBreakpointHint)}</span>
           </div>
           ${chartSvg}
           <div class="analysis-salary-year-chart-legend">
             <div class="analysis-salary-year-chart-legend-grid">
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span>Överskott: ljusgrönt upptill · utgifter: grön bas</span></span>
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--split" aria-hidden="true"></span><span>Underskott: röd över blå (totalhöjd = utgift)</span></span>
-              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash" aria-hidden="true"></span><span>Medel intäkt <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span><strong>Ljusgrön/mörkgrön</strong> Intäkterna under perioden</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--surplus-only" aria-hidden="true"></span><span><strong>Ljusgrön</strong> Överskott under perioden</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--under" aria-hidden="true"></span><span><strong>Mörkgrön</strong> Intäkter som täcks av utgifter under perioden</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--deficit-split" aria-hidden="true"></span><span><strong>Röd</strong> Utgifter som utgör ett underskott under perioden</span></span>
+              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash analysis-salary-year-chart-legend-dash--income-avg" aria-hidden="true"></span><span>Medelintäkt <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
+              <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash analysis-salary-year-chart-legend-dash--expense-avg" aria-hidden="true"></span><span>Medelutgift <strong>${escapeHtml(avgExpLegendSpaced)}</strong></span></span>
             </div>
           </div>
           <div class="analysis-salary-year-chart-detail" aria-label="Detaljer per löneperiod">
