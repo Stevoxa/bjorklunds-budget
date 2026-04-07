@@ -3673,6 +3673,41 @@ input.input-readonly-like {
   color: #ffd4d4;
 }
 
+.analysis-salary-hero--imbalance {
+  border-color: color-mix(in srgb, #8b2525 42%, transparent);
+  background: linear-gradient(180deg, #c23a3a 0%, #9e2a2a 100%);
+  box-shadow: 0 8px 26px rgba(40, 12, 12, 0.14);
+}
+
+.analysis-salary-hero--imbalance .analysis-salary-hero__dip--neg {
+  color: #ffe8e8;
+}
+
+.analysis-salary-hero__mini--imbalance {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.analysis-salary-hero__mini-hint--imbalance-primary {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.96);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.analysis-salary-hero__mini-hint--imbalance-secondary {
+  margin-top: 8px;
+  font-weight: 600;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.88);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 @media (min-width: 720px) {
   .analysis-salary-hero__minis--year {
     grid-template-columns: repeat(3, 1fr);
@@ -3882,11 +3917,6 @@ input.input-readonly-like {
   font-weight: 600;
   line-height: 1.4;
   color: var(--muted);
-}
-
-.analysis-salary-year-spend__total strong {
-  font-weight: 700;
-  color: color-mix(in srgb, var(--text) 72%, var(--muted));
 }
 
 .analysis-salary-year-chart-wrap {
@@ -4324,6 +4354,10 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
   align-items: stretch;
 }
 
+.analysis-robin-section .analysis-robin-kpis--risk-only {
+  grid-template-columns: 1fr;
+}
+
 .analysis-robin-kpis__stack {
   display: flex;
   flex-direction: column;
@@ -4354,6 +4388,10 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
   .analysis-robin-section .analysis-robin-kpis {
     grid-template-columns: 1fr;
   }
+
+  .analysis-robin-section .analysis-robin-kpis--risk-only {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {
@@ -4361,6 +4399,10 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
     grid-template-columns: 1fr 1fr;
     gap: var(--space-2);
     margin-top: var(--space-2);
+  }
+
+  .analysis-robin-section .analysis-robin-kpis--risk-only {
+    grid-template-columns: 1fr;
   }
 
   .analysis-robin-kpis__stack {
@@ -4817,6 +4859,10 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
   gap: var(--space-4);
   margin-top: var(--space-4);
   align-items: stretch;
+}
+
+.analysis-robin-columns--deficit-only {
+  grid-template-columns: 1fr;
 }
 
 .analysis-robin-columns .analysis-robin-stat-card {
