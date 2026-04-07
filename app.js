@@ -4960,8 +4960,6 @@ const TAGGED_CATEGORY_CONFIG = {
       emptyMonth: "Inget spar denna månad.",
       monthListTitlePrefix: "Sparbelopp",
       monthTotalPrefix: "Totalt sparat denna månad",
-      monthTotalOtherPrefix: "Annat spar denna månad",
-      rangeTotalOtherPrefix: "Annat spar i urvalet",
       nameRequiredHint: "Ange namn på spar.",
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
@@ -8885,11 +8883,11 @@ function renderTaggedExpenseListMount(cat) {
 
   if (totalEl) {
     if (cat === "savings") {
-      const otherPrefix =
+      const totalPrefix =
         year === "all" || month === "all"
-          ? (C.labels && C.labels.rangeTotalOtherPrefix) || "Annat spar i urvalet"
-          : (C.labels && C.labels.monthTotalOtherPrefix) || "Annat spar denna månad";
-      totalEl.textContent = totalOther !== 0 ? `${otherPrefix}: ${formatKr(totalOther)}` : "";
+          ? "Totalt i urvalet"
+          : (C.labels && C.labels.monthTotalPrefix) || "Totalt sparat denna månad";
+      totalEl.textContent = totalOther !== 0 ? `${totalPrefix}: ${formatKr(totalOther)}` : "";
       if (setasideTotalEl) {
         if (totalRobinSetaside !== 0) {
           const setasideLabel =
