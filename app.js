@@ -3593,6 +3593,24 @@ function isRobinHoodGeneratedExpense(exp) {
   return Boolean(exp?.metadata?.robinHoodGenerated);
 }
 
+/** Robin-avsättning (positiv sparpost) — räknas inte som "spar" i summeringar/segment. */
+function isRobinHoodSetasideSavingsExpense(exp) {
+  return (
+    Boolean(exp?.metadata?.robinHoodGenerated) &&
+    exp?.metadata?.robinHood?.kind === "setaside" &&
+    exp?.category === "savings"
+  );
+}
+
+/** Täckning av underskott — visas inte i Spar-listan. */
+function isRobinHoodWithdrawSavingsExpense(exp) {
+  return (
+    Boolean(exp?.metadata?.robinHoodGenerated) &&
+    exp?.metadata?.robinHood?.kind === "withdraw" &&
+    exp?.category === "savings"
+  );
+}
+
 /** Slår ihop löneperiodssnaps (eller kalendermånader utan payDates) över flera löneårsetiketter. */
 function mergeRobinHoodSalarySnaps(root, minLabelYear, maxLabelYear, startMo, sortedPayIsos) {
   const seen = new Set();
@@ -4942,6 +4960,8 @@ const TAGGED_CATEGORY_CONFIG = {
       emptyMonth: "Inget spar denna månad.",
       monthListTitlePrefix: "Sparbelopp",
       monthTotalPrefix: "Totalt sparat denna månad",
+      monthTotalOtherPrefix: "Annat spar denna månad",
+      rangeTotalOtherPrefix: "Annat spar i urvalet",
       nameRequiredHint: "Ange namn på spar.",
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
@@ -6992,8 +7012,9 @@ function computeMonthOverview(year, month) {
       else if (cat === "car") seg.car += amt;
       else if (cat === "home") seg.home += amt;
       else if (cat === "children") seg.children += amt;
-      else if (cat === "savings") seg.savings += amt;
-      else if (cat === "loans") seg.loans += amt;
+      else if (cat === "savings") {
+        if (!isRobinHoodSetasideSavingsExpense(exp)) seg.savings += amt;
+      } else if (cat === "loans") seg.loans += amt;
       else if (cat === "one_off") seg.one_off += amt;
       else seg.other += amt;
 
@@ -7002,12 +7023,14 @@ function computeMonthOverview(year, month) {
       else if (beh === EXPENSE_COST_VARIABLE) costBehaviorTotals.variable += amt;
       else costBehaviorTotals.unknown += amt;
 
-      expensesRows.push({
-        group: overviewTableGroupForExpense(exp),
-        label: overviewTableLabelForPayment(exp, dt),
-        amount: amt,
-        _sortT: dt.getTime()
-      });
+      if (!(cat === "savings" && isRobinHoodGeneratedExpense(exp))) {
+        expensesRows.push({
+          group: overviewTableGroupForExpense(exp),
+          label: overviewTableLabelForPayment(exp, dt),
+          amount: amt,
+          _sortT: dt.getTime()
+        });
+      }
     }
   }
 
@@ -7309,8 +7332,9 @@ function aggregateOverviewForIsoRange(startIso, endIso) {
       else if (cat === "car") seg.car += amt;
       else if (cat === "home") seg.home += amt;
       else if (cat === "children") seg.children += amt;
-      else if (cat === "savings") seg.savings += amt;
-      else if (cat === "loans") seg.loans += amt;
+      else if (cat === "savings") {
+        if (!isRobinHoodSetasideSavingsExpense(exp)) seg.savings += amt;
+      } else if (cat === "loans") seg.loans += amt;
       else if (cat === "one_off") seg.one_off += amt;
       else seg.other += amt;
       const beh = getExpenseCostBehavior(exp);
@@ -8672,6 +8696,13 @@ function formatTaggedExpenseDateDisplaySv(isoDate) {
   return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** Datumrad för avsättning i Spar-listan, t.ex. "25 Oktober 2026". */
+function formatRobinSetasidePaymentDateLongSv(isoDate) {
+  const p = datePartsFromIso(String(isoDate || "").slice(0, 10));
+  if (!p) return "—";
+  return `${p.d} ${monthName(p.m)} ${p.y}`;
+}
+
 /** ISO-veckonummer 1–53 för lokalt Y-M-D (ISO 8601, samma som i Sverige). */
 function isoWeekNumberForYmdParts(y, m, d) {
   const date = new Date(y, m - 1, d, 12, 0, 0);
@@ -8716,6 +8747,8 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
   const mNum = mAll ? null : Number(month);
   for (const exp of state.expenses || []) {
     if (exp.category !== C.category) continue;
+    if (cat === "savings" && isRobinHoodWithdrawSavingsExpense(exp)) continue;
+
     const key = exp[keyField] || "other";
     const typeLabel = getTaggedTypeLabel(cat, key);
     const nameRaw = String(exp.name || "").trim();
@@ -8725,6 +8758,7 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
 
     const paymentsInMonth = [];
     const rh = isRobinHoodGeneratedExpense(exp);
+    const robinSetaside = cat === "savings" && isRobinHoodSetasideSavingsExpense(exp);
     for (const p of exp.payments || []) {
       const dt = p.date ? new Date(p.date) : null;
       if (!dt || Number.isNaN(dt.getTime())) continue;
@@ -8741,15 +8775,17 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
       paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
       for (const pm of paymentsInMonth) {
         const dp = datePartsFromIso(pm.dateIso);
-        let nameLine = baseNameLine;
-        if (dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+        let nameLine = robinSetaside ? "Avsättning" : baseNameLine;
+        if (!robinSetaside && dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
+        const line2 = robinSetaside ? formatRobinSetasidePaymentDateLongSv(pm.dateIso) : intervalLine;
         rows.push({
           expenseId: exp.id,
           nameLine,
           amount: pm.amount,
-          intervalLine,
+          intervalLine: line2,
           sortKey: pm.dateIso,
-          robinHood: rh
+          robinHood: rh,
+          robinSetaside
         });
       }
     } else {
@@ -8757,13 +8793,16 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
       if (sum === 0) continue;
       paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
       const dateIso = paymentsInMonth[0].dateIso;
+      const nameLine = robinSetaside ? "Avsättning" : baseNameLine;
+      const line2 = robinSetaside ? formatRobinSetasidePaymentDateLongSv(dateIso) : intervalLine;
       rows.push({
         expenseId: exp.id,
-        nameLine: baseNameLine,
+        nameLine,
         amount: sum,
-        intervalLine,
+        intervalLine: line2,
         sortKey: dateIso || "9999-12-31",
-        robinHood: rh
+        robinHood: rh,
+        robinSetaside
       });
     }
   }
@@ -8772,7 +8811,9 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
       String(a.sortKey).localeCompare(String(b.sortKey)) || a.nameLine.localeCompare(b.nameLine, "sv")
   );
   const total = rows.reduce((s, r) => s + r.amount, 0);
-  return { rows, total };
+  const totalRobinSetaside = rows.filter((r) => r.robinSetaside).reduce((s, r) => s + r.amount, 0);
+  const totalOther = total - totalRobinSetaside;
+  return { rows, total, totalRobinSetaside, totalOther };
 }
 
 function renderTaggedExpenseListMount(cat) {
@@ -8780,6 +8821,7 @@ function renderTaggedExpenseListMount(cat) {
   const ids = C.ids;
   const mount = document.getElementById(ids.listMount);
   const totalEl = document.getElementById(ids.monthTotal);
+  const setasideTotalEl = cat === "savings" ? document.getElementById("savingsSetasideTotal") : null;
   const titleEl = document.getElementById(ids.listMonthTitle);
   if (!mount) return;
 
@@ -8798,7 +8840,7 @@ function renderTaggedExpenseListMount(cat) {
     else if (month === "all") titleEl.textContent = `${prefix} helår ${year}`;
     else titleEl.textContent = `${prefix} ${monthName(Number(month)).toLowerCase()}`;
   }
-  const { rows, total } = getTaggedExpenseRowsForMonth(year, month, cat);
+  const { rows, total, totalRobinSetaside, totalOther } = getTaggedExpenseRowsForMonth(year, month, cat);
   mount.innerHTML = "";
 
   if (rows.length === 0) {
@@ -8808,11 +8850,24 @@ function renderTaggedExpenseListMount(cat) {
       const row = document.createElement("div");
       row.className = "tagged-expense-preview-row";
       const rh = Boolean(r.robinHood);
+      const robinSetaside = Boolean(r.robinSetaside);
       const dis = editorOpen || rh ? "disabled" : "";
       const ariaDis = editorOpen || rh ? "true" : "false";
       const editAria = cat === "savings" ? "Redigera sparande" : "Redigera utgift";
       const amtCls = r.amount < 0 ? " tagged-expense-amt--neg" : "";
-      row.innerHTML = `
+      if (cat === "savings" && robinSetaside) {
+        row.innerHTML = `
+        <div class="tagged-expense-row-static tagged-expense-row-btn--system" role="listitem">
+          <span class="tagged-expense-row-btn-main">
+            <span class="tagged-expense-row-line1">
+              <span class="tagged-expense-name">${escapeHtml(r.nameLine)}</span>
+              <span class="tagged-expense-amt${amtCls}">${escapeHtml(formatKr(r.amount))}</span>
+            </span>
+            <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
+          </span>
+        </div>`;
+      } else {
+        row.innerHTML = `
         <button type="button" class="tagged-expense-row-btn${rh ? " tagged-expense-row-btn--system" : ""}" data-tagged-cat="${escapeHtml(cat)}" data-tagged-edit-id="${escapeHtml(r.expenseId)}" aria-label="${escapeHtml(editAria)}" ${dis} aria-disabled="${ariaDis}">
           <span class="tagged-expense-row-btn-main">
             <span class="tagged-expense-row-line1">
@@ -8822,18 +8877,41 @@ function renderTaggedExpenseListMount(cat) {
             <span class="tagged-expense-row-line2">${escapeHtml(r.intervalLine)}</span>
           </span>
           <span class="tagged-expense-row-chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
-        </button>
-      `;
+        </button>`;
+      }
       mount.appendChild(row);
     }
   }
 
   if (totalEl) {
-    const totalPrefix =
-      year === "all" || month === "all"
-        ? "Totalt i urvalet"
-        : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
-    totalEl.textContent = total !== 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
+    if (cat === "savings") {
+      const otherPrefix =
+        year === "all" || month === "all"
+          ? (C.labels && C.labels.rangeTotalOtherPrefix) || "Annat spar i urvalet"
+          : (C.labels && C.labels.monthTotalOtherPrefix) || "Annat spar denna månad";
+      totalEl.textContent = totalOther !== 0 ? `${otherPrefix}: ${formatKr(totalOther)}` : "";
+      if (setasideTotalEl) {
+        if (totalRobinSetaside !== 0) {
+          const setasideLabel =
+            year !== "all" && month !== "all" ? "Avsättningar denna månad" : "Avsättningar i urvalet";
+          setasideTotalEl.textContent = `${setasideLabel}: ${formatKr(totalRobinSetaside)}`;
+          setasideTotalEl.hidden = false;
+        } else {
+          setasideTotalEl.textContent = "";
+          setasideTotalEl.hidden = true;
+        }
+      }
+    } else {
+      const totalPrefix =
+        year === "all" || month === "all"
+          ? "Totalt i urvalet"
+          : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+      totalEl.textContent = total !== 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
+      if (setasideTotalEl) {
+        setasideTotalEl.textContent = "";
+        setasideTotalEl.hidden = true;
+      }
+    }
   }
 
   mount.onclick = (e) => {
@@ -8870,6 +8948,10 @@ function renderTaggedCategoryPage(cat) {
   const cur = currentYearMonth();
   const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
   const appYears = getAvailableYears();
+  if (cat === "savings" && u.listYear == null && u.listMonth == null) {
+    u.listYear = appYears.includes(cur.year) ? cur.year : appYears[appYears.length - 1] ?? cur.year;
+    u.listMonth = "all";
+  }
   if (
     u.listYear !== "all" &&
     (u.listYear == null || !Number.isFinite(Number(u.listYear)) || !appYears.includes(Number(u.listYear)))
