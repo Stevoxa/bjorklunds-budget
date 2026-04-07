@@ -3776,17 +3776,6 @@ input.input-readonly-like {
   color: var(--muted);
 }
 
-.analysis-salary-year-spend__period {
-  margin-top: var(--space-2);
-  margin-bottom: 0;
-  font-size: 0.875rem;
-  color: var(--primary);
-}
-
-.analysis-salary-year-spend__period strong {
-  font-weight: 800;
-}
-
 .analysis-salary-year-spend__empty {
   margin-top: var(--space-3);
   color: var(--muted);
