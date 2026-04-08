@@ -4096,60 +4096,33 @@ function robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso) {
   return { total, rows };
 }
 
-/** Sant om kalendermånad y–m överlappar löneperioden [startIso,endIso] (minst en dag). */
-function ymMonthTouchesPayWindow(y, m, startIso, endIso) {
-  const s = parseDateISO(String(startIso || "").slice(0, 10));
-  const e = parseDateISO(String(endIso || "").slice(0, 10));
-  if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
-  const yy = Math.floor(asNumber(y));
-  const mm = Math.floor(asNumber(m));
-  if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return false;
-  const dim = daysInMonth(yy, mm);
-  const fm = new Date(yy, mm - 1, 1).getTime();
-  const lm = new Date(yy, mm - 1, dim).getTime();
-  const st = s.getTime();
-  const et = e.getTime();
-  return lm >= st && fm <= et;
-}
-
 /**
- * Löneperiodskort: avsättningar vars **bokföringsdatum** ligger i denna period och vars målunderskott (toY/toM)
- * tillhör **nästa** löneperiod men **inte** denna (överlapp med kalenderdagar). Då bokförs t.ex. täckning av
- * februaripers underskott i januariperioden (26 dec–25 jan); februariperioden visar 0 för samma underskott.
+ * Löneperiods-hero: samma avsättningar som diagram/lista — bärare fromY/fromM = payIso-månaden
+ * (robinSetasideMetaMatchesSalaryPeriodPayIso). Grupperat per målunderskott (toY/toM) för hint-raden.
  */
-function robinHoodSetasideAggForPayPeriodTowardNext(root, sortedPayIsos, periodIndex) {
-  const n = sortedPayIsos?.length || 0;
-  const idx = Math.floor(asNumber(periodIndex));
-  if (!Number.isFinite(idx) || idx < 0 || idx + 1 >= n || n < 2) return { total: 0, rows: [] };
-  const win = getSalaryPeriodWindow(sortedPayIsos, idx);
-  const winNext = getSalaryPeriodWindow(sortedPayIsos, idx + 1);
-  if (!win?.startIso || !win?.endIso || !winNext?.startIso || !winNext?.endIso) return { total: 0, rows: [] };
-  const a = String(win.startIso).slice(0, 10);
-  const b = String(win.endIso).slice(0, 10);
-
+function robinHoodSetasideHeroAggForPayIso(root, periodPayIso) {
   const byTarget = new Map();
   let total = 0;
   for (const exp of root.expenses || []) {
-    if (!isRobinHoodGeneratedExpense(exp)) continue;
-    if (exp.metadata?.robinHood?.kind !== "setaside") continue;
-    const meta = exp.metadata.robinHood;
+    if (!isRobinHoodSetasideSavingsExpense(exp)) continue;
+    const meta = exp.metadata?.robinHood;
+    if (!robinSetasideMetaMatchesSalaryPeriodPayIso(meta, periodPayIso)) continue;
     const ty = Math.floor(asNumber(meta.toY));
     const tm = Math.floor(asNumber(meta.toM));
     if (!Number.isFinite(ty) || !Number.isFinite(tm) || tm < 1 || tm > 12) continue;
-    if (!ymMonthTouchesPayWindow(ty, tm, winNext.startIso, winNext.endIso)) continue;
-    if (ymMonthTouchesPayWindow(ty, tm, win.startIso, win.endIso)) continue;
+    let sumP = 0;
     for (const p of exp.payments || []) {
-      const d = String(p.date || "").slice(0, 10);
-      if (!d || d < a || d > b) continue;
       const amt = Math.max(0, Math.round(asNumber(p.amount)));
       if (amt <= ROBIN_HOOD_EPS) continue;
-      const tk = robinYmKey(ty, tm);
-      byTarget.set(tk, (byTarget.get(tk) || 0) + amt);
+      sumP += amt;
     }
+    if (sumP <= ROBIN_HOOD_EPS) continue;
+    const tk = robinYmKey(ty, tm);
+    byTarget.set(tk, (byTarget.get(tk) || 0) + sumP);
+    total += sumP;
   }
   const rows = [];
   for (const [k, amount] of byTarget) {
-    total += amount;
     const [ys, ms] = k.split("-");
     const y = Math.floor(asNumber(ys));
     const m = Math.floor(asNumber(ms));
@@ -12011,8 +11984,7 @@ function renderAnalysisPage() {
     plannedInc + ROBIN_HOOD_EPS >= plannedExp
       ? "Löneperiodens överskott efter planerade utgifter"
       : "Löneperiodens underskott efter planerade utgifter";
-  const rhAgg =
-    win && payDates.length > 1 ? robinHoodSetasideAggForPayPeriodTowardNext(state, payDates, idx) : { total: 0, rows: [] };
+  const rhAgg = win?.payIso ? robinHoodSetasideHeroAggForPayIso(state, win.payIso) : { total: 0, rows: [] };
   const rhTargetBreakdownLine =
     rhAgg.total > ROBIN_HOOD_EPS && rhAgg.rows.length > 0
       ? rhAgg.rows.map((r) => `Mot underskott ${r.monthLabel} ${r.y}: ${formatKr(r.amount)}`).join(" · ")
