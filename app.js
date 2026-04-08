@@ -7548,19 +7548,68 @@ function buildSalaryYearExpenseSpendChartModel(root, startIso, endIso) {
   return { portrait, landscape, empty };
 }
 
-/** Ljusgrått segment när intäkt > utgifter (ej gul). */
+/** Ljusgrått segment för kvarvarande överskott (ej gul). */
 function salaryPeriodDoughnutRemainderHex() {
   return resolvedDocumentTheme() === "dark" ? "rgba(255,255,255,0.14)" : "#e6e6ea";
 }
 
+/** Blekt gult — Spara-segment (skiljer sig från mättade utgiftsfärger). */
+function salaryPeriodDonutSparPaleHex() {
+  return resolvedDocumentTheme() === "dark" ? "rgba(255, 236, 179, 0.38)" : "#f3e8bf";
+}
+
+/** Ljusare gult — Avsättningar-segment. */
+function salaryPeriodDonutSetasidePaleHex() {
+  return resolvedDocumentTheme() === "dark" ? "rgba(255, 248, 210, 0.34)" : "#faf3d6";
+}
+
+function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
+  let s = 0;
+  for (const exp of root.expenses || []) {
+    if (exp.category !== "savings") continue;
+    if (isRobinHoodSetasideSavingsExpense(exp)) continue;
+    if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, a, b)) continue;
+      s += amt;
+    }
+  }
+  return s;
+}
+
+function sumSalaryPeriodRobinSetasidePaymentsInRange(root, a, b) {
+  let s = 0;
+  for (const exp of root.expenses || []) {
+    if (!isRobinHoodSetasideSavingsExpense(exp)) continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, a, b)) continue;
+      s += amt;
+    }
+  }
+  return s;
+}
+
 /**
- * Löneperiod — donut: samma huvudkategorier som löneår (ej spar/Robin-avsättning), ev. övrigt mot planerade utgifter,
- * samt ljusgrått segment för (intäkt − utgift) när överskott.
+ * Löneperiod — donut: huvudkategorier + övrigt (spar/avsättning ingår inte i utgiftsdelen),
+ * sedan Spara och Avsättningar (ljusa gula segment), sedan Överskott (ljusgrått).
  */
 function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedInc, plannedExp) {
   const inc = Math.max(0, asNumber(plannedInc));
   const exp = Math.max(0, asNumber(plannedExp));
   const gray = salaryPeriodDoughnutRemainderHex();
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  const sparSum = sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b);
+  const setasideSum = sumSalaryPeriodRobinSetasidePaymentsInRange(root, a, b);
+  const paleSpar = salaryPeriodDonutSparPaleHex();
+  const paleSetaside = salaryPeriodDonutSetasidePaleHex();
+
   const base = buildSalaryYearExpenseSpendChartModel(root, startIso, endIso);
   const labels = [...base.portrait.labels];
   const data = base.portrait.data.map((v) => Math.round(asNumber(v)));
@@ -7574,21 +7623,48 @@ function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedIn
     data.push(Math.round(other));
     colors.push(chartSegmentHex("recurringExpenses"));
   }
-  const surplus = inc - exp;
-  if (surplus > ROBIN_HOOD_EPS) {
-    labels.push("Utrymme kvar");
-    data.push(Math.round(surplus));
+  if (sparSum > ROBIN_HOOD_EPS) {
+    labels.push("Spara");
+    data.push(Math.round(sparSum));
+    colors.push(paleSpar);
+  }
+  if (setasideSum > ROBIN_HOOD_EPS) {
+    labels.push("Avsättningar");
+    data.push(Math.round(setasideSum));
+    colors.push(paleSetaside);
+  }
+  const overskott = inc - exp - sparSum - setasideSum;
+  if (overskott > ROBIN_HOOD_EPS) {
+    labels.push("Överskott");
+    data.push(Math.round(overskott));
     colors.push(gray);
   }
   const hasAny = data.some((v) => v > 0);
   const empty = !hasAny;
-  return { labels, data, colors, empty, totalExpenseKr: exp, totalIncomeKr: inc };
+  return { labels, data, colors, empty, totalExpenseKr: exp, totalIncomeKr: inc, sparKr: sparSum, setasideKr: setasideSum };
 }
 
-function collectSalaryPeriodPlannedExpensePaymentRows(root, startIso, endIso) {
+function collectSalaryPeriodEventRows(root, startIso, endIso) {
   const a = String(startIso || "").slice(0, 10);
   const b = String(endIso || "").slice(0, 10);
   const rows = [];
+  for (const inc of root.incomes || []) {
+    const lineTitle = incomeDisplayName(inc);
+    for (const p of inc.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, a, b)) continue;
+      rows.push({
+        iso,
+        kind: "income",
+        name: lineTitle,
+        sub: "Inkomst",
+        amount: amt,
+        dotColor: null
+      });
+    }
+  }
   for (const exp of root.expenses || []) {
     if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
     for (const p of exp.payments || []) {
@@ -7617,30 +7693,67 @@ function collectSalaryPeriodPlannedExpensePaymentRows(root, startIso, endIso) {
       const name = String(exp.name || "").trim() || "Utgift";
       const sub =
         kind === "setaside" ? "Avsättning" : kind === "savings" ? "Sparande" : overviewTableGroupForExpense(exp);
-      rows.push({ iso, kind, name, sub, amount: amt, dotColor });
+      const interval = kind === "savings" ? exp.interval : undefined;
+      rows.push({ iso, kind, name, sub, amount: amt, dotColor, interval });
     }
   }
-  rows.sort((x, y) => x.iso.localeCompare(y.iso) || x.name.localeCompare(y.name));
+  rows.sort(
+    (x, y) => x.iso.localeCompare(y.iso) || (x.kind === "income" ? -1 : y.kind === "income" ? 1 : x.name.localeCompare(y.name))
+  );
   return rows;
 }
 
 function buildSalaryPeriodPaymentListHtml(rows) {
   if (!rows.length) {
-    return `<div class="note analysis-salary-period-pay-empty">Inga planerade utgifter i löneperioden.</div>`;
+    return `<div class="note analysis-salary-period-pay-empty">Inga planerade händelser i löneperioden.</div>`;
   }
   return rows
     .map((r) => {
+      if (r.kind === "setaside") {
+        return `<div class="analysis-salary-period-event-row analysis-salary-period-event-row--setaside" role="listitem">
+  <div class="analysis-salary-period-event-stack">
+    <div class="analysis-salary-period-event-line1">
+      <span class="analysis-salary-period-event-name">Avsättning</span>
+      <span class="analysis-salary-period-event-amt analysis-salary-period-event-amt--exp">− ${escapeHtml(formatKr(r.amount))}</span>
+    </div>
+    <div class="analysis-salary-period-event-line2">${escapeHtml(formatRobinSetasidePaymentDateLongSv(r.iso))}</div>
+  </div>
+</div>`;
+      }
+      if (r.kind === "savings") {
+        const line2 = escapeHtml(formatTaggedSavingsIntervalLabel(r.interval));
+        return `<div class="analysis-salary-period-event-row analysis-salary-period-event-row--savings" role="listitem">
+  <div class="analysis-salary-period-event-stack">
+    <div class="analysis-salary-period-event-line1">
+      <span class="analysis-salary-period-event-name">${escapeHtml(r.name)}</span>
+      <span class="analysis-salary-period-event-amt analysis-salary-period-event-amt--exp">− ${escapeHtml(formatKr(r.amount))}</span>
+    </div>
+    <div class="analysis-salary-period-event-line2">${line2}</div>
+  </div>
+</div>`;
+      }
+      if (r.kind === "income") {
+        const iso = r.iso;
+        const dateStr = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+        return `<div class="analysis-payment-row analysis-salary-period-pay-row analysis-salary-period-pay-row--income">
+      <div class="analysis-payment-date">${escapeHtml(dateStr)}</div>
+      <div class="analysis-payment-main">
+        <span class="analysis-salary-period-pay-row__no-dot" aria-hidden="true"></span>
+        <div>
+          <div class="analysis-payment-cat">${escapeHtml(r.name)}</div>
+          <div class="analysis-payment-kind">${escapeHtml(r.sub)}</div>
+        </div>
+      </div>
+      <div class="analysis-payment-amt analysis-payment-amt--income">+ ${escapeHtml(formatKr(r.amount))}</div>
+    </div>`;
+      }
       const iso = r.iso;
       const dateStr = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
       const dot =
         r.dotColor == null
           ? `<span class="analysis-salary-period-pay-row__no-dot" aria-hidden="true"></span>`
           : `<span class="analysis-payment-dot" style="background-color:${escapeHtml(r.dotColor)}" aria-hidden="true"></span>`;
-      const rowCls =
-        "analysis-payment-row analysis-salary-period-pay-row" +
-        (r.kind === "setaside" ? " analysis-salary-period-pay-row--setaside" : "") +
-        (r.kind === "savings" ? " analysis-salary-period-pay-row--savings" : "");
-      return `<div class="${rowCls}">
+      return `<div class="analysis-payment-row analysis-salary-period-pay-row">
       <div class="analysis-payment-date">${escapeHtml(dateStr)}</div>
       <div class="analysis-payment-main">
         ${dot}
@@ -11805,7 +11918,7 @@ function renderAnalysisPage() {
       : "";
 
   const payP = win?.payIso ? datePartsFromIso(String(win.payIso).slice(0, 10)) : null;
-  const expenseMonthTitle = payP ? `Utgifter i ${monthName(payP.m).toLowerCase()}` : "Utgifter";
+  const eventsMonthTitle = payP ? `Händelser i ${monthName(payP.m).toLowerCase()}` : "Händelser";
   let salaryPeriodDoughnutModel = null;
   let periodSpendBlock = "";
   let expenseListCard = "";
@@ -11817,7 +11930,7 @@ function renderAnalysisPage() {
       plannedInc,
       plannedExp
     );
-    const payRows = collectSalaryPeriodPlannedExpensePaymentRows(state, win.startIso, win.endIso);
+    const payRows = collectSalaryPeriodEventRows(state, win.startIso, win.endIso);
     const paymentListHtml = buildSalaryPeriodPaymentListHtml(payRows);
     periodSpendBlock = salaryPeriodDoughnutModel.empty
       ? `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
@@ -11841,8 +11954,8 @@ function renderAnalysisPage() {
         <p class="analysis-salary-year-spend__total">Utgifter totalt: ${escapeHtml(formatKr(plannedExp))}</p>
       </div>`;
     expenseListCard = `<div class="table-card analysis-salary-period-expense-list">
-      <div class="table-title">${escapeHtml(expenseMonthTitle)}</div>
-      <p class="note analysis-salary-period-expense-list__ingress">Planerade utgifter under löneperioden</p>
+      <div class="table-title">${escapeHtml(eventsMonthTitle)}</div>
+      <p class="note analysis-salary-period-expense-list__ingress">Planerade utgifter och intäkter under löneperioden</p>
       <div class="analysis-payment-list analysis-salary-period-payment-list">${paymentListHtml}</div>
       <div class="analysis-salary-period-postlegend" id="analysisSalaryPeriodPostListLegend" aria-label="Kategorier i diagrammet"></div>
     </div>`;

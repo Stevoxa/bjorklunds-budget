@@ -4003,13 +4003,65 @@ input.input-readonly-like {
   box-sizing: border-box;
 }
 
-.analysis-salary-period-pay-row--setaside {
-  background: color-mix(in srgb, #f0b429 24%, var(--card-2, #f5f6f4));
-  border-color: color-mix(in srgb, #ffd54f 42%, var(--border));
+/* Avsättning / spar-rader: samma tvåradiga mönster som Spar-listan */
+.analysis-salary-period-event-row {
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 85%, transparent);
 }
 
-.analysis-salary-period-pay-row--savings {
-  background: color-mix(in srgb, var(--card-2) 94%, var(--muted));
+.analysis-salary-period-event-row--setaside {
+  background: color-mix(in srgb, #fff6d0 72%, var(--card-2, #f5f6f4));
+  border-color: color-mix(in srgb, #f3e0a0 38%, var(--border));
+}
+
+.analysis-salary-period-event-row--savings {
+  background: color-mix(in srgb, var(--card-2) 88%, transparent);
+}
+
+.analysis-salary-period-event-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.analysis-salary-period-event-line1 {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.analysis-salary-period-event-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.analysis-salary-period-event-line1 .analysis-salary-period-event-amt {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.analysis-salary-period-event-amt--exp {
+  color: color-mix(in srgb, var(--danger) 78%, var(--text));
+}
+
+.analysis-salary-period-event-line2 {
+  font-size: 0.88em;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.analysis-salary-period-pay-row--income .analysis-payment-cat {
+  font-weight: 600;
 }
 
 .analysis-salary-year-chart-head {
