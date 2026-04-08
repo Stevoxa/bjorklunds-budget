@@ -7581,21 +7581,25 @@ function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
 }
 
 /**
- * Robin-avsättning: samma indelning som löneårsvyn — bärarmånad (fromY/fromM) ska matcha **periodens
- * namngivande utbetalning** (win.payIso), inte startIso (som är föregående lön och skulle flytta jan → feb).
+ * True om Robin-postens fromY/fromM = löneperiods-snappens (y,m) — samma som i buildSalaryYearAnalysisModel,
+ * där y/m tas från **payIso** (utbetalningsmånad = periodnamn i chip). Robin bygger fromS från den snappen.
+ * Förskottslön som *startar* perioden ligger på startIso, men bäraretiketten i data följer payIso-månaden
+ * så löneperiod matchar löneåret utan att ändra årsvyn.
  */
-function sumRobinSetasidePaymentsForSalaryPeriodPayIso(root, periodPayIso) {
+function robinSetasideMetaMatchesSalaryPeriodPayIso(meta, periodPayIso) {
   const p = datePartsFromIso(String(periodPayIso || "").slice(0, 10));
-  if (!p) return 0;
-  const py = p.y;
-  const pm = p.m;
+  if (!p) return false;
+  const fy = Math.floor(asNumber(meta?.fromY));
+  const fm = Math.floor(asNumber(meta?.fromM));
+  return Number.isFinite(fy) && Number.isFinite(fm) && fy === p.y && fm === p.m;
+}
+
+function sumRobinSetasidePaymentsForSalaryPeriodPayIso(root, periodPayIso) {
   let s = 0;
   for (const exp of root.expenses || []) {
     if (!isRobinHoodSetasideSavingsExpense(exp)) continue;
     const meta = exp.metadata?.robinHood;
-    const fy = Math.floor(asNumber(meta?.fromY));
-    const fm = Math.floor(asNumber(meta?.fromM));
-    if (!Number.isFinite(fy) || !Number.isFinite(fm) || fy !== py || fm !== pm) continue;
+    if (!robinSetasideMetaMatchesSalaryPeriodPayIso(meta, periodPayIso)) continue;
     for (const pmt of exp.payments || []) {
       const amt = asNumber(pmt.amount);
       if (amt <= 0) continue;
@@ -7682,10 +7686,7 @@ function collectSalaryPeriodEventRows(root, startIso, endIso, periodPayIso) {
     if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
     const isRobSetaside = isRobinHoodSetasideSavingsExpense(exp);
     if (isRobSetaside && useRobPayIsoMatch) {
-      const meta = exp.metadata?.robinHood;
-      const fy = Math.floor(asNumber(meta?.fromY));
-      const fm = Math.floor(asNumber(meta?.fromM));
-      if (!Number.isFinite(fy) || !Number.isFinite(fm) || fy !== payParts.y || fm !== payParts.m) continue;
+      if (!robinSetasideMetaMatchesSalaryPeriodPayIso(exp.metadata?.robinHood, periodPayIso)) continue;
     }
     for (const p of exp.payments || []) {
       const amt = asNumber(p.amount);
