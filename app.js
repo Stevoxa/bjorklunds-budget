@@ -9126,6 +9126,13 @@ function formatTaggedExpenseDateDisplaySv(isoDate) {
   return dt.toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** T.ex. "20 februari" — hero sista fasta kostnad (år utelämnat i löneperiodskontext). */
+function formatIsoDateDayMonthSvNoYear(isoDate) {
+  const p = datePartsFromIso(String(isoDate || "").slice(0, 10));
+  if (!p) return "—";
+  return `${p.d} ${monthName(p.m).toLowerCase()}`;
+}
+
 /** Datumrad för avsättning i Spar-listan, t.ex. "25 Oktober 2026". */
 function formatRobinSetasidePaymentDateLongSv(isoDate) {
   const p = datePartsFromIso(String(isoDate || "").slice(0, 10));
@@ -12030,7 +12037,7 @@ function renderAnalysisPage() {
       ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Periodens sista fasta kostnad</div>
           <div class="analysis-salary-hero__mini-value analysis-salary-hero__mini-value--last-fixed-date">${escapeHtml(
-            formatTaggedExpenseDateDisplaySv(lastFixedCostInPeriod.iso)
+            formatIsoDateDayMonthSvNoYear(lastFixedCostInPeriod.iso)
           )}</div>
           <div class="analysis-salary-hero__mini-hint">${escapeHtml(
             salaryPeriodFixedCostDescriptionLine(lastFixedCostInPeriod.expense)
