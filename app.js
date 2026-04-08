@@ -3875,6 +3875,19 @@ function robinHoodPayIsoAfterSalaryInMonth(sortedPayIsos, y, m) {
   return `${y}-${pad2(m)}-${pad2(dim)}`;
 }
 
+/**
+ * Avsättning/täckning: dagen efter den utbetalning som **startar** löneperioden (snap.startIso),
+ * dvs. förskottslönen ni lever på under perioden — inte första lönen i bärarens kalendermånad (payIso-månad).
+ */
+function robinHoodPayIsoDayAfterSnapPeriodStart(snap, sortedPayIsos, fallbackY, fallbackM) {
+  const start = String(snap?.startIso || "").slice(0, 10);
+  if (start) {
+    const d = parseDateISO(start);
+    if (d && !Number.isNaN(d.getTime())) return toLocalISODate(addDays(d, 1));
+  }
+  return robinHoodPayIsoAfterSalaryInMonth(sortedPayIsos, fallbackY, fallbackM);
+}
+
 function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
   const out = [];
   for (const f of alloc.flows || []) {
@@ -3883,7 +3896,7 @@ function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
     if (!fromS || !toS) continue;
     const amt = Math.round(asNumber(f.amount));
     if (amt <= 0) continue;
-    const payIso = robinHoodPayIsoAfterSalaryInMonth(payDatesSorted, fromS.y, fromS.m);
+    const payIso = robinHoodPayIsoDayAfterSnapPeriodStart(fromS, payDatesSorted, fromS.y, fromS.m);
     const id = `rh_set_${fromS.y}_${pad2(fromS.m)}_${toS.y}_${pad2(toS.m)}`;
     out.push({
       id,
@@ -3912,7 +3925,7 @@ function buildRobinHoodExpenseRecords(snaps, alloc, payDatesSorted) {
     const toS = snaps[toIdx];
     if (!toS) continue;
     const id = `rh_wd_${toS.y}_${pad2(toS.m)}`;
-    const payIso = robinHoodPayIsoAfterSalaryInMonth(payDatesSorted, toS.y, toS.m);
+    const payIso = robinHoodPayIsoDayAfterSnapPeriodStart(toS, payDatesSorted, toS.y, toS.m);
     out.push({
       id,
       name: `Täckning underskott (${monthName(toS.m)} ${toS.y})`,
@@ -3984,7 +3997,7 @@ function syncRobinHoodIntoState() {
 /**
  * Robint-avsättningar vars bokföringsdatum ligger i [startIso,endIso].
  * Grupperat per bärarkalendermånad (fromY/fromM) — samma månadsbelopp som under ”Månader med planerade avsättningar” i löneårsvyn.
- * (Datum sätts till dagen efter utbetald lön i bärarmånaden.)
+ * (Bokföringsdatum: dagen efter snap.startIso för bärarperioden.)
  */
 function robinHoodSetasideAggByCarrierInIsoRange(root, startIso, endIso) {
   const a = String(startIso || "").slice(0, 10);
@@ -7583,8 +7596,8 @@ function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
 /**
  * True om Robin-postens fromY/fromM = löneperiods-snappens (y,m) — samma som i buildSalaryYearAnalysisModel,
  * där y/m tas från **payIso** (utbetalningsmånad = periodnamn i chip). Robin bygger fromS från den snappen.
- * Förskottslön som *startar* perioden ligger på startIso, men bäraretiketten i data följer payIso-månaden
- * så löneperiod matchar löneåret utan att ändra årsvyn.
+ * Bäraretikett (fromY/fromM) följer payIso-månaden som i löneårs-snappen; själva utbetalningsdatumet för
+ * avsättningen sätts till dagen efter startIso när poster regenereras (syncRobinHoodIntoState).
  */
 function robinSetasideMetaMatchesSalaryPeriodPayIso(meta, periodPayIso) {
   const p = datePartsFromIso(String(periodPayIso || "").slice(0, 10));
