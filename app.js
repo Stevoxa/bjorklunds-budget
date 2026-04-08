@@ -7603,9 +7603,9 @@ function salaryPeriodDoughnutRemainderHex() {
   return resolvedDocumentTheme() === "dark" ? "rgba(255,255,255,0.14)" : "#e6e6ea";
 }
 
-/** Spara-segment — tydlig guldton mot ljus/mörk diagrambakgrund (ej nästan vit / grå). */
+/** Spara-segment — samma guld som Robin avsättningsdiagram (stapel .analysis-robin-chart__bar--risk-high). */
 function salaryPeriodDonutSparPaleHex() {
-  return resolvedDocumentTheme() === "dark" ? "#e6cf33" : "#b89400";
+  return resolvedDocumentTheme() === "dark" ? "#ffca28" : "#e8a317";
 }
 
 /**
