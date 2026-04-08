@@ -3410,6 +3410,24 @@ function formatSalaryPeriodLabelNextPaySv(endIso) {
   return `${monthYear} – Nästa lön ${nextPayPhrase}`;
 }
 
+/** Hero-chip: t.ex. "April (25 mars - 24 april)" eller "Januari (25 december 2025 - 24 januari 2026)" vid årssprång. */
+function formatSalaryPeriodHeroTitleSv(win) {
+  if (!win?.payIso || !win?.startIso || !win?.endIso) return "—";
+  const payP = datePartsFromIso(String(win.payIso).slice(0, 10));
+  const a = datePartsFromIso(String(win.startIso).slice(0, 10));
+  const b = datePartsFromIso(String(win.endIso).slice(0, 10));
+  if (!payP || !a || !b) return "—";
+  const titleMonth = monthName(payP.m);
+  const sameYear = a.y === b.y;
+  const innerStart = sameYear
+    ? `${a.d} ${monthName(a.m).toLowerCase()}`
+    : `${a.d} ${monthName(a.m).toLowerCase()} ${a.y}`;
+  const innerEnd = sameYear
+    ? `${b.d} ${monthName(b.m).toLowerCase()}`
+    : `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
+  return `${titleMonth} (${innerStart} - ${innerEnd})`;
+}
+
 /** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
 function sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   let sum = 0;
@@ -11540,7 +11558,7 @@ function renderAnalysisPage() {
   ui.analysisSalaryPeriodOffset = idx - nextIdx;
 
   const win = getSalaryPeriodWindow(payDates, idx);
-  const periodLine = win?.payIso ? formatSalaryPeriodLabelNextPaySv(win.payIso) : "—";
+  const periodHeroTitle = win ? formatSalaryPeriodHeroTitleSv(win) : "—";
   const plannedExp =
     win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
   const plannedInc =
@@ -11548,45 +11566,47 @@ function renderAnalysisPage() {
   const kvarPlan = plannedInc - plannedExp;
   const isInnevarandePeriod = (Number(ui.analysisSalaryPeriodOffset) || 0) === 0;
   const heroEyebrow = isInnevarandePeriod ? "Innevarande löneperiod" : "Löneperiod";
-  const periodRefDate = win?.payIso
-    ? parseDateISO(win.payIso)
-    : win?.startIso
-      ? parseDateISO(win.startIso)
-      : null;
-  const prd =
-    periodRefDate && !Number.isNaN(periodRefDate.getTime()) ? periodRefDate : new Date();
-  const periodSalaryYearLabel = currentSalaryYearLabelForDate(prd, startMo);
-  const periodSyBounds = salaryYearInclusiveBounds(periodSalaryYearLabel, startMo);
-  const periodSyModel = periodSyBounds ? buildSalaryYearAnalysisModel(state, periodSyBounds, payDates) : null;
-  const periodSalaryYearHasDeficits = periodSyModel && periodSyModel.risks.length > 0;
+  const heroLeadText =
+    plannedInc + ROBIN_HOOD_EPS >= plannedExp
+      ? "Löneperiodens överskott efter planerade utgifter"
+      : "Löneperiodens underskott efter planerade utgifter";
   const rhAgg =
     win && payDates.length > 1 ? robinHoodSetasideAggForPayPeriodTowardNext(state, payDates, idx) : { total: 0, rows: [] };
   const rhTargetBreakdownLine =
-    rhAgg.total > 0 && rhAgg.rows.length > 0
+    rhAgg.total > ROBIN_HOOD_EPS && rhAgg.rows.length > 0
       ? rhAgg.rows.map((r) => `Mot underskott ${r.monthLabel} ${r.y}: ${formatKr(r.amount)}`).join(" · ")
       : "";
-  const calendarSpanForPeriod =
-    win && win.startIso && win.endIso ? formatAnalysisIsoRangeSv(win.startIso, win.endIso) : "";
-  const rhSparMiniBlock = periodSalaryYearHasDeficits
-    ? `<div class="analysis-salary-hero__mini">
+  const rhSparMiniBlock =
+    rhAgg.total > ROBIN_HOOD_EPS
+      ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
-          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>
-          <div class="analysis-salary-hero__mini-hint">Robint mot nästa löneperiod.${
+          <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>${
             rhTargetBreakdownLine
-              ? `<br><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(rhTargetBreakdownLine)}</span>`
+              ? `<div class="analysis-salary-hero__mini-hint"><span class="analysis-salary-hero__mini-hint-breakdown">${escapeHtml(
+                  rhTargetBreakdownLine
+                )}</span></div>`
               : ""
-          }</div>
+          }
         </div>`
-    : "";
+      : "";
 
   mount.innerHTML = `
+    <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneperiod">
+      <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryPeriodPrevBtn" ${
+        idx <= 0 ? "disabled" : ""
+      } aria-label="Föregående löneperiod">‹ Föregående period</button>
+      <span class="analysis-salary-year-nav__sep" aria-hidden="true">|</span>
+      <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryPeriodNextBtn" ${
+        idx >= payDates.length - 1 ? "disabled" : ""
+      } aria-label="Nästa löneperiod">Nästa period ›</button>
+    </div>
     <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
       <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>
       <div class="analysis-salary-hero__big">${escapeHtml(formatKr(kvarPlan))}</div>
       <p class="analysis-salary-hero__lead">
-        Kvar enligt planen till nästa lön. Visar om perioden är lugn eller tajt — inte saldo på kontot.
+        ${escapeHtml(heroLeadText)}
       </p>
-      <div class="analysis-salary-hero__chip">${escapeHtml(periodLine)}</div>
+      <div class="analysis-salary-hero__chip">${escapeHtml(periodHeroTitle)}</div>
       <div class="analysis-salary-hero__minis">
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>
@@ -11595,23 +11615,6 @@ function renderAnalysisPage() {
         ${rhSparMiniBlock}
       </div>
     </section>
-    <div class="table-card analysis-salary-period-controls">
-      <div class="table-title">Byt period</div>
-      <p class="note">Växla mellan löneperioder.</p>
-      <p class="note analysis-view-range-line">${escapeHtml(periodLine)}</p>
-      ${
-        calendarSpanForPeriod
-          ? `<p class="note analysis-view-range-line analysis-salary-period-controls__calendar-span">${escapeHtml(
-              calendarSpanForPeriod
-            )}</p>`
-          : ""
-      }
-      <div class="analysis-inline-nav">
-        <button type="button" class="secondary" id="analysisSalaryPeriodPrevBtn" ${idx <= 0 ? "disabled" : ""}>Föregående period</button>
-        <button type="button" class="secondary" id="analysisSalaryPeriodNextBtn" ${idx >= payDates.length - 1 ? "disabled" : ""}>Nästa period</button>
-      </div>
-    </div>
-    ${anchorNote}
   `;
 
   document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
