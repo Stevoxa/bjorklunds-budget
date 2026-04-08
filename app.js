@@ -3410,22 +3410,33 @@ function formatSalaryPeriodLabelNextPaySv(endIso) {
   return `${monthYear} – Nästa lön ${nextPayPhrase}`;
 }
 
-/** Hero-chip: t.ex. "April (25 mars - 24 april)" eller "Januari (25 december 2025 - 24 januari 2026)" vid årssprång. */
-function formatSalaryPeriodHeroTitleSv(win) {
+/**
+ * Hero-chip: t.ex. "Januari ( 23 december - 22 januari )" inom nuvarande löneår;
+ * annars alltid år på båda datumen: "Januari ( 23 december 2025 - 22 januari 2026 )".
+ */
+function formatSalaryPeriodHeroTitleSv(win, startMonth, nowDate) {
   if (!win?.payIso || !win?.startIso || !win?.endIso) return "—";
   const payP = datePartsFromIso(String(win.payIso).slice(0, 10));
   const a = datePartsFromIso(String(win.startIso).slice(0, 10));
   const b = datePartsFromIso(String(win.endIso).slice(0, 10));
   if (!payP || !a || !b) return "—";
   const titleMonth = monthName(payP.m);
-  const sameYear = a.y === b.y;
-  const innerStart = sameYear
-    ? `${a.d} ${monthName(a.m).toLowerCase()}`
-    : `${a.d} ${monthName(a.m).toLowerCase()} ${a.y}`;
-  const innerEnd = sameYear
-    ? `${b.d} ${monthName(b.m).toLowerCase()}`
-    : `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
-  return `${titleMonth} (${innerStart} - ${innerEnd})`;
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const ref = nowDate instanceof Date && !Number.isNaN(nowDate.getTime()) ? nowDate : new Date();
+  const curLy = currentSalaryYearLabelForDate(ref, sm);
+  const periodLy = salaryYearLabelForCalendarMonth(payP.y, payP.m, sm);
+  const hideInnerYears = periodLy === curLy;
+  const sameCalYear = a.y === b.y;
+  let innerStart;
+  let innerEnd;
+  if (hideInnerYears && sameCalYear) {
+    innerStart = `${a.d} ${monthName(a.m).toLowerCase()}`;
+    innerEnd = `${b.d} ${monthName(b.m).toLowerCase()}`;
+  } else {
+    innerStart = `${a.d} ${monthName(a.m).toLowerCase()} ${a.y}`;
+    innerEnd = `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
+  }
+  return `${titleMonth} ( ${innerStart} - ${innerEnd} )`;
 }
 
 /** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
@@ -7566,14 +7577,16 @@ function salaryPeriodDoughnutRemainderHex() {
   return resolvedDocumentTheme() === "dark" ? "rgba(255,255,255,0.14)" : "#e6e6ea";
 }
 
-/** Blekt gult — Spara-segment (skiljer sig från mättade utgiftsfärger). */
+/** Spara-segment — egen ljus nyans (inte samma som avsättning). */
 function salaryPeriodDonutSparPaleHex() {
-  return resolvedDocumentTheme() === "dark" ? "rgba(255, 236, 179, 0.38)" : "#f3e8bf";
+  return resolvedDocumentTheme() === "dark" ? "rgba(220, 230, 160, 0.42)" : "#e4eab8";
 }
 
-/** Ljusare gult — Avsättningar-segment. */
+/**
+ * Avsättningar — samma amberton som hero Sparavsättning (.analysis-salary-hero__mini--setaside), lätt gråtonad mot diagrambakgrund.
+ */
 function salaryPeriodDonutSetasidePaleHex() {
-  return resolvedDocumentTheme() === "dark" ? "rgba(255, 248, 210, 0.34)" : "#faf3d6";
+  return resolvedDocumentTheme() === "dark" ? "rgba(232, 188, 72, 0.55)" : "#d8c078";
 }
 
 function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
@@ -11921,7 +11934,7 @@ function renderAnalysisPage() {
   ui.analysisSalaryPeriodOffset = idx - nextIdx;
 
   const win = getSalaryPeriodWindow(payDates, idx);
-  const periodHeroTitle = win ? formatSalaryPeriodHeroTitleSv(win) : "—";
+  const periodHeroTitle = win ? formatSalaryPeriodHeroTitleSv(win, startMo, now) : "—";
   const plannedExp =
     win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
   const plannedInc =
@@ -11950,6 +11963,16 @@ function renderAnalysisPage() {
                 )}</span></div>`
               : ""
           }
+        </div>`
+      : "";
+  const kvarEfterSparavsattning = kvarPlan - rhAgg.total;
+  const rhAfterSetasideBlock =
+    rhAgg.total > ROBIN_HOOD_EPS
+      ? `<div class="analysis-salary-hero__mini analysis-salary-hero__mini--after-setaside">
+          <div class="analysis-salary-hero__mini-label">Överskott efter sparavsättning</div>
+          <div class="analysis-salary-hero__mini-value${
+            kvarEfterSparavsattning < -ROBIN_HOOD_EPS ? " analysis-salary-hero__mini-value--neg" : ""
+          }">${escapeHtml(formatKr(kvarEfterSparavsattning))}</div>
         </div>`
       : "";
 
@@ -12021,6 +12044,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(plannedExp))}</div>
         </div>
         ${rhSparMiniBlock}
+        ${rhAfterSetasideBlock}
       </div>
     </section>
     ${periodSpendBlock}
