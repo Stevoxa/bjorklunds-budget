@@ -3411,15 +3411,15 @@ function formatSalaryPeriodLabelNextPaySv(endIso) {
 }
 
 /**
- * Hero-chip: t.ex. "Januari ( 23 december - 22 januari )" inom nuvarande löneår;
- * annars alltid år på båda datumen: "Januari ( 23 december 2025 - 22 januari 2026 )".
+ * Hero-chip i två rader: månadsnamn versaler, datumspann med gemener (samma logik som tidigare enradstitel).
+ * @returns {{ primary: string, sub: string } | null}
  */
-function formatSalaryPeriodHeroTitleSv(win, startMonth, nowDate) {
-  if (!win?.payIso || !win?.startIso || !win?.endIso) return "—";
+function getSalaryPeriodHeroChipLinesSv(win, startMonth, nowDate) {
+  if (!win?.payIso || !win?.startIso || !win?.endIso) return null;
   const payP = datePartsFromIso(String(win.payIso).slice(0, 10));
   const a = datePartsFromIso(String(win.startIso).slice(0, 10));
   const b = datePartsFromIso(String(win.endIso).slice(0, 10));
-  if (!payP || !a || !b) return "—";
+  if (!payP || !a || !b) return null;
   const titleMonth = monthName(payP.m);
   const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
   const ref = nowDate instanceof Date && !Number.isNaN(nowDate.getTime()) ? nowDate : new Date();
@@ -3436,7 +3436,8 @@ function formatSalaryPeriodHeroTitleSv(win, startMonth, nowDate) {
     innerStart = `${a.d} ${monthName(a.m).toLowerCase()} ${a.y}`;
     innerEnd = `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
   }
-  return `${titleMonth} ( ${innerStart} - ${innerEnd} )`;
+  const sub = `( ${innerStart} - ${innerEnd} )`;
+  return { primary: titleMonth.toLocaleUpperCase("sv-SE"), sub };
 }
 
 /** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
@@ -11972,7 +11973,14 @@ function renderAnalysisPage() {
   ui.analysisSalaryPeriodOffset = idx - nextIdx;
 
   const win = getSalaryPeriodWindow(payDates, idx);
-  const periodHeroTitle = win ? formatSalaryPeriodHeroTitleSv(win, startMo, now) : "—";
+  const periodHeroChip = getSalaryPeriodHeroChipLinesSv(win, startMo, now);
+  const periodHeroChipAria = periodHeroChip ? `${periodHeroChip.primary}. ${periodHeroChip.sub}` : "—";
+  const periodHeroChipHtml = periodHeroChip
+    ? `<div class="analysis-salary-hero__chip analysis-salary-hero__chip--stacked" role="group" aria-label="${escapeHtml(periodHeroChipAria)}">
+          <span class="analysis-salary-hero__chip-line-primary">${escapeHtml(periodHeroChip.primary)}</span>
+          <span class="analysis-salary-hero__chip-line-sub">${escapeHtml(periodHeroChip.sub)}</span>
+        </div>`
+    : `<div class="analysis-salary-hero__chip" aria-label="—">—</div>`;
   const plannedExp =
     win && win.startIso && win.endIso ? sumExpensePaymentsInIsoRangeInclusive(state, win.startIso, win.endIso) : 0;
   const plannedInc =
@@ -12091,7 +12099,7 @@ function renderAnalysisPage() {
       <p class="analysis-salary-hero__lead">
         ${escapeHtml(heroLeadText)}
       </p>
-      <div class="analysis-salary-hero__chip">${escapeHtml(periodHeroTitle)}</div>
+      ${periodHeroChipHtml}
       <div class="analysis-salary-hero__minis">
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>

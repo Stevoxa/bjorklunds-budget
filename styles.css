@@ -3614,19 +3614,33 @@ input.input-readonly-like {
 .analysis-salary-hero__chip--stacked {
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 5px;
 }
 
 .analysis-salary-hero__chip-line-primary {
   display: block;
+  width: 100%;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.94);
 }
 
 .analysis-salary-hero__chip-line-sub {
   display: block;
-  font-size: 0.75rem;
-  font-weight: 650;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.88);
+  width: 100%;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.86);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-transform: lowercase;
 }
 
 .analysis-salary-hero__minis {
