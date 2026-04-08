@@ -7580,37 +7580,24 @@ function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
   return s;
 }
 
-/** Första lönedatum i listan som ligger i kalendermånad (y, m). */
-function salaryPayIsoFirstInCalendarMonth(sortedPayIsos, y, m) {
-  const yy = Math.floor(asNumber(y));
-  const mm = Math.floor(asNumber(m));
-  if (!Number.isFinite(yy) || !Number.isFinite(mm) || mm < 1 || mm > 12) return null;
-  for (const raw of sortedPayIsos || []) {
-    const iso = String(raw || "").slice(0, 10);
-    const p = datePartsFromIso(iso);
-    if (p && p.y === yy && p.m === mm) return iso;
-  }
-  return null;
-}
-
 /**
- * Robin-avsättning hör till den löneperiod som **börjar** med bärarens lönedag (samma som win.startIso):
- * perioden går från den utbetalningen till dagen före nästa, och avsättningen bokförs dagen efter lön.
+ * Robin-avsättning: samma indelning som löneårsvyn — bärarmånad (fromY/fromM) ska matcha **periodens
+ * namngivande utbetalning** (win.payIso), inte startIso (som är föregående lön och skulle flytta jan → feb).
  */
-function sumRobinSetasidePaymentsForSalaryPeriodStart(root, sortedPayIsos, periodStartIso) {
-  const start = String(periodStartIso || "").slice(0, 10);
-  if (!start || !(sortedPayIsos || []).length) return 0;
+function sumRobinSetasidePaymentsForSalaryPeriodPayIso(root, periodPayIso) {
+  const p = datePartsFromIso(String(periodPayIso || "").slice(0, 10));
+  if (!p) return 0;
+  const py = p.y;
+  const pm = p.m;
   let s = 0;
   for (const exp of root.expenses || []) {
     if (!isRobinHoodSetasideSavingsExpense(exp)) continue;
     const meta = exp.metadata?.robinHood;
     const fy = Math.floor(asNumber(meta?.fromY));
     const fm = Math.floor(asNumber(meta?.fromM));
-    if (!Number.isFinite(fy) || !Number.isFinite(fm)) continue;
-    const carrierPay = salaryPayIsoFirstInCalendarMonth(sortedPayIsos, fy, fm);
-    if (!carrierPay || carrierPay !== start) continue;
-    for (const p of exp.payments || []) {
-      const amt = asNumber(p.amount);
+    if (!Number.isFinite(fy) || !Number.isFinite(fm) || fy !== py || fm !== pm) continue;
+    for (const pmt of exp.payments || []) {
+      const amt = asNumber(pmt.amount);
       if (amt <= 0) continue;
       s += amt;
     }
@@ -7622,14 +7609,14 @@ function sumRobinSetasidePaymentsForSalaryPeriodStart(root, sortedPayIsos, perio
  * Löneperiod — donut: huvudkategorier + övrigt (spar/avsättning ingår inte i utgiftsdelen),
  * sedan Spara och Avsättningar (ljusa gula segment), sedan Överskott (ljusgrått).
  */
-function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedInc, plannedExp, sortedPayIsos) {
+function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedInc, plannedExp, periodPayIso) {
   const inc = Math.max(0, asNumber(plannedInc));
   const exp = Math.max(0, asNumber(plannedExp));
   const gray = salaryPeriodDoughnutRemainderHex();
   const a = String(startIso || "").slice(0, 10);
   const b = String(endIso || "").slice(0, 10);
   const sparSum = sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b);
-  const setasideSum = sumRobinSetasidePaymentsForSalaryPeriodStart(root, sortedPayIsos, a);
+  const setasideSum = sumRobinSetasidePaymentsForSalaryPeriodPayIso(root, periodPayIso);
   const paleSpar = salaryPeriodDonutSparPaleHex();
   const paleSetaside = salaryPeriodDonutSetasidePaleHex();
 
@@ -7667,11 +7654,12 @@ function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedIn
   return { labels, data, colors, empty, totalExpenseKr: exp, totalIncomeKr: inc, sparKr: sparSum, setasideKr: setasideSum };
 }
 
-function collectSalaryPeriodEventRows(root, startIso, endIso, sortedPayIsos) {
+function collectSalaryPeriodEventRows(root, startIso, endIso, periodPayIso) {
   const a = String(startIso || "").slice(0, 10);
   const b = String(endIso || "").slice(0, 10);
-  const periodStart = a;
-  const useRobStartMatch = (sortedPayIsos || []).length > 0 && periodStart;
+  const payParts = datePartsFromIso(String(periodPayIso || "").slice(0, 10));
+  const useRobPayIsoMatch =
+    payParts && Number.isFinite(payParts.y) && Number.isFinite(payParts.m);
   const rows = [];
   for (const inc of root.incomes || []) {
     const lineTitle = incomeDisplayName(inc);
@@ -7693,18 +7681,17 @@ function collectSalaryPeriodEventRows(root, startIso, endIso, sortedPayIsos) {
   for (const exp of root.expenses || []) {
     if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
     const isRobSetaside = isRobinHoodSetasideSavingsExpense(exp);
-    if (isRobSetaside && useRobStartMatch) {
+    if (isRobSetaside && useRobPayIsoMatch) {
       const meta = exp.metadata?.robinHood;
       const fy = Math.floor(asNumber(meta?.fromY));
       const fm = Math.floor(asNumber(meta?.fromM));
-      const carrierPay = salaryPayIsoFirstInCalendarMonth(sortedPayIsos, fy, fm);
-      if (!carrierPay || carrierPay !== periodStart) continue;
+      if (!Number.isFinite(fy) || !Number.isFinite(fm) || fy !== payParts.y || fm !== payParts.m) continue;
     }
     for (const p of exp.payments || []) {
       const amt = asNumber(p.amount);
       if (amt <= 0) continue;
       const iso = String(p.date || "").slice(0, 10);
-      if (!isRobSetaside || !useRobStartMatch) {
+      if (!isRobSetaside || !useRobPayIsoMatch) {
         if (!isoInRange(iso, a, b)) continue;
       }
       let kind;
@@ -11964,9 +11951,9 @@ function renderAnalysisPage() {
       win.endIso,
       plannedInc,
       plannedExp,
-      payDates
+      win.payIso
     );
-    const payRows = collectSalaryPeriodEventRows(state, win.startIso, win.endIso, payDates);
+    const payRows = collectSalaryPeriodEventRows(state, win.startIso, win.endIso, win.payIso);
     const paymentListHtml = buildSalaryPeriodPaymentListHtml(payRows);
     periodSpendBlock = salaryPeriodDoughnutModel.empty
       ? `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
