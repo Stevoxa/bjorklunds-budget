@@ -7602,9 +7602,9 @@ function salaryPeriodDoughnutRemainderHex() {
   return resolvedDocumentTheme() === "dark" ? "rgba(255,255,255,0.14)" : "#e6e6ea";
 }
 
-/** Spara-segment — egen ljus nyans (inte samma som avsättning). */
+/** Spara-segment — tydlig guldton mot ljus/mörk diagrambakgrund (ej nästan vit / grå). */
 function salaryPeriodDonutSparPaleHex() {
-  return resolvedDocumentTheme() === "dark" ? "rgba(220, 230, 160, 0.42)" : "#e4eab8";
+  return resolvedDocumentTheme() === "dark" ? "#e6cf33" : "#b89400";
 }
 
 /**
@@ -7624,7 +7624,7 @@ function salaryPeriodDonutSetasidePaleHex() {
   } catch {
     /* ignore */
   }
-  return resolvedDocumentTheme() === "dark" ? "rgb(191, 188, 159)" : "rgb(249, 244, 216)";
+  return resolvedDocumentTheme() === "dark" ? "rgb(58, 56, 28)" : "rgb(236, 227, 162)";
 }
 
 function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
@@ -12005,7 +12005,7 @@ function renderAnalysisPage() {
   const kvarEfterSparavsattning = kvarPlan - rhAgg.total;
   const rhAfterSetasideBlock =
     rhAgg.total > ROBIN_HOOD_EPS
-      ? `<div class="analysis-salary-hero__mini analysis-salary-hero__mini--after-setaside">
+      ? `<div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Överskott efter sparavsättning</div>
           <div class="analysis-salary-hero__mini-value${
             kvarEfterSparavsattning < -ROBIN_HOOD_EPS ? " analysis-salary-hero__mini-value--neg" : ""
