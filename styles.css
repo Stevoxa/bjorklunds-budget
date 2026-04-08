@@ -3643,6 +3643,13 @@ input.input-readonly-like {
   padding: 13px 14px;
 }
 
+/* Löneperiod: avsättning — varm amber i linje med Robin gul / spar-palett på grön hero */
+.analysis-salary-hero__mini--setaside {
+  background: color-mix(in srgb, #f0b429 32%, rgba(255, 255, 255, 0.1));
+  border-color: color-mix(in srgb, #ffd54f 48%, rgba(255, 255, 255, 0.22));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
 .analysis-salary-hero__mini-label {
   font-size: 0.68rem;
   text-transform: uppercase;

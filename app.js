@@ -11578,7 +11578,7 @@ function renderAnalysisPage() {
       : "";
   const rhSparMiniBlock =
     rhAgg.total > ROBIN_HOOD_EPS
-      ? `<div class="analysis-salary-hero__mini">
+      ? `<div class="analysis-salary-hero__mini analysis-salary-hero__mini--setaside">
           <div class="analysis-salary-hero__mini-label">Sparavsättning</div>
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(rhAgg.total))}</div>${
             rhTargetBreakdownLine
