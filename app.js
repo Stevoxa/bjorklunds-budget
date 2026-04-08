@@ -3458,6 +3458,58 @@ function sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   return sum;
 }
 
+/**
+ * Sista planerade utbetalning i intervallet som klassas fast (samma utgiftsunderlag som planerade utgifter, exkl. sparande).
+ * Vid flera poster samma dag väljs högst belopp, därefter stabil namnordning.
+ */
+function findLastFixedCostPaymentInIsoRangeInclusive(root, startIso, endIso) {
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  if (!a || !b) return null;
+  let best = null;
+  for (const exp of root.expenses || []) {
+    if (exp.category === "savings") continue;
+    if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
+    if (getExpenseCostBehavior(exp) !== EXPENSE_COST_FIXED) continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= ROBIN_HOOD_EPS) continue;
+      const d = String(p.date || "").slice(0, 10);
+      if (!d || d < a || d > b) continue;
+      const labelKey = salaryPeriodFixedCostDescriptionLine(exp);
+      if (!best) {
+        best = { iso: d, amount: amt, expense: exp, labelKey };
+        continue;
+      }
+      if (d > best.iso) {
+        best = { iso: d, amount: amt, expense: exp, labelKey };
+        continue;
+      }
+      if (d < best.iso) continue;
+      if (amt > best.amount + ROBIN_HOOD_EPS) {
+        best = { iso: d, amount: amt, expense: exp, labelKey };
+        continue;
+      }
+      if (amt < best.amount - ROBIN_HOOD_EPS) continue;
+      if (labelKey.localeCompare(best.labelKey, "sv") < 0) best = { iso: d, amount: amt, expense: exp, labelKey };
+    }
+  }
+  if (!best) return null;
+  return { iso: best.iso, amount: best.amount, expense: best.expense };
+}
+
+function salaryPeriodFixedCostDescriptionLine(exp) {
+  if (!exp) return "Utgift";
+  const cat = exp.category;
+  if (cat === "car" || cat === "home" || cat === "children") {
+    const key = exp.subcategory || "other";
+    const tl = getTaggedTypeLabel(cat, key);
+    const name = String(exp.name || "").trim() || tl;
+    return `${tl} · ${name}`;
+  }
+  return String(exp.name || "").trim() || "Utgift";
+}
+
 function sumIncomePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   let sum = 0;
   const a = String(startIso || "").slice(0, 10);
@@ -7583,10 +7635,23 @@ function salaryPeriodDonutSparPaleHex() {
 }
 
 /**
- * Avsättningar — samma amberton som hero Sparavsättning (.analysis-salary-hero__mini--setaside), lätt gråtonad mot diagrambakgrund.
+ * Avsättningar i löneperiods-donut — samma färg som avsättningsraden (var(--analysis-setaside-surface)).
  */
 function salaryPeriodDonutSetasidePaleHex() {
-  return resolvedDocumentTheme() === "dark" ? "rgba(232, 188, 72, 0.55)" : "#d8c078";
+  try {
+    const el = document.createElement("div");
+    el.setAttribute("aria-hidden", "true");
+    el.style.cssText =
+      "position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);pointer-events:none;";
+    el.style.background = "var(--analysis-setaside-surface)";
+    document.documentElement.appendChild(el);
+    const bg = getComputedStyle(el).backgroundColor;
+    el.remove();
+    if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg;
+  } catch {
+    /* ignore */
+  }
+  return resolvedDocumentTheme() === "dark" ? "rgb(191, 188, 159)" : "rgb(249, 244, 216)";
 }
 
 function sumSalaryPeriodUserSavingsPaymentsInRange(root, a, b) {
@@ -11976,6 +12041,23 @@ function renderAnalysisPage() {
         </div>`
       : "";
 
+  const lastFixedCostInPeriod =
+    win?.startIso && win?.endIso
+      ? findLastFixedCostPaymentInIsoRangeInclusive(state, win.startIso, win.endIso)
+      : null;
+  const rhLastFixedCostMiniBlock =
+    !(rhAgg.total > ROBIN_HOOD_EPS) && lastFixedCostInPeriod
+      ? `<div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Periodens sista fasta kostnad</div>
+          <div class="analysis-salary-hero__mini-value analysis-salary-hero__mini-value--last-fixed-date">${escapeHtml(
+            formatTaggedExpenseDateDisplaySv(lastFixedCostInPeriod.iso)
+          )}</div>
+          <div class="analysis-salary-hero__mini-hint">${escapeHtml(
+            salaryPeriodFixedCostDescriptionLine(lastFixedCostInPeriod.expense)
+          )} · ${escapeHtml(formatKr(lastFixedCostInPeriod.amount))}</div>
+        </div>`
+      : "";
+
   const payP = win?.payIso ? datePartsFromIso(String(win.payIso).slice(0, 10)) : null;
   const eventsMonthTitle = payP ? `Händelser i ${monthName(payP.m).toLowerCase()}` : "Händelser";
   let salaryPeriodDoughnutModel = null;
@@ -12043,6 +12125,7 @@ function renderAnalysisPage() {
           <div class="analysis-salary-hero__mini-label">Planerade utgifter</div>
           <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(plannedExp))}</div>
         </div>
+        ${rhLastFixedCostMiniBlock}
         ${rhSparMiniBlock}
         ${rhAfterSetasideBlock}
       </div>

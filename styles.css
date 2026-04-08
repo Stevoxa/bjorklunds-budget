@@ -41,6 +41,8 @@
   --bg: #f3f6f4;
   --card: #ffffff;
   --card-2: #eaf0ec;
+  /* Avsättningsrad i löneperiod + donut-segment "Avsättningar" */
+  --analysis-setaside-surface: color-mix(in srgb, #fff6d0 72%, var(--card-2));
   --text: #141a16;
   --muted: #5c6660;
   --border: rgba(20, 26, 22, 0.11);
@@ -3672,6 +3674,13 @@ input.input-readonly-like {
   font-variant-numeric: tabular-nums;
 }
 
+.analysis-salary-hero__mini-value--last-fixed-date {
+  font-size: clamp(1.38rem, 4.4vw, 1.85rem);
+  line-height: 1.12;
+  margin-top: 8px;
+  font-weight: 800;
+}
+
 .analysis-salary-hero__mini-value--muted {
   opacity: 0.75;
   font-weight: 700;
@@ -4019,7 +4028,7 @@ input.input-readonly-like {
 }
 
 .analysis-salary-period-event-row--setaside {
-  background: color-mix(in srgb, #fff6d0 72%, var(--card-2, #f5f6f4));
+  background: var(--analysis-setaside-surface);
   border-color: color-mix(in srgb, #f3e0a0 38%, var(--border));
 }
 
