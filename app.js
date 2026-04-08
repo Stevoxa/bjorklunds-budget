@@ -7548,7 +7548,158 @@ function buildSalaryYearExpenseSpendChartModel(root, startIso, endIso) {
   return { portrait, landscape, empty };
 }
 
+/** Ljusgrått segment när intäkt > utgifter (ej gul). */
+function salaryPeriodDoughnutRemainderHex() {
+  return resolvedDocumentTheme() === "dark" ? "rgba(255,255,255,0.14)" : "#e6e6ea";
+}
+
+/**
+ * Löneperiod — donut: samma huvudkategorier som löneår (ej spar/Robin-avsättning), ev. övrigt mot planerade utgifter,
+ * samt ljusgrått segment för (intäkt − utgift) när överskott.
+ */
+function buildSalaryPeriodExpenseDoughnutModel(root, startIso, endIso, plannedInc, plannedExp) {
+  const inc = Math.max(0, asNumber(plannedInc));
+  const exp = Math.max(0, asNumber(plannedExp));
+  const gray = salaryPeriodDoughnutRemainderHex();
+  const base = buildSalaryYearExpenseSpendChartModel(root, startIso, endIso);
+  const labels = [...base.portrait.labels];
+  const data = base.portrait.data.map((v) => Math.round(asNumber(v)));
+  const colors = [...base.portrait.colors];
+  const catSum = data.reduce((s, v) => s + v, 0);
+  let other = exp - catSum;
+  if (other < 0) other = 0;
+  if (Math.abs(other) <= 1.5) other = 0;
+  if (other > ROBIN_HOOD_EPS) {
+    labels.push("Övrigt");
+    data.push(Math.round(other));
+    colors.push(chartSegmentHex("recurringExpenses"));
+  }
+  const surplus = inc - exp;
+  if (surplus > ROBIN_HOOD_EPS) {
+    labels.push("Utrymme kvar");
+    data.push(Math.round(surplus));
+    colors.push(gray);
+  }
+  const hasAny = data.some((v) => v > 0);
+  const empty = !hasAny;
+  return { labels, data, colors, empty, totalExpenseKr: exp, totalIncomeKr: inc };
+}
+
+function collectSalaryPeriodPlannedExpensePaymentRows(root, startIso, endIso) {
+  const a = String(startIso || "").slice(0, 10);
+  const b = String(endIso || "").slice(0, 10);
+  const rows = [];
+  for (const exp of root.expenses || []) {
+    if (isRobinHoodWithdrawSavingsExpense(exp)) continue;
+    for (const p of exp.payments || []) {
+      const amt = asNumber(p.amount);
+      if (amt <= 0) continue;
+      const iso = String(p.date || "").slice(0, 10);
+      if (!isoInRange(iso, a, b)) continue;
+      let kind;
+      let dotColor = null;
+      if (isRobinHoodSetasideSavingsExpense(exp)) {
+        kind = "setaside";
+      } else if (exp.category === "savings") {
+        kind = "savings";
+      } else {
+        kind = "expense";
+        const mk = salaryYearSpendMainKeyForExpense(exp);
+        if (mk) {
+          const def = SALARY_YEAR_SPEND_MAIN_ORDER.find((d) => d.key === mk);
+          dotColor = def ? chartSegmentHex(def.chartKey) : null;
+        } else if (exp.category === "one_off") {
+          dotColor = chartSegmentHex("oneOffExpenses");
+        } else {
+          dotColor = chartSegmentHex("recurringExpenses");
+        }
+      }
+      const name = String(exp.name || "").trim() || "Utgift";
+      const sub =
+        kind === "setaside" ? "Avsättning" : kind === "savings" ? "Sparande" : overviewTableGroupForExpense(exp);
+      rows.push({ iso, kind, name, sub, amount: amt, dotColor });
+    }
+  }
+  rows.sort((x, y) => x.iso.localeCompare(y.iso) || x.name.localeCompare(y.name));
+  return rows;
+}
+
+function buildSalaryPeriodPaymentListHtml(rows) {
+  if (!rows.length) {
+    return `<div class="note analysis-salary-period-pay-empty">Inga planerade utgifter i löneperioden.</div>`;
+  }
+  return rows
+    .map((r) => {
+      const iso = r.iso;
+      const dateStr = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+      const dot =
+        r.dotColor == null
+          ? `<span class="analysis-salary-period-pay-row__no-dot" aria-hidden="true"></span>`
+          : `<span class="analysis-payment-dot" style="background-color:${escapeHtml(r.dotColor)}" aria-hidden="true"></span>`;
+      const rowCls =
+        "analysis-payment-row analysis-salary-period-pay-row" +
+        (r.kind === "setaside" ? " analysis-salary-period-pay-row--setaside" : "") +
+        (r.kind === "savings" ? " analysis-salary-period-pay-row--savings" : "");
+      return `<div class="${rowCls}">
+      <div class="analysis-payment-date">${escapeHtml(dateStr)}</div>
+      <div class="analysis-payment-main">
+        ${dot}
+        <div>
+          <div class="analysis-payment-cat">${escapeHtml(r.name)}</div>
+          <div class="analysis-payment-kind">${escapeHtml(r.sub)}</div>
+        </div>
+      </div>
+      <div class="analysis-payment-amt analysis-payment-amt--expense">− ${escapeHtml(formatKr(r.amount))}</div>
+    </div>`;
+    })
+    .join("");
+}
+
+function fillSalaryPeriodSpendLegendsFromPack(pack) {
+  const html =
+    !pack || !pack.labels || !pack.labels.length
+      ? ""
+      : pack.labels
+          .map((lab, i) => {
+            const col = pack.colors[i] || "#888";
+            return `<div class="analysis-salary-year-spend__legend-row">
+        <span class="analysis-salary-year-spend__legend-left">
+          <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(col)}" aria-hidden="true"></span>
+          <span class="analysis-salary-year-spend__legend-label">${escapeHtml(lab)}</span>
+        </span>
+        <span class="analysis-salary-year-spend__legend-amt">${escapeHtml(formatKr(pack.data[i]))}</span>
+      </div>`;
+          })
+          .join("");
+  for (const id of ["analysisSalaryPeriodSpendLegend", "analysisSalaryPeriodPostListLegend"]) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+}
+
 let salaryYearSpendOrientationCleanup = null;
+let salaryPeriodSpendOrientationCleanup = null;
+
+function teardownSalaryPeriodSpendChart() {
+  if (typeof salaryPeriodSpendOrientationCleanup === "function") {
+    try {
+      salaryPeriodSpendOrientationCleanup();
+    } catch {
+      /* ignore */
+    }
+    salaryPeriodSpendOrientationCleanup = null;
+  }
+  const instP = analysisChartInstances.salaryPeriodSpend;
+  if (instP) {
+    try {
+      instP.destroy();
+    } catch {
+      /* ignore */
+    }
+    delete analysisChartInstances.salaryPeriodSpend;
+  }
+  fillSalaryPeriodSpendLegendsFromPack(null);
+}
 
 function teardownSalaryYearSpendChart() {
   if (typeof salaryYearSpendOrientationCleanup === "function") {
@@ -7632,6 +7783,67 @@ function wireSalaryYearSpendChart(spendModel) {
   }
 
   analysisChartInstances.salaryYearSpend = new Chart(canvas, {
+    type: "doughnut",
+    data: {
+      labels: pack.labels,
+      datasets: [
+        {
+          data: pack.data,
+          backgroundColor: pack.colors,
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      events: [],
+      cutout: isLm ? "52%" : "62%",
+      layout: {
+        padding: { top: 4, right: 4, bottom: 4, left: 4 }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      }
+    }
+  });
+}
+
+function wireSalaryPeriodSpendChart(doughnutModel) {
+  const rootEl = document.querySelector("[data-salary-period-spend-root]");
+  const canvas = document.getElementById("analysisSalaryPeriodSpendChart");
+
+  if (!doughnutModel || doughnutModel.empty || typeof window.Chart === "undefined" || !canvas) {
+    fillSalaryPeriodSpendLegendsFromPack(null);
+    if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", analysisSalaryYearSpendLandscapeMode());
+    return;
+  }
+
+  const isLm = analysisSalaryYearSpendLandscapeMode();
+  const pack = doughnutModel;
+  if (!pack.labels.length) {
+    fillSalaryPeriodSpendLegendsFromPack(null);
+    return;
+  }
+
+  if (rootEl) rootEl.classList.toggle("analysis-salary-year-spend--landscape", isLm);
+
+  const mq = window.matchMedia("(orientation: landscape)");
+  const onOrient = () => {
+    if (ui.analysisViewMode !== "salaryPeriod") return;
+    renderAnalysisPage();
+  };
+  if (mq.addEventListener) mq.addEventListener("change", onOrient);
+  else mq.addListener(onOrient);
+  salaryPeriodSpendOrientationCleanup = () => {
+    if (mq.removeEventListener) mq.removeEventListener("change", onOrient);
+    else mq.removeListener(onOrient);
+  };
+
+  fillSalaryPeriodSpendLegendsFromPack(pack);
+
+  analysisChartInstances.salaryPeriodSpend = new Chart(canvas, {
     type: "doughnut",
     data: {
       labels: pack.labels,
@@ -7992,6 +8204,7 @@ function buildAnalysisInsightCards(heroAgg, slices) {
 
 function destroyAnalysisCharts() {
   teardownSalaryYearSpendChart();
+  teardownSalaryPeriodSpendChart();
   Object.values(analysisChartInstances).forEach((c) => {
     try {
       c.destroy();
@@ -11036,6 +11249,7 @@ function renderAnalysisPage() {
   const mount = document.getElementById("analysisViewDetail");
   if (!mount) return;
   teardownSalaryYearSpendChart();
+  teardownSalaryPeriodSpendChart();
 
   syncRobinHoodIntoState();
 
@@ -11590,6 +11804,50 @@ function renderAnalysisPage() {
         </div>`
       : "";
 
+  const payP = win?.payIso ? datePartsFromIso(String(win.payIso).slice(0, 10)) : null;
+  const expenseMonthTitle = payP ? `Utgifter i ${monthName(payP.m).toLowerCase()}` : "Utgifter";
+  let salaryPeriodDoughnutModel = null;
+  let periodSpendBlock = "";
+  let expenseListCard = "";
+  if (win?.startIso && win?.endIso) {
+    salaryPeriodDoughnutModel = buildSalaryPeriodExpenseDoughnutModel(
+      state,
+      win.startIso,
+      win.endIso,
+      plannedInc,
+      plannedExp
+    );
+    const payRows = collectSalaryPeriodPlannedExpensePaymentRows(state, win.startIso, win.endIso);
+    const paymentListHtml = buildSalaryPeriodPaymentListHtml(payRows);
+    periodSpendBlock = salaryPeriodDoughnutModel.empty
+      ? `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
+        <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
+        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden (ej spar eller Robin-avsättning).</p>
+        <p class="note analysis-salary-year-spend__empty">Inga belopp i vald löneperiod att visa i diagrammet.</p>
+      </div>`
+      : `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
+        <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
+        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden (ej spar eller Robin-avsättning).</p>
+        <div class="analysis-salary-year-chart-wrap analysis-salary-year-spend__viz">
+          <div class="analysis-salary-year-spend__body">
+            <div class="analysis-salary-year-spend__canvas-wrap">
+              <canvas id="analysisSalaryPeriodSpendChart" aria-label="Utgifter per kategori i löneperiod"></canvas>
+            </div>
+            <div class="analysis-salary-year-spend__legend-wrap">
+              <div class="analysis-salary-year-spend__legend" id="analysisSalaryPeriodSpendLegend" aria-label="Fördelning och belopp"></div>
+            </div>
+          </div>
+        </div>
+        <p class="analysis-salary-year-spend__total">Utgifter totalt: ${escapeHtml(formatKr(plannedExp))}</p>
+      </div>`;
+    expenseListCard = `<div class="table-card analysis-salary-period-expense-list">
+      <div class="table-title">${escapeHtml(expenseMonthTitle)}</div>
+      <p class="note analysis-salary-period-expense-list__ingress">Planerade utgifter under löneperioden</p>
+      <div class="analysis-payment-list analysis-salary-period-payment-list">${paymentListHtml}</div>
+      <div class="analysis-salary-period-postlegend" id="analysisSalaryPeriodPostListLegend" aria-label="Kategorier i diagrammet"></div>
+    </div>`;
+  }
+
   mount.innerHTML = `
     <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneperiod">
       <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryPeriodPrevBtn" ${
@@ -11615,6 +11873,8 @@ function renderAnalysisPage() {
         ${rhSparMiniBlock}
       </div>
     </section>
+    ${periodSpendBlock}
+    ${expenseListCard}
   `;
 
   document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
@@ -11625,6 +11885,7 @@ function renderAnalysisPage() {
     ui.analysisSalaryPeriodOffset += 1;
     renderAnalysisPage();
   });
+  wireSalaryPeriodSpendChart(salaryPeriodDoughnutModel);
 }
 
 function renderAnalysisViewsIfActive() {

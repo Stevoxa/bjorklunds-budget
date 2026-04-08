@@ -3958,6 +3958,60 @@ input.input-readonly-like {
   margin-top: var(--space-3);
 }
 
+.analysis-salary-period-spend {
+  margin-top: var(--space-3);
+}
+
+.analysis-salary-period-expense-list {
+  margin-top: var(--space-3);
+  font-family: var(--font-sans);
+}
+
+.analysis-salary-period-expense-list .table-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-2);
+}
+
+.analysis-salary-period-expense-list__ingress {
+  margin: 0 0 var(--space-3);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.analysis-salary-period-payment-list {
+  margin-top: 0;
+}
+
+.analysis-salary-period-pay-empty {
+  margin: 0;
+}
+
+.analysis-salary-period-postlegend {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.analysis-salary-period-pay-row__no-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.analysis-salary-period-pay-row--setaside {
+  background: color-mix(in srgb, #f0b429 24%, var(--card-2, #f5f6f4));
+  border-color: color-mix(in srgb, #ffd54f 42%, var(--border));
+}
+
+.analysis-salary-period-pay-row--savings {
+  background: color-mix(in srgb, var(--card-2) 94%, var(--muted));
+}
+
 .analysis-salary-year-chart-head {
   display: flex;
   justify-content: space-between;
