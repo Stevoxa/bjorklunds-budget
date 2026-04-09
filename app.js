@@ -3415,7 +3415,7 @@ function salaryYearHeroPayDateChip(syModel, bounds) {
 }
 
 /**
- * Löneår hero-chip två rader: som löneperiod (primär + parentesdatum), primär = "LÖNEÅR år".
+ * Löneår hero-chip två rader: som löneperiod (primär + parentesdatum), primär = "Löneår år".
  * @returns {{ primary: string, sub: string } | null}
  */
 function getSalaryYearHeroChipLinesSv(syModel, bounds, labelYear, startMonth, nowDate) {
@@ -3439,7 +3439,7 @@ function getSalaryYearHeroChipLinesSv(syModel, bounds, labelYear, startMonth, no
     innerEnd = `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
   }
   const sub = `( ${innerStart} - ${innerEnd} )`;
-  const primary = `Löneår ${labelYear}`.toLocaleUpperCase("sv-SE");
+  const primary = `Löneår ${labelYear}`;
   return { primary, sub };
 }
 
@@ -3454,7 +3454,7 @@ function formatSalaryPeriodLabelNextPaySv(endIso) {
 }
 
 /**
- * Hero-chip i två rader: månadsnamn versaler, datumspann med gemener (samma logik som tidigare enradstitel).
+ * Hero-chip i två rader: månadsnamn med inledande versal (Januari), datumspann med gemener.
  * @returns {{ primary: string, sub: string } | null}
  */
 function getSalaryPeriodHeroChipLinesSv(win, startMonth, nowDate) {
@@ -3480,7 +3480,7 @@ function getSalaryPeriodHeroChipLinesSv(win, startMonth, nowDate) {
     innerEnd = `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
   }
   const sub = `( ${innerStart} - ${innerEnd} )`;
-  return { primary: titleMonth.toLocaleUpperCase("sv-SE"), sub };
+  return { primary: titleMonth, sub };
 }
 
 /**
@@ -12125,12 +12125,12 @@ function renderAnalysisPage() {
     periodSpendBlock = salaryPeriodDoughnutModel.empty
       ? `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
         <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
-        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden (ej spar eller Robin-avsättning).</p>
+        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden.</p>
         <p class="note analysis-salary-year-spend__empty">Inga belopp i vald löneperiod att visa i diagrammet.</p>
       </div>`
       : `<div class="table-card analysis-salary-year-spend analysis-salary-period-spend" data-salary-period-spend-root>
         <div class="table-title analysis-salary-year-spend__title">Vad pengarna går till</div>
-        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden (ej spar eller Robin-avsättning).</p>
+        <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter under löneperioden.</p>
         <div class="analysis-salary-year-chart-wrap analysis-salary-year-spend__viz">
           <div class="analysis-salary-year-spend__body">
             <div class="analysis-salary-year-spend__canvas-wrap">

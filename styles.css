@@ -3575,9 +3575,9 @@ input.input-readonly-like {
 .analysis-salary-hero__chip-line-primary {
   display: block;
   width: 100%;
-  font-size: clamp(1.22rem, 4.8vw, 1.48rem);
+  font-size: clamp(1.34rem, 5.4vw, 1.64rem);
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   line-height: 1.08;
   color: #fff;
   font-variant-numeric: tabular-nums;
