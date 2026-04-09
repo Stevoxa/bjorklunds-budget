@@ -3440,6 +3440,19 @@ function getSalaryPeriodHeroChipLinesSv(win, startMonth, nowDate) {
   return { primary: titleMonth.toLocaleUpperCase("sv-SE"), sub };
 }
 
+/**
+ * Löneperiods-navbar centrum: endast månadsnamn om samma kalenderår som referensdatum, annars "Månad ÅÅÅÅ".
+ */
+function formatAnalysisSalaryPeriodNavTitleSv(payIso, nowDate) {
+  const p = datePartsFromIso(String(payIso || "").slice(0, 10));
+  const ref = nowDate instanceof Date && !Number.isNaN(nowDate.getTime()) ? nowDate : new Date();
+  if (!p) return "—";
+  const yNow = ref.getFullYear();
+  const cap = monthName(p.m);
+  if (p.y === yNow) return cap;
+  return `${cap} ${p.y}`;
+}
+
 /** Planerade utgifter i kalenderintervall [startIso,endIso] (YYYY-MM-DD), exkl. sparande. */
 function sumExpensePaymentsInIsoRangeInclusive(root, startIso, endIso) {
   let sum = 0;
@@ -5325,7 +5338,7 @@ const ui = {
   overviewMonth: null,
   /** Analys: vecka | månad | år (diagramserier) */
   analysisRange: "month",
-  /** Ny analysvy: salaryYear | salaryPeriod | calendarYear */
+  /** Ny analysvy: salaryYear | salaryPeriod */
   analysisViewMode: "salaryPeriod",
   /** Löneår: -1 föregående, 0 nuvarande, +1 nästa */
   analysisSalaryYearNav: 0,
@@ -11455,13 +11468,14 @@ function renderRoute(route, opts = {}) {
   }
 }
 
-/** Ny analysvy: skärningar löneår / löneperiod / kalenderår. */
+/** Ny analysvy: löneår | löneperiod. */
 function renderAnalysisPage() {
   const sub = document.getElementById("headerSubtitle");
   if (sub) sub.textContent = "Analys";
 
   const mode = ui.analysisViewMode || "salaryPeriod";
-  if (mode !== "salaryYear" && mode !== "salaryPeriod" && mode !== "calendarYear") ui.analysisViewMode = "salaryPeriod";
+  if (mode === "calendarYear") ui.analysisViewMode = "salaryPeriod";
+  if (mode !== "salaryYear" && mode !== "salaryPeriod") ui.analysisViewMode = "salaryPeriod";
 
   document.querySelectorAll("[data-analysis-view-mode]").forEach((btn) => {
     const v = btn.getAttribute("data-analysis-view-mode");
@@ -11491,17 +11505,6 @@ function renderAnalysisPage() {
         anchor.maxAmt
       )}/mån)${anchor.useFixed ? ` — fast dag ${anchor.recurringDay}` : ` — dag ${anchor.recurringDay} från första utbetalningen`}.</p>`
     : `<p class="note analysis-anchor-note analysis-anchor-note--warn">Ingen månadsvis intäkt hittades. Lägg till en planerad intäkt med intervall <strong>månad</strong> (t.ex. lön), eller aktivera fast löneperiod under inställningar.</p>`;
-
-  if (ui.analysisViewMode === "calendarYear") {
-    mount.innerHTML = `
-      <div class="table-card">
-        <div class="table-title">Kalenderår</div>
-        <p class="note">Sekundär översikt per kalendermånad — denna del byggs i ett senare steg.</p>
-      </div>
-      ${anchorNote}
-    `;
-    return;
-  }
 
   if (ui.analysisViewMode === "salaryYear") {
     let nav = Math.round(Number(ui.analysisSalaryYearNav) || 0);
@@ -11942,15 +11945,16 @@ function renderAnalysisPage() {
       </div>`;
     }
 
+    const salaryYearNavTitle = `Löneår ${labelYear}`;
     mount.innerHTML = `
-      <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneår">
-        <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryYearPrevBtn" ${
+      <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneår">
+        <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearPrevBtn" ${
           nav <= -1 ? "disabled" : ""
-        } aria-label="Föregående löneår">‹ Föregående år</button>
-        <span class="analysis-salary-year-nav__sep" aria-hidden="true">|</span>
-        <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryYearNextBtn" ${
+        } aria-label="Föregående löneår">‹</button>
+        <span class="analysis-salary-year-nav__label" aria-live="polite">${escapeHtml(salaryYearNavTitle)}</span>
+        <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearNextBtn" ${
           nav >= 1 ? "disabled" : ""
-        } aria-label="Nästa löneår">Nästa år ›</button>
+        } aria-label="Nästa löneår">›</button>
       </div>
       <section class="analysis-salary-hero analysis-salary-hero--year card${robinBudgetBroken ? " analysis-salary-hero--imbalance" : ""}" aria-label="Löneår ${labelYear}">
         <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
@@ -12113,15 +12117,17 @@ function renderAnalysisPage() {
     </div>`;
   }
 
+  const periodNavTitle = win?.payIso ? formatAnalysisSalaryPeriodNavTitleSv(win.payIso, now) : "—";
+
   mount.innerHTML = `
-    <div class="analysis-salary-year-nav analysis-range-seg" role="toolbar" aria-label="Byt löneperiod">
-      <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryPeriodPrevBtn" ${
+    <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneperiod">
+      <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryPeriodPrevBtn" ${
         idx <= 0 ? "disabled" : ""
-      } aria-label="Föregående löneperiod">‹ Föregående period</button>
-      <span class="analysis-salary-year-nav__sep" aria-hidden="true">|</span>
-      <button type="button" class="analysis-range-btn analysis-salary-year-nav__btn" id="analysisSalaryPeriodNextBtn" ${
+      } aria-label="Föregående löneperiod">‹</button>
+      <span class="analysis-salary-year-nav__label" aria-live="polite">${escapeHtml(periodNavTitle)}</span>
+      <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryPeriodNextBtn" ${
         idx >= payDates.length - 1 ? "disabled" : ""
-      } aria-label="Nästa löneperiod">Nästa period ›</button>
+      } aria-label="Nästa löneperiod">›</button>
     </div>
     <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
       <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>

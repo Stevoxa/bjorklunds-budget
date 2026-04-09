@@ -3791,12 +3791,45 @@ input.input-readonly-like {
   box-sizing: border-box;
 }
 
+/* Kombinerad med .analysis-range-seg: full bredd trots att seg annars är fit-content */
+.analysis-salary-year-nav.analysis-range-seg {
+  width: 100%;
+  max-width: 100%;
+}
+
+.analysis-salary-year-nav--chevron {
+  display: grid;
+  grid-template-columns: minmax(44px, auto) 1fr minmax(44px, auto);
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
 .analysis-salary-year-nav .analysis-salary-year-nav__btn {
   flex: 1 1 auto;
   min-width: 0;
   text-align: center;
   padding-left: var(--space-2);
   padding-right: var(--space-2);
+}
+
+.analysis-salary-year-nav__chev {
+  flex: none !important;
+  min-width: 44px;
+  padding: var(--space-2) var(--space-2) !important;
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.analysis-salary-year-nav__label {
+  min-width: 0;
+  text-align: center;
+  font-weight: 800;
+  font-size: clamp(0.88rem, 3.2vw, 1rem);
+  letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .analysis-salary-year-nav__sep {
