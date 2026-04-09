@@ -5366,15 +5366,29 @@ const ui = {
 };
 
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return getDefaultState();
-  const parsed = safeParseJson(raw);
-  return normalizeStateShape(parsed);
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return getDefaultState();
+    const parsed = safeParseJson(raw);
+    return normalizeStateShape(parsed);
+  } catch (err) {
+    console.error("Kunde inte läsa localStorage", err);
+    showDebugToast("Kunde inte läsa sparad data. Ny tom budget startas.");
+    return getDefaultState();
+  }
 }
 
+/** @returns {boolean} false om lagring misslyckades (quota, privat läge, blockerat). */
 function saveState() {
-  syncRobinHoodIntoState();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    syncRobinHoodIntoState();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
+  } catch (err) {
+    console.error("Kunde inte spara till localStorage", err);
+    showDebugToast("Kunde inte spara lokalt. Lagringsutrymmet kan vara fullt.");
+    return false;
+  }
 }
 
 function applyTheme() {
@@ -14796,8 +14810,8 @@ function initRoot() {
     initActions();
     registerServiceWorker();
   } catch (e) {
+    console.error("Init-fel", e);
     showDebugToast(`Init-fel: ${e?.message || e}`);
-    throw e;
   }
 }
 

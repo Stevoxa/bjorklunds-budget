@@ -1,13 +1,14 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v25";
+const CACHE_NAME = "bjorklunds-budget-v26";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./vendor/chart.umd.min.js",
   "./manifest.webmanifest",
   "./icons/calendar-mask.svg",
   "./icons/calendar-outline.svg",
@@ -33,14 +34,16 @@ const ASSETS_TO_CACHE = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS_TO_CACHE))
-      .catch(() => {
-        // If caching fails (e.g. transient network issue), allow app to load online.
-      })
+    caches.open(CACHE_NAME).then(async (cache) => {
+      try {
+        await cache.addAll(ASSETS_TO_CACHE);
+      } catch (err) {
+        console.error("SW precache misslyckades", err);
+        throw err;
+      }
+      self.skipWaiting();
+    })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -65,7 +68,8 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/styles.css") ||
     url.pathname.endsWith("/app.js") ||
-    url.pathname.endsWith("/manifest.webmanifest");
+    url.pathname.endsWith("/manifest.webmanifest") ||
+    url.pathname.endsWith("/chart.umd.min.js");
 
   event.respondWith(
     (isAppShell ? fetch(req).catch(() => null) : Promise.resolve(null)).then((netRes) => {
