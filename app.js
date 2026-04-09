@@ -6055,8 +6055,6 @@ function openIncomeTaggedOverlay(cat, opts = {}) {
   target.hidden = false;
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
-  const subEl = document.getElementById("headerSubtitle");
-  if (subEl) subEl.textContent = C.labels.pageTitle;
 }
 
 function openIncomeTaggedEditorFromMainList(cat, incomeId) {
@@ -8996,16 +8994,6 @@ function renderOldAnalysisDashboard() {
   const range = ui.analysisRange || "month";
   const model = buildAnalysisAnalyticsModel(range, year, month);
 
-  const sub = document.getElementById("headerSubtitle");
-  if (sub && ui.activeRoute === "old-analysis") {
-    sub.textContent =
-      range === "year"
-        ? `${overview.year} · helår`
-        : range === "week"
-          ? `${overview.year} - ${monthName(overview.month)} · veckovy`
-          : `${overview.year} - ${monthName(overview.month)}`;
-  }
-
   applyAnalysisWidgetOrder();
   syncAnalysisRangeSegmentUI();
   updateAnalysisDomFromModel(model);
@@ -11452,7 +11440,6 @@ function renderRoute(route, opts = {}) {
       break;
     }
     case "settings": {
-      requireEl("headerSubtitle").textContent = "Inställn.";
       const themeModeSel = document.getElementById("themeMode");
       if (themeModeSel) themeModeSel.value = state.themeMode || "system";
       document.getElementById("themeMode") &&
@@ -11474,9 +11461,6 @@ function renderRoute(route, opts = {}) {
 
 /** Ny analysvy: löneår | löneperiod. */
 function renderAnalysisPage() {
-  const sub = document.getElementById("headerSubtitle");
-  if (sub) sub.textContent = "Analys";
-
   const mode = ui.analysisViewMode || "salaryPeriod";
   if (mode === "calendarYear") ui.analysisViewMode = "salaryPeriod";
   if (mode !== "salaryYear" && mode !== "salaryPeriod") ui.analysisViewMode = "salaryPeriod";
@@ -12524,8 +12508,6 @@ function closeIncomeSalaryOverlay(opts = {}) {
   if (!opts?.fromHistory && incomeSalaryOverlayHistoryDepth > 0) {
     incomeSalaryOverlayHistoryDepth = Math.max(0, incomeSalaryOverlayHistoryDepth - 1);
   }
-  const subEl = document.getElementById("headerSubtitle");
-  if (subEl && ui.activeRoute === "incomes") subEl.textContent = "Intäkter";
 }
 
 function closeIncomeSalaryOverlayFromHistory() {
@@ -12557,8 +12539,6 @@ function openIncomeSalaryOverlay(opts = {}) {
   target.hidden = false;
   document.documentElement.classList.add("modal-open");
   document.body.classList.add("modal-open");
-  const subEl = document.getElementById("headerSubtitle");
-  if (subEl) subEl.textContent = "Lön";
   if (!skipHistory && !wasOpen) {
     history.pushState({ incSalaryOverlay: true }, "");
     incomeSalaryOverlayHistoryDepth += 1;
@@ -12578,8 +12558,6 @@ function hideConfirmDeleteSalaryPeriodModal() {
 }
 
 function renderIncomesPage() {
-  requireEl("headerSubtitle").textContent = "Intäkter";
-
   const filterEl = requireEl("incomeYearFilter");
   if (!ui.incomeYearFilter) ui.incomeYearFilter = String(currentYearMonth().year);
   setYearFilterOptions(filterEl, ui.incomeYearFilter);
@@ -13926,8 +13904,6 @@ function saveExpenseFromOverlay() {
 }
 
 function renderExpensesPage() {
-  const subEl = document.getElementById("headerSubtitle");
-  if (subEl) subEl.textContent = "Utgifter";
   ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
 
   // Ensure overlays start hidden
@@ -13950,7 +13926,6 @@ function renderExpensesPage() {
 }
 
 function renderSavingsViewPage() {
-  requireEl("headerSubtitle").textContent = "Spara";
   renderSavingsPage();
 }
 
