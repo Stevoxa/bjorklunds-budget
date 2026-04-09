@@ -4032,7 +4032,7 @@ input.input-readonly-like {
   box-sizing: border-box;
 }
 
-/* Avsättning / spar-rader: samma tvåradiga mönster som Spar-listan */
+/* Avsättning: tvåradig kortrad (spar använder samma radlayout som övriga utgifter) */
 .analysis-salary-period-event-row {
   padding: var(--space-3);
   border-radius: var(--radius-control);
@@ -4063,10 +4063,6 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
 
 html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-salary-period-event-amt--exp {
   color: #ffc8be;
-}
-
-.analysis-salary-period-event-row--savings {
-  background: color-mix(in srgb, var(--card-2) 88%, transparent);
 }
 
 .analysis-salary-period-event-stack {

@@ -7766,6 +7766,7 @@ function collectSalaryPeriodEventRows(root, startIso, endIso, periodPayIso) {
         kind = "setaside";
       } else if (exp.category === "savings") {
         kind = "savings";
+        dotColor = chartSegmentHex("savings");
       } else {
         kind = "expense";
         const mk = salaryYearSpendMainKeyForExpense(exp);
@@ -7809,16 +7810,24 @@ function buildSalaryPeriodPaymentListHtml(rows) {
 </div>`;
       }
       if (r.kind === "savings") {
-        const line2 = escapeHtml(formatTaggedSavingsIntervalLabel(r.interval));
-        return `<div class="analysis-salary-period-event-row analysis-salary-period-event-row--savings" role="listitem">
-  <div class="analysis-salary-period-event-stack">
-    <div class="analysis-salary-period-event-line1">
-      <span class="analysis-salary-period-event-name">${escapeHtml(r.name)}</span>
-      <span class="analysis-salary-period-event-amt analysis-salary-period-event-amt--exp">− ${escapeHtml(formatKr(r.amount))}</span>
-    </div>
-    <div class="analysis-salary-period-event-line2">${line2}</div>
-  </div>
-</div>`;
+        const iso = r.iso;
+        const dateStr = `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+        const dot =
+          r.dotColor == null
+            ? `<span class="analysis-salary-period-pay-row__no-dot" aria-hidden="true"></span>`
+            : `<span class="analysis-payment-dot" style="background-color:${escapeHtml(r.dotColor)}" aria-hidden="true"></span>`;
+        const kindLine = escapeHtml(formatTaggedSavingsIntervalLabel(r.interval));
+        return `<div class="analysis-payment-row analysis-salary-period-pay-row">
+      <div class="analysis-payment-date">${escapeHtml(dateStr)}</div>
+      <div class="analysis-payment-main">
+        ${dot}
+        <div>
+          <div class="analysis-payment-cat">${escapeHtml(r.name)}</div>
+          <div class="analysis-payment-kind">${kindLine}</div>
+        </div>
+      </div>
+      <div class="analysis-payment-amt analysis-payment-amt--expense">− ${escapeHtml(formatKr(r.amount))}</div>
+    </div>`;
       }
       if (r.kind === "income") {
         const iso = r.iso;
