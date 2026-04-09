@@ -44,6 +44,10 @@ function formatKr(value) {
 const LIST_ROW_CHEVRON_SVG =
   '<svg class="list-row-chevron-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
+/** Speglad chevron för analys period-rad (samma visuella språk som listrader). */
+const LIST_ROW_CHEVRON_LEFT_SVG =
+  '<svg class="list-row-chevron-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" focusable="false" aria-hidden="true"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
 function asNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -11950,11 +11954,11 @@ function renderAnalysisPage() {
       <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneår">
         <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearPrevBtn" ${
           nav <= -1 ? "disabled" : ""
-        } aria-label="Föregående löneår">‹</button>
+        } aria-label="Föregående löneår"><span class="analysis-salary-year-nav__chev-inner" aria-hidden="true">${LIST_ROW_CHEVRON_LEFT_SVG}</span></button>
         <span class="analysis-salary-year-nav__label" aria-live="polite">${escapeHtml(salaryYearNavTitle)}</span>
         <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearNextBtn" ${
           nav >= 1 ? "disabled" : ""
-        } aria-label="Nästa löneår">›</button>
+        } aria-label="Nästa löneår"><span class="analysis-salary-year-nav__chev-inner" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span></button>
       </div>
       <section class="analysis-salary-hero analysis-salary-hero--year card${robinBudgetBroken ? " analysis-salary-hero--imbalance" : ""}" aria-label="Löneår ${labelYear}">
         <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
@@ -12123,11 +12127,11 @@ function renderAnalysisPage() {
     <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneperiod">
       <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryPeriodPrevBtn" ${
         idx <= 0 ? "disabled" : ""
-      } aria-label="Föregående löneperiod">‹</button>
+      } aria-label="Föregående löneperiod"><span class="analysis-salary-year-nav__chev-inner" aria-hidden="true">${LIST_ROW_CHEVRON_LEFT_SVG}</span></button>
       <span class="analysis-salary-year-nav__label" aria-live="polite">${escapeHtml(periodNavTitle)}</span>
       <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryPeriodNextBtn" ${
         idx >= payDates.length - 1 ? "disabled" : ""
-      } aria-label="Nästa löneperiod">›</button>
+      } aria-label="Nästa löneperiod"><span class="analysis-salary-year-nav__chev-inner" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span></button>
     </div>
     <section class="analysis-salary-hero card" aria-label="${escapeHtml(heroEyebrow)}">
       <div class="analysis-salary-hero__eyebrow">${escapeHtml(heroEyebrow)}</div>

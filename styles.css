@@ -3797,12 +3797,18 @@ input.input-readonly-like {
   max-width: 100%;
 }
 
-.analysis-salary-year-nav--chevron {
+/* Period/löneår-rad: pill med cirkulära pilknappar (44px tappytor), nära mobilskiss analys-endast-lonear */
+.analysis-salary-year-nav.analysis-range-seg.analysis-salary-year-nav--chevron {
   display: grid;
-  grid-template-columns: minmax(44px, auto) 1fr minmax(44px, auto);
+  grid-template-columns: 44px 1fr 44px;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
   flex-wrap: nowrap;
+  padding: 4px;
+  min-height: 52px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--card) 88%, var(--bg));
+  border: 1px solid var(--border);
 }
 
 .analysis-salary-year-nav .analysis-salary-year-nav__btn {
@@ -3813,23 +3819,56 @@ input.input-readonly-like {
   padding-right: var(--space-2);
 }
 
-.analysis-salary-year-nav__chev {
-  flex: none !important;
+.analysis-salary-year-nav--chevron .analysis-salary-year-nav__chev {
+  width: 44px;
+  height: 44px;
   min-width: 44px;
-  padding: var(--space-2) var(--space-2) !important;
-  font-size: 1.35rem;
-  line-height: 1;
-  font-weight: 800;
-  color: var(--text);
+  min-height: 44px;
+  padding: 0 !important;
+  flex: none !important;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, var(--text) 88%, var(--muted));
+  line-height: 0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year-nav__chev {
+  box-shadow: none;
+}
+
+.analysis-salary-year-nav--chevron .analysis-salary-year-nav__chev:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.analysis-salary-year-nav__chev-inner {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.analysis-salary-year-nav--chevron .analysis-salary-year-nav__chev .list-row-chevron-svg {
+  width: 1.5625rem;
+  height: 1.5625rem;
 }
 
 .analysis-salary-year-nav__label {
   min-width: 0;
   text-align: center;
   font-weight: 800;
-  font-size: clamp(0.88rem, 3.2vw, 1rem);
+  font-size: clamp(0.9rem, 3.4vw, 0.98rem);
   letter-spacing: -0.02em;
+  line-height: 1.25;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 2px;
 }
 
 .analysis-salary-year-nav__sep {
