@@ -3371,10 +3371,10 @@ function formatSalaryYearHeroChipRangeSv(startIso, endIso) {
 }
 
 /**
- * Löneår-hero: spannet för löneperioderna i året — från första periodens start (föregående utbetalningsdag)
- * till dagen före sista utbetalningen i året (samma logik som löneperiodsfönstret).
+ * ISO [startIso,endIso] för löneårets hero-chip (samma som löneperiodsfönster över året).
+ * @returns {{ startIso: string, endIso: string } | null}
  */
-function salaryYearHeroPayDateChip(syModel, bounds) {
+function salaryYearHeroChipBoundsIso(syModel, bounds) {
   const snaps = syModel?.snaps;
   if (snaps?.length) {
     const first = snaps[0];
@@ -3385,23 +3385,62 @@ function salaryYearHeroPayDateChip(syModel, bounds) {
       const lastPayD = parseDateISO(lastPay);
       if (lastPayD && !Number.isNaN(lastPayD.getTime())) {
         const endIso = toLocalISODate(addDays(lastPayD, -1));
-        const main = formatSalaryYearHeroChipRangeSv(startIso, endIso);
-        if (main !== "—") return { main, mode: "pay" };
+        return { startIso, endIso, mode: "pay" };
       }
     }
     const fp = String(first.payIso || "").slice(0, 10);
     const lp = String(last.payIso || "").slice(0, 10);
     const lpD2 = parseDateISO(lp);
     if (fp && lp && lpD2 && !Number.isNaN(lpD2.getTime())) {
-      const main = formatSalaryYearHeroChipRangeSv(fp, toLocalISODate(addDays(lpD2, -1)));
-      if (main !== "—") return { main, mode: "pay" };
+      return { startIso: fp, endIso: toLocalISODate(addDays(lpD2, -1)), mode: "pay" };
     }
   }
   if (bounds?.start && bounds?.end && !Number.isNaN(bounds.start.getTime()) && !Number.isNaN(bounds.end.getTime())) {
-    const main = formatSalaryYearHeroChipRangeSv(toLocalISODate(bounds.start), toLocalISODate(bounds.end));
-    return { main, mode: "cal" };
+    return { startIso: toLocalISODate(bounds.start), endIso: toLocalISODate(bounds.end), mode: "cal" };
+  }
+  return null;
+}
+
+/**
+ * Löneår-hero: spannet för löneperioderna i året — från första periodens start (föregående utbetalningsdag)
+ * till dagen före sista utbetalningen i året (samma logik som löneperiodsfönstret).
+ */
+function salaryYearHeroPayDateChip(syModel, bounds) {
+  const pair = salaryYearHeroChipBoundsIso(syModel, bounds);
+  if (pair?.startIso && pair?.endIso) {
+    const main = formatSalaryYearHeroChipRangeSv(pair.startIso, pair.endIso);
+    if (main !== "—") return { main, mode: pair.mode || "cal" };
   }
   return { main: "—", mode: "cal" };
+}
+
+/**
+ * Löneår hero-chip två rader: som löneperiod (primär + parentesdatum), primär = "LÖNEÅR år".
+ * @returns {{ primary: string, sub: string } | null}
+ */
+function getSalaryYearHeroChipLinesSv(syModel, bounds, labelYear, startMonth, nowDate) {
+  const pair = salaryYearHeroChipBoundsIso(syModel, bounds);
+  if (!pair?.startIso || !pair?.endIso) return null;
+  const a = datePartsFromIso(pair.startIso);
+  const b = datePartsFromIso(pair.endIso);
+  if (!a || !b) return null;
+  const sm = Math.max(1, Math.min(12, Math.floor(asNumber(startMonth)) || 1));
+  const ref = nowDate instanceof Date && !Number.isNaN(nowDate.getTime()) ? nowDate : new Date();
+  const curLy = currentSalaryYearLabelForDate(ref, sm);
+  const hideInnerYears = labelYear === curLy;
+  const sameCalYear = a.y === b.y;
+  let innerStart;
+  let innerEnd;
+  if (hideInnerYears && sameCalYear) {
+    innerStart = `${a.d} ${monthName(a.m).toLowerCase()}`;
+    innerEnd = `${b.d} ${monthName(b.m).toLowerCase()}`;
+  } else {
+    innerStart = `${a.d} ${monthName(a.m).toLowerCase()} ${a.y}`;
+    innerEnd = `${b.d} ${monthName(b.m).toLowerCase()} ${b.y}`;
+  }
+  const sub = `( ${innerStart} - ${innerEnd} )`;
+  const primary = `Löneår ${labelYear}`.toLocaleUpperCase("sv-SE");
+  return { primary, sub };
 }
 
 /** Chip: månad/år för **kommande** utbetalning + datum för den lönen (själva löneperioden slutar dagen före). */
@@ -11505,9 +11544,16 @@ function renderAnalysisPage() {
     const cap = salaryYearRangeCaption(labelYear, startMo);
     const syModel = bounds ? buildSalaryYearAnalysisModel(state, bounds, payDates) : null;
     const payChip = salaryYearHeroPayDateChip(syModel, bounds);
-    const payChipHtmlHero = `<div class="analysis-salary-hero__chip">${escapeHtml(
-      payChip.main && payChip.main !== "—" ? payChip.main : cap
-    )}</div>`;
+    const yearHeroChip = getSalaryYearHeroChipLinesSv(syModel, bounds, labelYear, startMo, now);
+    const yearHeroChipAria = yearHeroChip ? `${yearHeroChip.primary}. ${yearHeroChip.sub}` : payChip.main && payChip.main !== "—" ? payChip.main : cap;
+    const payChipHtmlHero = yearHeroChip
+      ? `<div class="analysis-salary-hero__chip analysis-salary-hero__chip--stacked" role="group" aria-label="${escapeHtml(yearHeroChipAria)}">
+          <span class="analysis-salary-hero__chip-line-primary">${escapeHtml(yearHeroChip.primary)}</span>
+          <span class="analysis-salary-hero__chip-line-sub">${escapeHtml(yearHeroChip.sub)}</span>
+        </div>`
+      : `<div class="analysis-salary-hero__chip" aria-label="${escapeHtml(String(yearHeroChipAria))}">${escapeHtml(
+          payChip.main && payChip.main !== "—" ? payChip.main : cap
+        )}</div>`;
     const weakest = syModel?.weakest;
     const risks = syModel?.risks || [];
     const yearNet = syModel?.yearNet ?? 0;
