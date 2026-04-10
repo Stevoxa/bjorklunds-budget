@@ -328,6 +328,56 @@ html[data-theme="dark"] .bottom-nav {
   padding-bottom: calc(92px + env(safe-area-inset-bottom));
 }
 
+.vault-lock-screen {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  padding-top: calc(var(--space-5) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+
+.vault-lock-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+}
+
+.vault-lock-title {
+  margin: 0 0 var(--space-3);
+  font-size: clamp(1.35rem, 4vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.vault-lock-subtitle {
+  margin: 0 0 var(--space-5);
+}
+
+.vault-lock-actions {
+  margin-top: var(--space-4);
+}
+
+.vault-lock-hint {
+  margin: var(--space-4) 0 0;
+}
+
+.vault-lock-error {
+  margin: var(--space-3) 0 0;
+  color: var(--danger);
+  font-size: 0.95rem;
+}
+
 .content-card {
   background: transparent;
 }

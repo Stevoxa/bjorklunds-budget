@@ -1,7 +1,12 @@
 /* Björklunds - Budget (SPA/PWA)
-   All data sparas lokalt i webstorage (localStorage). */
+   Budgetdata sparas krypterat i IndexedDB (se vault.js). */
 
+/** Endast för att ta bort äldre okrypterad data i localStorage efter migrering. */
 const STORAGE_KEY = "bjorklunds_budget_v1";
+
+const VAULT_IDLE_MS = 15 * 60 * 1000;
+let vaultSaveTimer = null;
+let vaultIdleTimer = null;
 
 const WEEKS_PER_MONTH = 4.33;
 const nowMs = () => Date.now();
@@ -5250,30 +5255,200 @@ const ui = {
   }
 };
 
-function loadState() {
+function tryRemoveLegacyLocalStorage() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getDefaultState();
-    const parsed = safeParseJson(raw);
-    return normalizeStateShape(parsed);
-  } catch (err) {
-    console.error("Kunde inte läsa localStorage", err);
-    showDebugToast("Kunde inte läsa sparad data. Ny tom budget startas.");
-    return getDefaultState();
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
   }
 }
 
-/** @returns {boolean} false om lagring misslyckades (quota, privat läge, blockerat). */
+/** @returns {boolean} false om session är låst eller schemaläggning misslyckades. */
 function saveState() {
   try {
     syncRobinHoodIntoState();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
   } catch (err) {
-    console.error("Kunde inte spara till localStorage", err);
-    showDebugToast("Kunde inte spara lokalt. Lagringsutrymmet kan vara fullt.");
+    console.error("syncRobinHoodIntoState", err);
+  }
+  if (typeof globalThis.BjorkVault === "undefined" || !globalThis.BjorkVault.isUnlocked()) return false;
+  if (vaultSaveTimer) clearTimeout(vaultSaveTimer);
+  vaultSaveTimer = setTimeout(() => {
+    vaultSaveTimer = null;
+    globalThis.BjorkVault.persistEncryptedState(state).catch((err) => {
+      console.error("Vault save failed", err);
+      showDebugToast("Kunde inte spara krypterat. Försök igen.");
+    });
+  }, 400);
+  return true;
+}
+
+async function saveStateFlush() {
+  try {
+    syncRobinHoodIntoState();
+  } catch (err) {
+    console.error("syncRobinHoodIntoState", err);
+  }
+  if (typeof globalThis.BjorkVault === "undefined" || !globalThis.BjorkVault.isUnlocked()) return false;
+  if (vaultSaveTimer) {
+    clearTimeout(vaultSaveTimer);
+    vaultSaveTimer = null;
+  }
+  const r = await globalThis.BjorkVault.persistEncryptedState(state);
+  if (!r.ok) {
+    showDebugToast("Kunde inte spara krypterat.");
     return false;
   }
+  return true;
+}
+
+function initVaultIdleLock() {
+  const arm = () => {
+    if (typeof globalThis.BjorkVault === "undefined" || !globalThis.BjorkVault.isUnlocked()) return;
+    if (vaultIdleTimer) clearTimeout(vaultIdleTimer);
+    vaultIdleTimer = setTimeout(() => {
+      vaultIdleTimer = null;
+      void (async () => {
+        await saveStateFlush();
+        globalThis.BjorkVault.lock();
+        location.reload();
+      })();
+    }, VAULT_IDLE_MS);
+  };
+  ["pointerdown", "keydown", "touchstart"].forEach((ev) => {
+    document.addEventListener(ev, arm, { passive: true, capture: true });
+  });
+  arm();
+}
+
+/**
+ * Låsskärm: skapa vault eller lås upp. Sätter global `state` och visar appen.
+ */
+async function initVaultBootstrap() {
+  const V = globalThis.BjorkVault;
+  if (!V) {
+    showDebugToast("vault.js kunde inte laddas.");
+    throw new Error("BjorkVault saknas");
+  }
+
+  const lockEl = document.getElementById("vaultLockScreen");
+  const mainEl = document.querySelector(".app-main");
+  const subtitle = document.getElementById("vaultLockSubtitle");
+  const errEl = document.getElementById("vaultLockError");
+  const hintEl = document.getElementById("vaultLockHint");
+  const passEl = document.getElementById("vaultPassphrase");
+  const confirmWrap = document.getElementById("vaultConfirmWrap");
+  const confirmEl = document.getElementById("vaultPassphraseConfirm");
+  const primaryBtn = document.getElementById("vaultPrimaryBtn");
+  const passLabel = document.getElementById("vaultPassphraseLabel");
+
+  if (!lockEl || !mainEl || !subtitle || !errEl || !hintEl || !passEl || !confirmWrap || !confirmEl || !primaryBtn) {
+    throw new Error("Vault DOM saknas");
+  }
+
+  if (typeof indexedDB === "undefined") {
+    errEl.textContent = "IndexedDB saknas — appen kan inte spara krypterat i den här miljön.";
+    errEl.hidden = false;
+    showDebugToast(errEl.textContent);
+    throw new Error("No IndexedDB");
+  }
+
+  const showErr = (msg) => {
+    errEl.textContent = msg || "";
+    errEl.hidden = !msg;
+  };
+
+  let hasVault;
+  try {
+    hasVault = await V.hasVault();
+  } catch (e) {
+    console.error("hasVault", e);
+    showErr("Kunde inte läsa lagring. Försök igen eller använd en annan webbläsare.");
+    throw e;
+  }
+
+  if (hasVault) {
+    confirmWrap.hidden = true;
+    passLabel.textContent = "Lösenfras";
+    passEl.autocomplete = "current-password";
+    subtitle.textContent = "Ange lösenfrasen för att läsa din krypterade budget.";
+    hintEl.textContent =
+      "Glömd lösenfras går inte att återställa här. Använd en krypterad backup under Inställningar om du har en.";
+    primaryBtn.textContent = "Lås upp";
+  } else {
+    confirmWrap.hidden = false;
+    passLabel.textContent = "Välj lösenfras";
+    passEl.autocomplete = "new-password";
+    subtitle.textContent =
+      "Skapa en lösenfras. All budgetdata krypteras på enheten och skickas aldrig till någon server.";
+    hintEl.textContent =
+      "Spara en krypterad backup under Inställningar om du byter telefon eller webbläsare. Gamla okrypterade JSON-backuper kan inte importeras.";
+    primaryBtn.textContent = "Skapa ny budget";
+  }
+
+  return new Promise((resolve) => {
+    const finish = () => {
+      tryRemoveLegacyLocalStorage();
+      lockEl.hidden = true;
+      mainEl.hidden = false;
+      initVaultIdleLock();
+      resolve();
+    };
+
+    const submitOnEnter = (e) => {
+      if (e.key === "Enter") primaryBtn.click();
+    };
+    passEl.addEventListener("keydown", submitOnEnter);
+    confirmEl.addEventListener("keydown", submitOnEnter);
+
+    primaryBtn.onclick = async () => {
+      showErr("");
+      const pass = String(passEl.value || "");
+      if (!hasVault) {
+        const c2 = String(confirmEl.value || "");
+        if (pass.length < 8) {
+          showErr("Lösenfrasen bör vara minst 8 tecken.");
+          return;
+        }
+        if (pass !== c2) {
+          showErr("Lösenfraserna matchar inte.");
+          return;
+        }
+        primaryBtn.disabled = true;
+        const defaultNorm = normalizeStateShape(getDefaultState());
+        const r = await V.createVault(pass, defaultNorm);
+        primaryBtn.disabled = false;
+        if (!r.ok) {
+          showErr("Kunde inte skapa vault. Försök igen eller använd en annan webbläsare.");
+          console.error(r.error);
+          return;
+        }
+        state = defaultNorm;
+        passEl.value = "";
+        confirmEl.value = "";
+        finish();
+        return;
+      }
+
+      if (!pass) {
+        showErr("Ange lösenfras.");
+        return;
+      }
+      primaryBtn.disabled = true;
+      const r = await V.unlock(pass);
+      primaryBtn.disabled = false;
+      if (!r.ok) {
+        if (r.error === "schema") showErr("Datafilen har oväntat innehåll.");
+        else showErr("Fel lösenfras eller skadad data.");
+        return;
+      }
+      state = normalizeStateShape(r.data.state);
+      passEl.value = "";
+      finish();
+    };
+
+    lockEl.hidden = false;
+    mainEl.hidden = true;
+  });
 }
 
 function applyTheme() {
@@ -13721,28 +13896,44 @@ function initActions() {
   });
   exportBtn.addEventListener("click", () => {
     hideModal();
-    doExportJson("backup");
+    void doExportJson("backup");
   });
 
-  document.getElementById("backupNowBtn").addEventListener("click", () => doExportJson("manual"));
+  document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson("manual"));
 
-  // Restore import
+  // Restore import (krypterad vault-envelope)
   document.getElementById("restoreBtn").addEventListener("click", async () => {
+    const note = document.getElementById("backupRestoreNote");
     const input = document.getElementById("backupRestoreInput");
+    const passInp = document.getElementById("backupImportPassphrase");
     const file = input.files && input.files[0];
     if (!file) {
-      document.getElementById("backupRestoreNote").textContent = "Välj en JSON-fil att importera.";
+      note.textContent = "Välj en JSON-fil att importera.";
       return;
     }
     const text = await file.text();
     const parsed = safeParseJson(text);
-    if (!parsed || Number(parsed?.version) !== 2) {
-      document.getElementById("backupRestoreNote").textContent = "Filen verkar inte vara en giltig Björklunds-budget-backup.";
+    const V = globalThis.BjorkVault;
+    if (!parsed || !V || !V.isEnvelope(parsed)) {
+      note.textContent =
+        "Filen är inte en giltig krypterad Björklunds-backup. Gamla okrypterade JSON-filer kan inte importeras.";
       return;
     }
-    state = normalizeStateShape(parsed);
-    saveState();
-    document.getElementById("backupRestoreNote").textContent = "Import klar. Laddar om...";
+    const pass = String(passInp?.value || "").trim();
+    if (!pass) {
+      note.textContent = "Ange lösenfrasen som användes när backup-filen skapades.";
+      return;
+    }
+    const r = await V.importReplaceVault(pass, parsed);
+    if (!r.ok) {
+      if (r.error === "schema") note.textContent = "Filen har oväntat innehåll efter dekryptering.";
+      else note.textContent = "Fel lösenfras eller skadad fil.";
+      return;
+    }
+    state = normalizeStateShape(r.data);
+    await saveStateFlush();
+    passInp.value = "";
+    note.textContent = "Import klar. Laddar om...";
     setTimeout(() => location.reload(), 600);
   });
 
@@ -13758,10 +13949,15 @@ function initActions() {
     return fn;
   }
 
-  function doExportJson(kind) {
+  async function doExportJson(kind) {
+    const V = globalThis.BjorkVault;
+    const env = V ? await V.exportEnvelopeJson(state) : null;
+    if (!env) {
+      showDebugToast("Kunde inte exportera (session inte upplåst).");
+      return;
+    }
     const filename = getFilenameForBackup(kind);
-    const json = JSON.stringify(state, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(env)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -13783,7 +13979,9 @@ function initActions() {
     if (!due) return;
     state.settings.lastBackupPromptAt = nowMs();
     saveState();
-    showModal(`Det var ett tag sen senaste backup. Vill du exportera din data som JSON till din telefon/cloud?`);
+    showModal(
+      `Det var ett tag sen senaste backup. Vill du exportera en krypterad JSON-fil till din telefon eller molnlagring?`
+    );
   }
 
   // Poll every ~30 minutes; prompt only if interval is due
@@ -13826,7 +14024,7 @@ function initBottomNavScrollElevation() {
   sync();
 }
 
-function initRoot() {
+async function initRoot() {
   window.addEventListener("error", (ev) => {
     showDebugToast(`JS-fel: ${ev?.message || ev}`);
   });
@@ -13835,9 +14033,16 @@ function initRoot() {
   });
 
   try {
-    state = loadState();
+    await initVaultBootstrap();
     applyTheme();
     initSystemThemeListener();
+
+    window.addEventListener("pagehide", () => {
+      void saveStateFlush();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void saveStateFlush();
+    });
     initDateFieldRows();
     initMobileDateSheetPicker();
     initOverviewPeriodSheet();
@@ -13857,6 +14062,5 @@ function initRoot() {
   }
 }
 
-// Start app
-initRoot();
+void initRoot();
 

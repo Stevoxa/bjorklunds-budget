@@ -1,12 +1,13 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v26";
+const CACHE_NAME = "bjorklunds-budget-v27";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css",
+  "./vault.js",
   "./app.js",
   "./vendor/chart.umd.min.js",
   "./manifest.webmanifest",
@@ -67,6 +68,7 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith("/") ||
     url.pathname.endsWith("/index.html") ||
     url.pathname.endsWith("/styles.css") ||
+    url.pathname.endsWith("/vault.js") ||
     url.pathname.endsWith("/app.js") ||
     url.pathname.endsWith("/manifest.webmanifest") ||
     url.pathname.endsWith("/chart.umd.min.js");
