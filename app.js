@@ -7506,8 +7506,8 @@ function aggregateOverviewForIsoRange(startIso, endIso) {
 }
 
 /**
- * Fast/rörliga utgifter per ISO-vecka inom löneperioden (klippt mot periodens start/slut).
- * Visar de fyra sista veckorna som berör perioden — samma veckoindelning som vecko-läget i gamla analysen.
+ * Fast/rörliga utgifter per ISO-vecka för hela löneperioden (startIso–endIso), inte kalendermånad.
+ * Varje stapel = del av veckan som ligger inom perioden; summering via aggregateOverviewForIsoRange på klippt intervall.
  * @returns {{ labels: string[], fixed: number[], variable: number[] } | null}
  */
 function buildSalaryPeriodFixedVariableWeekBarsSv(startIso, endIso) {
@@ -7542,11 +7542,10 @@ function buildSalaryPeriodFixedVariableWeekBarsSv(startIso, endIso) {
     weekStart.setDate(weekStart.getDate() + 7);
   }
   if (!rows.length) return { labels: [], fixed: [], variable: [] };
-  const last4 = rows.slice(-4);
   return {
-    labels: last4.map((r) => r.label),
-    fixed: last4.map((r) => r.fixed),
-    variable: last4.map((r) => r.variable)
+    labels: rows.map((r) => r.label),
+    fixed: rows.map((r) => r.fixed),
+    variable: rows.map((r) => r.variable)
   };
 }
 
@@ -12213,7 +12212,7 @@ function renderAnalysisPage() {
       salaryPeriodFvModel?.labels?.length
         ? `<div class="table-card analysis-salary-period-fixed-var">
         <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
-        <p class="note analysis-salary-year-spend__ingress">Utgifter klassade som fasta eller rörliga.</p>
+        <p class="note analysis-salary-year-spend__ingress">Fördelningen mellan fasta och rörliga utgifter</p>
         <div class="analysis-salary-period-fixed-var__viz">
           <div class="analysis-salary-period-fixed-var__canvas-wrap">
             <canvas id="analysisSalaryPeriodFixedVarChart" aria-label="Fasta och rörliga utgifter per vecka i löneperiod"></canvas>
@@ -12222,7 +12221,7 @@ function renderAnalysisPage() {
       </div>`
         : `<div class="table-card analysis-salary-period-fixed-var">
         <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
-        <p class="note analysis-salary-year-spend__ingress">Utgifter klassade som fasta eller rörliga.</p>
+        <p class="note analysis-salary-year-spend__ingress">Fördelningen mellan fasta och rörliga utgifter</p>
         <p class="note analysis-salary-year-spend__empty">Ingen veckodata i vald löneperiod.</p>
       </div>`;
     salaryPeriodDoughnutModel = buildSalaryPeriodExpenseDoughnutModel(
