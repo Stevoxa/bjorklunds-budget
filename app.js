@@ -496,37 +496,6 @@ function chartSegmentHex(key) {
   return resolvedDocumentTheme() === "dark" ? pair.dark : pair.light;
 }
 
-/** Analysvy: DOM `data-analysis-widget` + inställning `settings.analysisLayout`. */
-const ANALYSIS_WIDGET_IDS = [
-  "hero",
-  "kpis",
-  "timeline",
-  "cashflow",
-  "buffer",
-  "category",
-  "fixedVariable",
-  "payments",
-  "weekly",
-  "goals",
-  "insights",
-  "tables"
-];
-
-const ANALYSIS_WIDGET_LABELS_SV = {
-  hero: "Sammanfattning",
-  kpis: "Nyckeltal",
-  timeline: "Tidslinje",
-  cashflow: "Kassaflöde",
-  buffer: "Kumulativ balans",
-  category: "Utgiftsfördelning",
-  fixedVariable: "Fasta och rörliga utgifter",
-  payments: "Närmast i kalendern",
-  weekly: "Veckor (mat)",
-  goals: "Sparande",
-  insights: "Insikter",
-  tables: "Tabeller"
-};
-
 const DATE_SHEET_MQ = "(max-width: 720px)";
 
 function isDateSheetViewport() {
@@ -597,8 +566,8 @@ let dateSheetPanesMinHeightPx = 0;
 
 let periodSheetOpen = false;
 let periodSheetClosing = false;
-/** @type {"overview"|"expenseFilter"|"incomeFilter"|"foodPreview"} */
-let periodSheetKind = "overview";
+/** @type {"expenseFilter"|"incomeFilter"|"foodPreview"|"taggedList"|"incomeTaggedList"} */
+let periodSheetKind = "expenseFilter";
 let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
 /** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spara-vy som öppnade periodarket. */
@@ -1858,8 +1827,7 @@ function yearOptionsForPeriodSheet() {
     const nums = getAvailableYears();
     return [{ v: "all", lab: "Alla" }, ...nums.map((y) => ({ v: String(y), lab: String(y) }))];
   }
-  if (periodSheetKind === "overview" || periodSheetKind === "foodPreview")
-    return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
+  if (periodSheetKind === "foodPreview") return getAvailableYears().map((y) => ({ v: String(y), lab: String(y) }));
   const src = periodSheetKind === "incomeFilter" ? incomeYearsForFilter() : expenseYearsForFilter();
   return src.map((y) => ({ v: String(y), lab: y === "all" ? "Alla" : String(y) }));
 }
@@ -1884,7 +1852,6 @@ function renderPeriodSheetContent() {
   monthsHost.innerHTML = "";
   const monthEntries = [];
   if (
-    periodSheetKind !== "overview" &&
     periodSheetKind !== "foodPreview" &&
     (periodSheetKind === "expenseFilter" ||
       periodSheetKind === "incomeFilter" ||
@@ -1912,16 +1879,7 @@ function renderPeriodSheetContent() {
 }
 
 function commitPeriodSheetAndClose() {
-  if (periodSheetKind === "overview") {
-    const yearSel = document.getElementById("overviewYear");
-    const monthSel = document.getElementById("overviewMonth");
-    if (yearSel && monthSel) {
-      yearSel.value = periodSheetDraftYearStr;
-      monthSel.value = periodSheetDraftMonthStr;
-      yearSel.dispatchEvent(new Event("change", { bubbles: true }));
-      monthSel.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  } else if (periodSheetKind === "foodPreview") {
+  if (periodSheetKind === "foodPreview") {
     const ys = document.getElementById("foodPreviewYear");
     const ms = document.getElementById("foodPreviewMonth");
     if (ys && ms) {
@@ -1986,50 +1944,6 @@ function commitPeriodSheetAndClose() {
     renderIncomesList();
   }
   closePeriodSheetAnimated();
-}
-
-function openOverviewPeriodSheet() {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
-  const yearSel = document.getElementById("overviewYear");
-  const monthSel = document.getElementById("overviewMonth");
-  const { backdrop, sheet } = getPeriodSheetEls();
-  if (!yearSel || !monthSel || !backdrop || !sheet) return;
-
-  capturePeriodSheetReturnFocus();
-  periodSheetKind = "overview";
-  const cur = currentYearMonth();
-  let y = Number(yearSel.value);
-  let m = Number(monthSel.value);
-  if (!Number.isFinite(y)) y = cur.year;
-  if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
-  periodSheetDraftYearStr = String(y);
-  periodSheetDraftMonthStr = String(m);
-
-  renderPeriodSheetContent();
-  backdrop.hidden = false;
-  backdrop.setAttribute("aria-hidden", "false");
-  sheet.hidden = false;
-  sheet.setAttribute("aria-hidden", "false");
-  backdrop.classList.remove("period-sheet-backdrop--visible");
-  sheet.classList.remove("period-sheet--visible");
-  pushAppBottomSheetScrollLock();
-  periodSheetOpen = true;
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      backdrop.classList.add("period-sheet-backdrop--visible");
-      sheet.classList.add("period-sheet--visible");
-      document.getElementById("periodSheetTitle")?.focus();
-    });
-  });
-
-  periodSheetKeydownHandler = (ev) => {
-    if (ev.key === "Escape") {
-      ev.preventDefault();
-      closePeriodSheetAnimated();
-    }
-  };
-  document.addEventListener("keydown", periodSheetKeydownHandler, true);
 }
 
 function openFoodPreviewPeriodSheet() {
@@ -2244,16 +2158,6 @@ function openIncomeFilterPeriodSheet() {
     }
   };
   document.addEventListener("keydown", periodSheetKeydownHandler, true);
-}
-
-function syncOverviewPeriodSummaryLabel() {
-  const el = document.getElementById("overviewPeriodSummary");
-  const ys = document.getElementById("overviewYear");
-  const ms = document.getElementById("overviewMonth");
-  if (!el || !ys || !ms) return;
-  const y = ys.value;
-  const m = Number(ms.value);
-  el.textContent = y && Number.isFinite(m) ? `${monthName(m)} ${y}` : "—";
 }
 
 function syncExpenseFilterSummaryLabel() {
@@ -2500,7 +2404,6 @@ function initOverviewPeriodSheet() {
   const { backdrop, handle, sheet } = getPeriodSheetEls();
   if (!backdrop || !sheet) return;
 
-  document.getElementById("overviewPeriodOpenBtn")?.addEventListener("click", () => openOverviewPeriodSheet());
   document.getElementById("expenseFilterPeriodOpenBtn")?.addEventListener("click", () => openExpenseFilterPeriodSheet());
   document.getElementById("incomeFilterPeriodOpenBtn")?.addEventListener("click", () => openIncomeFilterPeriodSheet());
   document.getElementById("foodPreviewPeriodOpenBtn")?.addEventListener("click", () => openFoodPreviewPeriodSheet());
@@ -2679,8 +2582,6 @@ function getDefaultState() {
       backupFilenamePattern: "bjorklunds_budget_{YYYY}-{MM}.json",
       lastBackupPromptAt: 0,
       foodPlanningWeekday: 1,
-      analysisLayout: null,
-      analysisSavingsTargetKr: 5000,
       /** Ny analys: fast lönedag i månaden när checkbox är på */
       salaryPeriodUseFixedDay: false,
       salaryPeriodFixedDay: 25,
@@ -2778,25 +2679,8 @@ function normalizeStateShape(state) {
       ? normalized.settings.backupFilenamePattern
       : base.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
-  {
-    const allowed = new Set(ANALYSIS_WIDGET_IDS);
-    const al = normalized.settings.analysisLayout;
-    if (Array.isArray(al)) {
-      const seen = new Set();
-      const out = [];
-      for (const id of al) {
-        if (typeof id === "string" && allowed.has(id) && !seen.has(id)) {
-          out.push(id);
-          seen.add(id);
-        }
-      }
-      normalized.settings.analysisLayout = out.length ? out : null;
-    } else normalized.settings.analysisLayout = null;
-  }
-  normalized.settings.analysisSavingsTargetKr = Math.max(
-    1,
-    Math.floor(asNumber(normalized.settings.analysisSavingsTargetKr ?? base.settings.analysisSavingsTargetKr))
-  );
+  delete normalized.settings.analysisLayout;
+  delete normalized.settings.analysisSavingsTargetKr;
   normalized.settings.salaryPeriodUseFixedDay = Boolean(normalized.settings.salaryPeriodUseFixedDay);
   {
     const fd = Math.floor(asNumber(normalized.settings.salaryPeriodFixedDay ?? base.settings.salaryPeriodFixedDay));
@@ -5320,11 +5204,6 @@ function buildCarExpensePayments({ interval, firstDateISO, endDateISO, paymentDa
 let state = null;
 const ui = {
   activeRoute: "analysis",
-  // Analys: route "analysis" (ny), "old-analysis" (tidigare dashboard)
-  overviewYear: null,
-  overviewMonth: null,
-  /** Analys: vecka | månad | år (diagramserier) */
-  analysisRange: "month",
   /** Ny analysvy: salaryYear | salaryPeriod */
   analysisViewMode: "salaryPeriod",
   /** Löneår: -1 föregående, 0 nuvarande, +1 nästa */
@@ -5771,7 +5650,7 @@ function renderTaggedIncomeCategoryPage(cat) {
   const listYearSel = document.getElementById(ids.listYear);
   const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
-  const baseYear = ui.incomeYearFilter || ui.overviewYear || cur.year;
+  const baseYear = ui.incomeYearFilter || cur.year;
   const appYears = getAvailableYears();
   if (
     u.listYear !== "all" &&
@@ -6062,7 +5941,7 @@ function parseRouteFromHash() {
   const part = h.slice(2).split("?")[0].trim();
   const segments = part.split("/").filter(Boolean);
   let route = segments[0] || "analysis";
-  if (route === "overview") route = "analysis";
+  if (route === "overview" || route === "old-analysis") route = "analysis";
   let incomeOverlay = null;
   if (route === "incomes" && segments[1]) {
     const s1 = String(segments[1]).toLowerCase();
@@ -6099,7 +5978,7 @@ function initRouting() {
   };
 
   const onChange = () => {
-    const allowed = new Set(["analysis", "old-analysis", "incomes", "expenses", "savings", "settings"]);
+    const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings"]);
     const parsed = parseRouteFromHash();
     let route = parsed.route;
     if (!allowed.has(route)) route = "analysis";
@@ -7036,252 +6915,7 @@ function overviewTableGroupForExpense(exp) {
   return map[c] || "Utgifter";
 }
 
-function overviewTableLabelForPayment(exp, dt) {
-  const dateStr = dt.toLocaleDateString("sv-SE");
-  const cfgS = TAGGED_CATEGORY_CONFIG.savings;
-  if (exp.category === "savings" && cfgS?.omitTypeInOverviewLabel) {
-    const name = String(exp.name || "").trim() || getTaggedTypeLabel("savings", exp.subcategory || "own");
-    return `${name} (${dateStr})`;
-  }
-  const cat = exp.category;
-  if (cat === "car" || cat === "home" || cat === "children") {
-    const key = exp.subcategory || "other";
-    const tl = getTaggedTypeLabel(cat, key);
-    const name = String(exp.name || "").trim() || tl;
-    return `${tl} · ${name} (${dateStr})`;
-  }
-  return `${exp.name || "Utgift"} (${dateStr})`;
-}
-
-function computeMonthOverview(year, month) {
-  const sumPaymentsInMonth = (payments) =>
-    (Array.isArray(payments) ? payments : []).reduce((s, p) => {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) return s;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) return s;
-      if (dt.getFullYear() === year && dt.getMonth() + 1 === month) return s + amt;
-      return s;
-    }, 0);
-
-  const oneOffIncomesAmount = (state.incomes || []).reduce((sum, inc) => {
-    if (inc.category !== "one_off") return sum;
-    return sum + sumPaymentsInMonth(inc.payments);
-  }, 0);
-
-  const seg = {
-    other: 0,
-    mat: 0,
-    car: 0,
-    home: 0,
-    children: 0,
-    savings: 0,
-    loans: 0,
-    one_off: 0
-  };
-
-  const expensesRows = [];
-  const costBehaviorTotals = { fixed: 0, variable: 0, unknown: 0 };
-  for (const exp of state.expenses || []) {
-    const payments = Array.isArray(exp.payments) ? exp.payments : [];
-    for (const p of payments) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-
-      const cat = exp.category || "other";
-      if (isMatLikeExpense(exp)) seg.mat += amt;
-      else if (cat === "car") seg.car += amt;
-      else if (cat === "home") seg.home += amt;
-      else if (cat === "children") seg.children += amt;
-      else if (cat === "savings") {
-        if (!isRobinHoodSetasideSavingsExpense(exp)) seg.savings += amt;
-      } else if (cat === "loans") seg.loans += amt;
-      else if (cat === "one_off") seg.one_off += amt;
-      else seg.other += amt;
-
-      const beh = getExpenseCostBehavior(exp);
-      if (beh === EXPENSE_COST_FIXED) costBehaviorTotals.fixed += amt;
-      else if (beh === EXPENSE_COST_VARIABLE) costBehaviorTotals.variable += amt;
-      else costBehaviorTotals.unknown += amt;
-
-      if (!(cat === "savings" && isRobinHoodGeneratedExpense(exp))) {
-        expensesRows.push({
-          group: overviewTableGroupForExpense(exp),
-          label: overviewTableLabelForPayment(exp, dt),
-          amount: amt,
-          _sortT: dt.getTime()
-        });
-      }
-    }
-  }
-
-  expensesRows.sort((a, b) => a._sortT - b._sortT || String(a.label).localeCompare(String(b.label), "sv"));
-  const expensesRowsClean = expensesRows.map(({ group, label, amount }) => ({ group, label, amount }));
-
-  const oneOffExpensesAmount = seg.one_off;
-  const plannedExpensesAmount =
-    seg.other + seg.mat + seg.car + seg.home + seg.children + seg.savings + seg.loans + seg.one_off;
-
-  const incomePaymentsAmount = (state.incomes || []).reduce((sum, inc) => {
-    if (inc.category === "one_off") return sum;
-    return sum + sumPaymentsInMonth(inc.payments);
-  }, 0);
-
-  const incomeAmount = incomePaymentsAmount + oneOffIncomesAmount;
-  const remaining = incomeAmount - plannedExpensesAmount;
-
-  const segments = [
-    { key: "recurringExpenses", label: "Utgifter", amount: Math.max(0, seg.other), color: chartSegmentHex("recurringExpenses") },
-    { key: "foodGenerated", label: "Mat", amount: seg.mat, color: chartSegmentHex("foodGenerated") },
-    { key: "car", label: "Bil", amount: seg.car, color: chartSegmentHex("car") },
-    { key: "housing", label: "Hem", amount: seg.home, color: chartSegmentHex("housing") },
-    { key: "loans", label: "Lån", amount: seg.loans, color: chartSegmentHex("loans") },
-    { key: "children", label: "Barn", amount: seg.children, color: chartSegmentHex("children") },
-    { key: "savings", label: "Spara", amount: seg.savings, color: chartSegmentHex("savings") },
-    { key: "oneOffExpenses", label: "Enstaka utgifter", amount: oneOffExpensesAmount, color: chartSegmentHex("oneOffExpenses") }
-  ].filter((s) => s.amount > 0);
-
-  const incomesRows = [];
-  for (const inc of state.incomes || []) {
-    if (inc.category === "one_off") continue;
-    const payments = Array.isArray(inc.payments) ? inc.payments : [];
-    for (const p of payments) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      const py = dt.getFullYear();
-      const pm = dt.getMonth() + 1;
-      if (py !== year || pm !== month) continue;
-      incomesRows.push({
-        group: "Utbetalningar",
-        label: `${incomeDisplayName(inc)} (${dt.toLocaleDateString("sv-SE")})`,
-        amount: amt
-      });
-    }
-  }
-  for (const inc of state.incomes || []) {
-    if (inc.category !== "one_off") continue;
-    const payments = Array.isArray(inc.payments) ? inc.payments : [];
-    for (const p of payments) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const dt = p.date ? new Date(p.date) : null;
-      if (!dt || Number.isNaN(dt.getTime())) continue;
-      if (dt.getFullYear() !== year || dt.getMonth() + 1 !== month) continue;
-      incomesRows.push({
-        group: "Enstaka intäkter",
-        label: `${inc.name || "Intäkt"} (${dt.toLocaleDateString("sv-SE")})`,
-        amount: amt
-      });
-    }
-  }
-
-  return {
-    year,
-    month,
-    incomeAmount,
-    plannedExpensesAmount,
-    remaining,
-    seg,
-    segments,
-    expensesRows: expensesRowsClean,
-    incomesRows,
-    costBehaviorTotals
-  };
-}
-
 let analysisChartInstances = {};
-
-function getAnalysisLayoutOrder() {
-  const custom = state?.settings?.analysisLayout;
-  const allowed = new Set(ANALYSIS_WIDGET_IDS);
-  if (Array.isArray(custom) && custom.length) {
-    const seen = new Set();
-    const out = [];
-    for (const id of custom) {
-      if (allowed.has(id) && !seen.has(id)) {
-        out.push(id);
-        seen.add(id);
-      }
-    }
-    for (const id of ANALYSIS_WIDGET_IDS) {
-      if (!seen.has(id)) out.push(id);
-    }
-    return out;
-  }
-  return [...ANALYSIS_WIDGET_IDS];
-}
-
-function applyAnalysisWidgetOrder() {
-  const parent = document.getElementById("analysisWidgetStack");
-  if (!parent) return;
-  const order = getAnalysisLayoutOrder();
-  const map = new Map();
-  parent.querySelectorAll("[data-analysis-widget]").forEach((el) => {
-    const id = el.getAttribute("data-analysis-widget");
-    if (id) map.set(id, el);
-  });
-  for (const id of order) {
-    const el = map.get(id);
-    if (el) parent.appendChild(el);
-  }
-}
-
-function persistAnalysisLayoutFromSortable() {
-  const ol = document.getElementById("analysisLayoutSortable");
-  if (!ol) return;
-  const ids = Array.from(ol.querySelectorAll("li[data-widget-id]"))
-    .map((li) => li.getAttribute("data-widget-id"))
-    .filter(Boolean);
-  state.settings.analysisLayout = ids.length ? ids : null;
-  saveState();
-  applyAnalysisWidgetOrder();
-}
-
-function renderAnalysisLayoutSettingsList() {
-  const ol = document.getElementById("analysisLayoutSortable");
-  if (!ol) return;
-  ol.innerHTML = "";
-  const order = getAnalysisLayoutOrder();
-  for (const id of order) {
-    const li = document.createElement("li");
-    li.className = "analysis-layout-row";
-    li.dataset.widgetId = id;
-    const lab = ANALYSIS_WIDGET_LABELS_SV[id] || id;
-    li.innerHTML = `<span class="analysis-layout-label">${escapeHtml(lab)}</span>
-      <span class="analysis-layout-row-actions">
-        <button type="button" class="secondary analysis-layout-up" aria-label="Flytta upp">↑</button>
-        <button type="button" class="secondary analysis-layout-down" aria-label="Flytta ner">↓</button>
-      </span>`;
-    ol.appendChild(li);
-  }
-}
-
-function wireAnalysisLayoutSettingsOnce() {
-  const ol = document.getElementById("analysisLayoutSortable");
-  if (!ol || ol.dataset.bound === "1") return;
-  ol.dataset.bound = "1";
-  ol.addEventListener("click", (e) => {
-    const up = e.target.closest(".analysis-layout-up");
-    const down = e.target.closest(".analysis-layout-down");
-    const row = e.target.closest("li[data-widget-id]");
-    if (!row || (!up && !down)) return;
-    const p = row.parentElement;
-    if (up && row.previousElementSibling) p.insertBefore(row, row.previousElementSibling);
-    if (down && row.nextElementSibling) p.insertBefore(row.nextElementSibling, row);
-    persistAnalysisLayoutFromSortable();
-  });
-  document.getElementById("analysisLayoutResetBtn")?.addEventListener("click", () => {
-    state.settings.analysisLayout = null;
-    saveState();
-    renderAnalysisLayoutSettingsList();
-    applyAnalysisWidgetOrder();
-  });
-}
 
 function readThemeCssVar(name, fallback) {
   try {
@@ -8223,337 +7857,6 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
   });
 }
 
-function collectPaymentEventsForRange(startIso, endIso) {
-  const out = [];
-  for (const exp of state.expenses || []) {
-    for (const p of exp.payments || []) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const iso = String(p.date || "").slice(0, 10);
-      if (!isoInRange(iso, startIso, endIso)) continue;
-      out.push({
-        iso,
-        kind: "expense",
-        amount: amt,
-        category: overviewTableGroupForExpense(exp),
-        name: String(exp.name || "").trim() || overviewTableGroupForExpense(exp)
-      });
-    }
-  }
-  for (const inc of state.incomes || []) {
-    for (const p of inc.payments || []) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const iso = String(p.date || "").slice(0, 10);
-      if (!isoInRange(iso, startIso, endIso)) continue;
-      out.push({
-        iso,
-        kind: "income",
-        amount: amt,
-        category: "Inkomst",
-        name: incomeDisplayName(inc)
-      });
-    }
-  }
-  out.sort((a, b) => a.iso.localeCompare(b.iso) || (a.kind === "income" ? -1 : 1));
-  return out;
-}
-
-function mergePaymentEventsByDay(events) {
-  const m = new Map();
-  for (const e of events) {
-    if (!m.has(e.iso)) m.set(e.iso, { iso: e.iso, income: 0, expense: 0 });
-    const o = m.get(e.iso);
-    if (e.kind === "income") o.income += e.amount;
-    else o.expense += e.amount;
-  }
-  return Array.from(m.values()).sort((a, b) => a.iso.localeCompare(b.iso));
-}
-
-function bucketPaymentEventsByWeek(events) {
-  const m = new Map();
-  for (const e of events) {
-    const dp = datePartsFromIso(e.iso);
-    if (!dp) continue;
-    const wk = isoWeekNumberForYmdParts(dp.y, dp.m, dp.d);
-    const key = `${dp.y}-W${String(wk).padStart(2, "0")}`;
-    if (!m.has(key)) m.set(key, { key, isoMin: e.iso, income: 0, expense: 0, week: wk, year: dp.y });
-    const o = m.get(key);
-    if (e.iso < o.isoMin) o.isoMin = e.iso;
-    if (e.kind === "income") o.income += e.amount;
-    else o.expense += e.amount;
-  }
-  return Array.from(m.values())
-    .sort((a, b) => String(a.isoMin).localeCompare(String(b.isoMin)))
-    .map((x) => ({
-      iso: x.isoMin,
-      income: x.income,
-      expense: x.expense,
-      label: `v${x.week}`
-    }));
-}
-
-function formatIsoRangeCaptionSv(startIso, endIso) {
-  const a = datePartsFromIso(startIso);
-  const b = datePartsFromIso(endIso);
-  if (!a || !b) return "";
-  const d1 = new Date(a.y, a.m - 1, a.d);
-  const d2 = new Date(b.y, b.m - 1, b.d);
-  const o = { day: "numeric", month: "short", year: "numeric" };
-  const s1 = d1.toLocaleDateString("sv-SE", o);
-  const s2 = d2.toLocaleDateString("sv-SE", o);
-  return s1 === s2 ? s1 : `${s1} – ${s2}`;
-}
-
-function primaryPeriodBounds(range, anchorY, anchorM) {
-  const d1 = isoDateFromParts(anchorY, anchorM, 1);
-  const d2 = isoDateFromParts(anchorY, anchorM, daysInMonth(anchorY, anchorM));
-  if (range === "month") return { startIso: d1, endIso: d2, label: `${monthName(anchorM)} ${anchorY}` };
-  if (range === "week") {
-    const ref = new Date(anchorY, anchorM - 1, 15);
-    const s = startOfIsoWeekFromDate(ref);
-    const e = endOfIsoWeekFromDate(ref);
-    const startIso = dateToIsoLocal(s);
-    const endIso = dateToIsoLocal(e);
-    const wn = isoWeekNumberForYmdParts(s.getFullYear(), s.getMonth() + 1, s.getDate());
-    const rangeStr = formatIsoRangeCaptionSv(startIso, endIso);
-    return {
-      startIso,
-      endIso,
-      label: rangeStr ? `Vecka ${wn} · ${rangeStr}` : `Vecka ${wn}`
-    };
-  }
-  return {
-    startIso: `${anchorY}-01-01`,
-    endIso: `${anchorY}-12-31`,
-    label: String(anchorY)
-  };
-}
-
-/** Kort rubrik för kategori-/UI som ska spegla vald analysperiod (inte bara kalendermånad). */
-function analysisCategoryPeriodCaption(range, bounds, anchorY) {
-  if (range === "month") return bounds.label;
-  if (range === "year") return `Helår ${anchorY}`;
-  return bounds.label;
-}
-
-function buildCashflowSlices(range, anchorY, anchorM) {
-  const slices = [];
-  if (range === "month") {
-    for (let k = 7; k >= 0; k--) {
-      let y = anchorY;
-      let m = anchorM - k;
-      while (m < 1) {
-        m += 12;
-        y -= 1;
-      }
-      while (m > 12) {
-        m -= 12;
-        y += 1;
-      }
-      const a = isoDateFromParts(y, m, 1);
-      const b = isoDateFromParts(y, m, daysInMonth(y, m));
-      const agg = aggregateOverviewForIsoRange(a, b);
-      slices.push({
-        label: monthName(m).slice(0, 3),
-        startIso: a,
-        endIso: b,
-        ...agg
-      });
-    }
-    return slices;
-  }
-  if (range === "week") {
-    const ref = new Date(anchorY, anchorM - 1, 15);
-    const endW = endOfIsoWeekFromDate(ref);
-    for (let k = 7; k >= 0; k--) {
-      const end = new Date(endW);
-      end.setDate(end.getDate() - 7 * k);
-      const s = startOfIsoWeekFromDate(end);
-      const e = endOfIsoWeekFromDate(end);
-      const a = dateToIsoLocal(s);
-      const b = dateToIsoLocal(e);
-      const wn = isoWeekNumberForYmdParts(s.getFullYear(), s.getMonth() + 1, s.getDate());
-      const agg = aggregateOverviewForIsoRange(a, b);
-      slices.push({ label: `v${wn}`, startIso: a, endIso: b, ...agg });
-    }
-    return slices;
-  }
-  for (let m = 1; m <= 12; m++) {
-    const a = isoDateFromParts(anchorY, m, 1);
-    const b = isoDateFromParts(anchorY, m, daysInMonth(anchorY, m));
-    const agg = aggregateOverviewForIsoRange(a, b);
-    slices.push({ label: monthName(m).slice(0, 3), startIso: a, endIso: b, ...agg });
-  }
-  return slices;
-}
-
-function matTotalsByIsoWeekInMonth(anchorY, anchorM) {
-  const a = isoDateFromParts(anchorY, anchorM, 1);
-  const b = isoDateFromParts(anchorY, anchorM, daysInMonth(anchorY, anchorM));
-  const map = new Map();
-  for (const exp of state.expenses || []) {
-    if (!isMatLikeExpense(exp)) continue;
-    for (const p of exp.payments || []) {
-      const amt = asNumber(p.amount);
-      if (amt <= 0) continue;
-      const iso = String(p.date || "").slice(0, 10);
-      if (!isoInRange(iso, a, b)) continue;
-      const dp = datePartsFromIso(iso);
-      if (!dp) continue;
-      const wk = isoWeekNumberForYmdParts(dp.y, dp.m, dp.d);
-      const key = `${dp.y}-W${wk}`;
-      map.set(key, (map.get(key) || 0) + amt);
-    }
-  }
-  const rows = Array.from(map.entries())
-    .map(([k, amt]) => {
-      const wk = Number(k.split("W")[1]);
-      return { key: k, wk, amt };
-    })
-    .sort((x, y) => x.key.localeCompare(y.key));
-  return {
-    labels: rows.map((r) => `v${r.wk}`),
-    values: rows.map((r) => r.amt)
-  };
-}
-
-function foodWeeklyLimitKr() {
-  const fc = getSharedFoodConfig();
-  if (fc.mode === "manual") return Math.max(0, asNumber(fc.manualWeeklyCost));
-  const n = Math.max(1, asNumber(fc.household?.adults) + asNumber(fc.household?.teens) + asNumber(fc.household?.children));
-  return Math.max(1200, Math.round(800 * n));
-}
-
-function buildAnalysisAnalyticsModel(range, anchorY, anchorM) {
-  const bounds = primaryPeriodBounds(range, anchorY, anchorM);
-  const heroAgg = aggregateOverviewForIsoRange(bounds.startIso, bounds.endIso);
-  const slices = buildCashflowSlices(range, anchorY, anchorM);
-  const incomeArr = slices.map((s) => s.incomeAmount);
-  const expenseArr = slices.map((s) => s.plannedExpensesAmount);
-  const netArr = incomeArr.map((inc, i) => inc - expenseArr[i]);
-  let acc = 0;
-  const cumulative = netArr.map((n) => {
-    acc += n;
-    return acc;
-  });
-  const minCum = cumulative.length ? Math.min(...cumulative) : 0;
-
-  let rawEvents = collectPaymentEventsForRange(bounds.startIso, bounds.endIso);
-  let timelineDays = mergePaymentEventsByDay(rawEvents).map((d) => {
-    const p = datePartsFromIso(d.iso);
-    const label = p ? `${p.d} ${monthName(p.m).slice(0, 3)}` : d.iso;
-    return { ...d, label };
-  });
-  if (timelineDays.length > 36) {
-    const wk = bucketPaymentEventsByWeek(rawEvents);
-    timelineDays = wk.map((w) => ({
-      iso: w.isoMin,
-      income: w.income,
-      expense: w.expense,
-      label: w.label
-    }));
-  }
-
-  const barVals = timelineDays.map((d) => d.income - d.expense);
-  let run = 0;
-  const running = timelineDays.map((d) => {
-    run += d.income - d.expense;
-    return run;
-  });
-  const salaryIdx = timelineDays.findIndex((d) => d.income > 0);
-
-  const fvLabels = slices.slice(-4).map((s) => s.label);
-  const fvFixed = slices.slice(-4).map((s) => s.costBehaviorTotals.fixed);
-  const fvVar = slices.slice(-4).map((s) => s.costBehaviorTotals.variable);
-
-  const matW = matTotalsByIsoWeekInMonth(anchorY, anchorM);
-  const wLimit = foodWeeklyLimitKr();
-  const savingsTarget = Math.max(1, asNumber(state.settings?.analysisSavingsTargetKr) || 5000);
-  const savingsAmt = heroAgg.seg.savings;
-
-  const nextEv = collectPaymentEventsForRange(bounds.startIso, bounds.endIso).filter((e) => e.kind === "expense")[0];
-  const incomeIdx = rawEvents.findIndex((e) => e.kind === "income");
-  const needBeforeIncome =
-    incomeIdx === -1
-      ? rawEvents.filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0)
-      : rawEvents.slice(0, incomeIdx).filter((e) => e.kind === "expense").reduce((s, e) => s + e.amount, 0);
-
-  const saveRate =
-    heroAgg.incomeAmount > 0 ? Math.max(0, (heroAgg.remaining / heroAgg.incomeAmount) * 100) : 0;
-
-  return {
-    range,
-    bounds,
-    categoryPeriodCaption: analysisCategoryPeriodCaption(range, bounds, anchorY),
-    heroAgg,
-    heroRemaining: heroAgg.remaining,
-    slices,
-    incomeArr,
-    expenseArr,
-    netArr,
-    cumulative,
-    minCum,
-    timelineDays,
-    barVals,
-    running,
-    salaryIdx,
-    categorySegments: heroAgg.segments,
-    fvLabels,
-    fvFixed,
-    fvVar,
-    weeklyLabels: matW.labels.length ? matW.labels : ["—"],
-    weeklyValues: matW.values.length ? matW.values : [0],
-    weeklyLimit: wLimit,
-    savingsAmt,
-    savingsTarget,
-    nextExpenseLabel: nextEv
-      ? `${String(nextEv.iso).slice(8, 10)}/${String(nextEv.iso).slice(5, 7)} · ${nextEv.name}`
-      : "Ingen nära",
-    needBeforeIncome,
-    saveRate,
-    paymentListEvents: rawEvents.slice(0, 24),
-    insights: buildAnalysisInsightCards(heroAgg, slices)
-  };
-}
-
-function buildAnalysisInsightCards(heroAgg, slices) {
-  const out = [];
-  if (heroAgg.remaining < 0) {
-    out.push({
-      title: "Underskott i perioden",
-      text: `Planerade utgifter överstiger intäkter med ${formatKr(Math.abs(heroAgg.remaining))}. Prioritera datum närmast idag.`
-    });
-  } else if (heroAgg.remaining < heroAgg.incomeAmount * 0.05 && heroAgg.incomeAmount > 0) {
-    out.push({
-      title: "Tajt marginal",
-      text: "Det finns lite utrymme kvar — små oförutsedda utgifter kan påverka. Håll koll på veckan före större inkomst."
-    });
-  }
-  let worst = null;
-  for (const s of slices) {
-    if (!worst || s.remaining < worst.remaining) worst = s;
-  }
-  if (worst && worst.remaining < 0) {
-    out.push({
-      title: "Svag delperiod",
-      text: `${worst.label}: netto ${formatKr(worst.remaining)} i vald serie. Se om utgifter kan flyttas eller jämnas ut.`
-    });
-  }
-  const top = [...(heroAgg.segments || [])].sort((a, b) => b.amount - a.amount)[0];
-  if (top) {
-    out.push({
-      title: "Största utgiftsområdet",
-      text: `${top.label} står för ${formatKr(top.amount)} i samma period som kategoridiagrammet. Tabellerna längst ned visar fortfarande vald kalendermånad.`
-    });
-  }
-  out.push({
-    title: "Planering lönar sig",
-    text: "Siffrorna bygger på dina planerade betalningar. Uppdatera utgifter och intäkter när verkligheten ändras."
-  });
-  return out.slice(0, 5);
-}
-
 function destroyAnalysisCharts() {
   teardownSalaryYearSpendChart();
   teardownSalaryPeriodSpendChart();
@@ -8665,542 +7968,6 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
       }
     }
   };
-}
-
-function makeAnalysisTimelinePlugin(palette, salaryIdx) {
-  return {
-    id: "analysisTimelineMarkers",
-    afterDatasetsDraw(chart) {
-      const { ctx, chartArea, scales } = chart;
-      if (!chartArea || !scales.x || !scales.y) return;
-      if (salaryIdx >= 0) {
-        const x = scales.x.getPixelForValue(salaryIdx);
-        if (!Number.isFinite(x)) return;
-        ctx.save();
-        ctx.strokeStyle = palette.incomeSoft;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(x, chartArea.top + 4);
-        ctx.lineTo(x, chartArea.bottom);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = palette.incomeSoft;
-        ctx.fillRect(x - 22, chartArea.top + 2, 44, 16);
-        ctx.fillStyle = palette.income;
-        ctx.font = `600 10px ${palette.chartFont}`;
-        ctx.textAlign = "center";
-        ctx.fillText("Lön+", x, chartArea.top + 13);
-        ctx.restore();
-      }
-    }
-  };
-}
-
-function renderAnalysisCharts(model) {
-  const Chart = window.Chart;
-  if (!Chart) return;
-  const palette = getAnalysisChartPalette();
-  Chart.defaults.font.family = palette.chartFont;
-  Chart.defaults.color = palette.muted;
-
-  const hasTl = model.timelineDays.length > 0;
-  const tlLabels = hasTl
-    ? model.timelineDays.map((d) => d.label || String(d.iso).slice(8, 10))
-    : ["Ingen data"];
-  const tlBar = hasTl ? model.barVals : [0];
-  const tlRun = hasTl ? model.running : [0];
-  const tlSalaryIdx = hasTl ? model.salaryIdx : -1;
-
-  const tlCanvas = document.getElementById("analysisTimelineChart");
-  if (tlCanvas) {
-    analysisChartInstances.timeline = new Chart(tlCanvas, {
-      type: "bar",
-      data: {
-        labels: tlLabels,
-        datasets: [
-          {
-            type: "bar",
-            label: "Netto per dag/vecka",
-            data: tlBar,
-            backgroundColor: tlBar.map((v) => (v >= 0 ? palette.incomeSoft : palette.expenseSoft)),
-            borderColor: tlBar.map((v) => (v >= 0 ? palette.incomeStrong : palette.expenseStrong)),
-            borderWidth: 1,
-            borderRadius: 8,
-            order: 2
-          },
-          {
-            type: "line",
-            label: "Saldo",
-            data: tlRun,
-            borderColor: palette.balance,
-            pointRadius: hasTl ? 3 : 0,
-            tension: 0.32,
-            fill: false,
-            order: 1
-          }
-        ]
-      },
-      options: {
-        ...analysisCommonChartOptions(palette, true),
-        scales: {
-          ...analysisCommonChartOptions(palette, true).scales,
-          y: { ...analysisCommonChartOptions(palette, true).scales.y, beginAtZero: false }
-        }
-      },
-      plugins: [makeAnalysisTimelinePlugin(palette, tlSalaryIdx)]
-    });
-  }
-
-  const cf = document.getElementById("analysisCashflowChart");
-  if (cf) {
-    analysisChartInstances.cashflow = new Chart(cf, {
-      type: "bar",
-      data: {
-        labels: model.slices.map((s) => s.label),
-        datasets: [
-          {
-            label: "Inkomst",
-            data: model.incomeArr,
-            backgroundColor: palette.incomeSoft,
-            borderColor: palette.incomeStrong,
-            borderWidth: 1,
-            borderRadius: 6,
-            order: 2
-          },
-          {
-            label: "Utgifter",
-            data: model.expenseArr,
-            backgroundColor: palette.expenseSoft,
-            borderColor: palette.expenseStrong,
-            borderWidth: 1,
-            borderRadius: 6,
-            order: 2
-          },
-          {
-            type: "line",
-            label: "Netto",
-            data: model.netArr,
-            borderColor: palette.saving,
-            pointRadius: 3,
-            tension: 0.3,
-            fill: false,
-            order: 1
-          }
-        ]
-      },
-      options: analysisCommonChartOptions(palette, true)
-    });
-  }
-
-  const buf = document.getElementById("analysisBufferChart");
-  if (buf) {
-    analysisChartInstances.buffer = new Chart(buf, {
-      type: "line",
-      data: {
-        labels: model.slices.map((s) => s.label),
-        datasets: [
-          {
-            label: "Kumulativt netto",
-            data: model.cumulative,
-            borderColor: palette.balance,
-            pointBackgroundColor: model.cumulative.map((v) => (v < 0 ? palette.expense : palette.balance)),
-            pointRadius: 3,
-            fill: "origin",
-            backgroundColor: (ctx) => {
-              const v = ctx.parsed?.y;
-              if (v == null) return palette.balanceSoft;
-              return v < 0 ? palette.expenseSoft : palette.balanceSoft;
-            },
-            tension: 0.28
-          }
-        ]
-      },
-      options: {
-        ...analysisCommonChartOptions(palette, true),
-        plugins: { ...analysisCommonChartOptions(palette, true).plugins, legend: { display: false } }
-      }
-    });
-  }
-
-  const cat = document.getElementById("analysisCategoryChart");
-  if (cat && model.categorySegments.length) {
-    analysisChartInstances.category = new Chart(cat, {
-      type: "doughnut",
-      data: {
-        labels: model.categorySegments.map((s) => s.label),
-        datasets: [
-          {
-            data: model.categorySegments.map((s) => s.amount),
-            backgroundColor: model.categorySegments.map((s) => s.color),
-            borderWidth: 0
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "62%",
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              color: palette.muted,
-              boxWidth: 10,
-              padding: 8,
-              usePointStyle: true,
-              pointStyle: "circle",
-              font: { family: palette.chartFont, size: 12 }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.label}: ${formatKr(ctx.raw)}`
-            }
-          }
-        }
-      }
-    });
-  }
-
-  const fv = document.getElementById("analysisFixedVariableChart");
-  if (fv) {
-    analysisChartInstances.fixedVar = new Chart(fv, {
-      type: "bar",
-      data: {
-        labels: model.fvLabels,
-        datasets: [
-          {
-            label: "Fasta",
-            data: model.fvFixed,
-            backgroundColor: palette.balanceSoft,
-            borderColor: palette.balance,
-            borderWidth: 1,
-            borderRadius: 6,
-            stack: "x"
-          },
-          {
-            label: "Rörliga",
-            data: model.fvVar,
-            backgroundColor: palette.dark ? "rgba(197,131,68,0.45)" : "rgba(176,111,52,0.45)",
-            borderColor: palette.mat,
-            borderWidth: 1,
-            borderRadius: 6,
-            stack: "x"
-          }
-        ]
-      },
-      options: analysisCommonChartOptions(palette, true, true)
-    });
-  }
-
-  const wk = document.getElementById("analysisWeeklyChart");
-  if (wk) {
-    analysisChartInstances.weekly = new Chart(wk, {
-      type: "bar",
-      data: {
-        labels: model.weeklyLabels,
-        datasets: [
-          {
-            label: "Mat (vecka)",
-            data: model.weeklyValues,
-            backgroundColor: model.weeklyValues.map((v) => (v > model.weeklyLimit ? palette.expenseSoft : palette.incomeSoft)),
-            borderColor: model.weeklyValues.map((v) => (v > model.weeklyLimit ? palette.expenseStrong : palette.incomeStrong)),
-            borderWidth: 1,
-            borderRadius: 6
-          },
-          {
-            type: "line",
-            label: "Riktlinje",
-            data: model.weeklyValues.map(() => model.weeklyLimit),
-            borderColor: palette.expense,
-            borderDash: [5, 5],
-            pointRadius: 0,
-            tension: 0
-          }
-        ]
-      },
-      options: analysisCommonChartOptions(palette, true)
-    });
-  }
-
-  const goal = document.getElementById("analysisGoalChart");
-  if (goal) {
-    const pct = Math.min(100, Math.round((model.savingsAmt / model.savingsTarget) * 100));
-    analysisChartInstances.goal = new Chart(goal, {
-      type: "doughnut",
-      data: {
-        labels: ["Sparat", "Kvar"],
-        datasets: [
-          {
-            data: [pct, Math.max(0, 100 - pct)],
-            backgroundColor: [palette.saving, palette.doughnutTrack],
-            borderWidth: 0
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "72%",
-        plugins: { legend: { display: false }, tooltip: { enabled: false } }
-      },
-      plugins: [
-        {
-          id: "analysisGoalCenter",
-          afterDraw(chart) {
-            const { ctx } = chart;
-            const meta = chart.getDatasetMeta(0).data[0];
-            if (!meta) return;
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.fillStyle = palette.text;
-            ctx.font = `600 11px ${palette.chartFont}`;
-            ctx.fillText("Mål", meta.x, meta.y - 10);
-            ctx.font = `800 15px ${palette.chartFont}`;
-            ctx.fillText(`${pct}%`, meta.x, meta.y + 6);
-            ctx.restore();
-          }
-        }
-      ]
-    });
-  }
-}
-
-function updateAnalysisDomFromModel(model) {
-  const fmt = (n) => formatKr(n);
-  const rem = model.heroRemaining;
-  const elBal = document.getElementById("analysisHeroBalance");
-  if (elBal) {
-    elBal.textContent = fmt(rem);
-    elBal.classList.remove("analysis-hero-value--pos", "analysis-hero-value--neg");
-    elBal.classList.add(rem < 0 ? "analysis-hero-value--neg" : "analysis-hero-value--pos");
-  }
-  const catPanel = document.querySelector('[data-analysis-widget="category"]');
-  if (catPanel) {
-    catPanel.classList.toggle("analysis-panel--empty-chart", !(model.categorySegments && model.categorySegments.length));
-  }
-  const catPeriod = document.getElementById("analysisCategoryPeriodNote");
-  if (catPeriod) {
-    catPeriod.textContent = model.categoryPeriodCaption ? `Period: ${model.categoryPeriodCaption}` : "";
-  }
-
-  const heroMsg = document.getElementById("analysisHeroMessage");
-  const heroChip = document.getElementById("analysisHeroState");
-  const tight = rem < model.heroAgg.incomeAmount * 0.08 && model.heroAgg.incomeAmount > 0;
-  if (heroMsg) {
-    heroMsg.textContent =
-      rem < 0
-        ? "Utgifterna överstiger intäkterna i vald period."
-        : tight
-          ? "Marginalen är liten — följ datum i kalendern."
-          : "Det finns utrymme kvar enligt planen.";
-  }
-  if (heroChip) {
-    heroChip.textContent = rem < 0 ? "Under brytgräns" : tight ? "Tajt läge" : "Hanterbart";
-    heroChip.className =
-      "analysis-hero-chip " + (rem < 0 || tight ? "analysis-hero-chip--warn" : "analysis-hero-chip--safe");
-  }
-  const np = document.getElementById("analysisNextPaymentLabel");
-  if (np) np.textContent = model.nextExpenseLabel;
-  const ps = document.getElementById("analysisPreSalaryNeed");
-  if (ps) ps.textContent = fmt(model.needBeforeIncome || 0);
-  const ms = document.getElementById("analysisMarginStatus");
-  if (ms) ms.textContent = model.saveRate < 5 ? "Tunt" : model.saveRate < 12 ? "Lagom" : "Luft";
-
-  const k1 = document.getElementById("analysisKpiNeedSoon");
-  if (k1) {
-    k1.textContent = fmt(model.needBeforeIncome || 0);
-    k1.className = "analysis-kpi-value analysis-kpi-value--expense";
-  }
-  const k2 = document.getElementById("analysisKpiNetPeriod");
-  if (k2) {
-    const n = model.heroAgg.incomeAmount - model.heroAgg.plannedExpensesAmount;
-    k2.textContent = (n >= 0 ? "+ " : "") + fmt(n);
-    k2.className = "analysis-kpi-value " + (n >= 0 ? "analysis-kpi-value--income" : "analysis-kpi-value--expense");
-  }
-  const k3 = document.getElementById("analysisKpiBuffer");
-  if (k3) {
-    const v = model.minCum < 0 ? Math.abs(model.minCum) : 0;
-    k3.textContent = model.minCum < 0 ? fmt(v) : "0 kr";
-    k3.className =
-      "analysis-kpi-value " + (model.minCum < 0 ? "analysis-kpi-value--expense" : "analysis-kpi-value--income");
-  }
-  const k4 = document.getElementById("analysisKpiSaveRate");
-  if (k4) k4.textContent = `${model.saveRate.toFixed(1)}%`;
-
-  const tb = document.getElementById("analysisTimelineBadge");
-  if (tb) {
-    tb.textContent =
-      model.needBeforeIncome > 0 ? "Kolla datum före nästa inkomst" : "Inkomst och utgifter i balans";
-    tb.className = "analysis-badge analysis-badge--muted";
-  }
-  const bb = document.getElementById("analysisBufferBadge");
-  if (bb) {
-    if (model.minCum < 0) {
-      let minIdx = 0;
-      if (model.cumulative.length) {
-        minIdx = model.cumulative.reduce((bi, v, i, arr) => (v < arr[bi] ? i : bi), 0);
-      }
-      const lab = model.slices[minIdx]?.label || "";
-      bb.textContent = `Under noll vid ${lab || "en delperiod"}`;
-      bb.className = "analysis-badge analysis-badge--danger";
-    } else {
-      bb.textContent = "Ingen negativ kumulativ kurva";
-      bb.className = "analysis-badge analysis-badge--ok";
-    }
-  }
-
-  const payMount = document.getElementById("analysisPaymentList");
-  if (payMount) {
-    payMount.innerHTML = "";
-    const palette = getAnalysisChartPalette();
-    const catColors = {
-      Bil: chartSegmentHex("car"),
-      Hem: chartSegmentHex("housing"),
-      Lån: chartSegmentHex("loans"),
-      Barn: chartSegmentHex("children"),
-      Spara: chartSegmentHex("savings"),
-      Mat: chartSegmentHex("foodGenerated"),
-      Utgifter: chartSegmentHex("recurringExpenses"),
-      "Enstaka utgifter": chartSegmentHex("oneOffExpenses"),
-      Inkomst: palette.income
-    };
-    if (model.paymentListEvents.length === 0) {
-      payMount.innerHTML = `<div class="note" style="margin:0">Inga händelser i vald period.</div>`;
-    } else {
-      for (const e of model.paymentListEvents) {
-        const row = document.createElement("div");
-        row.className = "analysis-payment-row";
-        const dot = catColors[e.category] || palette.muted;
-        row.innerHTML = `
-          <div class="analysis-payment-date">${escapeHtml(String(e.iso).slice(8, 10))}/${escapeHtml(String(e.iso).slice(5, 7))}</div>
-          <div class="analysis-payment-main">
-            <span class="analysis-payment-dot" style="background:${dot}"></span>
-            <div>
-              <div class="analysis-payment-cat">${escapeHtml(e.name)}</div>
-              <div class="analysis-payment-kind">${e.kind === "income" ? "Inkomst" : "Utgift"} · ${escapeHtml(e.category)}</div>
-            </div>
-          </div>
-          <div class="analysis-payment-amt ${e.kind === "income" ? "analysis-payment-amt--income" : "analysis-payment-amt--expense"}">${e.kind === "income" ? "+ " : "− "}${formatKr(e.amount)}</div>`;
-        payMount.appendChild(row);
-      }
-    }
-  }
-
-  const ins = document.getElementById("analysisInsights");
-  if (ins) {
-    ins.innerHTML = "";
-    for (const it of model.insights) {
-      const d = document.createElement("div");
-      d.className = "analysis-insight";
-      d.innerHTML = `<strong>${escapeHtml(it.title)}</strong><div>${escapeHtml(it.text)}</div>`;
-      ins.appendChild(d);
-    }
-  }
-
-  const bar = document.getElementById("analysisSavingsProgressBar");
-  const meta = document.getElementById("analysisSavingsMeta");
-  const sp = Math.min(100, Math.round((model.savingsAmt / model.savingsTarget) * 100));
-  if (bar) bar.style.width = `${sp}%`;
-  if (meta) meta.textContent = `${fmt(model.savingsAmt)} / ${fmt(model.savingsTarget)}`;
-}
-
-function syncAnalysisRangeSegmentUI() {
-  const r = ui.analysisRange || "month";
-  document.querySelectorAll("[data-analysis-range]").forEach((btn) => {
-    btn.classList.toggle("is-active", btn.getAttribute("data-analysis-range") === r);
-  });
-}
-
-function wireAnalysisDashboardOnce() {
-  if (document.body.dataset.analysisDashBound === "1") return;
-  document.body.dataset.analysisDashBound = "1";
-  document.querySelectorAll("[data-analysis-range]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const v = btn.getAttribute("data-analysis-range");
-      if (v === "week" || v === "month" || v === "year") {
-        ui.analysisRange = v;
-        syncAnalysisRangeSegmentUI();
-        renderOldAnalysisDashboard();
-      }
-    });
-  });
-  document.querySelectorAll("[data-analysis-expand]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const panel = btn.closest(".analysis-panel");
-      if (panel) panel.classList.toggle("expanded");
-    });
-  });
-}
-
-/** Tidigare analysvy: diagram, KPI:er och månadstabeller (referens). */
-function renderOldAnalysisDashboard() {
-  const year = ui.overviewYear;
-  const month = ui.overviewMonth;
-  if (!year || !month) return;
-
-  wireAnalysisDashboardOnce();
-  const overview = computeMonthOverview(year, month);
-  const range = ui.analysisRange || "month";
-  const model = buildAnalysisAnalyticsModel(range, year, month);
-
-  applyAnalysisWidgetOrder();
-  syncAnalysisRangeSegmentUI();
-  updateAnalysisDomFromModel(model);
-  destroyAnalysisCharts();
-  if (typeof window.Chart !== "undefined") {
-    renderAnalysisCharts(model);
-  }
-
-  // Expense table
-  const expBody = document.getElementById("overviewExpensesTableBody");
-  if (expBody) {
-    expBody.innerHTML = "";
-    const expTotal = overview.expensesRows.reduce((s, r) => s + r.amount, 0);
-    if (overview.expensesRows.length === 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga utgifter ännu.</td>`;
-      expBody.appendChild(tr);
-    } else {
-      for (const row of overview.expensesRows) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
-          row.amount
-        )}</td>`;
-        expBody.appendChild(tr);
-      }
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(expTotal)}</strong></td>`;
-      expBody.appendChild(tr);
-    }
-  }
-
-  // Income table
-  const incBody = document.getElementById("overviewIncomesTableBody");
-  if (incBody) {
-    incBody.innerHTML = "";
-    const incTotal = overview.incomesRows.reduce((s, r) => s + r.amount, 0);
-    if (overview.incomesRows.length === 0) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td colspan="3" style="color: var(--muted);">${monthName(month)}: inga intäkter ännu.</td>`;
-      incBody.appendChild(tr);
-    } else {
-      for (const row of overview.incomesRows) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${escapeHtml(row.group)}</td><td>${escapeHtml(row.label)}</td><td class="right">${formatKr(
-          row.amount
-        )}</td>`;
-        incBody.appendChild(tr);
-      }
-
-      const tr = document.createElement("tr");
-      tr.innerHTML = `<td><strong>Summa</strong></td><td></td><td class="right"><strong>${formatKr(incTotal)}</strong></td>`;
-      incBody.appendChild(tr);
-    }
-  }
-
-  syncOverviewPeriodSummaryLabel();
 }
 
 function escapeHtml(text) {
@@ -9561,7 +8328,7 @@ function renderTaggedCategoryPage(cat) {
   const listYearSel = document.getElementById(ids.listYear);
   const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
-  const baseYear = ui.expensesYear || ui.overviewYear || cur.year;
+  const baseYear = ui.expensesYear || cur.year;
   const appYears = getAvailableYears();
   if (cat === "savings" && u.listYear == null && u.listMonth == null) {
     u.listYear = appYears.includes(cur.year) ? cur.year : appYears[appYears.length - 1] ?? cur.year;
@@ -11527,8 +10294,6 @@ function renderSettingsPage() {
     salaryFixedCh.dataset.bound = "1";
     salaryFixedCh.addEventListener("change", syncSalaryFixedUi);
   }
-  wireAnalysisLayoutSettingsOnce();
-  renderAnalysisLayoutSettingsList();
   syncThemeModeSummaryLabel();
   syncFoodWeekdaySummaryLabel();
 }
@@ -11547,29 +10312,6 @@ function renderRoute(route, opts = {}) {
         }
       }
       renderAnalysisPage();
-      break;
-    }
-    case "old-analysis": {
-      const { year, month } = currentYearMonth();
-      ui.overviewYear = ui.overviewYear ?? year;
-      ui.overviewMonth = ui.overviewMonth ?? month;
-
-      const years = getAvailableYears();
-      const yearSel = document.getElementById("overviewYear");
-      const monthSel = document.getElementById("overviewMonth");
-      setSelectOptions(yearSel, years, ui.overviewYear);
-      setMonthOptions(monthSel, ui.overviewMonth);
-
-      yearSel.onchange = () => {
-        ui.overviewYear = Number(yearSel.value);
-        renderOldAnalysisDashboard();
-      };
-      monthSel.onchange = () => {
-        ui.overviewMonth = Number(monthSel.value);
-        renderOldAnalysisDashboard();
-      };
-
-      renderOldAnalysisDashboard();
       break;
     }
     case "incomes": {
@@ -12336,8 +11078,7 @@ function renderAnalysisPage() {
 }
 
 function renderAnalysisViewsIfActive() {
-  if (ui.activeRoute === "old-analysis") renderOldAnalysisDashboard();
-  else if (ui.activeRoute === "analysis") renderAnalysisPage();
+  if (ui.activeRoute === "analysis") renderAnalysisPage();
 }
 
 function incomeYearsForFilter() {
@@ -14208,7 +12949,7 @@ function saveExpenseFromOverlay() {
 }
 
 function renderExpensesPage() {
-  ui.expensesYear = ui.expensesYear || ui.overviewYear || currentYearMonth().year;
+  ui.expensesYear = ui.expensesYear || currentYearMonth().year;
 
   // Ensure overlays start hidden
   document.querySelectorAll(".exp-overlay").forEach((el) => {
@@ -14944,13 +13685,6 @@ function initActions() {
     if (salaryStartMo) {
       state.settings.salaryYearStartMonth = Math.max(1, Math.min(12, Math.floor(asNumber(salaryStartMo.value)) || 1));
     }
-    const layoutOl = document.getElementById("analysisLayoutSortable");
-    if (layoutOl) {
-      const ids = Array.from(layoutOl.querySelectorAll("li[data-widget-id]"))
-        .map((li) => li.getAttribute("data-widget-id"))
-        .filter(Boolean);
-      state.settings.analysisLayout = ids.length ? ids : null;
-    }
     saveState();
     document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
     renderAnalysisViewsIfActive();
@@ -15060,10 +13794,6 @@ function initActions() {
 
   // Initial check after a small delay
   setTimeout(() => maybePromptBackup(), 2500);
-}
-
-function initYearMonthPickersOverview() {
-  // handled in renderRoute("old-analysis")
 }
 
 async function registerServiceWorker() {
