@@ -7542,11 +7542,31 @@ function buildSalaryPeriodFixedVariableWeekBarsSv(startIso, endIso) {
     weekStart.setDate(weekStart.getDate() + 7);
   }
   if (!rows.length) return { labels: [], fixed: [], variable: [] };
+  const periodAgg = aggregateOverviewForIsoRange(sIso, eIso);
   return {
     labels: rows.map((r) => r.label),
     fixed: rows.map((r) => r.fixed),
-    variable: rows.map((r) => r.variable)
+    variable: rows.map((r) => r.variable),
+    legendFixedTotal: periodAgg.costBehaviorTotals.fixed,
+    legendVariableTotal: periodAgg.costBehaviorTotals.variable
   };
+}
+
+/** HTML-lista som löneperiods-donuten: prick + etikett + belopp (hel löneperiod). */
+function buildSalaryPeriodFixedVarLegendHtml(fvModel, palette) {
+  if (!fvModel?.labels?.length) return "";
+  const varFill = palette.dark ? "rgba(197, 131, 68, 0.42)" : "rgba(233, 203, 179, 0.95)";
+  const mkRow = (lab, kr, dotBg) => `<div class="analysis-salary-year-spend__legend-row">
+        <span class="analysis-salary-year-spend__legend-left">
+          <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(dotBg)}" aria-hidden="true"></span>
+          <span class="analysis-salary-year-spend__legend-label">${escapeHtml(lab)}</span>
+        </span>
+        <span class="analysis-salary-year-spend__legend-amt">${escapeHtml(formatKr(kr))}</span>
+      </div>`;
+  return (
+    mkRow("Fasta", fvModel.legendFixedTotal ?? 0, palette.balanceSoft) +
+    mkRow("Rörliga", fvModel.legendVariableTotal ?? 0, varFill)
+  );
 }
 
 /** Löneår — utgiftsdonut: endast Hem, Lån, Bil, Mat, Barn; aldrig spar eller Robin-systemrader. */
@@ -8242,15 +8262,10 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
     options: {
       ...fvChartBase,
       events: [],
-      layout: { padding: { top: 4, right: 4, left: 0, bottom: 4 } },
       plugins: {
         ...fvChartBase.plugins,
         tooltip: { enabled: false },
-        legend: {
-          ...fvChartBase.plugins.legend,
-          position: "bottom",
-          align: "center"
-        }
+        legend: { display: false }
       }
     }
   });
@@ -12222,14 +12237,20 @@ function renderAnalysisPage() {
   let fixedVarPeriodBlock = "";
   if (win?.startIso && win?.endIso) {
     salaryPeriodFvModel = buildSalaryPeriodFixedVariableWeekBarsSv(win.startIso, win.endIso);
+    const fvLegendHtml = buildSalaryPeriodFixedVarLegendHtml(salaryPeriodFvModel, getAnalysisChartPalette());
     fixedVarPeriodBlock =
       salaryPeriodFvModel?.labels?.length
         ? `<div class="table-card analysis-salary-period-fixed-var">
         <div class="table-title analysis-salary-year-spend__title">Fasta och rörliga utgifter</div>
         <p class="note analysis-salary-year-spend__ingress">Fördelningen mellan fasta och rörliga utgifter</p>
-        <div class="analysis-salary-period-fixed-var__viz">
-          <div class="analysis-salary-period-fixed-var__canvas-wrap">
-            <canvas id="analysisSalaryPeriodFixedVarChart" aria-label="Fasta och rörliga utgifter per vecka i löneperiod"></canvas>
+        <div class="analysis-salary-year-chart-wrap analysis-salary-year-spend__viz analysis-salary-period-fixed-var__viz">
+          <div class="analysis-salary-year-spend__body">
+            <div class="analysis-salary-period-fixed-var__canvas-wrap">
+              <canvas id="analysisSalaryPeriodFixedVarChart" aria-label="Fasta och rörliga utgifter per vecka i löneperiod"></canvas>
+            </div>
+            <div class="analysis-salary-year-spend__legend-wrap">
+              <div class="analysis-salary-year-spend__legend" id="analysisSalaryPeriodFixedVarLegend" aria-label="Fasta och rörliga utgifter i löneperioden">${fvLegendHtml}</div>
+            </div>
           </div>
         </div>
       </div>`
