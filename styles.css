@@ -4098,9 +4098,72 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
   margin-top: 0;
 }
 
-/* Löneperiod: lite luftigare rader än standardlistan — lättare att skanna */
+/* Löneperiod — händelselista (samma klasser som HTML från buildSalaryPeriodPaymentListHtml) */
+.analysis-payment-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .analysis-payment-list.analysis-salary-period-payment-list {
   gap: var(--space-3);
+}
+
+.analysis-payment-row {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card-2) 85%, transparent);
+}
+
+.analysis-payment-date {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.analysis-payment-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.analysis-payment-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.analysis-payment-cat {
+  font-weight: 800;
+  font-size: 0.88rem;
+}
+
+.analysis-payment-kind {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.analysis-payment-amt {
+  font-weight: 800;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.analysis-payment-amt--income {
+  color: color-mix(in srgb, var(--success) 78%, var(--text));
+}
+
+.analysis-payment-amt--expense {
+  color: color-mix(in srgb, var(--danger) 78%, var(--text));
 }
 
 .analysis-salary-period-pay-empty {
