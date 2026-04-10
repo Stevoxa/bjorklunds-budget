@@ -2464,6 +2464,32 @@
       </div>
     </div>
 
+    <!-- Osparade ändringar (intäkt / utgift) -->
+    <div class="modal-backdrop" id="unsavedEditorBackdrop" hidden></div>
+    <div
+      class="modal"
+      id="unsavedEditorModal"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="unsavedEditorTitle"
+      aria-describedby="unsavedEditorDesc"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="unsavedEditorTitle">Osparade ändringar</div>
+        <button class="icon-btn" id="closeUnsavedEditorModalBtn" type="button" aria-label="Stäng">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="note" id="unsavedEditorDesc">
+          Dina ändringar sparas inte om du stänger redigeraren nu. Vill du kasta ändringarna eller fortsätta redigera?
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="danger" id="unsavedEditorDiscardBtn" type="button">Kasta ändringar</button>
+        <button class="secondary" id="unsavedEditorStayBtn" type="button">Fortsätt redigera</button>
+      </div>
+    </div>
+
     <div class="date-sheet-backdrop" id="dateSheetBackdrop" hidden aria-hidden="true"></div>
     <div
       class="date-sheet"

@@ -89,6 +89,9 @@
   --bottom-nav-bg: color-mix(in srgb, var(--card) 92%, var(--bg));
   --bottom-nav-border-top: var(--border);
   --bottom-nav-shadow: 0 -1px 0 color-mix(in srgb, var(--border-strong) 55%, transparent);
+  /* När innehåll skrollat bakom bottennav: starkare skugga så nav känns i förgrunden */
+  --bottom-nav-shadow-elevated: 0 -1px 0 color-mix(in srgb, var(--border-strong) 62%, transparent),
+    0 -10px 28px rgba(20, 26, 22, 0.12), 0 -4px 12px rgba(20, 26, 22, 0.06);
   --bottom-nav-item-color: var(--muted);
   --bottom-nav-item-active-color: var(--primary);
   --bottom-nav-hover-bg: color-mix(in srgb, var(--text) 5%, transparent);
@@ -121,6 +124,8 @@ html[data-theme="dark"] {
   --bottom-nav-bg: #121714;
   --bottom-nav-border-top: rgba(255, 255, 255, 0.07);
   --bottom-nav-shadow: 0 -1px 0 rgba(255, 255, 255, 0.06);
+  --bottom-nav-shadow-elevated: 0 -1px 0 rgba(255, 255, 255, 0.1), 0 -12px 36px rgba(0, 0, 0, 0.55),
+    0 -4px 14px rgba(0, 0, 0, 0.35);
   --bottom-nav-item-color: rgba(255, 255, 255, 0.55);
   --bottom-nav-item-active-color: #ffffff;
   --bottom-nav-hover-bg: rgba(255, 255, 255, 0.06);
@@ -185,6 +190,11 @@ body {
   backdrop-filter: blur(18px) saturate(1.15);
   -webkit-backdrop-filter: blur(18px) saturate(1.15);
   transform: translateZ(0);
+  transition: box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.bottom-nav.bottom-nav--elevated {
+  box-shadow: var(--bottom-nav-shadow-elevated);
 }
 
 .bottom-nav__list {

@@ -5342,6 +5342,12 @@ const ui = {
   incomeEditorKind: "other",
   /** Icke-lön: benefit | capital | gift | other (sparad som category) */
   incomeEditorOtherCategory: INCOME_CATEGORY_OTHER,
+  /** JSON-snapshot vid öppning av intäktsredigeraren (osparade ändringar). */
+  incomeEditorSnapshot: null,
+  /** JSON-snapshot vid öppning av utgiftsredigeraren (osparade ändringar). */
+  expenseEditorSnapshot: null,
+  /** "income" | "expense" när osparad-dialog visas */
+  unsavedEditorCloseTarget: null,
   lastIncomeListRows: [],
   // Utgifter
   expenseYearFilter: null,
@@ -12839,8 +12845,8 @@ function renderIncomesPage() {
     applyIncomeDefaultFieldToEditorRows("amount");
   };
 
-  requireEl("closeIncomeModalBtn").onclick = closeIncomeOverlay;
-  requireEl("incomeCancelBtn").onclick = closeIncomeOverlay;
+  requireEl("closeIncomeModalBtn").onclick = requestCloseIncomeOverlay;
+  requireEl("incomeCancelBtn").onclick = requestCloseIncomeOverlay;
   requireEl("incomeSaveBtn").onclick = saveIncomeFromOverlay;
 
   renderIncomesList();
@@ -13006,9 +13012,12 @@ function openIncomeOverlay(incomeId, opts = {}) {
       ui.scrollToPaymentDateISO = null;
     });
   }
+
+  ui.incomeEditorSnapshot = captureIncomeOverlaySnapshotJson();
 }
 
 function closeIncomeOverlay() {
+  ui.incomeEditorSnapshot = null;
   ui.editIncomeId = null;
   ui.incomeEditorPayments = null;
   ui.focusPaymentId = null;
@@ -13594,8 +13603,8 @@ function renderExpensesSummaryPage() {
     applyExpenseDefaultFieldToEditorRows("amount");
   };
 
-  requireEl("closeExpenseModalBtn").onclick = closeExpenseOverlay;
-  requireEl("expenseCancelBtn").onclick = closeExpenseOverlay;
+  requireEl("closeExpenseModalBtn").onclick = requestCloseExpenseOverlay;
+  requireEl("expenseCancelBtn").onclick = requestCloseExpenseOverlay;
   requireEl("expenseSaveBtn").onclick = saveExpenseFromOverlay;
   requireEl("expenseDeleteBtn").onclick = () => {
     if (!ui.editExpenseId) return;
@@ -13856,9 +13865,12 @@ function openExpenseOverlay(expenseId, opts = {}) {
       ui.expenseScrollToPaymentDateISO = null;
     });
   }
+
+  ui.expenseEditorSnapshot = captureExpenseOverlaySnapshotJson();
 }
 
 function closeExpenseOverlay() {
+  ui.expenseEditorSnapshot = null;
   ui.editExpenseId = null;
   ui.expenseEditorPayments = null;
   ui.expenseFocusPaymentId = null;
@@ -13878,6 +13890,112 @@ function showConfirmDeleteExpenseModal() {
 function hideConfirmDeleteExpenseModal() {
   requireEl("confirmDeleteExpenseBackdrop").hidden = true;
   requireEl("confirmDeleteExpenseModal").hidden = true;
+}
+
+function captureIncomeOverlaySnapshotJson() {
+  const modal = document.getElementById("incomeModal");
+  if (!modal || modal.hidden) return "";
+  const isSal = ui.incomeEditorKind === "salary";
+  const name = (document.getElementById("incomeNameInput")?.value || "").trim();
+  const interval = isSal ? "monthly" : document.getElementById("incomeIntervalSelect")?.value || "once";
+  const defaults = getIncomeDefaultsFromUI();
+  const otherCat = ui.incomeEditorOtherCategory || INCOME_CATEGORY_OTHER;
+  let salary = null;
+  if (isSal) {
+    const paySel = document.getElementById("incomeSalaryPayDay");
+    const pd = Math.floor(asNumber(paySel?.value));
+    const payDay = Number.isFinite(pd) && pd >= 1 && pd <= 31 ? pd : 25;
+    salary = { byYear: readSalaryByYearFromBandInputs(), payDay };
+  }
+  const payments = (ui.incomeEditorPayments || []).map((p) => ({
+    id: String(p.id || ""),
+    year: String(p.year ?? "").trim(),
+    month: String(p.month ?? "").trim(),
+    day: String(p.day ?? "").trim(),
+    amount: asNumber(p.amount)
+  }));
+  return JSON.stringify({
+    kind: isSal ? "salary" : "other",
+    otherCat,
+    name,
+    interval,
+    defaults,
+    salary,
+    payments
+  });
+}
+
+function incomeOverlayIsDirty() {
+  const modal = document.getElementById("incomeModal");
+  if (!modal || modal.hidden) return false;
+  const snap = ui.incomeEditorSnapshot;
+  if (snap == null || snap === "") return false;
+  return captureIncomeOverlaySnapshotJson() !== snap;
+}
+
+function captureExpenseOverlaySnapshotJson() {
+  const modal = document.getElementById("expenseModal");
+  if (!modal || modal.hidden) return "";
+  if (!ui.editExpenseId) return "";
+  const name = (document.getElementById("expenseNameInput")?.value || "").trim();
+  const interval = document.getElementById("expenseIntervalSelect")?.value || "once";
+  const defaults = getExpenseDefaultsFromUI();
+  const payments = (ui.expenseEditorPayments || []).map((p) => ({
+    id: String(p.id || ""),
+    year: String(p.year ?? "").trim(),
+    month: String(p.month ?? "").trim(),
+    day: String(p.day ?? "").trim(),
+    amount: asNumber(p.amount)
+  }));
+  return JSON.stringify({ name, interval, defaults, payments });
+}
+
+function expenseOverlayIsDirty() {
+  const modal = document.getElementById("expenseModal");
+  if (!modal || modal.hidden) return false;
+  if (!ui.editExpenseId) return false;
+  const snap = ui.expenseEditorSnapshot;
+  if (snap == null || snap === "") return false;
+  return captureExpenseOverlaySnapshotJson() !== snap;
+}
+
+function showUnsavedEditorConfirmModal(target) {
+  ui.unsavedEditorCloseTarget = target;
+  requireEl("unsavedEditorBackdrop").hidden = false;
+  requireEl("unsavedEditorModal").hidden = false;
+  document.getElementById("unsavedEditorStayBtn")?.focus();
+}
+
+function hideUnsavedEditorConfirmModal() {
+  requireEl("unsavedEditorBackdrop").hidden = true;
+  requireEl("unsavedEditorModal").hidden = true;
+  ui.unsavedEditorCloseTarget = null;
+}
+
+function requestCloseIncomeOverlay() {
+  if (incomeOverlayIsDirty()) showUnsavedEditorConfirmModal("income");
+  else closeIncomeOverlay();
+}
+
+function requestCloseExpenseOverlay() {
+  if (expenseOverlayIsDirty()) showUnsavedEditorConfirmModal("expense");
+  else closeExpenseOverlay();
+}
+
+function confirmUnsavedEditorDiscard() {
+  const t = ui.unsavedEditorCloseTarget;
+  hideUnsavedEditorConfirmModal();
+  if (t === "income") closeIncomeOverlay();
+  else if (t === "expense") closeExpenseOverlay();
+}
+
+function initUnsavedEditorModal() {
+  requireEl("unsavedEditorDiscardBtn").onclick = confirmUnsavedEditorDiscard;
+  requireEl("unsavedEditorStayBtn").onclick = hideUnsavedEditorConfirmModal;
+  requireEl("closeUnsavedEditorModalBtn").onclick = hideUnsavedEditorConfirmModal;
+  requireEl("unsavedEditorBackdrop").onclick = () => {
+    if (!requireEl("unsavedEditorModal").hidden) hideUnsavedEditorConfirmModal();
+  };
 }
 
 /** Escape + backdrop: samma mönster för intäkts- och utgiftsredigerare (och deras radera-dialoger). */
@@ -13906,16 +14024,22 @@ function initBudgetEditorModalDismiss() {
         hideConfirmDeleteExpenseModal();
         return;
       }
+      const unsavedM = document.getElementById("unsavedEditorModal");
+      if (unsavedM && !unsavedM.hidden) {
+        e.preventDefault();
+        hideUnsavedEditorConfirmModal();
+        return;
+      }
       const incomeM = document.getElementById("incomeModal");
       if (incomeM && !incomeM.hidden) {
         e.preventDefault();
-        closeIncomeOverlay();
+        requestCloseIncomeOverlay();
         return;
       }
       const expenseM = document.getElementById("expenseModal");
       if (expenseM && !expenseM.hidden) {
         e.preventDefault();
-        closeExpenseOverlay();
+        requestCloseExpenseOverlay();
         return;
       }
     },
@@ -13923,10 +14047,10 @@ function initBudgetEditorModalDismiss() {
   );
 
   document.getElementById("incomeModalBackdrop")?.addEventListener("click", () => {
-    if (!document.getElementById("incomeModal")?.hidden) closeIncomeOverlay();
+    if (!document.getElementById("incomeModal")?.hidden) requestCloseIncomeOverlay();
   });
   document.getElementById("expenseModalBackdrop")?.addEventListener("click", () => {
-    if (!document.getElementById("expenseModal")?.hidden) closeExpenseOverlay();
+    if (!document.getElementById("expenseModal")?.hidden) requestCloseExpenseOverlay();
   });
   document.getElementById("confirmDeleteIncomeBackdrop")?.addEventListener("click", () => {
     if (!document.getElementById("confirmDeleteIncomeModal")?.hidden) hideConfirmDeleteIncomeModal();
@@ -14951,6 +15075,27 @@ async function registerServiceWorker() {
   }
 }
 
+/** Bottennav: diskret “vilande” skugga överst på sidan, tydligare när dokumentet skrollats. */
+function initBottomNavScrollElevation() {
+  const nav = document.querySelector(".bottom-nav");
+  if (!nav) return;
+  const thresholdPx = 8;
+  let ticking = false;
+  const sync = () => {
+    ticking = false;
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    nav.classList.toggle("bottom-nav--elevated", y > thresholdPx);
+  };
+  const onScroll = () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(sync);
+    }
+  };
+  window.addEventListener("scroll", onScroll, { passive: true });
+  sync();
+}
+
 function initRoot() {
   window.addEventListener("error", (ev) => {
     showDebugToast(`JS-fel: ${ev?.message || ev}`);
@@ -14970,8 +15115,10 @@ function initRoot() {
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
     initExpenseOverlayHistory();
+    initUnsavedEditorModal();
     initBudgetEditorModalDismiss();
     initRouting();
+    initBottomNavScrollElevation();
     initActions();
     registerServiceWorker();
   } catch (e) {
