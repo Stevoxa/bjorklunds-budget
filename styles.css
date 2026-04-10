@@ -80,6 +80,10 @@
   --motion-sheet-ease: cubic-bezier(0.33, 1, 0.68, 1);
   --motion-modal: 240ms;
   --motion-modal-ease: cubic-bezier(0.33, 1, 0.68, 1);
+  /* Analysvy: måttlig rörelse — tydlig inbromsning, lugn kontroll; respekterar prefers-reduced-motion i JS. */
+  --motion-analysis-chart-ms: 220ms;
+  --motion-analysis-enter: 260ms;
+  --motion-analysis-ease: cubic-bezier(0.33, 1, 0.68, 1);
 
   /* Bottennav: platt sajt-/appkänsla, aktiv = färg + tunn indikator (inte knappruta) */
   --bottom-nav-bg: color-mix(in srgb, var(--card) 92%, var(--bg));
@@ -166,7 +170,7 @@ body {
   box-shadow: none;
 }
 
-/* Nedre menylayout: SJ-lik (ikon outline ↔ fylld, typografi, minimalt med “knappyta”). */
+/* Nedre menylayout: ikon outline ↔ fylld, tydlig typografi, minimalt med “knappyta”. */
 .bottom-nav {
   position: fixed !important;
   left: 0;
@@ -3501,6 +3505,27 @@ input.input-readonly-like {
   margin-top: var(--space-2);
 }
 
+@keyframes analysis-view-detail-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.analysis-view-detail.analysis-view-detail--enter {
+  animation: analysis-view-detail-enter var(--motion-analysis-enter) var(--motion-analysis-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analysis-view-detail.analysis-view-detail--enter {
+    animation: none;
+  }
+}
+
 .analysis-inline-nav {
   display: flex;
   flex-wrap: wrap;
@@ -3525,7 +3550,8 @@ input.input-readonly-like {
 }
 
 .analysis-salary-hero__eyebrow {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-weight: 800;
@@ -3586,9 +3612,9 @@ input.input-readonly-like {
 .analysis-salary-hero__chip-line-sub {
   display: block;
   width: 100%;
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.8125rem;
   line-height: 1.45;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.78);
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -3623,7 +3649,8 @@ input.input-readonly-like {
 }
 
 .analysis-salary-hero__mini-label {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.82);
@@ -3661,8 +3688,8 @@ input.input-readonly-like {
 }
 
 .analysis-salary-hero__mini-hint {
-  font-size: 0.72rem;
-  line-height: 1.4;
+  font-size: 0.8rem;
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.78);
   margin-top: 6px;
   font-weight: 600;
@@ -3892,6 +3919,8 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
 .analysis-salary-year-spend__empty {
   margin-top: var(--space-3);
   color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.55;
 }
 
 .analysis-salary-year-spend__body {
@@ -3942,7 +3971,7 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
 .analysis-salary-year-spend__legend {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
 }
 
@@ -3952,15 +3981,15 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
   align-items: baseline;
   flex-wrap: nowrap;
   gap: 10px;
-  font-size: 0.72rem;
-  line-height: 1.4;
+  font-size: 0.8125rem;
+  line-height: 1.5;
   width: 100%;
 }
 
 .analysis-salary-year-spend__legend-left {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -3991,9 +4020,9 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
 .analysis-salary-year-spend__total {
   margin-top: var(--space-3);
   margin-bottom: 0;
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.5;
   color: var(--muted);
 }
 
@@ -4051,6 +4080,11 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
 
 .analysis-salary-period-payment-list {
   margin-top: 0;
+}
+
+/* Löneperiod: lite luftigare rader än standardlistan — lättare att skanna */
+.analysis-payment-list.analysis-salary-period-payment-list {
+  gap: var(--space-3);
 }
 
 .analysis-salary-period-pay-empty {
@@ -4139,8 +4173,8 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
 }
 
 .analysis-salary-period-event-line2 {
-  font-size: 0.88em;
-  line-height: 1.35;
+  font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--muted);
 }
 
@@ -4153,8 +4187,8 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
   justify-content: space-between;
   align-items: center;
   gap: var(--space-2);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--muted);
   font-weight: 600;
   margin-bottom: 10px;
@@ -4631,8 +4665,9 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
     flex-direction: column;
     flex-wrap: nowrap;
     margin-top: var(--space-2);
-    font-size: 0.62rem;
-    row-gap: 6px;
+    font-size: 0.7rem;
+    line-height: 1.45;
+    row-gap: 8px;
   }
 
   .analysis-robin-risk-legend__row {
@@ -4640,7 +4675,7 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
     max-width: 100%;
   }
 
-  .analysis-robin-year-swipe {
+  .analysis-robin-chart-figure {
     min-height: 168px;
     height: 168px;
     max-height: 168px;
@@ -4654,7 +4689,8 @@ html[data-theme="dark"] .analysis-robin-section[data-robin-risk="3"].table-card 
 
   .analysis-robin-chart-legend {
     margin-top: var(--space-2);
-    font-size: 10px;
+    font-size: 11px;
+    line-height: 1.45;
   }
 }
 
@@ -4769,16 +4805,16 @@ html[data-theme="dark"] .analysis-robin-traffic__dot[data-level="3"].is-active {
   margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 0.68rem;
-  line-height: 1.4;
+  gap: 10px;
+  font-size: 0.75rem;
+  line-height: 1.45;
   font-weight: 600;
 }
 
 .analysis-robin-risk-legend__row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
   max-width: 100%;
   color: color-mix(in srgb, var(--muted) 88%, var(--text));
@@ -4838,21 +4874,21 @@ html[data-theme="dark"] .analysis-robin-risk-legend__swatch--red {
 
 .analysis-robin-chart-legend {
   margin-top: var(--space-3);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--muted);
 }
 
 .analysis-robin-chart-legend-grid {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .analysis-robin-chart-legend-item {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
 .analysis-robin-chart-legend-swatch {
@@ -4914,9 +4950,10 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 8px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
+  line-height: 1.45;
   font-weight: 650;
 }
 
@@ -4949,13 +4986,13 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
 
 /* Under titeln "Månader med planerade avsättningar" — tydligt mindre än kortrubriken */
 .analysis-robin-stat-year-label {
-  font-size: 0.62rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   color: color-mix(in srgb, var(--muted) 62%, var(--primary) 38%);
-  margin-bottom: 4px;
-  line-height: 1.3;
+  margin-bottom: 6px;
+  line-height: 1.4;
 }
 
 .analysis-robin-stat-empty {
@@ -5001,10 +5038,11 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
 .analysis-robin-kpis__label-caps {
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
+  line-height: 1.35;
 }
 
-.analysis-robin-year-swipe {
+.analysis-robin-chart-figure {
   height: 200px;
   min-height: 200px;
   max-height: 200px;
@@ -5016,12 +5054,9 @@ html[data-theme="dark"] .analysis-robin-chart-legend-swatch--amber {
   width: 100%;
   max-width: 100%;
   overflow: hidden;
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
-.analysis-robin-year-swipe .analysis-robin-chart {
+.analysis-robin-chart-figure .analysis-robin-chart {
   display: block;
   width: 100%;
   height: 100%;
@@ -5059,7 +5094,7 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
 }
 
 .analysis-robin-chart__bar-year {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   font-family: var(--font-sans);
   fill: var(--text);
@@ -5161,7 +5196,7 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
   }
 }
 
-/* Löneperiod: rund stegare (SJ-liknande ± runt värde) */
+/* Löneperiod: rund stegare (± runt värde) */
 .bb-stepper--round {
   display: flex;
   align-items: center;
@@ -6584,7 +6619,8 @@ body.app-bottom-sheet-open {
 }
 
 .analysis-payment-date {
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
   font-weight: 700;
   color: var(--muted);
 }
@@ -6609,7 +6645,8 @@ body.app-bottom-sheet-open {
 }
 
 .analysis-payment-kind {
-  font-size: 0.74rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
   color: var(--muted);
 }
 

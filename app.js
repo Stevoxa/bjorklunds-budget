@@ -4438,62 +4438,6 @@ function renderRobinSalaryYearSetasideChartSvg(chartModel) {
     </svg>`;
 }
 
-/** Svep på diagrammet: samma löneår-nav som knapparna (ingen vertikal rörelse i ytan). */
-function wireAnalysisRobinYearSwipeArea() {
-  const el = document.getElementById("analysisRobinYearSwipe");
-  if (!el) return;
-  let x0 = null;
-  let y0 = null;
-  const reset = () => {
-    x0 = null;
-    y0 = null;
-  };
-  const trySwipe = (clientX, clientY) => {
-    if (x0 == null) return;
-    const dx = clientX - x0;
-    const dy = clientY - y0;
-    reset();
-    if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.15) return;
-    if (dx < 0) {
-      if (ui.analysisSalaryYearNav < 1) {
-        ui.analysisSalaryYearNav += 1;
-        renderAnalysisPage();
-      }
-    } else if (ui.analysisSalaryYearNav > -1) {
-      ui.analysisSalaryYearNav -= 1;
-      renderAnalysisPage();
-    }
-  };
-  el.addEventListener(
-    "touchstart",
-    (e) => {
-      if (!e.touches[0]) return;
-      x0 = e.touches[0].clientX;
-      y0 = e.touches[0].clientY;
-    },
-    { passive: true }
-  );
-  el.addEventListener(
-    "touchend",
-    (e) => {
-      if (!e.changedTouches[0]) return;
-      trySwipe(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-    },
-    { passive: true }
-  );
-  el.addEventListener("touchcancel", reset, { passive: true });
-  el.addEventListener("mousedown", (e) => {
-    if (e.button !== 0) return;
-    x0 = e.clientX;
-    y0 = e.clientY;
-    const up = (e2) => {
-      document.removeEventListener("mouseup", up);
-      trySwipe(e2.clientX, e2.clientY);
-    };
-    document.addEventListener("mouseup", up);
-  });
-}
-
 function calendarMonthsFromDateToDate(startDate, endDate) {
   let y = startDate.getFullYear();
   let m = startDate.getMonth() + 1;
@@ -8149,6 +8093,7 @@ function wireSalaryYearSpendChart(spendModel) {
       responsive: true,
       maintainAspectRatio: false,
       events: [],
+      animation: chartJsAnimationOptions(),
       cutout: isLm ? "52%" : "62%",
       layout: {
         padding: { top: 4, right: 4, bottom: 4, left: 4 }
@@ -8210,6 +8155,7 @@ function wireSalaryPeriodSpendChart(doughnutModel) {
       responsive: true,
       maintainAspectRatio: false,
       events: [],
+      animation: chartJsAnimationOptions(),
       cutout: isLm ? "52%" : "62%",
       layout: {
         padding: { top: 4, right: 4, bottom: 4, left: 4 }
@@ -8615,12 +8561,49 @@ function destroyAnalysisCharts() {
   analysisChartInstances = {};
 }
 
+/**
+ * Chart.js: varaktighet från CSS (--motion-analysis-chart-ms), 0 ms vid prefers-reduced-motion.
+ * Easing easeOutCubic ger tydlig inbromsning (naturligare än linjärt).
+ */
+function chartJsPreferredAnimationDuration() {
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--motion-analysis-chart-ms").trim();
+    const n = parseFloat(raw);
+    if (Number.isFinite(n) && n >= 0) return Math.round(n);
+  } catch {
+    /* ignore */
+  }
+  return 220;
+}
+
+function chartJsAnimationOptions() {
+  const d = chartJsPreferredAnimationDuration();
+  if (d <= 0) return { duration: 0 };
+  return { duration: d, easing: "easeOutCubic" };
+}
+
+/** Diskret inmatning när analysvyn byter innehåll (lugn easing; hoppas över vid reduced-motion). */
+function playAnalysisViewDetailEnterAnimation(mount) {
+  if (!mount) return;
+  try {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  } catch {
+    /* ignore */
+  }
+  mount.classList.remove("analysis-view-detail--enter");
+  void mount.offsetWidth;
+  requestAnimationFrame(() => {
+    mount.classList.add("analysis-view-detail--enter");
+  });
+}
+
 function analysisCommonChartOptions(palette, showCurrency = false, stacked = false) {
   return {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index", intersect: false },
-    animation: { duration: 280 },
+    animation: chartJsAnimationOptions(),
     layout: { padding: { top: 4, right: 4, left: 0, bottom: 0 } },
     plugins: {
       legend: {
@@ -8633,7 +8616,7 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
           usePointStyle: true,
           pointStyle: "circle",
           padding: 10,
-          font: { family: palette.chartFont, weight: "600", size: 11 }
+          font: { family: palette.chartFont, weight: "600", size: 12 }
         }
       },
       tooltip: {
@@ -8667,7 +8650,7 @@ function analysisCommonChartOptions(palette, showCurrency = false, stacked = fal
         beginAtZero: true,
         ticks: {
           color: palette.muted,
-          font: { family: palette.chartFont, size: 10 },
+          font: { family: palette.chartFont, size: 11 },
           maxTicksLimit: 6,
           callback: (value) => (showCurrency ? formatKr(value) : value)
         },
@@ -8860,7 +8843,7 @@ function renderAnalysisCharts(model) {
               padding: 8,
               usePointStyle: true,
               pointStyle: "circle",
-              font: { family: palette.chartFont, size: 11 }
+              font: { family: palette.chartFont, size: 12 }
             }
           },
           tooltip: {
@@ -11991,7 +11974,7 @@ function renderAnalysisPage() {
         ? ""
         : `<div class="analysis-salary-year-chart-wrap analysis-robin-chart-wrap">
           <div class="analysis-salary-year-chart-head"><span>Planerade avsättningar</span><span>${escapeHtml(payBreakpointHint)}</span></div>
-          <div class="analysis-robin-year-swipe" id="analysisRobinYearSwipe">${robinYearSvg}</div>
+          <div class="analysis-robin-chart-figure">${robinYearSvg}</div>
           <div class="analysis-robin-chart-legend" aria-label="Förklaring av staplar">
             <div class="analysis-robin-chart-legend-grid">
               <span class="analysis-robin-chart-legend-item">
@@ -12125,6 +12108,7 @@ function renderAnalysisPage() {
       ${robinBlock}
       ${salaryYearSpendBlock}
     `;
+    playAnalysisViewDetailEnterAnimation(mount);
     document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
       ui.analysisSalaryYearNav = Math.max(-1, ui.analysisSalaryYearNav - 1);
       renderAnalysisPage();
@@ -12133,7 +12117,6 @@ function renderAnalysisPage() {
       ui.analysisSalaryYearNav = Math.min(1, ui.analysisSalaryYearNav + 1);
       renderAnalysisPage();
     });
-    wireAnalysisRobinYearSwipeArea();
     wireSalaryYearSpendChart(salaryYearSpendModel);
     return;
   }
@@ -12147,6 +12130,7 @@ function renderAnalysisPage() {
       </div>
       ${anchorNote}
     `;
+    playAnalysisViewDetailEnterAnimation(mount);
     return;
   }
 
@@ -12332,6 +12316,7 @@ function renderAnalysisPage() {
     ${expenseListCard}
   `;
 
+  playAnalysisViewDetailEnterAnimation(mount);
   document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
     ui.analysisSalaryPeriodOffset -= 1;
     renderAnalysisPage();
