@@ -519,7 +519,7 @@ const ANALYSIS_WIDGET_LABELS_SV = {
   cashflow: "Kassaflöde",
   buffer: "Kumulativ balans",
   category: "Utgiftsfördelning",
-  fixedVariable: "Fast och rörliga utgifter",
+  fixedVariable: "Fasta och rörliga utgifter",
   payments: "Närmast i kalendern",
   weekly: "Veckor (mat)",
   goals: "Sparande",
@@ -8213,6 +8213,7 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
   window.Chart.defaults.font.family = palette.chartFont;
   window.Chart.defaults.color = palette.muted;
 
+  const fvChartBase = analysisCommonChartOptions(palette, true, true);
   analysisChartInstances.salaryPeriodFixedVar = new window.Chart(canvas, {
     type: "bar",
     data: {
@@ -8238,7 +8239,20 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
         }
       ]
     },
-    options: analysisCommonChartOptions(palette, true, true)
+    options: {
+      ...fvChartBase,
+      events: [],
+      layout: { padding: { top: 4, right: 4, left: 0, bottom: 4 } },
+      plugins: {
+        ...fvChartBase.plugins,
+        tooltip: { enabled: false },
+        legend: {
+          ...fvChartBase.plugins.legend,
+          position: "bottom",
+          align: "center"
+        }
+      }
+    }
   });
 }
 
@@ -12211,7 +12225,7 @@ function renderAnalysisPage() {
     fixedVarPeriodBlock =
       salaryPeriodFvModel?.labels?.length
         ? `<div class="table-card analysis-salary-period-fixed-var">
-        <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
+        <div class="table-title analysis-salary-year-spend__title">Fasta och rörliga utgifter</div>
         <p class="note analysis-salary-year-spend__ingress">Fördelningen mellan fasta och rörliga utgifter</p>
         <div class="analysis-salary-period-fixed-var__viz">
           <div class="analysis-salary-period-fixed-var__canvas-wrap">
@@ -12220,7 +12234,7 @@ function renderAnalysisPage() {
         </div>
       </div>`
         : `<div class="table-card analysis-salary-period-fixed-var">
-        <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
+        <div class="table-title analysis-salary-year-spend__title">Fasta och rörliga utgifter</div>
         <p class="note analysis-salary-year-spend__ingress">Fördelningen mellan fasta och rörliga utgifter</p>
         <p class="note analysis-salary-year-spend__empty">Ingen veckodata i vald löneperiod.</p>
       </div>`;
