@@ -12292,9 +12292,9 @@ function renderAnalysisPage() {
         ${rhAfterSetasideBlock}
       </div>
     </section>
+    ${fixedVarPeriodBlock}
     ${periodSpendBlock}
     ${expenseListCard}
-    ${fixedVarPeriodBlock}
   `;
 
   document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
