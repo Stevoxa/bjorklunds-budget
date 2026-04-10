@@ -4013,6 +4013,27 @@ html[data-theme="dark"] .analysis-salary-year-nav--chevron .analysis-salary-year
   margin-top: var(--space-3);
 }
 
+.analysis-salary-period-fixed-var {
+  margin-top: var(--space-3);
+  font-family: var(--font-sans);
+}
+
+.analysis-salary-period-fixed-var__viz {
+  margin-top: var(--space-3);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--surface-2, #fbfcfb) 92%, var(--surface));
+}
+
+.analysis-salary-period-fixed-var__canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: min(52vw, 260px);
+  min-height: 200px;
+  max-height: 300px;
+}
+
 .analysis-salary-period-expense-list {
   margin-top: var(--space-3);
   font-family: var(--font-sans);

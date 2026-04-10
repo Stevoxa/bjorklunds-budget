@@ -519,7 +519,7 @@ const ANALYSIS_WIDGET_LABELS_SV = {
   cashflow: "Kassaflöde",
   buffer: "Kumulativ balans",
   category: "Utgiftsfördelning",
-  fixedVariable: "Fasta vs rörliga",
+  fixedVariable: "Fast och rörliga utgifter",
   payments: "Närmast i kalendern",
   weekly: "Veckor (mat)",
   goals: "Sparande",
@@ -7505,6 +7505,51 @@ function aggregateOverviewForIsoRange(startIso, endIso) {
   };
 }
 
+/**
+ * Fast/rörliga utgifter per ISO-vecka inom löneperioden (klippt mot periodens start/slut).
+ * Visar de fyra sista veckorna som berör perioden — samma veckoindelning som vecko-läget i gamla analysen.
+ * @returns {{ labels: string[], fixed: number[], variable: number[] } | null}
+ */
+function buildSalaryPeriodFixedVariableWeekBarsSv(startIso, endIso) {
+  const a = datePartsFromIso(String(startIso || "").slice(0, 10));
+  const b = datePartsFromIso(String(endIso || "").slice(0, 10));
+  if (!a || !b || String(startIso).slice(0, 10) > String(endIso).slice(0, 10)) return null;
+  const sIso = String(startIso).slice(0, 10);
+  const eIso = String(endIso).slice(0, 10);
+  const startD = new Date(a.y, a.m - 1, a.d);
+  const endD = new Date(b.y, b.m - 1, b.d);
+  let weekStart = startOfIsoWeekFromDate(startD);
+  const rows = [];
+  const endMs = endD.getTime();
+  let guard = 0;
+  while (weekStart.getTime() <= endMs && guard < 64) {
+    guard += 1;
+    const wkStartIso = dateToIsoLocal(weekStart);
+    const wkEndDate = endOfIsoWeekFromDate(weekStart);
+    const wkEndIso = dateToIsoLocal(wkEndDate);
+    const clipStart = wkStartIso < sIso ? sIso : wkStartIso;
+    const clipEnd = wkEndIso > eIso ? eIso : wkEndIso;
+    if (clipStart <= clipEnd) {
+      const agg = aggregateOverviewForIsoRange(clipStart, clipEnd);
+      const wn = isoWeekNumberForYmdParts(weekStart.getFullYear(), weekStart.getMonth() + 1, weekStart.getDate());
+      rows.push({
+        label: `v${wn}`,
+        fixed: agg.costBehaviorTotals.fixed,
+        variable: agg.costBehaviorTotals.variable
+      });
+    }
+    weekStart = new Date(weekStart);
+    weekStart.setDate(weekStart.getDate() + 7);
+  }
+  if (!rows.length) return { labels: [], fixed: [], variable: [] };
+  const last4 = rows.slice(-4);
+  return {
+    labels: last4.map((r) => r.label),
+    fixed: last4.map((r) => r.fixed),
+    variable: last4.map((r) => r.variable)
+  };
+}
+
 /** Löneår — utgiftsdonut: endast Hem, Lån, Bil, Mat, Barn; aldrig spar eller Robin-systemrader. */
 const SALARY_YEAR_SPEND_MAIN_ORDER = [
   { key: "home", label: "Hem", chartKey: "housing" },
@@ -7976,6 +8021,15 @@ function teardownSalaryPeriodSpendChart() {
     }
     delete analysisChartInstances.salaryPeriodSpend;
   }
+  const instFv = analysisChartInstances.salaryPeriodFixedVar;
+  if (instFv) {
+    try {
+      instFv.destroy();
+    } catch {
+      /* ignore */
+    }
+    delete analysisChartInstances.salaryPeriodFixedVar;
+  }
   fillSalaryPeriodSpendLegendsFromPack(null);
 }
 
@@ -8146,6 +8200,46 @@ function wireSalaryPeriodSpendChart(doughnutModel) {
         tooltip: { enabled: false }
       }
     }
+  });
+}
+
+function wireSalaryPeriodFixedVariableChart(fvModel) {
+  const canvas = document.getElementById("analysisSalaryPeriodFixedVarChart");
+  if (!fvModel?.labels?.length || typeof window.Chart === "undefined" || !canvas) return;
+
+  const palette = getAnalysisChartPalette();
+  const varFill = palette.dark ? "rgba(197, 131, 68, 0.42)" : "rgba(233, 203, 179, 0.95)";
+  const varBorder = palette.mat;
+
+  window.Chart.defaults.font.family = palette.chartFont;
+  window.Chart.defaults.color = palette.muted;
+
+  analysisChartInstances.salaryPeriodFixedVar = new window.Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: fvModel.labels,
+      datasets: [
+        {
+          label: "Fasta",
+          data: fvModel.fixed,
+          backgroundColor: palette.balanceSoft,
+          borderColor: palette.balance,
+          borderWidth: 1,
+          borderRadius: 8,
+          stack: "fv"
+        },
+        {
+          label: "Rörliga",
+          data: fvModel.variable,
+          backgroundColor: varFill,
+          borderColor: varBorder,
+          borderWidth: 1,
+          borderRadius: 8,
+          stack: "fv"
+        }
+      ]
+    },
+    options: analysisCommonChartOptions(palette, true, true)
   });
 }
 
@@ -12109,9 +12203,28 @@ function renderAnalysisPage() {
   const payP = win?.payIso ? datePartsFromIso(String(win.payIso).slice(0, 10)) : null;
   const eventsMonthTitle = payP ? `Händelser i ${monthName(payP.m).toLowerCase()}` : "Händelser";
   let salaryPeriodDoughnutModel = null;
+  let salaryPeriodFvModel = null;
   let periodSpendBlock = "";
   let expenseListCard = "";
+  let fixedVarPeriodBlock = "";
   if (win?.startIso && win?.endIso) {
+    salaryPeriodFvModel = buildSalaryPeriodFixedVariableWeekBarsSv(win.startIso, win.endIso);
+    fixedVarPeriodBlock =
+      salaryPeriodFvModel?.labels?.length
+        ? `<div class="table-card analysis-salary-period-fixed-var">
+        <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
+        <p class="note analysis-salary-year-spend__ingress">Utgifter klassade som fasta eller rörliga.</p>
+        <div class="analysis-salary-period-fixed-var__viz">
+          <div class="analysis-salary-period-fixed-var__canvas-wrap">
+            <canvas id="analysisSalaryPeriodFixedVarChart" aria-label="Fasta och rörliga utgifter per vecka i löneperiod"></canvas>
+          </div>
+        </div>
+      </div>`
+        : `<div class="table-card analysis-salary-period-fixed-var">
+        <div class="table-title analysis-salary-year-spend__title">Fast och rörliga utgifter</div>
+        <p class="note analysis-salary-year-spend__ingress">Utgifter klassade som fasta eller rörliga.</p>
+        <p class="note analysis-salary-year-spend__empty">Ingen veckodata i vald löneperiod.</p>
+      </div>`;
     salaryPeriodDoughnutModel = buildSalaryPeriodExpenseDoughnutModel(
       state,
       win.startIso,
@@ -12182,6 +12295,7 @@ function renderAnalysisPage() {
     </section>
     ${periodSpendBlock}
     ${expenseListCard}
+    ${fixedVarPeriodBlock}
   `;
 
   document.getElementById("analysisSalaryPeriodPrevBtn")?.addEventListener("click", () => {
@@ -12193,6 +12307,7 @@ function renderAnalysisPage() {
     renderAnalysisPage();
   });
   wireSalaryPeriodSpendChart(salaryPeriodDoughnutModel);
+  wireSalaryPeriodFixedVariableChart(salaryPeriodFvModel);
 }
 
 function renderAnalysisViewsIfActive() {
