@@ -40,6 +40,44 @@
     </div>
 
     <main class="app-main" hidden>
+      <div id="onboardingScreen" class="onboarding-screen" hidden>
+        <div class="onboarding-card">
+          <h1 class="onboarding-title">Välkommen till Björklunds budget</h1>
+          <p class="note onboarding-subtitle">Börja med att lägg in en intäkt. Välj kategori att börja med:</p>
+          <div class="onboarding-income-row subnav subnav--income" role="group" aria-label="Intäktskategorier">
+            <button type="button" class="subnav-btn subnav-tile" data-onboarding-income="salary">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2H4z" />
+                <path d="M8 7h8M8 11h8M8 15h5" />
+              </svg>
+              <span class="subnav-tile-label">Lön</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-onboarding-income="benefit">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" />
+                <circle cx="12" cy="13" r="3" />
+                <path d="M18 2v6M15 5h6" />
+              </svg>
+              <span class="subnav-tile-label">Bidrag</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-onboarding-income="capital">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 20l6-6 4 4 6-6V4" />
+                <path d="M17 7l3-3 3 3" />
+              </svg>
+              <span class="subnav-tile-label">Kapital</span>
+            </button>
+            <button type="button" class="subnav-btn subnav-tile" data-onboarding-income="gift">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M12 17c-1-1.5-3 0-3 1.5 0 1 1 2 3 3 2-1 3-2 3-3 0-1.5-2-3-3-1.5z" />
+              </svg>
+              <span class="subnav-tile-label">Gåvor</span>
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="content-card">
         <!-- ANALYSIS -->
         <section class="view" data-view="analysis">

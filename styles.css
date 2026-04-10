@@ -378,6 +378,50 @@ html[data-theme="dark"] .bottom-nav {
   font-size: 0.95rem;
 }
 
+.onboarding-screen {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  padding-top: calc(var(--space-5) + env(safe-area-inset-top));
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  background: var(--bg);
+}
+
+.onboarding-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: var(--space-6);
+}
+
+.onboarding-title {
+  margin: 0 0 var(--space-3);
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.onboarding-subtitle {
+  margin: 0 0 var(--space-5);
+}
+
+.onboarding-income-row {
+  margin-bottom: 0;
+}
+
+.onboarding-income-row button.subnav-btn {
+  font-family: inherit;
+}
+
 .content-card {
   background: transparent;
 }
@@ -1547,6 +1591,9 @@ tr.month-break td {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
   margin-top: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .subnav {
@@ -5510,6 +5557,57 @@ button.stretch {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
   border-top: 1px solid var(--border);
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Backup & restore: håll innehåll inom skärmbredd (filväljare, långa knapptexter) */
+.settings-grid > .table-card {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-grid .form-grid,
+.settings-grid .backup-restore {
+  min-width: 0;
+}
+
+.settings-grid .field input:not([type="checkbox"]):not([type="radio"]),
+.settings-grid .field select,
+.settings-grid .field textarea {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-grid input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.settings-grid .actions-row {
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
+  column-gap: var(--space-3);
+}
+
+.settings-grid .actions-row > button {
+  min-width: 0;
+  flex: 1 1 12rem;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+.settings-grid .field-help {
+  overflow-wrap: anywhere;
 }
 
 /* —— Bottom sheets: datum + period —— */

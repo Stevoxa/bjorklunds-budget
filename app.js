@@ -9,6 +9,10 @@ let vaultSaveTimer = null;
 let vaultIdleTimer = null;
 
 const WEEKS_PER_MONTH = 4.33;
+const ANALYSIS_MSG_EMPTY_YEAR =
+  "Det saknas data för att analysera löneår. Lägg till intäkter och utgifter först";
+const ANALYSIS_MSG_EMPTY_PERIOD =
+  "Det saknas data för att analysera löneperiod. Lägg till intäkter och utgifter först";
 const nowMs = () => Date.now();
 const pad2 = (n) => String(n).padStart(2, "0");
 const DEBUG = true;
@@ -3970,6 +3974,14 @@ function syncRobinHoodGeneratedExpenses(root, payDatesSorted, startMo) {
   root.expenses = without.concat(built.map((x) => canonicalizeExpenseRecord(x)));
 }
 
+/**
+ * Underlag för löneperiod/löneår-analys:
+ * - **Löneperiod** behöver en sekvens av utbetalningsdatum (`payDates`). Den byggs när `getAnalysisSalaryAnchorSpec`
+ *   hittar minst en **månadsvis** planerad intäkt med minst en **positiv** post som har **datum** (ev. från synkad löneperiod-post),
+ *   alternativt kan **fast lönedag** i inställningar styra dagen när intäkten finns.
+ * - **Löneår** kan visa **kalendermånader inom löneåret** (fallback) även utan `payDates`, så länge det finns intäkter/utgifter
+ *   i intervallet; diagram/listor som bygger på **löneperioder** får fullt stöd först när `payDates` finns.
+ */
 function getAnalysisPayDatesWindow(root = state) {
   const st = root.settings || {};
   const startMo = st.salaryYearStartMonth || 1;
@@ -5252,8 +5264,72 @@ const ui = {
     benefit: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     capital: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     gift: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
-  }
+  },
+  /** På välkomstskärm: döljs för session efter val av intäktskategori (återkommer vid omstart om fortfarande tom). */
+  onboardingDismissedForSession: false
 };
+
+function countOneOffNested(root) {
+  if (!root || typeof root !== "object") return 0;
+  let n = 0;
+  for (const y of Object.keys(root)) {
+    const yObj = root[y];
+    if (!yObj || typeof yObj !== "object") continue;
+    for (const m of Object.keys(yObj)) {
+      const arr = yObj[m];
+      if (Array.isArray(arr)) n += arr.length;
+    }
+  }
+  return n;
+}
+
+/**
+ * True om användaren lagt in något som räknas som “påbörjad budget” (välkomstskärm ska inte visas).
+ * Inkl. mat/hushåll (matveckor eller ifylld matkonfiguration), lån, löneperioder m.m., inte bara klassiska intäkts-/utgiftsrader.
+ */
+function hasFoodSharedUserContent(root) {
+  const fs = root?.special?.foodShared;
+  if (!fs || typeof fs !== "object") return false;
+  if (Array.isArray(fs.weeks) && fs.weeks.length > 0) return true;
+  const raw = fs.config;
+  if (!raw || typeof raw !== "object") return false;
+  if (raw.mode === "manual") return true;
+  if (Array.isArray(raw.householdChanges) && raw.householdChanges.length > 0) return true;
+  if (Array.isArray(raw.deviations) && raw.deviations.length > 0) return true;
+  if (Array.isArray(raw.custodyPeriods) && raw.custodyPeriods.some((p) => String(p?.startDate || "").trim())) return true;
+  const cs = raw.custodySchedule;
+  if (cs && cs.type === "alternating" && String(cs.alternating?.startDate || "").trim()) return true;
+  if (Math.abs(asNumber(raw.manualWeeklyCost) - 2800) > 0.5) return true;
+  if (raw.costLevel && raw.costLevel !== "normal") return true;
+  if (raw.foodScope && raw.foodScope !== "groceries") return true;
+  const h = raw.household;
+  if (h) {
+    if (Math.floor(asNumber(h.adults)) !== 1) return true;
+    if (Math.floor(asNumber(h.teens)) > 0 || Math.floor(asNumber(h.children)) > 0) return true;
+  }
+  return false;
+}
+
+function hasAnyBudgetData(s) {
+  if (!s) return false;
+  if ((s.incomes || []).length > 0) return true;
+  if ((s.expenses || []).length > 0) return true;
+  const sps = s.special?.salaryPeriods?.items;
+  if (Array.isArray(sps) && sps.length > 0) return true;
+  const loans = s.special?.loans?.items;
+  if (Array.isArray(loans) && loans.length > 0) return true;
+  if (countOneOffNested(s.oneOff?.incomes) > 0) return true;
+  if (countOneOffNested(s.oneOff?.expenses) > 0) return true;
+  if (hasFoodSharedUserContent(s)) return true;
+  return false;
+}
+
+function updateOnboardingVisibility() {
+  const el = document.getElementById("onboardingScreen");
+  if (!el) return;
+  const show = Boolean(state) && !hasAnyBudgetData(state) && !ui.onboardingDismissedForSession;
+  el.hidden = !show;
+}
 
 function tryRemoveLegacyLocalStorage() {
   try {
@@ -5279,6 +5355,7 @@ function saveState() {
       showDebugToast("Kunde inte spara krypterat. Försök igen.");
     });
   }, 400);
+  updateOnboardingVisibility();
   return true;
 }
 
@@ -10555,12 +10632,11 @@ function renderAnalysisPage() {
 
   const { startMo, anchor, payDates, now } = getAnalysisPayDatesWindow();
 
-  const anchorNote = anchor.ok
+  const anchorNoteOk = anchor.ok
     ? `<p class="note analysis-anchor-note">Löneankare: <strong>${escapeHtml(anchor.sourceLabel)}</strong> (${formatKr(
         anchor.maxAmt
       )}/mån)${anchor.useFixed ? ` — fast dag ${anchor.recurringDay}` : ` — dag ${anchor.recurringDay} från första utbetalningen`}.</p>`
-    : `<p class="note analysis-anchor-note analysis-anchor-note--warn">Ingen månadsvis intäkt hittades. Lägg till en planerad intäkt med intervall <strong>månad</strong> (t.ex. lön), eller aktivera fast löneperiod under inställningar.</p>`;
-
+    : "";
   if (ui.analysisViewMode === "salaryYear") {
     let nav = Math.round(Number(ui.analysisSalaryYearNav) || 0);
     if (nav < -1) nav = -1;
@@ -10649,7 +10725,7 @@ function renderAnalysisPage() {
       ${payChipHtmlHero}`
         : `
       <div class="analysis-salary-hero__big">—</div>
-      <p class="analysis-salary-hero__lead">Inga löneperioder kunde beräknas för valt löneår.</p>
+      <p class="analysis-salary-hero__lead">${escapeHtml(ANALYSIS_MSG_EMPTY_YEAR)}</p>
       ${payChipHtmlHero}`;
 
     const avgMonthlyIncomeFromYear =
@@ -11009,6 +11085,7 @@ function renderAnalysisPage() {
 
     const salaryYearNavTitle = `Löneår ${labelYear}`;
     mount.innerHTML = `
+      ${anchorNoteOk}
       <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneår">
         <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearPrevBtn" ${
           nav <= -1 ? "disabled" : ""
@@ -11049,9 +11126,9 @@ function renderAnalysisPage() {
     mount.innerHTML = `
       <div class="table-card">
         <div class="table-title">Löneperiod</div>
-        <p class="note">Inga lönedagar kunde beräknas ännu.</p>
+        <p class="note${anchor.ok ? "" : " analysis-anchor-note--warn"}">${escapeHtml(ANALYSIS_MSG_EMPTY_PERIOD)}</p>
       </div>
-      ${anchorNote}
+      ${anchorNoteOk}
     `;
     playAnalysisViewDetailEnterAnimation(mount);
     return;
@@ -11647,6 +11724,27 @@ function openIncomeSalaryOverlay(opts = {}) {
   }
   if (opts.openEditor === true) openSalaryPeriodEditor(null);
   else if (opts.editPeriodId) openSalaryPeriodEditor(String(opts.editPeriodId));
+}
+
+function startOnboardingIncomeCategory(cat) {
+  ui.onboardingDismissedForSession = true;
+  updateOnboardingVisibility();
+  if (cat === "salary") {
+    location.hash = "#/incomes/salary";
+    queueMicrotask(() => openIncomeSalaryOverlay({ skipHistory: true, openEditor: true }));
+    return;
+  }
+  if (INCOME_TAGGED_CATEGORY_CONFIG[cat]) {
+    const u = ui.incomeTagged[cat];
+    u.editingId = null;
+    u.editorOpen = true;
+    location.hash = `#/incomes/${cat}`;
+    queueMicrotask(() => {
+      const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+      const editorCard = document.getElementById(C.ids.editorCard);
+      editorCard?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 }
 
 function showConfirmDeleteSalaryPeriodModal() {
@@ -13404,7 +13502,19 @@ function hideConfirmDeleteLoanModal() {
   requireEl("confirmDeleteLoanModal").hidden = true;
 }
 
+function initOnboardingGate() {
+  const root = document.getElementById("onboardingScreen");
+  if (!root) return;
+  root.querySelectorAll("[data-onboarding-income]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cat = btn.getAttribute("data-onboarding-income");
+      if (cat) startOnboardingIncomeCategory(cat);
+    });
+  });
+}
+
 function initActions() {
+  initOnboardingGate();
   // CAR
   const wireTaggedCategoryActions = (cat) => {
     const C = TAGGED_CATEGORY_CONFIG[cat];
@@ -14055,6 +14165,7 @@ async function initRoot() {
     initRouting();
     initBottomNavScrollElevation();
     initActions();
+    updateOnboardingVisibility();
     registerServiceWorker();
   } catch (e) {
     console.error("Init-fel", e);
