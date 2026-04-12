@@ -5577,6 +5577,7 @@ async function initVaultBootstrap() {
   const vaultSetupSection = document.getElementById("vaultSetupSection");
   const vaultUnlockSubtitle = document.getElementById("vaultUnlockSubtitle");
   const vaultUnlockPass = document.getElementById("vaultUnlockPassphrase");
+  const vaultUnlockFieldErr = document.getElementById("vaultUnlockPassphraseError");
   const vaultUnlockBtn = document.getElementById("vaultUnlockBtn");
   const vaultRestartSetupBtn = document.getElementById("vaultRestartSetupBtn");
   const vaultRestartBackdrop = document.getElementById("vaultRestartConfirmBackdrop");
@@ -5609,6 +5610,7 @@ async function initVaultBootstrap() {
     !vaultSetupSection ||
     !vaultUnlockSubtitle ||
     !vaultUnlockPass ||
+    !vaultUnlockFieldErr ||
     !vaultUnlockBtn ||
     !vaultRestartSetupBtn ||
     !vaultRestartBackdrop ||
@@ -5669,7 +5671,30 @@ async function initVaultBootstrap() {
     }
   }
 
+  const clearVaultUnlockFieldError = () => {
+    vaultUnlockFieldErr.textContent = "";
+    vaultUnlockFieldErr.hidden = true;
+    vaultUnlockPass.removeAttribute("aria-invalid");
+    vaultUnlockPass.removeAttribute("aria-describedby");
+    vaultUnlockPass.classList.remove("vault-lock-input--invalid");
+  };
+
+  const showVaultUnlockFieldError = (msg) => {
+    errEl.textContent = "";
+    errEl.hidden = true;
+    if (!msg) {
+      clearVaultUnlockFieldError();
+      return;
+    }
+    vaultUnlockFieldErr.textContent = msg;
+    vaultUnlockFieldErr.hidden = false;
+    vaultUnlockPass.setAttribute("aria-invalid", "true");
+    vaultUnlockPass.setAttribute("aria-describedby", "vaultUnlockPassphraseError");
+    vaultUnlockPass.classList.add("vault-lock-input--invalid");
+  };
+
   const showErr = (msg) => {
+    clearVaultUnlockFieldError();
     errEl.textContent = msg || "";
     errEl.hidden = !msg;
   };
@@ -5690,6 +5715,8 @@ async function initVaultBootstrap() {
 
   return new Promise((resolve) => {
     let enteredSetupFromUnlock = false;
+    /** Ignorera backdrop-stängning direkt efter öppning (undviker mobil “ghost click” som träffar backdrop). */
+    let vaultRestartBackdropIgnoreUntil = 0;
 
     const finish = () => {
       if (vaultLockSplashRevoke) {
@@ -5727,6 +5754,7 @@ async function initVaultBootstrap() {
     };
 
     const openRestartModal = () => {
+      vaultRestartBackdropIgnoreUntil = Date.now() + 450;
       vaultRestartBackdrop.hidden = false;
       vaultRestartModal.hidden = false;
       document.documentElement.classList.add("modal-open");
@@ -5754,7 +5782,11 @@ async function initVaultBootstrap() {
     }
 
     vaultRestartCancelBtn.onclick = () => closeRestartModal();
-    vaultRestartBackdrop.onclick = () => closeRestartModal();
+    vaultRestartBackdrop.onclick = (ev) => {
+      if (ev.target !== vaultRestartBackdrop) return;
+      if (Date.now() < vaultRestartBackdropIgnoreUntil) return;
+      closeRestartModal();
+    };
 
     vaultRestartConfirmBtn.onclick = () => {
       closeRestartModal();
@@ -5898,24 +5930,28 @@ async function initVaultBootstrap() {
         if (e.key === "Enter") vaultUnlockBtn.click();
       };
       vaultUnlockPass.addEventListener("keydown", onEnterUnlock);
+      vaultUnlockPass.addEventListener("input", () => {
+        if (!vaultUnlockFieldErr.hidden) clearVaultUnlockFieldError();
+      });
 
       vaultUnlockBtn.onclick = async () => {
-        showErr("");
+        showVaultUnlockFieldError("");
         const pass = String(vaultUnlockPass.value || "");
         if (!pass) {
-          showErr("Ange lösenord.");
+          showVaultUnlockFieldError("Ange lösenord.");
           return;
         }
         vaultUnlockBtn.disabled = true;
         const r = await V.unlock(pass);
         vaultUnlockBtn.disabled = false;
         if (!r.ok) {
-          if (r.error === "schema") showErr("Datafilen har oväntat innehåll.");
-          else showErr("Fel lösenord eller skadad data.");
+          if (r.error === "schema") showVaultUnlockFieldError("Datafilen har oväntat innehåll.");
+          else showVaultUnlockFieldError("Fel lösenord eller skadad data.");
           return;
         }
         state = normalizeStateShape(r.data.state);
         vaultUnlockPass.value = "";
+        clearVaultUnlockFieldError();
         finish();
       };
 

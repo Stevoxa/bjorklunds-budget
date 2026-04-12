@@ -443,6 +443,20 @@ html[data-theme="dark"] .vault-lock-screen__scrim {
   box-shadow: 0 0 0 3px var(--focus);
 }
 
+.vault-lock-input[aria-invalid="true"],
+.vault-lock-input.vault-lock-input--invalid {
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.vault-lock-input[aria-invalid="true"]:focus-visible,
+.vault-lock-input.vault-lock-input--invalid:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 65%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
 html[data-theme="dark"] .vault-lock-input {
   background: color-mix(in srgb, var(--card) 94%, #030806);
 }
@@ -2127,40 +2141,102 @@ html[data-theme="dark"] .modal-backdrop {
   background: color-mix(in srgb, var(--card) 96%, var(--bg));
 }
 
-@keyframes vault-destructive-modal-in {
+@keyframes bottom-sheet-card-in {
   from {
     opacity: 0;
-    transform: translate(-50%, -47%) scale(0.97);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: translateY(0);
   }
 }
 
-/* Vault ”ersätt data”: kompakt kort med marginal (inte helskärmslik höjd). Destruktivt val först (SJ m.fl.). */
-#vaultRestartConfirmModal.modal--vault-destructive-confirm {
-  width: min(26rem, calc(100vw - var(--space-6)));
+/* Bottenkort som PWA-installationsbannern: fast botten, sidmarginaler, skugga, två knappar i rad. */
+.modal.bottom-sheet-card {
+  box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: auto;
+  width: auto;
+  max-width: none;
   max-height: none;
-  animation: vault-destructive-modal-in var(--motion-modal) var(--motion-modal-ease) both;
+  margin: 0 var(--space-3);
+  padding: 0;
+  transform: none;
+  animation: bottom-sheet-card-in var(--motion-modal) var(--motion-modal-ease) both;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-body {
+html[data-theme="dark"] .modal.bottom-sheet-card {
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+}
+
+/* Ovanför undermenyn (samma bottom-offset som .pwa-install-banner). */
+.modal.bottom-sheet-card.bottom-sheet-card--above-nav {
+  bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* På låsskärmen finns ingen undermeny. */
+.modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
+  bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+}
+
+.modal.bottom-sheet-card .modal-header {
+  position: relative;
+  justify-content: center;
+  text-align: center;
+  border-bottom: none;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.modal.bottom-sheet-card .modal-header > div:first-child {
+  flex: 1 1 auto;
+  text-align: center;
+  padding: 0 calc(var(--space-6) + var(--space-4));
+}
+
+.modal.bottom-sheet-card .modal-header .icon-btn {
+  position: absolute;
+  right: var(--space-2);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.modal.bottom-sheet-card .modal-body {
   flex: 0 0 auto;
   overflow: visible;
+  padding: 0 var(--space-4) var(--space-3);
 }
 
-#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-actions.modal-actions--stacked-destructive {
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: var(--space-3);
+.modal.bottom-sheet-card .modal-body .note,
+.modal.bottom-sheet-card .modal-body > p {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
 }
 
-#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-actions.modal-actions--stacked-destructive button {
-  width: 100%;
-  min-height: 48px;
-  font-weight: 700;
+.modal.bottom-sheet-card .modal-actions.bottom-sheet-card__actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  border-top: none;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: transparent;
+}
+
+.modal.bottom-sheet-card .modal-actions.bottom-sheet-card__actions button {
+  flex: 1 1 8rem;
+  max-width: 100%;
+  min-height: 44px;
+  font-weight: 650;
+  width: auto;
 }
 
 /* Income editor action layout:

@@ -83,6 +83,7 @@
             <label class="field">
               <span>Lösenord</span>
               <input type="password" id="vaultUnlockPassphrase" class="vault-lock-input" autocomplete="current-password" />
+              <div class="field-error" id="vaultUnlockPassphraseError" hidden role="alert"></div>
             </label>
           </div>
           <div class="vault-lock-actions">
@@ -2236,7 +2237,7 @@
 
     <div class="modal-backdrop" id="vaultRestartConfirmBackdrop" hidden></div>
     <div
-      class="modal modal--vault-destructive-confirm"
+      class="modal bottom-sheet-card bottom-sheet-card--vault-lock"
       id="vaultRestartConfirmModal"
       role="dialog"
       aria-modal="true"
@@ -2252,7 +2253,7 @@
           backup kan du inte återställa det som finns nu.
         </p>
       </div>
-      <div class="modal-actions modal-actions--stacked-destructive">
+      <div class="modal-actions bottom-sheet-card__actions">
         <button type="button" class="danger" id="vaultRestartConfirmBtn">Fortsätt</button>
         <button type="button" class="secondary" id="vaultRestartCancelBtn">Avbryt</button>
       </div>
@@ -2260,7 +2261,7 @@
 
     <!-- BACKUP MODAL -->
     <div class="modal-backdrop" id="backupModalBackdrop" hidden></div>
-    <div class="modal" id="backupModal" role="dialog" aria-modal="true" aria-labelledby="backupModalTitle" hidden>
+    <div class="modal bottom-sheet-card bottom-sheet-card--above-nav" id="backupModal" role="dialog" aria-modal="true" aria-labelledby="backupModalTitle" hidden>
       <div class="modal-header">
         <div id="backupModalTitle">Backup rekommenderas</div>
         <button class="icon-btn" id="closeBackupModalBtn" type="button" aria-label="Stäng">✕</button>
@@ -2268,9 +2269,9 @@
       <div class="modal-body">
         <div class="note" id="backupModalText"></div>
       </div>
-      <div class="modal-actions">
-        <button class="secondary" id="backupLaterBtn" type="button">Inte nu</button>
+      <div class="modal-actions bottom-sheet-card__actions">
         <button class="primary" id="backupExportModalBtn" type="button">Exportera krypterad backup</button>
+        <button class="secondary" id="backupLaterBtn" type="button">Inte nu</button>
       </div>
     </div>
 
