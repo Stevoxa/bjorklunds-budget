@@ -2212,17 +2212,25 @@ html[data-theme="dark"] .modal.bottom-sheet-card {
     0 -5px 18px rgba(0, 0, 0, 0.32);
 }
 
-/* Kant i kant med bottennavens överkant (ingen extra glipa). */
+/*
+ * Ovanför bottennav (t.ex. backup-prompt med grön primär — menyn syns under arket).
+ */
 .modal.bottom-sheet-card.bottom-sheet-card--above-nav {
   bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
-/* Låsskärm: samma ark, mot viewport-botten (ingen nav) — extra luft ned mot hemkant. */
-.modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
+/*
+ * Viewport-botten: täcker bottennav (destruktiva bekräftelser, osparade, PWA m.m.).
+ * — vault-lock: låsskärm
+ * — dock-bottom: övriga flöden
+ */
+.modal.bottom-sheet-card.bottom-sheet-card--vault-lock,
+.modal.bottom-sheet-card.bottom-sheet-card--dock-bottom {
   bottom: 0;
 }
 
-.modal.bottom-sheet-card.bottom-sheet-card--vault-lock .modal-actions.bottom-sheet-card__actions {
+.modal.bottom-sheet-card.bottom-sheet-card--vault-lock .modal-actions.bottom-sheet-card__actions,
+.modal.bottom-sheet-card.bottom-sheet-card--dock-bottom .modal-actions.bottom-sheet-card__actions {
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
 }
 
@@ -7139,7 +7147,7 @@ body.app-bottom-sheet-open {
   font-size: 0.88rem;
 }
 
-/* —— PWA-installation: samma bottom sheet som bekräftelseark, grön primär (bottom-sheet-card--positive) —— */
+/* —— PWA-installation: dock-bottom (hela vägen ned, ovanpå nav), grön primär (--positive) —— */
 .pwa-install-sheet-lead {
   margin: 0;
   text-align: left;
