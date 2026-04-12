@@ -2040,6 +2040,8 @@ a.subnav-btn {
 /* Mat: gemensam extra marginal för intro → notchad panel (Hushållet) */
 .exp-overlay[data-expview="food"] {
   --bb-notched-panel-margin-extra: 14px;
+  /* Reserv ovanför Matkostnad översikt: .bb-notched-panel-legend flyttas ~2/3 rad upp med translateY */
+  --food-mat-overview-legend-rise: 28px;
 }
 
 .loan-metrics {
@@ -2780,14 +2782,19 @@ body.modal-open {
   margin-bottom: calc(26px + var(--bb-notched-panel-margin-extra, 14px));
 }
 
-/* Matkostnad översikt: direkt under #foodPlannerSection — extra luft så notchad rubrik + kant inte skär in i hubbkorten */
+/* Matkostnad översikt: luft under hubbkort + tydlig lucka innan notchad rubrik (annars “ihopskrivet”) */
 .exp-overlay[data-expview="food"] #foodPlannerSection {
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-6);
 }
 
-/* Margin kollapsar inte mot padding; summan ger tydlig lucka hubbar → översikt */
+.exp-overlay[data-expview="food"] .food-mat-period-cards {
+  margin-bottom: var(--space-4);
+}
+
 .exp-overlay[data-expview="food"] .table-card > .bb-notched-panel {
-  margin-top: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px) + var(--space-4));
+  margin-top: calc(
+    var(--space-3) + var(--bb-notched-panel-margin-extra, 14px) + var(--space-4) + var(--food-mat-overview-legend-rise)
+  );
 }
 
 .food-household-card {
@@ -3016,7 +3023,7 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  margin-bottom: 0;
+  margin-bottom: 0; /* mat-overlay: se .exp-overlay[data-expview="food"] .food-mat-period-cards */
 }
 
 .food-mat-period-hub {
