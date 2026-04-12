@@ -14011,6 +14011,18 @@ function initActions() {
 
   document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson("manual"));
 
+  function syncBackupRestoreFileLabel() {
+    const input = document.getElementById("backupRestoreInput");
+    const nameEl = document.getElementById("backupRestoreFileName");
+    if (!input || !nameEl) return;
+    const f = input.files && input.files[0];
+    nameEl.textContent = f ? f.name : "Ingen fil vald";
+  }
+  document.getElementById("backupRestorePickBtn")?.addEventListener("click", () => {
+    document.getElementById("backupRestoreInput")?.click();
+  });
+  document.getElementById("backupRestoreInput")?.addEventListener("change", syncBackupRestoreFileLabel);
+
   // Restore import (krypterad vault-envelope)
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     const note = document.getElementById("backupRestoreNote");

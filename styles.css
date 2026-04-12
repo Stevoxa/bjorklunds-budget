@@ -344,12 +344,19 @@ html[data-theme="dark"] .bottom-nav {
 
 .vault-lock-card {
   width: 100%;
-  max-width: 420px;
+  max-width: min(100%, 26rem);
   background: var(--card);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow);
   border: 1px solid var(--border);
-  padding: var(--space-6);
+  padding: var(--space-5) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 400px) {
+  .vault-lock-card {
+    padding: var(--space-6);
+  }
 }
 
 .vault-lock-title {
@@ -364,8 +371,54 @@ html[data-theme="dark"] .bottom-nav {
   margin: 0 0 var(--space-5);
 }
 
+.vault-lock-fields {
+  min-width: 0;
+}
+
+.vault-lock-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0 var(--space-4);
+  min-height: 52px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.vault-lock-input:hover {
+  border-color: var(--border-strong);
+}
+
+.vault-lock-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+html[data-theme="dark"] .vault-lock-input {
+  background: color-mix(in srgb, var(--card) 94%, #030806);
+}
+
 .vault-lock-actions {
   margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.vault-lock-submit {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .vault-lock-hint {
@@ -5573,7 +5626,7 @@ button.stretch {
   min-width: 0;
 }
 
-.settings-grid .field input:not([type="checkbox"]):not([type="radio"]),
+.settings-grid .field input:not([type="checkbox"]):not([type="radio"]):not(.backup-restore-sr-input),
 .settings-grid .field select,
 .settings-grid .field textarea {
   width: 100%;
@@ -5582,28 +5635,105 @@ button.stretch {
   box-sizing: border-box;
 }
 
-.settings-grid input[type="file"] {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+/* Filväljare: dold input, synlig app-stilad knapp (se #backupRestorePickBtn) */
+.backup-restore-sr-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.settings-grid .actions-row {
+.backup-file-picker-row {
+  position: relative;
+  display: flex;
   flex-wrap: wrap;
-  row-gap: var(--space-2);
-  column-gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.settings-grid .actions-row > button {
+.backup-file-picker-btn {
+  flex: 0 0 auto;
+  min-height: 46px;
+  padding-inline: var(--space-4);
+}
+
+.backup-file-name {
+  flex: 1 1 10rem;
   min-width: 0;
-  flex: 1 1 12rem;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.35;
+}
+
+.backup-import-field__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+
+.settings-page .table-card {
   max-width: 100%;
+}
+
+.settings-backup-export-row,
+.settings-restore-row {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: var(--space-4);
+}
+
+.settings-backup-export-row > button,
+.settings-restore-row > button {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 46px;
   white-space: normal;
   text-align: center;
-  line-height: 1.3;
-  padding-top: 0.65rem;
-  padding-bottom: 0.65rem;
+  line-height: 1.25;
+  padding: 0 var(--space-4);
+}
+
+.settings-save-card {
+  margin-top: var(--space-4);
+}
+
+.settings-save-card__hint {
+  margin: 0 0 var(--space-4);
+}
+
+.settings-save-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.settings-save-card__actions .primary {
+  flex: 0 1 auto;
+  min-width: min(100%, 12rem);
+  min-height: 46px;
+  padding-inline: var(--space-5);
+}
+
+@media (max-width: 480px) {
+  .settings-save-card__actions .primary {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .settings-grid .field-help {

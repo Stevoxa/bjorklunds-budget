@@ -21,19 +21,19 @@
       <div class="vault-lock-card">
         <h1 id="vaultLockTitle" class="vault-lock-title">Björklunds budget</h1>
         <p id="vaultLockSubtitle" class="note vault-lock-subtitle"></p>
-        <div class="form-grid narrow">
+        <div class="vault-lock-fields form-grid narrow">
           <label class="field">
             <span id="vaultPassphraseLabel">Lösenfras</span>
-            <input type="password" id="vaultPassphrase" autocomplete="current-password" />
+            <input type="password" id="vaultPassphrase" class="vault-lock-input" autocomplete="current-password" />
           </label>
           <label class="field" id="vaultConfirmWrap" hidden>
             <span>Bekräfta lösenfras</span>
-            <input type="password" id="vaultPassphraseConfirm" autocomplete="new-password" />
+            <input type="password" id="vaultPassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
           </label>
         </div>
         <p id="vaultLockError" class="vault-lock-error" role="alert" hidden></p>
-        <div class="actions-row vault-lock-actions">
-          <button type="button" class="primary" id="vaultPrimaryBtn">Lås upp</button>
+        <div class="vault-lock-actions">
+          <button type="button" class="primary vault-lock-submit" id="vaultPrimaryBtn">Lås upp</button>
         </div>
         <p class="note vault-lock-hint" id="vaultLockHint"></p>
       </div>
@@ -1831,7 +1831,7 @@
         </section>
 
         <!-- SETTINGS -->
-        <section class="view" data-view="settings">
+        <section class="view settings-page" data-view="settings">
           <div class="view-header">
             <h2>Inställningar</h2>
           </div>
@@ -1929,22 +1929,34 @@
                 </label>
               </div>
 
-              <div class="actions-row">
-                <button class="primary" id="saveSettingsBtn" type="button">Spara inställningar</button>
-                <button class="secondary" id="backupNowBtn" type="button">Exportera krypterad backup (JSON)</button>
+              <div class="actions-row settings-backup-export-row">
+                <button class="secondary" id="backupNowBtn" type="button">Exportera krypterad backup</button>
               </div>
 
               <div class="backup-restore">
-                <label class="field">
-                  Importera krypterad backup (JSON)
-                  <input id="backupRestoreInput" type="file" accept="application/json" />
-                </label>
+                <div class="field backup-import-field">
+                  <span class="backup-import-field__label">Importera krypterad backup (JSON)</span>
+                  <div class="backup-file-picker-row">
+                    <input
+                      id="backupRestoreInput"
+                      type="file"
+                      accept="application/json"
+                      class="backup-restore-sr-input"
+                      tabindex="-1"
+                      aria-label="Välj krypterad JSON-backup"
+                    />
+                    <button type="button" class="secondary backup-file-picker-btn" id="backupRestorePickBtn">
+                      Välj fil
+                    </button>
+                    <span id="backupRestoreFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
+                  </div>
+                </div>
                 <label class="field">
                   Lösenfras för backup-filen
                   <input id="backupImportPassphrase" type="password" autocomplete="off" />
                   <span class="field-help">Samma lösenfras som när filen exporterades.</span>
                 </label>
-                <div class="actions-row">
+                <div class="actions-row settings-restore-row">
                   <button class="danger" id="restoreBtn" type="button">Återställ från fil</button>
                 </div>
                 <div class="note" id="backupRestoreNote"></div>
@@ -1958,6 +1970,16 @@
                 15 minuters inaktivitet låses appen och sidan laddas om. Glömd lösenfras kan inte återställas utan en fungerande
                 krypterad backup.
               </div>
+            </div>
+          </div>
+
+          <div class="table-card settings-save-card">
+            <div class="table-title">Spara ändringar</div>
+            <p class="note settings-save-card__hint">
+              Gäller utseende, löneperiod, matplanering och värden för backup ovan — inte själva budgetposterna.
+            </p>
+            <div class="settings-save-card__actions">
+              <button class="primary" id="saveSettingsBtn" type="button">Spara inställningar</button>
             </div>
           </div>
         </section>
