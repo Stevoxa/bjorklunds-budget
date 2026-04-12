@@ -6595,7 +6595,14 @@ function renderTaggedIncomeCategoryPage(cat) {
   const listYearSel = document.getElementById(ids.listYear);
   const listMonthSel = document.getElementById(ids.listMonth);
   const cur = currentYearMonth();
-  const baseYear = ui.incomeYearFilter || cur.year;
+  const incomeYearRaw = ui.incomeYearFilter;
+  const baseYear =
+    incomeYearRaw != null &&
+    incomeYearRaw !== "" &&
+    incomeYearRaw !== "all" &&
+    Number.isFinite(Number(incomeYearRaw))
+      ? Number(incomeYearRaw)
+      : cur.year;
   const appYears = getAvailableYears();
   if (
     u.listYear !== "all" &&
@@ -11437,11 +11444,6 @@ function renderAnalysisPage() {
 
   const { startMo, anchor, payDates, now } = getAnalysisPayDatesWindow();
 
-  const anchorNoteOk = anchor.ok
-    ? `<p class="note analysis-anchor-note">Löneankare: <strong>${escapeHtml(anchor.sourceLabel)}</strong> (${formatKr(
-        anchor.maxAmt
-      )}/mån)${anchor.useFixed ? ` — fast dag ${anchor.recurringDay}` : ` — dag ${anchor.recurringDay} från första utbetalningen`}.</p>`
-    : "";
   if (ui.analysisViewMode === "salaryYear") {
     let nav = Math.round(Number(ui.analysisSalaryYearNav) || 0);
     if (nav < -1) nav = -1;
@@ -11890,7 +11892,6 @@ function renderAnalysisPage() {
 
     const salaryYearNavTitle = `Löneår ${labelYear}`;
     mount.innerHTML = `
-      ${anchorNoteOk}
       <div class="analysis-salary-year-nav analysis-range-seg analysis-salary-year-nav--chevron" role="toolbar" aria-label="Byt löneår">
         <button type="button" class="analysis-range-btn analysis-salary-year-nav__chev" id="analysisSalaryYearPrevBtn" ${
           nav <= -1 ? "disabled" : ""
@@ -11933,7 +11934,6 @@ function renderAnalysisPage() {
         <div class="table-title">Löneperiod</div>
         <p class="note${anchor.ok ? "" : " analysis-anchor-note--warn"}">${escapeHtml(ANALYSIS_MSG_EMPTY_PERIOD)}</p>
       </div>
-      ${anchorNoteOk}
     `;
     playAnalysisViewDetailEnterAnimation(mount);
     return;
