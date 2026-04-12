@@ -5606,6 +5606,24 @@ button.stretch {
   min-width: min(100%, 220px);
 }
 
+.backup-filename-note {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.backup-filename-code {
+  font-size: 0.88em;
+  font-weight: 650;
+  padding: 0.12em 0.4em;
+  border-radius: 8px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  word-break: break-all;
+  color: var(--text);
+}
+
 .backup-restore {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
@@ -5687,6 +5705,40 @@ button.stretch {
 
 .settings-page .table-card {
   max-width: 100%;
+}
+
+/* Lösenord import: samma känsla som övriga inställningsfält (text/number) */
+.settings-password-input {
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 0 var(--space-4);
+  min-height: 52px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease);
+}
+
+.settings-password-input:hover {
+  border-color: var(--border-strong);
+}
+
+.settings-password-input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+html[data-theme="dark"] .settings-password-input {
+  background: color-mix(in srgb, var(--card) 94%, #030806);
 }
 
 .settings-backup-export-row,

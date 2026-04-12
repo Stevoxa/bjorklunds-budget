@@ -13,6 +13,8 @@ const ANALYSIS_MSG_EMPTY_YEAR =
   "Det saknas data för att analysera löneår. Lägg till intäkter och utgifter först";
 const ANALYSIS_MSG_EMPTY_PERIOD =
   "Det saknas data för att analysera löneperiod. Lägg till intäkter och utgifter först";
+/** Fast filnamn vid krypterad export (användaren kan döpa om filen lokalt). */
+const BACKUP_EXPORT_FILENAME_PATTERN = "bjorklunds_budget_{YYYY}-{MM}.json";
 const nowMs = () => Date.now();
 const pad2 = (n) => String(n).padStart(2, "0");
 const DEBUG = true;
@@ -2588,7 +2590,6 @@ function getDefaultState() {
     themeMode: "system", // system | light | dark
     settings: {
       backupIntervalDays: 30,
-      backupFilenamePattern: "bjorklunds_budget_{YYYY}-{MM}.json",
       lastBackupPromptAt: 0,
       foodPlanningWeekday: 1,
       /** Ny analys: fast lönedag i månaden när checkbox är på */
@@ -2683,10 +2684,7 @@ function normalizeStateShape(state) {
 
   normalized.settings = { ...base.settings, ...(normalized.settings || {}) };
   normalized.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(normalized.settings.backupIntervalDays || 30)));
-  normalized.settings.backupFilenamePattern =
-    typeof normalized.settings.backupFilenamePattern === "string" && normalized.settings.backupFilenamePattern.trim()
-      ? normalized.settings.backupFilenamePattern
-      : base.settings.backupFilenamePattern;
+  delete normalized.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
   delete normalized.settings.analysisLayout;
   delete normalized.settings.analysisSavingsTargetKr;
@@ -10529,7 +10527,6 @@ function renderFoodPage() {
 function renderSettingsPage() {
   // Settings inputs
   document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
-  document.getElementById("backupFilenamePattern").value = state.settings.backupFilenamePattern || "";
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
   const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
@@ -10601,6 +10598,54 @@ function renderRoute(route, opts = {}) {
     default:
       renderAnalysisPage();
   }
+}
+
+/** Efter import: vault-session är redan upplåst — uppdatera vy utan reload. */
+function reapplyCurrentRouteAfterStateImport() {
+  applyTheme();
+  const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings"]);
+  const parsed = parseRouteFromHash();
+  let route = parsed.route;
+  if (!allowed.has(route)) route = "analysis";
+  const incOv = route === "incomes" ? parsed.incomeOverlay : null;
+  if (route === "incomes") {
+    if (incOv !== "salary" && anyIncomeSalaryOverlayOpen()) closeIncomeSalaryOverlay({ fromHistory: true });
+    for (const k of INCOME_TAGGED_KEYS) {
+      if (incOv !== k && incomeTaggedOverlayIsOpen(k)) closeIncomeTaggedOverlay(k);
+    }
+    if (incOv === "benefit" || incOv === "capital" || incOv === "gift") ui.incomeListCategory = incOv;
+    else if (!incOv) ui.incomeListCategory = null;
+  }
+  const prevNavRoute = ui._lastRenderedNavRoute;
+  ui._lastRenderedNavRoute = route;
+  const enteringAnalysis = route === "analysis" && prevNavRoute !== "analysis";
+
+  ui.activeRoute = route;
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  document.querySelectorAll("[data-view]").forEach((v) => {
+    if (v.getAttribute("data-view") === route) v.classList.add("active");
+  });
+  if (route !== "incomes") {
+    closeIncomeSalaryOverlay({ fromHistory: false });
+    incomeSalaryOverlayHistoryDepth = 0;
+    for (const k of INCOME_TAGGED_KEYS) closeIncomeTaggedOverlay(k);
+  }
+  if (route !== "expenses" && anyExpenseOverlayOpen()) {
+    closeExpenseCategoryOverlay({ fromHistory: false });
+    expenseOverlayHistoryDepth = 0;
+  }
+  document.querySelectorAll("[data-navlink]").forEach((el) => {
+    const link = el.getAttribute("data-navlink");
+    if (link === route) el.setAttribute("aria-current", "page");
+    else el.removeAttribute("aria-current");
+  });
+
+  try {
+    renderRoute(route, { incomeOverlay: incOv, enteringAnalysis });
+  } catch (e) {
+    showDebugToast(`Uppdatering efter import: ${e?.message || e}`);
+  }
+  updateOnboardingVisibility();
 }
 
 /** Ny analysvy: löneår | löneperiod. */
@@ -13956,8 +14001,6 @@ function initActions() {
 
   document.getElementById("saveSettingsBtn").addEventListener("click", () => {
     state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));
-    const pat = document.getElementById("backupFilenamePattern").value || "";
-    state.settings.backupFilenamePattern = pat.trim();
     const fd = document.getElementById("foodPlanningWeekday");
     if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
     const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
@@ -14055,12 +14098,17 @@ function initActions() {
     state = normalizeStateShape(r.data);
     await saveStateFlush();
     passInp.value = "";
-    note.textContent = "Import klar. Laddar om...";
-    setTimeout(() => location.reload(), 600);
+    if (input) {
+      input.value = "";
+      syncBackupRestoreFileLabel();
+    }
+    note.textContent = "Import klar. Du kan fortsätta arbeta direkt.";
+    showDebugToast("Backup importerad.");
+    reapplyCurrentRouteAfterStateImport();
   });
 
   function getFilenameForBackup(kind) {
-    const pattern = state.settings.backupFilenamePattern || "bjorklunds_budget_{YYYY}-{MM}.json";
+    const pattern = BACKUP_EXPORT_FILENAME_PATTERN;
     const d = new Date();
     const y = d.getFullYear();
     const mo = pad2(d.getMonth() + 1);

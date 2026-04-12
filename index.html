@@ -1922,11 +1922,10 @@
                   Fråga om backup var (dagar)
                   <input id="backupIntervalDays" type="number" inputmode="numeric" min="1" step="1" />
                 </label>
-                <label class="field">
-                  Filnamn vid export
-                  <input id="backupFilenamePattern" type="text" maxlength="80" />
-                  <span class="field-help">Ex: bjorklunds_budget_{YYYY}-{MM}.json (krypterad vault-fil)</span>
-                </label>
+                <p class="note backup-filename-note">
+                  Exportfilen heter alltid <code class="backup-filename-code">bjorklunds_budget_{YYYY}-{MM}.json</code> (krypterad).
+                  Du kan byta namn i filhanteraren efter nedladdning om du vill.
+                </p>
               </div>
 
               <div class="actions-row settings-backup-export-row">
@@ -1953,8 +1952,10 @@
                 </div>
                 <label class="field">
                   Lösenfras för backup-filen
-                  <input id="backupImportPassphrase" type="password" autocomplete="off" />
-                  <span class="field-help">Samma lösenfras som när filen exporterades.</span>
+                  <input id="backupImportPassphrase" class="settings-password-input" type="password" autocomplete="off" />
+                  <span class="field-help">
+                    Samma lösenfras som när filen exporterades. Efter lyckad import fortsätter du utan ny inloggning.
+                  </span>
                 </label>
                 <div class="actions-row settings-restore-row">
                   <button class="danger" id="restoreBtn" type="button">Återställ från fil</button>
