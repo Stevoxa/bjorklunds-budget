@@ -14691,7 +14691,6 @@ async function runStartupSequence() {
   const fillEl = document.getElementById("appBootProgressFill");
   const barEl = document.getElementById("appBootProgress");
   const statusEl = document.getElementById("appBootStatus");
-  const skipBtn = document.getElementById("appBootSkipBtn");
   const TA = globalThis.BjorkThemeAssets;
   const today = localCalendarYmd();
 
@@ -14720,37 +14719,20 @@ async function runStartupSequence() {
     return "";
   }
 
-  function setBootParts({ showSplash, showProgress, showSkip }) {
+  function setBootParts({ showSplash, showProgress }) {
     boot.hidden = false;
     boot.setAttribute("aria-hidden", "false");
     if (splashArt instanceof HTMLElement) splashArt.hidden = !showSplash;
     if (progressWrap instanceof HTMLElement) progressWrap.hidden = !showProgress;
-    if (skipBtn instanceof HTMLButtonElement) skipBtn.hidden = !showSkip;
-  }
-
-  async function delayOrSkip(ms) {
-    return new Promise((resolve) => {
-      let done = false;
-      const fin = () => {
-        if (done) return;
-        done = true;
-        clearTimeout(tid);
-        skipBtn?.removeEventListener("click", onSkip);
-        resolve();
-      };
-      const tid = setTimeout(fin, ms);
-      const onSkip = () => fin();
-      skipBtn?.addEventListener("click", onSkip);
-    });
   }
 
   /** Redan spelat idag: bara stillbild några sekunder, sedan app. */
   if (lastIntroDay === today) {
     const splashRevoke = await applySplashToImg();
-    setBootParts({ showSplash: true, showProgress: false, showSkip: true });
+    setBootParts({ showSplash: true, showProgress: false });
     if (statusEl) statusEl.textContent = "";
     if (barEl) barEl.setAttribute("aria-busy", "false");
-    await delayOrSkip(STATIC_SPLASH_HOLD_MS);
+    await new Promise((r) => setTimeout(r, STATIC_SPLASH_HOLD_MS));
     if (splashRevoke) {
       try {
         URL.revokeObjectURL(splashRevoke);
@@ -14810,14 +14792,6 @@ async function runStartupSequence() {
     controller.abort();
   };
 
-  skipBtn?.addEventListener("click", () => {
-    if (finished) return;
-    controller.abort();
-    cleanupUrls(videoPlayUrl);
-    videoPlayUrl = "";
-    finish(true);
-  });
-
   let introBlob = null;
   let needsNetworkFetch = false;
 
@@ -14827,8 +14801,8 @@ async function runStartupSequence() {
     needsNetworkFetch = !(customIntro && customIntro.size > 0) && !(cached && cached.size > 0);
 
     if (needsNetworkFetch) {
-      /** Första nedladdningen: ingen stillbild, endast förlopp + text. */
-      setBootParts({ showSplash: false, showProgress: true, showSkip: true });
+      /** Första nedladdningen: mörk helskärm, endast förlopp längst ner (status endast för skärmläsare). */
+      setBootParts({ showSplash: false, showProgress: true });
       if (statusEl) statusEl.textContent = "Laddar ner startfilm (första gången) …";
       setBootProgressIndeterminate(barEl);
       introBlob = await fetchVideoWithProgress(
@@ -14848,19 +14822,19 @@ async function runStartupSequence() {
       }
     } else if (customIntro && customIntro.size > 0) {
       splashObjectUrl = await applySplashToImg();
-      setBootParts({ showSplash: true, showProgress: true, showSkip: true });
+      setBootParts({ showSplash: true, showProgress: false });
       if (statusEl) statusEl.textContent = "Öppnar din startfilm …";
-      setBootProgressDeterminate(fillEl, barEl, 1);
       introBlob = customIntro;
     } else {
       splashObjectUrl = await applySplashToImg();
-      setBootParts({ showSplash: true, showProgress: true, showSkip: true });
+      setBootParts({ showSplash: true, showProgress: false });
       if (statusEl) statusEl.textContent = "Öppnar startfilm …";
-      setBootProgressDeterminate(fillEl, barEl, 1);
       introBlob = cached;
     }
 
     if (!introBlob || introBlob.size < 1) throw new Error("empty intro");
+
+    if (progressWrap instanceof HTMLElement) progressWrap.hidden = true;
 
     videoPlayUrl = URL.createObjectURL(introBlob);
     const video = document.createElement("video");
@@ -14899,8 +14873,7 @@ async function runStartupSequence() {
     videoPlayUrl = "";
     setBootParts({
       showSplash: !needsNetworkFetch,
-      showProgress: true,
-      showSkip: true
+      showProgress: true
     });
     if (statusEl) statusEl.textContent = "Kunde inte spela startfilm. Fortsätter till appen.";
     setBootProgressDeterminate(fillEl, barEl, 0);
