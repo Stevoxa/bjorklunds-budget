@@ -7,6 +7,7 @@ const STORAGE_KEY = "bjorklunds_budget_v1";
 const VAULT_IDLE_MS = 15 * 60 * 1000;
 let vaultSaveTimer = null;
 let vaultIdleTimer = null;
+let backupRestoreSuccessNoteTimer = null;
 
 const WEEKS_PER_MONTH = 4.33;
 const ANALYSIS_MSG_EMPTY_YEAR =
@@ -14380,6 +14381,10 @@ function initActions() {
   document.getElementById("backupRestoreInput")?.addEventListener("change", () => {
     syncBackupRestoreFileLabel();
     hideErrorSummaryByEl(document.getElementById("backupRestoreErrorSummary"));
+    if (backupRestoreSuccessNoteTimer) {
+      clearTimeout(backupRestoreSuccessNoteTimer);
+      backupRestoreSuccessNoteTimer = null;
+    }
     const n = document.getElementById("backupRestoreNote");
     if (n) {
       n.textContent = "";
@@ -14434,12 +14439,23 @@ function initActions() {
       syncBackupRestoreFileLabel();
     }
     hideErrorSummaryByEl(document.getElementById("backupRestoreErrorSummary"));
+    if (backupRestoreSuccessNoteTimer) {
+      clearTimeout(backupRestoreSuccessNoteTimer);
+      backupRestoreSuccessNoteTimer = null;
+    }
     const note = document.getElementById("backupRestoreNote");
     if (note) {
       note.textContent = "Import klar. Du kan fortsätta arbeta direkt.";
       note.hidden = false;
+      backupRestoreSuccessNoteTimer = setTimeout(() => {
+        backupRestoreSuccessNoteTimer = null;
+        const n = document.getElementById("backupRestoreNote");
+        if (n) {
+          n.textContent = "";
+          n.hidden = true;
+        }
+      }, 5000);
     }
-    showDebugToast("Backup importerad.");
     reapplyCurrentRouteAfterStateImport();
   }
 
