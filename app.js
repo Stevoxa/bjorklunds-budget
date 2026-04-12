@@ -5599,7 +5599,9 @@ async function initVaultBootstrap() {
   const vaultImportFileInput = document.getElementById("vaultImportFileInput");
   const vaultImportFilePickBtn = document.getElementById("vaultImportFilePickBtn");
   const vaultImportFileName = document.getElementById("vaultImportFileName");
+  const vaultImportFileError = document.getElementById("vaultImportFileError");
   const vaultImportPass = document.getElementById("vaultImportPassphrase");
+  const vaultImportPassFieldErr = document.getElementById("vaultImportPassFieldError");
   const vaultImportSubmitBtn = document.getElementById("vaultImportSubmitBtn");
 
   if (
@@ -5632,7 +5634,9 @@ async function initVaultBootstrap() {
     !vaultImportFileInput ||
     !vaultImportFilePickBtn ||
     !vaultImportFileName ||
+    !vaultImportFileError ||
     !vaultImportPass ||
+    !vaultImportPassFieldErr ||
     !vaultImportSubmitBtn
   ) {
     throw new Error("Vault DOM saknas");
@@ -5693,15 +5697,72 @@ async function initVaultBootstrap() {
     vaultUnlockPass.classList.add("vault-lock-input--invalid");
   };
 
+  const clearVaultImportFileFieldError = () => {
+    vaultImportFileError.textContent = "";
+    vaultImportFileError.hidden = true;
+    vaultImportFilePickBtn.removeAttribute("aria-invalid");
+    vaultImportFilePickBtn.classList.remove("vault-lock-input--invalid");
+  };
+
+  const clearVaultImportPassFieldError = () => {
+    vaultImportPassFieldErr.textContent = "";
+    vaultImportPassFieldErr.hidden = true;
+    vaultImportPass.removeAttribute("aria-invalid");
+    vaultImportPass.removeAttribute("aria-describedby");
+    vaultImportPass.classList.remove("vault-lock-input--invalid");
+  };
+
+  const clearVaultImportInlineErrors = () => {
+    clearVaultImportFileFieldError();
+    clearVaultImportPassFieldError();
+  };
+
+  const showVaultImportFileFieldError = (msg) => {
+    errEl.textContent = "";
+    errEl.hidden = true;
+    clearVaultImportPassFieldError();
+    if (!msg) {
+      clearVaultImportFileFieldError();
+      return;
+    }
+    vaultImportFileError.textContent = msg;
+    vaultImportFileError.hidden = false;
+    vaultImportFilePickBtn.setAttribute("aria-invalid", "true");
+    vaultImportFilePickBtn.classList.add("vault-lock-input--invalid");
+  };
+
+  const showVaultImportPassFieldError = (msg) => {
+    errEl.textContent = "";
+    errEl.hidden = true;
+    clearVaultImportFileFieldError();
+    if (!msg) {
+      clearVaultImportPassFieldError();
+      return;
+    }
+    vaultImportPassFieldErr.textContent = msg;
+    vaultImportPassFieldErr.hidden = false;
+    vaultImportPass.setAttribute("aria-invalid", "true");
+    vaultImportPass.setAttribute("aria-describedby", "vaultImportPassFieldError");
+    vaultImportPass.classList.add("vault-lock-input--invalid");
+  };
+
   const showErr = (msg) => {
     clearVaultUnlockFieldError();
+    clearVaultImportInlineErrors();
     errEl.textContent = msg || "";
     errEl.hidden = !msg;
   };
 
   const syncVaultImportFileLabel = () => {
     const f = vaultImportFileInput.files && vaultImportFileInput.files[0];
-    vaultImportFileName.textContent = f ? f.name : "Ingen fil vald";
+    if (f) {
+      vaultImportFileName.textContent = f.name;
+      vaultImportFileName.hidden = false;
+      clearVaultImportFileFieldError();
+    } else {
+      vaultImportFileName.textContent = "";
+      vaultImportFileName.hidden = true;
+    }
   };
 
   let hasVault;
@@ -5809,8 +5870,7 @@ async function initVaultBootstrap() {
       vaultSetupImport.hidden = true;
       vaultSetupSubtitle.textContent = "Skapa ny budget";
       vaultSetupSubtitle.hidden = false;
-      vaultSetupHint.textContent =
-        "Välj ett lösenord som skyddar din budget på enheten. Spara en backup under Inställningar innan du byter telefon.";
+      vaultSetupHint.textContent = "Välj ett lösenord som skyddar din budget på enheten.";
       vaultSetupHint.hidden = false;
       vaultSetupHint.classList.remove("vault-lock-hint--replace-warning");
       vaultCreatePass.value = "";
@@ -5822,11 +5882,10 @@ async function initVaultBootstrap() {
       vaultSetupChoice.hidden = true;
       vaultSetupCreate.hidden = true;
       vaultSetupImport.hidden = false;
-      vaultSetupSubtitle.textContent = "Läs in från fil";
-      vaultSetupSubtitle.hidden = false;
-      vaultSetupHint.textContent =
-        "Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag — du behöver inte spara direkt.";
-      vaultSetupHint.hidden = false;
+      vaultSetupSubtitle.textContent = "";
+      vaultSetupSubtitle.hidden = true;
+      vaultSetupHint.textContent = "";
+      vaultSetupHint.hidden = true;
       vaultSetupHint.classList.remove("vault-lock-hint--replace-warning");
       vaultImportFileInput.value = "";
       vaultImportPass.value = "";
@@ -5878,37 +5937,43 @@ async function initVaultBootstrap() {
       if (e.key === "Enter") vaultImportSubmitBtn.click();
     };
     vaultImportPass.addEventListener("keydown", onEnterImport);
+    vaultImportPass.addEventListener("input", () => {
+      if (!vaultImportPassFieldErr.hidden) clearVaultImportPassFieldError();
+    });
 
     vaultImportSubmitBtn.onclick = async () => {
       showErr("");
       const file = vaultImportFileInput.files && vaultImportFileInput.files[0];
       if (!file) {
-        showErr("Välj en JSON-fil att importera.");
+        showVaultImportFileFieldError("Du behöver först välja en fil.");
         return;
       }
       const pass = String(vaultImportPass.value || "").trim();
       if (!pass) {
-        showErr("Ange lösenordet för backup-filen.");
+        showVaultImportPassFieldError("Ange lösenordet för backup-filen.");
         return;
       }
       let text;
       try {
         text = await file.text();
       } catch {
-        showErr("Kunde inte läsa filen.");
+        showVaultImportFileFieldError("Kunde inte läsa filen.");
         return;
       }
       const parsed = safeParseJson(text);
       if (!parsed || !V.isEnvelope(parsed)) {
-        showErr("Filen är inte en giltig krypterad Björklunds-backup.");
+        showVaultImportFileFieldError("Filen är inte en giltig krypterad Björklunds-backup.");
         return;
       }
       vaultImportSubmitBtn.disabled = true;
       const r = await V.importReplaceVault(pass, parsed);
       vaultImportSubmitBtn.disabled = false;
       if (!r.ok) {
-        if (r.error === "schema") showErr("Filen har oväntat innehåll efter dekryptering.");
-        else showErr("Fel lösenord eller skadad fil.");
+        if (r.error === "schema") {
+          showVaultImportFileFieldError("Filen har oväntat innehåll efter dekryptering.");
+        } else {
+          showVaultImportPassFieldError("Fel lösenord eller skadad fil.");
+        }
         return;
       }
       state = normalizeStateShape(r.data);
@@ -5921,6 +5986,7 @@ async function initVaultBootstrap() {
       }
       vaultImportFileInput.value = "";
       vaultImportPass.value = "";
+      clearVaultImportInlineErrors();
       syncVaultImportFileLabel();
       finish();
     };

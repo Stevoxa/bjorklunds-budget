@@ -125,7 +125,7 @@
             <p class="note vault-import-lead">
               Välj din krypterade backup-fil och ange samma lösenord som när du exporterade den.
             </p>
-            <div class="vault-import-file-row">
+            <div class="vault-import-file-block">
               <input
                 type="file"
                 id="vaultImportFileInput"
@@ -134,13 +134,17 @@
                 tabindex="-1"
                 aria-label="Välj krypterad backup-fil"
               />
-              <button type="button" class="secondary vault-import-file-btn" id="vaultImportFilePickBtn">Välj fil</button>
-              <span id="vaultImportFileName" class="vault-import-file-name" aria-live="polite">Ingen fil vald</span>
+              <button type="button" class="secondary vault-lock-submit vault-import-file-pick-btn" id="vaultImportFilePickBtn">
+                Välj fil
+              </button>
+              <p id="vaultImportFileName" class="vault-import-file-display" hidden aria-live="polite"></p>
+              <div class="field-error" id="vaultImportFileError" hidden role="alert"></div>
             </div>
             <div class="vault-lock-fields form-grid narrow">
               <label class="field">
-                <span>Lösenord för filen</span>
+                <span class="visually-hidden">Lösenord för filen</span>
                 <input type="password" id="vaultImportPassphrase" class="vault-lock-input" autocomplete="current-password" />
+                <div class="field-error" id="vaultImportPassFieldError" hidden role="alert"></div>
               </label>
             </div>
             <div class="vault-lock-actions">
