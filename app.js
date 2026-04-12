@@ -481,6 +481,56 @@ function dismissVisibleErrorSummariesForTarget(targetEl) {
     .forEach((summaryEl) => hideErrorSummaryByEl(summaryEl));
 }
 
+/** Bekräftelseark: glid upp/ned via CSS-klasser (korta tider i --bottom-sheet-*-ms). */
+function openBottomSheetModal(backdropEl, modalEl) {
+  if (!(backdropEl instanceof HTMLElement) || !(modalEl instanceof HTMLElement)) return;
+  backdropEl.hidden = false;
+  modalEl.hidden = false;
+  backdropEl.classList.remove("bottom-sheet-card-backdrop--open");
+  modalEl.classList.remove("bottom-sheet-card--open");
+  void modalEl.offsetWidth;
+  requestAnimationFrame(() => {
+    backdropEl.classList.add("bottom-sheet-card-backdrop--open");
+    modalEl.classList.add("bottom-sheet-card--open");
+  });
+}
+
+function closeBottomSheetModal(backdropEl, modalEl, opts) {
+  const onDone = opts && typeof opts.onDone === "function" ? opts.onDone : null;
+  if (!(backdropEl instanceof HTMLElement) || !(modalEl instanceof HTMLElement)) {
+    onDone?.();
+    return;
+  }
+  const finish = () => {
+    modalEl.hidden = true;
+    backdropEl.hidden = true;
+    modalEl.classList.remove("bottom-sheet-card--open");
+    backdropEl.classList.remove("bottom-sheet-card-backdrop--open");
+    onDone?.();
+  };
+  if (modalEl.hidden || !modalEl.classList.contains("bottom-sheet-card--open")) {
+    finish();
+    return;
+  }
+  let settled = false;
+  const once = () => {
+    if (settled) return;
+    settled = true;
+    clearTimeout(fallbackTimer);
+    modalEl.removeEventListener("transitionend", onTrans);
+    finish();
+  };
+  const onTrans = (e) => {
+    if (e.target !== modalEl) return;
+    if (e.propertyName !== "transform" && e.propertyName !== "opacity") return;
+    once();
+  };
+  const fallbackTimer = setTimeout(once, 360);
+  modalEl.addEventListener("transitionend", onTrans);
+  modalEl.classList.remove("bottom-sheet-card--open");
+  backdropEl.classList.remove("bottom-sheet-card-backdrop--open");
+}
+
 // När användaren börjar skriva/ändra så ska error-kortet försvinna direkt.
 document.addEventListener(
   "input",
@@ -5872,17 +5922,18 @@ async function initVaultBootstrap() {
 
     const openRestartModal = () => {
       vaultRestartBackdropIgnoreUntil = Date.now() + 450;
-      vaultRestartBackdrop.hidden = false;
-      vaultRestartModal.hidden = false;
+      openBottomSheetModal(vaultRestartBackdrop, vaultRestartModal);
       document.documentElement.classList.add("modal-open");
       document.body.classList.add("modal-open");
     };
 
     const closeRestartModal = () => {
-      vaultRestartBackdrop.hidden = true;
-      vaultRestartModal.hidden = true;
-      document.documentElement.classList.remove("modal-open");
-      document.body.classList.remove("modal-open");
+      closeBottomSheetModal(vaultRestartBackdrop, vaultRestartModal, {
+        onDone: () => {
+          document.documentElement.classList.remove("modal-open");
+          document.body.classList.remove("modal-open");
+        }
+      });
     };
 
     if (hasVault) {
@@ -12421,13 +12472,11 @@ function startOnboardingIncomeCategory(cat) {
 }
 
 function showConfirmDeleteSalaryPeriodModal() {
-  requireEl("confirmDeleteSalaryPeriodBackdrop").hidden = false;
-  requireEl("confirmDeleteSalaryPeriodModal").hidden = false;
+  openBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"));
 }
 
 function hideConfirmDeleteSalaryPeriodModal() {
-  requireEl("confirmDeleteSalaryPeriodBackdrop").hidden = true;
-  requireEl("confirmDeleteSalaryPeriodModal").hidden = true;
+  closeBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"));
 }
 
 function renderIncomesPage() {
@@ -12721,13 +12770,11 @@ function closeIncomeOverlay() {
 }
 
 function showConfirmDeleteIncomeModal() {
-  requireEl("confirmDeleteIncomeBackdrop").hidden = false;
-  requireEl("confirmDeleteIncomeModal").hidden = false;
+  openBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"));
 }
 
 function hideConfirmDeleteIncomeModal() {
-  requireEl("confirmDeleteIncomeBackdrop").hidden = true;
-  requireEl("confirmDeleteIncomeModal").hidden = true;
+  closeBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"));
 }
 
 function paymentsCountForInterval(interval) {
@@ -13571,12 +13618,10 @@ function closeExpenseOverlay() {
 }
 
 function showConfirmDeleteExpenseModal() {
-  requireEl("confirmDeleteExpenseBackdrop").hidden = false;
-  requireEl("confirmDeleteExpenseModal").hidden = false;
+  openBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"));
 }
 function hideConfirmDeleteExpenseModal() {
-  requireEl("confirmDeleteExpenseBackdrop").hidden = true;
-  requireEl("confirmDeleteExpenseModal").hidden = true;
+  closeBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"));
 }
 
 let foodMatDeleteConfirmFn = null;
@@ -13587,14 +13632,15 @@ function showFoodMatDeleteConfirmModal(titleText, bodyText, onConfirm) {
   const bodyEl = document.getElementById("confirmDeleteFoodMatPeriodText");
   if (titleEl) titleEl.textContent = titleText || "Ta bort?";
   if (bodyEl) bodyEl.textContent = bodyText || "";
-  requireEl("confirmDeleteFoodMatPeriodBackdrop").hidden = false;
-  requireEl("confirmDeleteFoodMatPeriodModal").hidden = false;
+  openBottomSheetModal(requireEl("confirmDeleteFoodMatPeriodBackdrop"), requireEl("confirmDeleteFoodMatPeriodModal"));
 }
 
 function hideFoodMatDeleteConfirmModal() {
-  requireEl("confirmDeleteFoodMatPeriodBackdrop").hidden = true;
-  requireEl("confirmDeleteFoodMatPeriodModal").hidden = true;
-  foodMatDeleteConfirmFn = null;
+  closeBottomSheetModal(requireEl("confirmDeleteFoodMatPeriodBackdrop"), requireEl("confirmDeleteFoodMatPeriodModal"), {
+    onDone: () => {
+      foodMatDeleteConfirmFn = null;
+    }
+  });
 }
 
 function captureIncomeOverlaySnapshotJson() {
@@ -13666,15 +13712,18 @@ function expenseOverlayIsDirty() {
 
 function showUnsavedEditorConfirmModal(target) {
   ui.unsavedEditorCloseTarget = target;
-  requireEl("unsavedEditorBackdrop").hidden = false;
-  requireEl("unsavedEditorModal").hidden = false;
-  document.getElementById("unsavedEditorStayBtn")?.focus();
+  openBottomSheetModal(requireEl("unsavedEditorBackdrop"), requireEl("unsavedEditorModal"));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.getElementById("unsavedEditorStayBtn")?.focus());
+  });
 }
 
 function hideUnsavedEditorConfirmModal() {
-  requireEl("unsavedEditorBackdrop").hidden = true;
-  requireEl("unsavedEditorModal").hidden = true;
-  ui.unsavedEditorCloseTarget = null;
+  closeBottomSheetModal(requireEl("unsavedEditorBackdrop"), requireEl("unsavedEditorModal"), {
+    onDone: () => {
+      ui.unsavedEditorCloseTarget = null;
+    }
+  });
 }
 
 function requestCloseIncomeOverlay() {
@@ -13689,9 +13738,13 @@ function requestCloseExpenseOverlay() {
 
 function confirmUnsavedEditorDiscard() {
   const t = ui.unsavedEditorCloseTarget;
-  hideUnsavedEditorConfirmModal();
-  if (t === "income") closeIncomeOverlay();
-  else if (t === "expense") closeExpenseOverlay();
+  closeBottomSheetModal(requireEl("unsavedEditorBackdrop"), requireEl("unsavedEditorModal"), {
+    onDone: () => {
+      ui.unsavedEditorCloseTarget = null;
+      if (t === "income") closeIncomeOverlay();
+      else if (t === "expense") closeExpenseOverlay();
+    }
+  });
 }
 
 function initUnsavedEditorModal() {
@@ -14204,13 +14257,11 @@ function closeLoanEditor() {
 }
 
 function showConfirmDeleteLoanModal() {
-  requireEl("confirmDeleteLoanBackdrop").hidden = false;
-  requireEl("confirmDeleteLoanModal").hidden = false;
+  openBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"));
 }
 
 function hideConfirmDeleteLoanModal() {
-  requireEl("confirmDeleteLoanBackdrop").hidden = true;
-  requireEl("confirmDeleteLoanModal").hidden = true;
+  closeBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"));
 }
 
 function initOnboardingGate() {
@@ -14688,16 +14739,17 @@ function initActions() {
   function showModal(text) {
     modalTitle.textContent = "Backup rekommenderas";
     modalText.textContent = text;
-    backdrop.hidden = false;
-    modal.hidden = false;
+    openBottomSheetModal(backdrop, modal);
     document.documentElement.classList.add("modal-open");
     document.body.classList.add("modal-open");
   }
   function hideModal() {
-    backdrop.hidden = true;
-    modal.hidden = true;
-    document.documentElement.classList.remove("modal-open");
-    document.body.classList.remove("modal-open");
+    closeBottomSheetModal(backdrop, modal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+      }
+    });
   }
   closeBtn.addEventListener("click", hideModal);
   laterBtn.addEventListener("click", () => {
