@@ -5,16 +5,31 @@
 const STORAGE_KEY = "bjorklunds_budget_v1";
 
 const INTRO_LAST_PLAY_KEY = "bjk_intro_last_played_ymd";
+const INTRO_FILM_RARELY_KEY = "bjk_intro_film_rarely";
+const INTRO_LAST_PLAY_MS_KEY = "bjk_intro_last_play_ms";
 const PWA_BANNER_DISMISSED_KEY = "bjk_pwa_banner_dismissed_v1";
 const BUILTIN_START_VIDEO_URL = "./media/bjorklunds_budget_start.mp4";
 const BUILTIN_SPLASH_URL = "./media/bjorklunds_budget_start.png";
 const THEME_INTRO_DEFAULT_CACHE = "introDefaultCache";
-/** Stillbild när startfilm redan spelats samma dag. */
+/** Stillbild när startfilm inte spelas (sällan inom 24 h, eller fel/fallback). */
 const STATIC_SPLASH_HOLD_MS = 2800;
 
-function localCalendarYmd() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+function getIntroFilmRarelyFromLocalStorage() {
+  try {
+    return localStorage.getItem(INTRO_FILM_RARELY_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function applyIntroFilmRarelySettingToLocalStorage(settings) {
+  if (!settings || typeof settings !== "object") return;
+  try {
+    if (settings.introFilmRarely) localStorage.setItem(INTRO_FILM_RARELY_KEY, "1");
+    else localStorage.removeItem(INTRO_FILM_RARELY_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 const VAULT_IDLE_MS = 15 * 60 * 1000;
@@ -2841,7 +2856,9 @@ function getDefaultState() {
       salaryPeriodUseFixedDay: false,
       salaryPeriodFixedDay: 25,
       /** Första månad i löneåret (1 = januari) */
-      salaryYearStartMonth: 1
+      salaryYearStartMonth: 1,
+      /** När true: startfilm högst en gång per 24 h (speglas i localStorage för boot före valv). */
+      introFilmRarely: false
     },
     incomes: [],
     expenses: [],
@@ -2942,6 +2959,7 @@ function normalizeStateShape(state) {
     const sm = Math.floor(asNumber(normalized.settings.salaryYearStartMonth ?? base.settings.salaryYearStartMonth));
     normalized.settings.salaryYearStartMonth = Number.isFinite(sm) ? Math.max(1, Math.min(12, sm)) : 1;
   }
+  normalized.settings.introFilmRarely = Boolean(normalized.settings.introFilmRarely);
 
   delete normalized.recurring;
 
@@ -6104,6 +6122,7 @@ async function initVaultBootstrap() {
         return;
       }
       state = defaultNorm;
+      applyIntroFilmRarelySettingToLocalStorage(state.settings);
       ui.deferredBackupPromptAfterFirstDataSave = true;
       vaultCreatePass.value = "";
       vaultCreatePassConfirm.value = "";
@@ -6151,6 +6170,7 @@ async function initVaultBootstrap() {
         return;
       }
       state = normalizeStateShape(r.data);
+      applyIntroFilmRarelySettingToLocalStorage(state.settings);
       state.settings.lastBackupPromptAt = nowMs();
       ui.deferredBackupPromptAfterFirstDataSave = false;
       const okFlush = await saveStateFlush();
@@ -6187,6 +6207,7 @@ async function initVaultBootstrap() {
           return;
         }
         state = normalizeStateShape(r.data.state);
+        applyIntroFilmRarelySettingToLocalStorage(state.settings);
         vaultUnlockPass.value = "";
         showVaultUnlockFieldError("");
         finish();
@@ -11238,6 +11259,8 @@ function renderSettingsPage() {
   syncThemeModeSummaryLabel();
   syncFoodWeekdaySummaryLabel();
   syncPwaInstallUi();
+  const introRarelyCh = document.getElementById("settingsIntroFilmRarely");
+  if (introRarelyCh) introRarelyCh.checked = Boolean(state.settings.introFilmRarely);
 }
 
 let settingsAutosaveWired = false;
@@ -11261,6 +11284,11 @@ function wireSettingsAutosaveOnce() {
     if (salaryStartMo) {
       state.settings.salaryYearStartMonth = Math.max(1, Math.min(12, Math.floor(asNumber(salaryStartMo.value)) || 1));
     }
+    const introRarelyCh = document.getElementById("settingsIntroFilmRarely");
+    if (introRarelyCh) {
+      state.settings.introFilmRarely = introRarelyCh.checked;
+      applyIntroFilmRarelySettingToLocalStorage(state.settings);
+    }
     saveState();
     renderAnalysisViewsIfActive();
   };
@@ -11272,6 +11300,7 @@ function wireSettingsAutosaveOnce() {
   document.getElementById("salaryPeriodFixedDay")?.addEventListener("change", persist);
   document.getElementById("salaryPeriodFixedDay")?.addEventListener("input", persist);
   document.getElementById("salaryYearStartMonth")?.addEventListener("change", persist);
+  document.getElementById("settingsIntroFilmRarely")?.addEventListener("change", persist);
 }
 
 function renderRoute(route, opts = {}) {
@@ -14356,6 +14385,7 @@ function initActions() {
   document.getElementById("pwaReplayIntroBtn")?.addEventListener("click", () => {
     try {
       localStorage.removeItem(INTRO_LAST_PLAY_KEY);
+      localStorage.removeItem(INTRO_LAST_PLAY_MS_KEY);
     } catch {
       /* ignore */
     }
@@ -14901,6 +14931,7 @@ function initActions() {
       return;
     }
     state = normalizeStateShape(r.data);
+    applyIntroFilmRarelySettingToLocalStorage(state.settings);
     const okFlush = await saveStateFlush();
     if (!okFlush) {
       renderErrorSummary(errEl, [{ label: "Kunde inte spara efter import. Försök igen.", jumpId: "backupImportSheetPassphrase" }]);
@@ -15142,14 +15173,19 @@ async function runStartupSequence() {
   const barEl = document.getElementById("appBootProgress");
   const statusEl = document.getElementById("appBootStatus");
   const TA = globalThis.BjorkThemeAssets;
-  const today = localCalendarYmd();
-
-  let lastIntroDay = "";
-  try {
-    lastIntroDay = localStorage.getItem(INTRO_LAST_PLAY_KEY) || "";
-  } catch {
-    /* ignore */
+  const introFilmRarely = getIntroFilmRarelyFromLocalStorage();
+  let lastPlayMs = NaN;
+  if (introFilmRarely) {
+    try {
+      lastPlayMs = parseInt(localStorage.getItem(INTRO_LAST_PLAY_MS_KEY) || "", 10);
+    } catch {
+      /* ignore */
+    }
   }
+  const skipVideo =
+    introFilmRarely &&
+    Number.isFinite(lastPlayMs) &&
+    Date.now() - lastPlayMs < 24 * 60 * 60 * 1000;
 
   /** @returns {Promise<string>} object URL to revoke, or "" */
   async function applySplashToImg() {
@@ -15176,8 +15212,8 @@ async function runStartupSequence() {
     if (progressWrap instanceof HTMLElement) progressWrap.hidden = !showProgress;
   }
 
-  /** Redan spelat idag: bara stillbild några sekunder, sedan app. */
-  if (lastIntroDay === today) {
+  /** Sällan-läge och film spelad inom 24 h: bara stillbild, sedan app. */
+  if (skipVideo) {
     const splashRevoke = await applySplashToImg();
     setBootParts({ showSplash: true, showProgress: false });
     if (statusEl) statusEl.textContent = "";
@@ -15232,9 +15268,9 @@ async function runStartupSequence() {
       barEl.setAttribute("aria-busy", "false");
       barEl.classList.remove("app-boot-progress--indeterminate");
     }
-    if (markPlayed) {
+    if (markPlayed && introFilmRarely) {
       try {
-        localStorage.setItem(INTRO_LAST_PLAY_KEY, localCalendarYmd());
+        localStorage.setItem(INTRO_LAST_PLAY_MS_KEY, String(Date.now()));
       } catch {
         /* ignore */
       }
@@ -15319,16 +15355,26 @@ async function runStartupSequence() {
     finish(true);
   } catch {
     if (finished) return;
+    boot.querySelector(".app-boot-screen__video")?.remove();
     cleanupUrls(videoPlayUrl);
     videoPlayUrl = "";
-    setBootParts({
-      showSplash: !needsNetworkFetch,
-      showProgress: true
-    });
-    if (statusEl) statusEl.textContent = "Kunde inte spela startfilm. Fortsätter till appen.";
-    setBootProgressDeterminate(fillEl, barEl, 0);
-    await new Promise((r) => setTimeout(r, 900));
-    finish(true);
+    const splashRevoke = await applySplashToImg();
+    setBootParts({ showSplash: true, showProgress: false });
+    if (statusEl) statusEl.textContent = "";
+    if (splashImg instanceof HTMLElement) splashImg.style.display = "";
+    if (barEl) {
+      barEl.setAttribute("aria-busy", "false");
+      barEl.classList.remove("app-boot-progress--indeterminate");
+    }
+    await new Promise((r) => setTimeout(r, STATIC_SPLASH_HOLD_MS));
+    if (splashRevoke) {
+      try {
+        URL.revokeObjectURL(splashRevoke);
+      } catch {
+        /* ignore */
+      }
+    }
+    finish(false);
   }
 }
 
