@@ -82,8 +82,15 @@
           <p id="vaultUnlockSubtitle" class="note vault-lock-subtitle"></p>
           <div class="vault-lock-fields form-grid narrow">
             <label class="field">
-              <span>Lösenord</span>
-              <input type="password" id="vaultUnlockPassphrase" class="vault-lock-input" autocomplete="current-password" />
+              <div class="bb-notched-field vault-notched-field" role="group" aria-label="Lösenord">
+                <div class="bb-notched-field-legend">Lösenord</div>
+                <input
+                  type="password"
+                  id="vaultUnlockPassphrase"
+                  class="bb-notched-field-plain-input"
+                  autocomplete="current-password"
+                />
+              </div>
               <div class="field-error" id="vaultUnlockPassphraseError" hidden role="alert"></div>
             </label>
           </div>
@@ -108,13 +115,27 @@
             <button type="button" class="vault-setup-back" id="vaultBackFromCreate">Tillbaka</button>
             <div class="vault-lock-fields form-grid narrow">
               <label class="field">
-                <span>Välj lösenord</span>
-                <input type="password" id="vaultCreatePassphrase" class="vault-lock-input" autocomplete="new-password" />
+                <div class="bb-notched-field vault-notched-field" role="group" aria-label="Välj lösenord">
+                  <div class="bb-notched-field-legend">Välj lösenord</div>
+                  <input
+                    type="password"
+                    id="vaultCreatePassphrase"
+                    class="bb-notched-field-plain-input"
+                    autocomplete="new-password"
+                  />
+                </div>
                 <div class="field-error" id="vaultCreatePassphraseError" hidden role="alert"></div>
               </label>
               <label class="field">
-                <span>Bekräfta lösenord</span>
-                <input type="password" id="vaultCreatePassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
+                <div class="bb-notched-field vault-notched-field" role="group" aria-label="Bekräfta lösenord">
+                  <div class="bb-notched-field-legend">Bekräfta lösenord</div>
+                  <input
+                    type="password"
+                    id="vaultCreatePassphraseConfirm"
+                    class="bb-notched-field-plain-input"
+                    autocomplete="new-password"
+                  />
+                </div>
                 <div class="field-error" id="vaultCreatePassphraseConfirmError" hidden role="alert"></div>
               </label>
             </div>
@@ -137,16 +158,26 @@
                 tabindex="-1"
                 aria-label="Välj krypterad backup-fil"
               />
-              <button type="button" class="secondary vault-lock-submit vault-import-file-pick-btn" id="vaultImportFilePickBtn">
-                Välj fil
-              </button>
+              <div class="bb-notched-field vault-notched-field" role="group" aria-label="Backup-fil">
+                <div class="bb-notched-field-legend">Backup-fil</div>
+                <button type="button" class="bb-notched-field-btn vault-import-file-pick-btn" id="vaultImportFilePickBtn">
+                  <span class="bb-notched-field-value">Välj fil</span>
+                </button>
+              </div>
               <p id="vaultImportFileName" class="vault-import-file-display" hidden aria-live="polite"></p>
               <div class="field-error" id="vaultImportFileError" hidden role="alert"></div>
             </div>
             <div class="vault-lock-fields form-grid narrow">
               <label class="field">
-                <span class="visually-hidden">Lösenord för filen</span>
-                <input type="password" id="vaultImportPassphrase" class="vault-lock-input" autocomplete="current-password" />
+                <div class="bb-notched-field vault-notched-field" role="group" aria-label="Lösenord för filen">
+                  <div class="bb-notched-field-legend">Lösenord för filen</div>
+                  <input
+                    type="password"
+                    id="vaultImportPassphrase"
+                    class="bb-notched-field-plain-input"
+                    autocomplete="current-password"
+                  />
+                </div>
                 <div class="field-error" id="vaultImportPassFieldError" hidden role="alert"></div>
               </label>
             </div>
@@ -2021,26 +2052,33 @@
                 Sätt fast löneperiod (månadsdag)
               </label>
               <label class="field">
-                Fast lönedag i månaden
-                <input id="salaryPeriodFixedDay" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                <div class="bb-notched-field" role="group" aria-label="Fast lönedag i månaden">
+                  <div class="bb-notched-field-legend">Fast lönedag i månaden</div>
+                  <input id="salaryPeriodFixedDay" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                </div>
                 <span class="field-help">Används när kryssrutan ovan är ikryssad (standard 25). Annars härleds dagen från första utbetalningen för den största månadsvisa intäkten.</span>
               </label>
               <label class="field">
-                Löneåret börjar
-                <select id="salaryYearStartMonth">
-                  <option value="1">Januari</option>
-                  <option value="2">Februari</option>
-                  <option value="3">Mars</option>
-                  <option value="4">April</option>
-                  <option value="5">Maj</option>
-                  <option value="6">Juni</option>
-                  <option value="7">Juli</option>
-                  <option value="8">Augusti</option>
-                  <option value="9">September</option>
-                  <option value="10">Oktober</option>
-                  <option value="11">November</option>
-                  <option value="12">December</option>
-                </select>
+                <div class="bb-notched-field" role="group" aria-label="Löneåret börjar">
+                  <div class="bb-notched-field-legend">Löneåret börjar</div>
+                  <div class="bb-notched-field-select-wrap">
+                    <select id="salaryYearStartMonth" class="bb-notched-field-select">
+                      <option value="1">Januari</option>
+                      <option value="2">Februari</option>
+                      <option value="3">Mars</option>
+                      <option value="4">April</option>
+                      <option value="5">Maj</option>
+                      <option value="6">Juni</option>
+                      <option value="7">Juli</option>
+                      <option value="8">Augusti</option>
+                      <option value="9">September</option>
+                      <option value="10">Oktober</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </div>
+                </div>
                 <span class="field-help">Första månaden i löneåret (standard januari).</span>
               </label>
             </div>
@@ -2075,10 +2113,12 @@
             <div class="table-card">
               <div class="table-title">Backup & restore</div>
               <div class="form-grid narrow">
-                <label class="field">
-                  Fråga om backup var (dagar)
-                  <input id="backupIntervalDays" type="number" inputmode="numeric" min="1" step="1" />
-                </label>
+              <label class="field">
+                <div class="bb-notched-field" role="group" aria-label="Fråga om backup var (dagar)">
+                  <div class="bb-notched-field-legend">Fråga om backup var (dagar)</div>
+                  <input id="backupIntervalDays" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" step="1" />
+                </div>
+              </label>
                 <p class="note backup-export-filename-hint">
                   Filnamn: <code class="backup-filename-code">bjorklunds_budget.json</code>
                 </p>
@@ -2307,8 +2347,16 @@
           </p>
 
           <label class="field">
-            Namn
-            <input id="incomeNameInput" type="text" maxlength="80" placeholder="T.ex. Barnbidrag" />
+            <div class="bb-notched-field" role="group" aria-label="Namn">
+              <div class="bb-notched-field-legend">Namn</div>
+              <input
+                id="incomeNameInput"
+                class="bb-notched-field-plain-input"
+                type="text"
+                maxlength="80"
+                placeholder="T.ex. Barnbidrag"
+              />
+            </div>
           </label>
 
           <div id="incomeSalarySection" class="surface-soft surface-nested income-salary-section" hidden>
@@ -2318,48 +2366,100 @@
             </div>
             <div class="income-salary-bands">
               <label class="field income-salary-band-field">
-                <span class="income-salary-band-caption" id="incomeSalaryBandPrevLabel">—</span>
-                <input id="incomeSalaryBandPrev" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+                <div class="bb-notched-field" role="group" aria-labelledby="incomeSalaryBandPrevLabel">
+                  <div class="bb-notched-field-legend" id="incomeSalaryBandPrevLabel">—</div>
+                  <input
+                    id="incomeSalaryBandPrev"
+                    class="bb-notched-field-plain-input income-salary-band-input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
               </label>
               <label class="field income-salary-band-field">
-                <span class="income-salary-band-caption" id="incomeSalaryBandCurLabel">—</span>
-                <input id="incomeSalaryBandCur" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+                <div class="bb-notched-field" role="group" aria-labelledby="incomeSalaryBandCurLabel">
+                  <div class="bb-notched-field-legend" id="incomeSalaryBandCurLabel">—</div>
+                  <input
+                    id="incomeSalaryBandCur"
+                    class="bb-notched-field-plain-input income-salary-band-input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
               </label>
               <label class="field income-salary-band-field">
-                <span class="income-salary-band-caption" id="incomeSalaryBandNextLabel">—</span>
-                <input id="incomeSalaryBandNext" type="number" inputmode="decimal" min="0" step="1" placeholder="0" class="income-salary-band-input" />
+                <div class="bb-notched-field" role="group" aria-labelledby="incomeSalaryBandNextLabel">
+                  <div class="bb-notched-field-legend" id="incomeSalaryBandNextLabel">—</div>
+                  <input
+                    id="incomeSalaryBandNext"
+                    class="bb-notched-field-plain-input income-salary-band-input"
+                    type="number"
+                    inputmode="decimal"
+                    min="0"
+                    step="1"
+                    placeholder="0"
+                  />
+                </div>
               </label>
             </div>
             <label class="field">
-              Utbetalningsdag
-              <select id="incomeSalaryPayDay" aria-label="Utbetalningsdag varje månad"></select>
+              <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
+                <div class="bb-notched-field-legend">Utbetalningsdag</div>
+                <div class="bb-notched-field-select-wrap">
+                  <select id="incomeSalaryPayDay" class="bb-notched-field-select" aria-label="Utbetalningsdag varje månad"></select>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </div>
+              </div>
             </label>
             <button type="button" class="secondary income-salary-generate-btn" id="incomeSalaryGenerateBtn">Generera 36 månader</button>
           </div>
 
           <div id="incomeOtherSection" class="surface-soft surface-nested income-other-section">
             <label class="field">
-              Typ av intäktsintervall
-              <select id="incomeIntervalSelect">
-                <option value="once">Engång</option>
-                <option value="monthly">Månad</option>
-                <option value="quarterly">Kvartal</option>
-                <option value="yearly">År</option>
-              </select>
+              <div class="bb-notched-field" role="group" aria-label="Typ av intäktsintervall">
+                <div class="bb-notched-field-legend">Typ av intäktsintervall</div>
+                <div class="bb-notched-field-select-wrap">
+                  <select id="incomeIntervalSelect" class="bb-notched-field-select">
+                    <option value="once">Engång</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </div>
+              </div>
             </label>
 
             <div class="defaults-row">
               <label class="field">
-                År
-                <select id="incomeDefaultYear"></select>
+                <div class="bb-notched-field" role="group" aria-label="År">
+                  <div class="bb-notched-field-legend">År</div>
+                  <div class="bb-notched-field-select-wrap">
+                    <select id="incomeDefaultYear" class="bb-notched-field-select"></select>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </div>
+                </div>
               </label>
               <label class="field">
-                Utbetalningsdag
-                <select id="incomeDefaultDay"></select>
+                <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
+                  <div class="bb-notched-field-legend">Utbetalningsdag</div>
+                  <div class="bb-notched-field-select-wrap">
+                    <select id="incomeDefaultDay" class="bb-notched-field-select"></select>
+                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                  </div>
+                </div>
               </label>
               <label class="field">
-                Belopp (kr)
-                <input id="incomeDefaultAmount" type="number" inputmode="decimal" min="0" step="1" />
+                <div class="bb-notched-field" role="group" aria-label="Belopp (kr)">
+                  <div class="bb-notched-field-legend">Belopp (kr)</div>
+                  <input id="incomeDefaultAmount" class="bb-notched-field-plain-input" type="number" inputmode="decimal" min="0" step="1" />
+                </div>
               </label>
             </div>
           </div>
@@ -2424,32 +2524,57 @@
         <div class="bb-error-summary" id="expenseErrorSummary" hidden role="alert" aria-live="polite"></div>
         <div class="form-grid narrow">
           <label class="field">
-            Namn på utgift
-            <input id="expenseNameInput" type="text" maxlength="80" placeholder="T.ex. Hyra" />
+            <div class="bb-notched-field" role="group" aria-label="Namn på utgift">
+              <div class="bb-notched-field-legend">Namn på utgift</div>
+              <input
+                id="expenseNameInput"
+                class="bb-notched-field-plain-input"
+                type="text"
+                maxlength="80"
+                placeholder="T.ex. Hyra"
+              />
+            </div>
           </label>
 
           <label class="field">
-            Typ av utgiftsintervall
-            <select id="expenseIntervalSelect">
-              <option value="once">Engång</option>
-              <option value="monthly">Månad</option>
-              <option value="quarterly">Kvartal</option>
-              <option value="yearly">År</option>
-            </select>
+            <div class="bb-notched-field" role="group" aria-label="Typ av utgiftsintervall">
+              <div class="bb-notched-field-legend">Typ av utgiftsintervall</div>
+              <div class="bb-notched-field-select-wrap">
+                <select id="expenseIntervalSelect" class="bb-notched-field-select">
+                  <option value="once">Engång</option>
+                  <option value="monthly">Månad</option>
+                  <option value="quarterly">Kvartal</option>
+                  <option value="yearly">År</option>
+                </select>
+                <span class="bb-notched-field-chev" aria-hidden="true"></span>
+              </div>
+            </div>
           </label>
 
           <div class="defaults-row">
             <label class="field">
-              År
-              <select id="expenseDefaultYear"></select>
+              <div class="bb-notched-field" role="group" aria-label="År">
+                <div class="bb-notched-field-legend">År</div>
+                <div class="bb-notched-field-select-wrap">
+                  <select id="expenseDefaultYear" class="bb-notched-field-select"></select>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </div>
+              </div>
             </label>
             <label class="field">
-              Utbetalningsdag
-              <select id="expenseDefaultDay"></select>
+              <div class="bb-notched-field" role="group" aria-label="Utbetalningsdag">
+                <div class="bb-notched-field-legend">Utbetalningsdag</div>
+                <div class="bb-notched-field-select-wrap">
+                  <select id="expenseDefaultDay" class="bb-notched-field-select"></select>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </div>
+              </div>
             </label>
             <label class="field">
-              Belopp (kr)
-              <input id="expenseDefaultAmount" type="number" inputmode="decimal" min="0" step="1" />
+              <div class="bb-notched-field" role="group" aria-label="Belopp (kr)">
+                <div class="bb-notched-field-legend">Belopp (kr)</div>
+                <input id="expenseDefaultAmount" class="bb-notched-field-plain-input" type="number" inputmode="decimal" min="0" step="1" />
+              </div>
             </label>
           </div>
 
@@ -2692,14 +2817,16 @@
       </div>
       <div class="date-sheet-body backup-import-sheet-body">
         <label class="field">
-          <span>Lösenord</span>
-          <input
-            id="backupImportSheetPassphrase"
-            type="password"
-            class="settings-password-input"
-            autocomplete="off"
-            aria-describedby="backupImportSheetHint"
-          />
+          <div class="bb-notched-field" role="group" aria-label="Lösenord">
+            <div class="bb-notched-field-legend">Lösenord</div>
+            <input
+              id="backupImportSheetPassphrase"
+              type="password"
+              class="bb-notched-field-plain-input"
+              autocomplete="off"
+              aria-describedby="backupImportSheetHint"
+            />
+          </div>
         </label>
         <p class="note backup-import-sheet-hint" id="backupImportSheetHint">Samma lösenord som när filen exporterades.</p>
         <div
