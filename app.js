@@ -2872,7 +2872,7 @@ function getDefaultState() {
       loans: { items: [] },
       salaryPeriods: { items: [] },
       food: {},
-      foodShared: { config: {}, weeks: [] },
+      foodYears: {},
       children: {}
     }
   };
@@ -2990,15 +2990,7 @@ function normalizeStateShape(state) {
   }
   normalized.special.food = {};
   normalized.special.children = normalized.special.children || {};
-  {
-    const fs = normalized.special.foodShared;
-    const weeks = fs && typeof fs === "object" && Array.isArray(fs.weeks) ? fs.weeks : [];
-    const cfgIn = fs && typeof fs === "object" && fs.config && typeof fs.config === "object" ? fs.config : {};
-    normalized.special.foodShared = {
-      config: normalizeStoredFoodConfigObject(cfgIn),
-      weeks
-    };
-  }
+  mergeNormalizeSpecialFoodYears(normalized.special);
 
   ensureIncomeIds(normalized);
   cleanupIncomeGarbage(normalized);
@@ -5515,6 +5507,8 @@ const ui = {
   editSalaryPeriodId: null,
   salaryPeriodDraftInterval: "monthly",
   foodScrollWeekKey: null,
+  /** null = årslista; annars kalenderår för matplaneraren */
+  foodPlannerYear: null,
   tagged: {
     car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
@@ -5551,24 +5545,19 @@ function countOneOffNested(root) {
  * Inkl. mat/hushåll (matveckor eller ifylld matkonfiguration), lån, löneperioder m.m., inte bara klassiska intäkts-/utgiftsrader.
  */
 function hasFoodSharedUserContent(root) {
+  const fy = root?.special?.foodYears;
+  if (fy && typeof fy === "object") {
+    for (const k of Object.keys(fy)) {
+      if (!/^\d{4}$/.test(k)) continue;
+      const ent = fy[k];
+      if (Array.isArray(ent?.weeks) && ent.weeks.length > 0) return true;
+      if (foodLegacySharedConfigHasUserEdits(ent?.config)) return true;
+    }
+  }
   const fs = root?.special?.foodShared;
-  if (!fs || typeof fs !== "object") return false;
-  if (Array.isArray(fs.weeks) && fs.weeks.length > 0) return true;
-  const raw = fs.config;
-  if (!raw || typeof raw !== "object") return false;
-  if (raw.mode === "manual") return true;
-  if (Array.isArray(raw.householdChanges) && raw.householdChanges.length > 0) return true;
-  if (Array.isArray(raw.deviations) && raw.deviations.length > 0) return true;
-  if (Array.isArray(raw.custodyPeriods) && raw.custodyPeriods.some((p) => String(p?.startDate || "").trim())) return true;
-  const cs = raw.custodySchedule;
-  if (cs && cs.type === "alternating" && String(cs.alternating?.startDate || "").trim()) return true;
-  if (Math.abs(asNumber(raw.manualWeeklyCost) - 2800) > 0.5) return true;
-  if (raw.costLevel && raw.costLevel !== "normal") return true;
-  if (raw.foodScope && raw.foodScope !== "groceries") return true;
-  const h = raw.household;
-  if (h) {
-    if (Math.floor(asNumber(h.adults)) !== 1) return true;
-    if (Math.floor(asNumber(h.teens)) > 0 || Math.floor(asNumber(h.children)) > 0) return true;
+  if (fs && typeof fs === "object") {
+    if (Array.isArray(fs.weeks) && fs.weeks.length > 0) return true;
+    if (foodLegacySharedConfigHasUserEdits(fs.config)) return true;
   }
   return false;
 }
@@ -7076,7 +7065,8 @@ function computeSpecialFoodMonthly() {
 
 function normalizeStoredFoodConfigObject(cfg) {
   cfg = cfg && typeof cfg === "object" ? cfg : {};
-  const refY = currentYearMonth().year;
+  const refY = Number(cfg.foodBudgetYear);
+  const anchorY = Number.isFinite(refY) ? refY : currentYearMonth().year;
   return {
     mode: cfg.mode === "manual" ? "manual" : "auto",
     household: {
@@ -7089,20 +7079,97 @@ function normalizeStoredFoodConfigObject(cfg) {
     manualWeeklyCost: Math.max(0, asNumber(cfg.manualWeeklyCost ?? 2800)),
     custodySchedule: normalizeCustodySchedule(cfg.custodySchedule),
     custodyPeriods: normalizeCustodyPeriodsArray(cfg),
-    foodBudgetYear: refY,
+    foodBudgetYear: anchorY,
     householdChanges: Array.isArray(cfg.householdChanges) ? cfg.householdChanges : [],
     deviations: Array.isArray(cfg.deviations) ? cfg.deviations : []
   };
 }
 
-/** Gemensam matinställning för appens tre år (special.foodShared). */
-function getSharedFoodConfig() {
-  const cfg = state.special?.foodShared?.config;
-  return normalizeStoredFoodConfigObject(cfg && typeof cfg === "object" ? cfg : {});
+/** True om äldre foodShared.config ser ut att vara mer än fabriksstandard (för migrering). */
+function foodLegacySharedConfigHasUserEdits(raw) {
+  if (!raw || typeof raw !== "object") return false;
+  if (raw.mode === "manual") return true;
+  if (Array.isArray(raw.householdChanges) && raw.householdChanges.length > 0) return true;
+  if (Array.isArray(raw.deviations) && raw.deviations.length > 0) return true;
+  if (Array.isArray(raw.custodyPeriods) && raw.custodyPeriods.some((p) => String(p?.startDate || "").trim())) return true;
+  const cs = raw.custodySchedule;
+  if (cs && cs.type === "alternating" && String(cs.alternating?.startDate || "").trim()) return true;
+  if (Math.abs(asNumber(raw.manualWeeklyCost) - 2800) > 0.5) return true;
+  if (raw.costLevel && raw.costLevel !== "normal") return true;
+  if (raw.foodScope && raw.foodScope !== "groceries") return true;
+  const h = raw.household;
+  if (h) {
+    if (Math.floor(asNumber(h.adults)) !== 1) return true;
+    if (Math.floor(asNumber(h.teens)) > 0 || Math.floor(asNumber(h.children)) > 0) return true;
+  }
+  return false;
 }
 
-function getFoodConfigForYear(_year) {
-  return getSharedFoodConfig();
+function mergeNormalizeSpecialFoodYears(special) {
+  if (!special || typeof special !== "object") return;
+  const appYs = getSelectableAppYears();
+  let foodYears = special.foodYears && typeof special.foodYears === "object" ? { ...special.foodYears } : {};
+  const legacy = special.foodShared;
+  if (Object.keys(foodYears).length === 0 && legacy && typeof legacy === "object") {
+    const legacyWeeks = Array.isArray(legacy.weeks) ? legacy.weeks : [];
+    const legacyCfg = legacy.config && typeof legacy.config === "object" ? legacy.config : {};
+    if (legacyWeeks.length > 0) {
+      for (const y of appYs) {
+        const yw = legacyWeeks.filter((w) => {
+          const ey = Number(w.expenseFoodYear);
+          if (Number.isFinite(ey)) return ey === y;
+          const iso = w.planningDate || w.weekStart;
+          if (iso && String(iso).length >= 4) return Number(String(iso).slice(0, 4)) === y;
+          return false;
+        });
+        if (yw.length > 0) {
+          foodYears[String(y)] = { config: { ...legacyCfg, foodBudgetYear: y }, weeks: yw };
+        }
+      }
+    } else if (foodLegacySharedConfigHasUserEdits(legacyCfg)) {
+      const cy = currentYearMonth().year;
+      foodYears[String(cy)] = { config: { ...legacyCfg, foodBudgetYear: cy }, weeks: [] };
+    }
+  }
+  const out = {};
+  for (const k of Object.keys(foodYears)) {
+    if (!/^\d{4}$/.test(k)) continue;
+    const yNum = Number(k);
+    if (!appYs.includes(yNum)) continue;
+    const ent = foodYears[k];
+    const weeks = ent && Array.isArray(ent.weeks) ? ent.weeks : [];
+    const cfgIn = ent && ent.config && typeof ent.config === "object" ? ent.config : {};
+    out[k] = {
+      config: normalizeStoredFoodConfigObject({ ...cfgIn, foodBudgetYear: yNum }),
+      weeks
+    };
+  }
+  delete special.foodShared;
+  special.foodYears = out;
+}
+
+function getFoodYearEntry(year) {
+  const y = String(Number(year));
+  const ent = state.special?.foodYears?.[y];
+  if (!ent || typeof ent !== "object") return null;
+  return ent;
+}
+
+function getFoodConfigForYear(year) {
+  const y = Number(year);
+  const ent = getFoodYearEntry(y);
+  if (ent && ent.config && typeof ent.config === "object") {
+    return normalizeStoredFoodConfigObject({ ...ent.config, foodBudgetYear: y });
+  }
+  return normalizeStoredFoodConfigObject({ foodBudgetYear: y });
+}
+
+function foodYearHasSavedBudget(year) {
+  const y = Number(year);
+  if (!Number.isFinite(y)) return false;
+  const ent = state.special?.foodYears?.[String(y)];
+  if (ent && Array.isArray(ent.weeks) && ent.weeks.length > 0) return true;
+  return (state.expenses || []).some((exp) => isGeneratedMatExpenseForYear(exp, y));
 }
 
 function normalizeCustodySchedule(input) {
@@ -7160,7 +7227,9 @@ function getCustodyPeriodEffectiveEnd(period, foodBudgetYear) {
     const e = parseDateISO(endStr);
     return e;
   }
-  const y = getFoodTillsVidareCapYear();
+  const capGlobal = getFoodTillsVidareCapYear();
+  const by = Number(foodBudgetYear);
+  const y = Number.isFinite(by) ? Math.min(capGlobal, by) : capGlobal;
   const d = new Date(y, 11, 31);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -7268,10 +7337,15 @@ function custodyPeriodEndDateValid(p) {
   return diffCalendarDays(s, e) >= 1;
 }
 
-function setSharedFoodModel(config, weeks) {
-  if (!state.special.foodShared) state.special.foodShared = {};
-  state.special.foodShared.config = { ...config };
-  state.special.foodShared.weeks = Array.isArray(weeks) ? weeks : [];
+function setFoodYearModel(year, config, weeks) {
+  if (!state.special.foodYears) state.special.foodYears = {};
+  const y = Number(year);
+  const yk = String(y);
+  const cfg = normalizeStoredFoodConfigObject({ ...config, foodBudgetYear: y });
+  state.special.foodYears[yk] = {
+    config: cfg,
+    weeks: Array.isArray(weeks) ? weeks : []
+  };
   if (state.special.food && typeof state.special.food === "object") {
     for (const k of Object.keys(state.special.food)) {
       if (/^\d{4}$/.test(k)) delete state.special.food[k];
@@ -7446,11 +7520,12 @@ function getCustodyLabelForWeek(config, weekStart) {
 }
 
 function isHouseholdOverrideActive(config, date) {
+  const cap = Number(config.foodBudgetYear);
   const changes = Array.isArray(config.householdChanges) ? config.householdChanges : [];
   for (let i = changes.length - 1; i >= 0; i--) {
     const ch = changes[i];
     const s = parseDateISO(ch?.startDate);
-    const e = getHouseholdChangeInclusiveEndDate(ch);
+    const e = getHouseholdChangeInclusiveEndDate(ch, cap);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     return true;
@@ -7459,11 +7534,12 @@ function isHouseholdOverrideActive(config, date) {
 }
 
 function isDeviationFactorActive(config, date) {
+  const cap = Number(config.foodBudgetYear);
   const devs = Array.isArray(config.deviations) ? config.deviations : [];
   for (let i = devs.length - 1; i >= 0; i--) {
     const dv = devs[i];
     const s = parseDateISO(dv?.startDate);
-    const e = getDeviationInclusiveEndDate(dv);
+    const e = getDeviationInclusiveEndDate(dv, cap);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     if (dv.adjustmentType === "factor") return true;
@@ -7498,13 +7574,14 @@ function parseDateISO(s) {
   return d;
 }
 
-/** Inklusivt slutdatum för hushållsändring; tomt slut = tillsvidare (sista dagen i sista valbara matår). */
-function getHouseholdChangeInclusiveEndDate(ch) {
+/** Inklusivt slutdatum för hushållsändring; tomt slut = till sista dagen i valt matbudgetår (eller sista valbara år). */
+function getHouseholdChangeInclusiveEndDate(ch, budgetYearCap) {
   const s = parseDateISO(ch?.startDate);
   if (!s) return null;
   const endStr = ch?.endDate != null ? String(ch.endDate).trim() : "";
   if (!endStr) {
-    const y = getFoodTillsVidareCapYear();
+    const cy = Number(budgetYearCap);
+    const y = Number.isFinite(cy) ? cy : getFoodTillsVidareCapYear();
     return parseDateISO(`${y}-12-31`);
   }
   return parseDateISO(endStr);
@@ -7520,13 +7597,14 @@ function isBadHouseholdChangeDateRange(p) {
   return e.getTime() < s.getTime();
 }
 
-/** Inklusivt slutdatum för avvikelseperiod; tomt slut = tillsvidare (sista dagen i sista valbara matår). */
-function getDeviationInclusiveEndDate(dv) {
+/** Inklusivt slutdatum för avvikelseperiod; tomt slut = till sista dagen i valt matbudgetår (eller sista valbara år). */
+function getDeviationInclusiveEndDate(dv, budgetYearCap) {
   const s = parseDateISO(dv?.startDate);
   if (!s) return null;
   const endStr = dv?.endDate != null ? String(dv.endDate).trim() : "";
   if (!endStr) {
-    const y = getFoodTillsVidareCapYear();
+    const cy = Number(budgetYearCap);
+    const y = Number.isFinite(cy) ? cy : getFoodTillsVidareCapYear();
     return parseDateISO(`${y}-12-31`);
   }
   return parseDateISO(endStr);
@@ -7570,11 +7648,12 @@ function computeFoodDailyCost(config, date) {
   let children = asNumber(hh.children);
 
   // Temporary household overrides: last matching override wins
+  const cap = Number(config.foodBudgetYear);
   const changes = Array.isArray(config.householdChanges) ? config.householdChanges : [];
   for (let i = changes.length - 1; i >= 0; i--) {
     const ch = changes[i];
     const s = parseDateISO(ch?.startDate);
-    const e = getHouseholdChangeInclusiveEndDate(ch);
+    const e = getHouseholdChangeInclusiveEndDate(ch, cap);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     const o = ch?.household || {};
@@ -7621,7 +7700,7 @@ function computeFoodDailyCost(config, date) {
   for (let i = devs.length - 1; i >= 0; i--) {
     const dv = devs[i];
     const s = parseDateISO(dv?.startDate);
-    const e = getDeviationInclusiveEndDate(dv);
+    const e = getDeviationInclusiveEndDate(dv, cap);
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     if (dv.adjustmentType === "factor") {
@@ -9731,6 +9810,37 @@ function deleteCarExpenseFromEditor() {
   deleteTaggedCategoryFromEditor("car");
 }
 
+function renderFoodYearPickerIntoMount() {
+  const mount = document.getElementById("foodYearPickerMount");
+  if (!mount) return;
+  const years = getSelectableAppYears();
+  mount.innerHTML = years
+    .map((y) => {
+      const budgeted = foodYearHasSavedBudget(y);
+      const status = budgeted ? "Budgeterad" : "Ej budgeterad";
+        return `<button type="button" class="food-year-picker-row" data-food-pick-year="${y}">
+        <span class="food-year-picker-row__main">Matbudget för ${y} - ${status}</span>
+        <span class="food-year-picker-row__chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
+      </button>`;
+    })
+    .join("");
+  mount.querySelectorAll("[data-food-pick-year]").forEach((btn) => {
+    btn.onclick = () => {
+      const y = Number(btn.getAttribute("data-food-pick-year"));
+      ui.foodPlannerYear = y;
+      const cy = currentYearMonth();
+      if (y === cy.year) {
+        ui.foodPreviewYear = cy.year;
+        ui.foodPreviewMonth = cy.month;
+      } else {
+        ui.foodPreviewYear = y;
+        ui.foodPreviewMonth = 1;
+      }
+      renderFoodPage();
+    };
+  });
+}
+
 function renderFoodPage() {
   const foodNoteClear = document.getElementById("foodNote");
   if (foodNoteClear) foodNoteClear.textContent = "";
@@ -9739,11 +9849,29 @@ function renderFoodPage() {
   hideErrorSummaryById("foodHouseholdErrorSummary");
   hideErrorSummaryById("foodDeviationErrorSummary");
 
+  const pickerSection = document.getElementById("foodYearPickerSection");
+  const plannerSection = document.getElementById("foodPlannerSection");
+  const navYearPickerOnly = document.getElementById("foodMatNavYearPickerOnly");
+  const navPlanner = document.getElementById("foodMatNavPlanner");
+  const planY = Number(ui.foodPlannerYear);
+  const showPicker = !Number.isFinite(planY);
+  if (pickerSection) pickerSection.hidden = !showPicker;
+  if (plannerSection) plannerSection.hidden = showPicker;
+  if (navYearPickerOnly) navYearPickerOnly.hidden = !showPicker;
+  if (navPlanner) navPlanner.hidden = showPicker;
+  if (showPicker) {
+    renderFoodYearPickerIntoMount();
+    applyFoodOverlayDateBounds();
+    return;
+  }
+
   const previewYearSel = document.getElementById("foodPreviewYear");
   const previewMonthSel = document.getElementById("foodPreviewMonth");
   const cur = currentYearMonth();
-  if (ui.foodPreviewYear == null || !Number.isFinite(Number(ui.foodPreviewYear))) ui.foodPreviewYear = cur.year;
-  if (ui.foodPreviewMonth == null || !Number.isFinite(Number(ui.foodPreviewMonth))) ui.foodPreviewMonth = cur.month;
+  if (ui.foodPreviewYear == null || !Number.isFinite(Number(ui.foodPreviewYear))) ui.foodPreviewYear = planY;
+  if (ui.foodPreviewMonth == null || !Number.isFinite(Number(ui.foodPreviewMonth))) {
+    ui.foodPreviewMonth = planY === cur.year ? cur.month : 1;
+  }
   const previewYear = Number(previewYearSel?.value || ui.foodPreviewYear);
   const previewMonth = Number(previewMonthSel?.value || ui.foodPreviewMonth);
   ui.foodPreviewYear = previewYear;
@@ -9754,8 +9882,7 @@ function renderFoodPage() {
   if (previewMonthSel) setMonthOptions(previewMonthSel, previewMonth);
   if (previewMonthSel) previewMonthSel.onchange = () => renderFoodPage();
   syncFoodPreviewSummaryLabel();
-  const foodWindowLabel = `${getSelectableAppYears()[0]}–${getSelectableAppYears()[2]}`;
-  const cfg = getSharedFoodConfig();
+  const cfg = getFoodConfigForYear(planY);
   const periodsCopy = Array.isArray(cfg.custodyPeriods)
     ? cfg.custodyPeriods.map((p) => {
       const n = normalizeCustodyPeriodEntry(p);
@@ -9984,7 +10111,7 @@ function renderFoodPage() {
 
   let draw = () => {
     const d = ui.foodConfigDraft;
-    d.foodBudgetYear = currentYearMonth().year;
+    d.foodBudgetYear = planY;
     const editorAbsentRef = custodyEditorDraft ? custodyEditorDraft.absent : null;
     syncCustodyPeriodsAbsentWithHousehold(d, editorAbsentRef);
     if (els.custodyEditor && !els.custodyEditor.hidden) {
@@ -10025,7 +10152,10 @@ function renderFoodPage() {
 
     const baseChildren = Math.max(0, Math.floor(asNumber(d.household?.children)));
     const baseTeens = Math.max(0, Math.floor(asNumber(d.household?.teens)));
-    const custodyAccept = buildCustodyPeriodAcceptance(d.custodyPeriods || [], 0);
+    const custodyAccept = buildCustodyPeriodAcceptance(
+      d.custodyPeriods || [],
+      Number(d.foodBudgetYear) || planY
+    );
     if (els.custodyGlobalWarn) {
       if (custodyAccept.shadowedOrigIndices.size > 0) {
         els.custodyGlobalWarn.hidden = false;
@@ -10169,16 +10299,14 @@ function renderFoodPage() {
     if (els.calcBaseWeek) els.calcBaseWeek.textContent = formatKr(baseWeekly);
     if (els.calcAdjustedWeek) els.calcAdjustedWeek.textContent = formatKr(adjustedWeekly);
     if (els.calcFinalWeek) els.calcFinalWeek.textContent = formatKr(adjustedWeekly);
-    const appYears = getSelectableAppYears();
     if (!els.previewWeeks) return;
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
     const weeks = [];
-    for (const y of appYears) {
-      for (const w of getIsoWeeksForYear(y)) {
-        const planningDate = addDays(w.weekStart, planningDay - 1);
-        const { amount, labels } = computeFoodWeekAmountAndLabels(d, w.weekStart, w.weekEnd);
-        weeks.push({ ...w, planningDate, amount, labels });
-      }
+    const previewPlanYear = Number(ui.foodPlannerYear) || Number(d.foodBudgetYear) || currentYearMonth().year;
+    for (const w of getIsoWeeksForYear(previewPlanYear)) {
+      const planningDate = addDays(w.weekStart, planningDay - 1);
+      const { amount, labels } = computeFoodWeekAmountAndLabels(d, w.weekStart, w.weekEnd);
+      weeks.push({ ...w, planningDate, amount, labels });
     }
     weeks.sort((a, b) => a.planningDate.getTime() - b.planningDate.getTime());
     const monthWeeks = weeks.filter(
@@ -10430,7 +10558,8 @@ function renderFoodPage() {
       return;
     }
     ui.foodConfigDraft.custodyPeriods = ui.foodConfigDraft.custodyPeriods || [];
-    const tryAccept = (periods) => buildCustodyPeriodAcceptance(periods, 0);
+    const tryAccept = (periods) =>
+      buildCustodyPeriodAcceptance(periods, Number(ui.foodConfigDraft?.foodBudgetYear) || planY);
     let trial;
     if (editingCustodyIndex >= 0) {
       trial = ui.foodConfigDraft.custodyPeriods.map((p, i) => (i === editingCustodyIndex ? next : p));
@@ -10440,7 +10569,7 @@ function renderFoodPage() {
     const trialAccept = tryAccept(trial);
     if (trialAccept.shadowedOrigIndices.size > 0) {
       // Hitta vilken befintlig period som krockar mest relevant med den nya.
-      const eEff = getCustodyPeriodEffectiveEnd(next, 0);
+      const eEff = getCustodyPeriodEffectiveEnd(next, Number(ui.foodConfigDraft?.foodBudgetYear) || planY);
       const overlaps = trialAccept.accepted.filter((acc) => calendarRangesOverlapCustody(s, eEff, acc.s, acc.e));
       const conflict = overlaps[0] || null;
 
@@ -13355,6 +13484,7 @@ function openFoodOverlayForExpenseRow(row) {
   openExpenseCategoryOverlay("food");
   const year = Number(row?.foodYear) || (row?.date ? row.date.getFullYear() : ui.foodPreviewYear || currentYearMonth().year);
   const month = row?.date ? row.date.getMonth() + 1 : (ui.foodPreviewMonth || ui.expensesFoodMonth || currentYearMonth().month);
+  ui.foodPlannerYear = Number.isFinite(year) ? year : currentYearMonth().year;
   ui.foodPreviewYear = year;
   ui.foodPreviewMonth = month;
   ui.expensesFoodMonth = month;
@@ -14120,6 +14250,7 @@ function openExpenseCategoryOverlay(key, opts = {}) {
     location.hash = "#/savings";
     return;
   }
+  if (key === "food") ui.foodPlannerYear = null;
   const map = {
     home: renderHomePage,
     loans: renderLoansPage,
@@ -14142,6 +14273,7 @@ function openExpenseCategoryOverlay(key, opts = {}) {
 
 function closeExpenseCategoryOverlay(opts = { fromHistory: false }) {
   resetFoodMatSubPanelsWhenFoodOverlayCloses();
+  ui.foodPlannerYear = null;
   document.querySelectorAll(".exp-overlay").forEach((el) => (el.hidden = true));
   closeLoanEditor();
   hideConfirmDeleteLoanModal();
@@ -14475,8 +14607,12 @@ function initActions() {
   }
 
   // FOOD
+  document.getElementById("foodBackToYearPickerBtn")?.addEventListener("click", () => {
+    ui.foodPlannerYear = null;
+    renderFoodPage();
+  });
   document.getElementById("foodSaveBtn").addEventListener("click", () => {
-    const appYears = getSelectableAppYears();
+    const saveYear = Number(ui.foodPlannerYear) || currentYearMonth().year;
     const cfg = ui.foodConfigDraft ? (() => {
       const { _custodyHhSnapGlobal: _cg, _custodyHhSnap: _cs, ...rest } = ui.foodConfigDraft;
       const custodyPeriods = (rest.custodyPeriods || []).map(normalizeCustodyPeriodEntry).filter((p) => p.startDate && String(p.startDate).trim());
@@ -14485,9 +14621,9 @@ function initActions() {
         household: { ...rest.household },
         custodyPeriods,
         custodySchedule: normalizeCustodySchedule({ type: "off" }),
-        foodBudgetYear: currentYearMonth().year
+        foodBudgetYear: saveYear
       };
-    })() : getSharedFoodConfig();
+    })() : getFoodConfigForYear(saveYear);
     const totalPeople = asNumber(cfg.household?.adults) + asNumber(cfg.household?.teens) + asNumber(cfg.household?.children);
     if (cfg.mode !== "manual" && totalPeople <= 0) {
       const msg = "Lägg till minst 1 person i hushållet eller välj manuell inmatning.";
@@ -14511,7 +14647,7 @@ function initActions() {
       return;
     }
     const custodyForSave = cfg.custodyPeriods || [];
-    const custodyAccSave = buildCustodyPeriodAcceptance(custodyForSave, 0);
+    const custodyAccSave = buildCustodyPeriodAcceptance(custodyForSave, saveYear);
     if (custodyAccSave.shadowedOrigIndices.size > 0) {
       const msg = "Växelvis boende: justera överlappande perioder innan du sparar.";
       document.getElementById("foodNote").textContent = msg;
@@ -14540,24 +14676,22 @@ function initActions() {
 
     const planningDay = Math.max(1, Math.min(7, Math.floor(asNumber(state.settings.foodPlanningWeekday || 1))));
     const weeks = [];
-    for (const foodYear of appYears) {
-      for (const w of getIsoWeeksForYear(foodYear)) {
-        const planningDate = addDays(w.weekStart, planningDay - 1);
-        const { amount, labels } = computeFoodWeekAmountAndLabels(cfg, w.weekStart, w.weekEnd);
-        weeks.push({
-          isoYear: w.isoYear,
-          weekNumber: w.week,
-          weekStart: isoFromDate(w.weekStart),
-          weekEnd: isoFromDate(w.weekEnd),
-          planningDate: isoFromDate(planningDate),
-          amount,
-          labels,
-          expenseFoodYear: foodYear
-        });
-      }
+    for (const w of getIsoWeeksForYear(saveYear)) {
+      const planningDate = addDays(w.weekStart, planningDay - 1);
+      const { amount, labels } = computeFoodWeekAmountAndLabels(cfg, w.weekStart, w.weekEnd);
+      weeks.push({
+        isoYear: w.isoYear,
+        weekNumber: w.week,
+        weekStart: isoFromDate(w.weekStart),
+        weekEnd: isoFromDate(w.weekEnd),
+        planningDate: isoFromDate(planningDate),
+        amount,
+        labels,
+        expenseFoodYear: saveYear
+      });
     }
 
-    state.expenses = (state.expenses || []).filter((exp) => !isGeneratedMatExpenseInSelectableWindow(exp));
+    state.expenses = (state.expenses || []).filter((exp) => !isGeneratedMatExpenseForYear(exp, saveYear));
 
     for (const wk of weeks) {
       const id = uid();
@@ -14582,14 +14716,13 @@ function initActions() {
       );
     }
 
-    setSharedFoodModel(cfg, weeks);
+    setFoodYearModel(saveYear, cfg, weeks);
     saveState();
     const foodNoteOk = document.getElementById("foodNote");
     if (foodNoteOk) foodNoteOk.textContent = "";
     renderAnalysisViewsIfActive();
     renderExpensesList();
     renderFoodPage();
-    closeExpenseCategoryOverlayFromUi();
   });
 
   // LOANS

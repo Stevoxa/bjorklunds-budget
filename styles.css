@@ -3107,6 +3107,64 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   margin-bottom: var(--space-3);
 }
 
+.food-mat-panel-top--food-planner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.food-year-picker-card {
+  margin-bottom: var(--space-3);
+}
+
+.food-year-picker-mount {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+button.food-year-picker-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-elevated, var(--surface));
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+
+button.food-year-picker-row:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface-elevated, var(--surface)));
+}
+
+.food-year-picker-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.food-year-picker-row__chev {
+  flex-shrink: 0;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+}
+
+.food-mat-planner-close {
+  flex-shrink: 0;
+}
+
 .food-mat-panel-back {
   display: inline-flex;
   align-items: center;

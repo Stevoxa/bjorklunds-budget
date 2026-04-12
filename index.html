@@ -1339,7 +1339,13 @@
           <!-- FOOD -->
           <section class="exp-view exp-overlay" data-expview="food" hidden>
             <div class="table-card">
-              <div class="food-mat-panel-top">
+              <div class="table-title">Mat</div>
+              <div class="bb-error-summary" id="foodErrorSummary" hidden role="alert" aria-live="polite"></div>
+              <div class="note food-intro-note" id="foodIntroText">
+                Välj vilket kalenderår du vill budgetera mat för. Varje år har egen matplan och egna veckoutgifter. När du sparar skapas en utgift per vecka för det året.
+              </div>
+
+              <div id="foodMatNavYearPickerOnly" class="food-mat-panel-top food-mat-panel-top--food-year">
                 <button
                   type="button"
                   class="food-mat-panel-back"
@@ -1347,12 +1353,21 @@
                   aria-label="Tillbaka till Utgifter"
                 >Utgifter</button>
               </div>
-              <div class="table-title">Mat</div>
-              <div class="bb-error-summary" id="foodErrorSummary" hidden role="alert" aria-live="polite"></div>
-              <div class="note food-intro-note" id="foodIntroText">
-                Samma matinställning gäller för de tre år som appen använder (föregående, nuvarande och nästa år). När du sparas skapas en utgift per vecka för alla dessa år.
+
+              <div id="foodYearPickerSection" class="food-year-picker-card" hidden>
+                <div id="foodYearPickerMount" class="food-year-picker-mount" role="list"></div>
               </div>
 
+              <div id="foodMatNavPlanner" class="food-mat-panel-top food-mat-panel-top--food-planner" hidden>
+                <button type="button" class="food-mat-panel-back" id="foodBackToYearPickerBtn" aria-label="Tillbaka till årsval">
+                  Årsval
+                </button>
+                <button type="button" class="secondary food-mat-planner-close" data-exp-close aria-label="Stäng mat och gå till utgifter">
+                  Utgifter
+                </button>
+              </div>
+
+              <div id="foodPlannerSection" class="food-planner-section" hidden>
               <div class="form-grid narrow">
                 <div class="bb-notched-panel" role="group" aria-label="Hushållet">
                   <div class="bb-notched-panel-legend">Hushållet</div>
@@ -1761,6 +1776,8 @@
                 <button class="secondary" type="button" data-exp-close>Avbryt</button>
               </div>
               <div class="note" id="foodNote"></div>
+              </div>
+              </div>
             </div>
           </section>
 
