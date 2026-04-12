@@ -20,22 +20,81 @@
     >
       <div class="vault-lock-card">
         <h1 id="vaultLockTitle" class="vault-lock-title">Björklunds budget</h1>
-        <p id="vaultLockSubtitle" class="note vault-lock-subtitle"></p>
-        <div class="vault-lock-fields form-grid narrow">
-          <label class="field">
-            <span id="vaultPassphraseLabel">Lösenfras</span>
-            <input type="password" id="vaultPassphrase" class="vault-lock-input" autocomplete="current-password" />
-          </label>
-          <label class="field" id="vaultConfirmWrap" hidden>
-            <span>Bekräfta lösenfras</span>
-            <input type="password" id="vaultPassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
-          </label>
+
+        <div id="vaultUnlockSection" class="vault-lock-section" hidden>
+          <p id="vaultUnlockSubtitle" class="note vault-lock-subtitle"></p>
+          <div class="vault-lock-fields form-grid narrow">
+            <label class="field">
+              <span>Lösenfras</span>
+              <input type="password" id="vaultUnlockPassphrase" class="vault-lock-input" autocomplete="current-password" />
+            </label>
+          </div>
+          <div class="vault-lock-actions">
+            <button type="button" class="primary vault-lock-submit" id="vaultUnlockBtn">Lås upp</button>
+          </div>
+          <p class="note vault-lock-hint" id="vaultUnlockHint"></p>
         </div>
+
+        <div id="vaultSetupSection" class="vault-lock-section" hidden>
+          <p id="vaultSetupSubtitle" class="note vault-lock-subtitle"></p>
+
+          <div id="vaultSetupChoice" class="vault-setup-choice">
+            <p class="note vault-setup-lead">Välj hur du vill komma igång på den här enheten.</p>
+            <div class="vault-choice-actions">
+              <button type="button" class="primary vault-lock-submit" id="vaultChooseCreateBtn">Skapa budget</button>
+              <button type="button" class="secondary vault-choice-secondary" id="vaultChooseImportBtn">Läs in från fil</button>
+            </div>
+          </div>
+
+          <div id="vaultSetupCreate" class="vault-setup-panel" hidden>
+            <button type="button" class="vault-setup-back" id="vaultBackFromCreate">Tillbaka</button>
+            <div class="vault-lock-fields form-grid narrow">
+              <label class="field">
+                <span>Välj lösenfras</span>
+                <input type="password" id="vaultCreatePassphrase" class="vault-lock-input" autocomplete="new-password" />
+              </label>
+              <label class="field">
+                <span>Bekräfta lösenfras</span>
+                <input type="password" id="vaultCreatePassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
+              </label>
+            </div>
+            <div class="vault-lock-actions">
+              <button type="button" class="primary vault-lock-submit" id="vaultCreateSubmitBtn">Skapa budget</button>
+            </div>
+          </div>
+
+          <div id="vaultSetupImport" class="vault-setup-panel" hidden>
+            <button type="button" class="vault-setup-back" id="vaultBackFromImport">Tillbaka</button>
+            <p class="note vault-import-lead">
+              Välj din krypterade backup-fil och ange samma lösenfras som när du exporterade den.
+            </p>
+            <div class="vault-import-file-row">
+              <input
+                type="file"
+                id="vaultImportFileInput"
+                accept="application/json"
+                class="backup-restore-sr-input"
+                tabindex="-1"
+                aria-label="Välj krypterad backup-fil"
+              />
+              <button type="button" class="secondary vault-import-file-btn" id="vaultImportFilePickBtn">Välj fil</button>
+              <span id="vaultImportFileName" class="vault-import-file-name" aria-live="polite">Ingen fil vald</span>
+            </div>
+            <div class="vault-lock-fields form-grid narrow">
+              <label class="field">
+                <span>Lösenfras för filen</span>
+                <input type="password" id="vaultImportPassphrase" class="vault-lock-input" autocomplete="current-password" />
+              </label>
+            </div>
+            <div class="vault-lock-actions">
+              <button type="button" class="primary vault-lock-submit" id="vaultImportSubmitBtn">Importera och fortsätt</button>
+            </div>
+          </div>
+
+          <p class="note vault-lock-hint" id="vaultSetupHint"></p>
+        </div>
+
         <p id="vaultLockError" class="vault-lock-error" role="alert" hidden></p>
-        <div class="vault-lock-actions">
-          <button type="button" class="primary vault-lock-submit" id="vaultPrimaryBtn">Lås upp</button>
-        </div>
-        <p class="note vault-lock-hint" id="vaultLockHint"></p>
       </div>
     </div>
 
