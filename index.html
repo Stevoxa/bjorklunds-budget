@@ -3,12 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0c120f" />
+    <meta name="theme-color" content="#255f33" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" id="appFavicon32" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" id="appAppleTouchIcon" />
     <title>Björklunds - Budget</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <div
+      id="appBootScreen"
+      class="app-boot-screen"
+      hidden
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="appBootTitle"
+    >
+      <div class="app-boot-screen__inner">
+        <h1 id="appBootTitle" class="app-boot-screen__title">Björklunds budget</h1>
+        <div class="app-boot-screen__art">
+          <img id="appBootSplashImg" class="app-boot-screen__img" src="media/bjorklunds_budget_start.png" alt="" />
+        </div>
+        <div class="app-boot-screen__progress-wrap">
+          <span class="visually-hidden" id="appBootProgressLabel">Laddar startfilm</span>
+          <div
+            id="appBootProgress"
+            class="app-boot-progress"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+            aria-labelledby="appBootProgressLabel"
+            aria-busy="true"
+          >
+            <div id="appBootProgressFill" class="app-boot-progress__fill"></div>
+          </div>
+          <p id="appBootStatus" class="note app-boot-screen__status"></p>
+        </div>
+        <button type="button" class="secondary app-boot-screen__skip" id="appBootSkipBtn">Hoppa över</button>
+      </div>
+    </div>
+
+    <div id="pwaInstallBanner" class="pwa-install-banner" hidden role="region" aria-label="Installera app">
+      <p class="pwa-install-banner__text">Vill du installera Björklunds budget som app på enheten?</p>
+      <div class="pwa-install-banner__actions">
+        <button type="button" class="primary pwa-install-banner__install" id="pwaInstallBannerBtn">Installera</button>
+        <button type="button" class="secondary pwa-install-banner__dismiss" id="pwaInstallBannerDismiss">Inte nu</button>
+      </div>
+    </div>
+
     <div id="debugToast" class="debug-toast" hidden></div>
 
     <div
@@ -1896,6 +1943,37 @@
             <a href="#/help" class="settings-help-link">Hjälp</a>
           </div>
 
+          <div class="table-card settings-pwa-card">
+            <div class="table-title">App & start</div>
+            <p class="note settings-pwa-card__lead">
+              Installera som app på Android eller dator (Chrome/Edge). Egna bilder och film lagras bara på den här enheten.
+            </p>
+            <div class="settings-pwa-install-row">
+              <button type="button" class="primary" id="pwaInstallFromSettingsBtn" hidden>Lägg till på hemskärmen</button>
+              <span class="note settings-pwa-installed-note" id="pwaInstalledNote" hidden>Appen körs som installerad.</span>
+            </div>
+            <div class="form-grid narrow settings-theme-pack-grid">
+              <label class="field">
+                <span>Eget ikonpaket (ZIP)</span>
+                <input id="themePackZipInput" type="file" accept=".zip,application/zip" class="settings-theme-file-input" />
+                <span class="field-help">Valfritt: samma filnamn som standard (t.ex. icon-192.png, apple-touch-icon.png).</span>
+              </label>
+              <label class="field">
+                <span>Egen startbild (PNG)</span>
+                <input id="themeSplashInput" type="file" accept="image/png" class="settings-theme-file-input" />
+              </label>
+              <label class="field">
+                <span>Egen startfilm (MP4)</span>
+                <input id="themeIntroInput" type="file" accept="video/mp4" class="settings-theme-file-input" />
+              </label>
+              <div class="actions-row settings-theme-pack-actions">
+                <button type="button" class="secondary" id="themePackApplyBtn">Spara temafiler</button>
+                <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
+              </div>
+              <p class="note" id="themePackNote" role="status"></p>
+            </div>
+          </div>
+
           <div class="table-card settings-theme-card">
             <div class="table-title">Utseende</div>
             <div class="form-grid narrow">
@@ -2573,6 +2651,8 @@
       </div>
     </div>
 
+    <script src="./theme-assets.js"></script>
+    <script src="./vendor/jszip.min.js"></script>
     <script src="./vault.js"></script>
     <script src="./vendor/chart.umd.min.js"></script>
     <script type="module" src="app.js"></script>

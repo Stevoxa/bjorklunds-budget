@@ -4,6 +4,17 @@
 /** Endast för att ta bort äldre okrypterad data i localStorage efter migrering. */
 const STORAGE_KEY = "bjorklunds_budget_v1";
 
+const INTRO_LAST_PLAY_KEY = "bjk_intro_last_played_ymd";
+const PWA_BANNER_DISMISSED_KEY = "bjk_pwa_banner_dismissed_v1";
+const BUILTIN_START_VIDEO_URL = "./media/bjorklunds_budget_start.mp4";
+const BUILTIN_SPLASH_URL = "./media/bjorklunds_budget_start.png";
+const THEME_INTRO_DEFAULT_CACHE = "introDefaultCache";
+
+function localCalendarYmd() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 const VAULT_IDLE_MS = 15 * 60 * 1000;
 let vaultSaveTimer = null;
 let vaultIdleTimer = null;
@@ -10840,6 +10851,7 @@ function renderSettingsPage() {
   }
   syncThemeModeSummaryLabel();
   syncFoodWeekdaySummaryLabel();
+  syncPwaInstallUi();
 }
 
 let settingsAutosaveWired = false;
@@ -13893,6 +13905,8 @@ function initOnboardingGate() {
 function initActions() {
   initOnboardingGate();
   wireSettingsAutosaveOnce();
+  document.getElementById("themePackApplyBtn")?.addEventListener("click", () => void applyThemePackFromSettingsInputs());
+  document.getElementById("themePackResetBtn")?.addEventListener("click", () => void resetThemePackToDefault());
   // CAR
   const wireTaggedCategoryActions = (cat) => {
     const C = TAGGED_CATEGORY_CONFIG[cat];
@@ -14564,6 +14578,428 @@ async function registerServiceWorker() {
   }
 }
 
+function zipEntryToThemeAssetKey(path) {
+  const base = String(path || "")
+    .split(/[/\\]/)
+    .pop()
+    .toLowerCase();
+  const map = {
+    "apple-touch-icon.png": "appleTouchIcon",
+    "favicon-32.png": "favicon32",
+    "icon-192.png": "icon192",
+    "icon-512.png": "icon512",
+    "icon-maskable-192.png": "iconMaskable192",
+    "icon-maskable-512.png": "iconMaskable512",
+    "bjorklunds_budget_start.png": "splashPng",
+    "bjorklunds_budget_start.mp4": "introMp4"
+  };
+  return map[base] || null;
+}
+
+/** @param {string} hrefStatic @param {string} blobKey */
+async function syncThemeLinkHref(linkId, hrefStatic, blobKey) {
+  const el = document.getElementById(linkId);
+  if (!(el instanceof HTMLLinkElement)) return;
+  const TA = globalThis.BjorkThemeAssets;
+  if (!TA) {
+    el.href = hrefStatic;
+    return;
+  }
+  let blob;
+  try {
+    blob = await TA.getBlob(blobKey);
+  } catch {
+    blob = undefined;
+  }
+  if (el.dataset.bjkIconUrl) {
+    try {
+      URL.revokeObjectURL(el.dataset.bjkIconUrl);
+    } catch {
+      /* ignore */
+    }
+    delete el.dataset.bjkIconUrl;
+  }
+  if (blob && blob.size > 0) {
+    const u = URL.createObjectURL(blob);
+    el.dataset.bjkIconUrl = u;
+    el.href = u;
+  } else {
+    el.href = hrefStatic;
+  }
+}
+
+async function applyThemeToDocumentIcons() {
+  await syncThemeLinkHref("appFavicon32", "icons/favicon-32.png", "favicon32");
+  await syncThemeLinkHref("appAppleTouchIcon", "icons/apple-touch-icon.png", "appleTouchIcon");
+}
+
+async function fetchVideoWithProgress(url, onRatio, signal) {
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const lenHeader = res.headers.get("content-length");
+  const total = lenHeader ? Math.max(0, parseInt(lenHeader, 10) || 0) : 0;
+  const reader = res.body && res.body.getReader ? res.body.getReader() : null;
+  if (!reader) {
+    const b = await res.blob();
+    onRatio(1);
+    return b;
+  }
+  const chunks = [];
+  let loaded = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    if (total > 0) onRatio(Math.min(1, loaded / total));
+    else onRatio(-1);
+  }
+  return new Blob(chunks, { type: "video/mp4" });
+}
+
+function setBootProgressDeterminate(fillEl, barEl, ratio) {
+  if (!fillEl || !barEl) return;
+  const pct = Math.round(Math.max(0, Math.min(1, ratio)) * 100);
+  fillEl.style.width = `${pct}%`;
+  barEl.classList.remove("app-boot-progress--indeterminate");
+  barEl.setAttribute("aria-valuenow", String(pct));
+}
+
+function setBootProgressIndeterminate(barEl) {
+  if (!barEl) return;
+  barEl.classList.add("app-boot-progress--indeterminate");
+  barEl.setAttribute("aria-valuenow", "0");
+}
+
+async function runStartupSequence() {
+  const boot = document.getElementById("appBootScreen");
+  if (!boot) return;
+
+  let lastIntroDay = "";
+  try {
+    lastIntroDay = localStorage.getItem(INTRO_LAST_PLAY_KEY) || "";
+  } catch {
+    /* ignore */
+  }
+  if (lastIntroDay === localCalendarYmd()) return;
+
+  const splashImg = document.getElementById("appBootSplashImg");
+  const fillEl = document.getElementById("appBootProgressFill");
+  const barEl = document.getElementById("appBootProgress");
+  const statusEl = document.getElementById("appBootStatus");
+  const skipBtn = document.getElementById("appBootSkipBtn");
+
+  const TA = globalThis.BjorkThemeAssets;
+  const splashBlob = TA ? await TA.getBlob("splashPng").catch(() => null) : null;
+  let splashObjectUrl = "";
+  if (splashBlob && splashBlob.size > 0 && splashImg instanceof HTMLImageElement) {
+    splashObjectUrl = URL.createObjectURL(splashBlob);
+    splashImg.src = splashObjectUrl;
+  } else if (splashImg instanceof HTMLImageElement) {
+    splashImg.src = BUILTIN_SPLASH_URL;
+  }
+
+  boot.hidden = false;
+  boot.setAttribute("aria-hidden", "false");
+  if (statusEl) statusEl.textContent = "Förbereder startfilm …";
+
+  const controller = new AbortController();
+  let finished = false;
+  let videoPlayUrl = "";
+
+  const cleanupUrls = (extra) => {
+    if (splashObjectUrl) {
+      try {
+        URL.revokeObjectURL(splashObjectUrl);
+      } catch {
+        /* ignore */
+      }
+      splashObjectUrl = "";
+    }
+    if (extra) {
+      try {
+        URL.revokeObjectURL(extra);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const finish = (markPlayed) => {
+    if (finished) return;
+    finished = true;
+    boot.querySelector(".app-boot-screen__video")?.remove();
+    cleanupUrls(videoPlayUrl);
+    videoPlayUrl = "";
+    boot.hidden = true;
+    boot.setAttribute("aria-hidden", "true");
+    if (barEl) {
+      barEl.setAttribute("aria-busy", "false");
+      barEl.classList.remove("app-boot-progress--indeterminate");
+    }
+    if (markPlayed) {
+      try {
+        localStorage.setItem(INTRO_LAST_PLAY_KEY, localCalendarYmd());
+      } catch {
+        /* ignore */
+      }
+    }
+    controller.abort();
+  };
+
+  skipBtn?.addEventListener("click", () => {
+    if (finished) return;
+    controller.abort();
+    cleanupUrls(videoPlayUrl);
+    videoPlayUrl = "";
+    finish(true);
+  });
+
+  let introBlob = null;
+
+  try {
+    const customIntro = TA ? await TA.getBlob("introMp4").catch(() => null) : null;
+    if (customIntro && customIntro.size > 0) {
+      introBlob = customIntro;
+      if (statusEl) statusEl.textContent = "Öppnar din startfilm …";
+      setBootProgressDeterminate(fillEl, barEl, 1);
+    } else {
+      const cached = TA ? await TA.getBlob(THEME_INTRO_DEFAULT_CACHE).catch(() => null) : null;
+      if (cached && cached.size > 0) {
+        introBlob = cached;
+        if (statusEl) statusEl.textContent = "Öppnar startfilm …";
+        setBootProgressDeterminate(fillEl, barEl, 1);
+      } else {
+        if (statusEl) statusEl.textContent = "Laddar ner startfilm (första gången) …";
+        setBootProgressIndeterminate(barEl);
+        introBlob = await fetchVideoWithProgress(
+          BUILTIN_START_VIDEO_URL,
+          (r) => {
+            if (r < 0) setBootProgressIndeterminate(barEl);
+            else setBootProgressDeterminate(fillEl, barEl, r);
+          },
+          controller.signal
+        );
+        if (TA && introBlob && introBlob.size > 0) {
+          try {
+            await TA.putBlob(THEME_INTRO_DEFAULT_CACHE, introBlob);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    }
+
+    if (!introBlob || introBlob.size < 1) throw new Error("empty intro");
+
+    videoPlayUrl = URL.createObjectURL(introBlob);
+    const video = document.createElement("video");
+    video.className = "app-boot-screen__video";
+    video.src = videoPlayUrl;
+    video.playsInline = true;
+    video.setAttribute("playsinline", "");
+    video.muted = true;
+    video.controls = false;
+    video.autoplay = true;
+    const inner = boot.querySelector(".app-boot-screen__inner");
+    if (inner) inner.appendChild(video);
+
+    if (splashImg instanceof HTMLElement) splashImg.style.display = "none";
+
+    await new Promise((resolve) => {
+      const done = () => {
+        video.removeEventListener("ended", onEnd);
+        video.removeEventListener("error", onErr);
+        resolve();
+      };
+      const onEnd = () => done();
+      const onErr = () => done();
+      video.addEventListener("ended", onEnd);
+      video.addEventListener("error", onErr);
+      video.play().catch(() => done());
+    });
+
+    video.remove();
+    if (splashImg instanceof HTMLElement) splashImg.style.display = "";
+    finish(true);
+  } catch {
+    if (finished) return;
+    cleanupUrls(videoPlayUrl);
+    videoPlayUrl = "";
+    if (statusEl) statusEl.textContent = "Kunde inte spela startfilm. Fortsätter till appen.";
+    setBootProgressDeterminate(fillEl, barEl, 0);
+    await new Promise((r) => setTimeout(r, 900));
+    finish(true);
+  }
+}
+
+let deferredPwaInstallPrompt = null;
+
+function isStandaloneDisplayMode() {
+  try {
+    if (window.matchMedia("(display-mode: standalone)").matches) return true;
+  } catch {
+    /* ignore */
+  }
+  return Boolean(window.navigator.standalone);
+}
+
+function syncPwaInstallUi() {
+  const settingsBtn = document.getElementById("pwaInstallFromSettingsBtn");
+  const note = document.getElementById("pwaInstalledNote");
+  const standalone = isStandaloneDisplayMode();
+  if (settingsBtn) {
+    settingsBtn.hidden = standalone || !deferredPwaInstallPrompt;
+  }
+  if (note) {
+    note.hidden = !standalone;
+  }
+}
+
+function initPwaInstallListeners() {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPwaInstallPrompt = e;
+    syncPwaInstallUi();
+    queueMicrotask(() => maybeShowPwaInstallBanner());
+  });
+  window.addEventListener("appinstalled", () => {
+    deferredPwaInstallPrompt = null;
+    const b = document.getElementById("pwaInstallBanner");
+    if (b) b.hidden = true;
+    syncPwaInstallUi();
+  });
+
+  document.getElementById("pwaInstallFromSettingsBtn")?.addEventListener("click", async () => {
+    const ev = deferredPwaInstallPrompt;
+    if (!ev || typeof ev.prompt !== "function") return;
+    ev.prompt();
+    try {
+      await ev.userChoice;
+    } catch {
+      /* ignore */
+    }
+    deferredPwaInstallPrompt = null;
+    syncPwaInstallUi();
+  });
+
+  document.getElementById("pwaInstallBannerBtn")?.addEventListener("click", async () => {
+    const ev = deferredPwaInstallPrompt;
+    if (!ev || typeof ev.prompt !== "function") return;
+    ev.prompt();
+    try {
+      await ev.userChoice;
+    } catch {
+      /* ignore */
+    }
+    const b = document.getElementById("pwaInstallBanner");
+    if (b) b.hidden = true;
+    deferredPwaInstallPrompt = null;
+    syncPwaInstallUi();
+  });
+
+  document.getElementById("pwaInstallBannerDismiss")?.addEventListener("click", () => {
+    try {
+      localStorage.setItem(PWA_BANNER_DISMISSED_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    const b = document.getElementById("pwaInstallBanner");
+    if (b) b.hidden = true;
+  });
+}
+
+function maybeShowPwaInstallBanner() {
+  if (isStandaloneDisplayMode() || !deferredPwaInstallPrompt) return;
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem(PWA_BANNER_DISMISSED_KEY) === "1";
+  } catch {
+    /* ignore */
+  }
+  if (dismissed) return;
+  const b = document.getElementById("pwaInstallBanner");
+  if (b) b.hidden = false;
+}
+
+async function applyThemePackFromSettingsInputs() {
+  const note = document.getElementById("themePackNote");
+  const zipInp = document.getElementById("themePackZipInput");
+  const splashInp = document.getElementById("themeSplashInput");
+  const introInp = document.getElementById("themeIntroInput");
+  const TA = globalThis.BjorkThemeAssets;
+  const JSZipCtor = globalThis.JSZip;
+  if (!TA) {
+    if (note) note.textContent = "Temalagring otillgänglig i den här webbläsaren.";
+    return;
+  }
+  const out = /** @type {Record<string, Blob>} */ ({});
+  const zipFile = zipInp?.files && zipInp.files[0];
+  if (zipFile && JSZipCtor) {
+    try {
+      const buf = await zipFile.arrayBuffer();
+      const zip = await JSZipCtor.loadAsync(buf);
+      const names = Object.keys(zip.files);
+      for (const name of names) {
+        const entry = zip.files[name];
+        if (!entry || entry.dir) continue;
+        const key = zipEntryToThemeAssetKey(name);
+        if (!key) continue;
+        const blob = await entry.async("blob");
+        if (blob && blob.size > 0) out[key] = blob;
+      }
+    } catch (e) {
+      if (note) note.textContent = `Kunde inte läsa ZIP: ${e?.message || e}`;
+      return;
+    }
+  } else if (zipFile && !JSZipCtor) {
+    if (note) note.textContent = "ZIP-stöd saknas. Ladda om sidan och försök igen.";
+    return;
+  }
+  const sp = splashInp?.files && splashInp.files[0];
+  if (sp && sp.size > 0) out.splashPng = sp;
+  const intro = introInp?.files && introInp.files[0];
+  if (intro && intro.size > 0) out.introMp4 = intro;
+
+  if (Object.keys(out).length === 0) {
+    if (note) note.textContent = "Välj minst en fil eller ett ZIP-arkiv.";
+    return;
+  }
+  try {
+    await TA.putMany(out);
+  } catch (e) {
+    if (note) note.textContent = `Kunde inte spara: ${e?.message || e}`;
+    return;
+  }
+  if (note)
+    note.textContent =
+      "Sparat på enheten. Webbläsarens flik-ikon uppdateras direkt; vid nästa appstart används nya startbild/film.";
+  await applyThemeToDocumentIcons();
+  if (zipInp) zipInp.value = "";
+  if (splashInp) splashInp.value = "";
+  if (introInp) introInp.value = "";
+}
+
+async function resetThemePackToDefault() {
+  const note = document.getElementById("themePackNote");
+  const TA = globalThis.BjorkThemeAssets;
+  if (!TA) return;
+  try {
+    await TA.clearAll();
+  } catch (e) {
+    if (note) note.textContent = `Kunde inte rensa: ${e?.message || e}`;
+    return;
+  }
+  if (note) note.textContent = "Standard återställd. Ladda om sidan om ikoner inte uppdateras.";
+  await applyThemeToDocumentIcons();
+  const zipInp = document.getElementById("themePackZipInput");
+  const splashInp = document.getElementById("themeSplashInput");
+  const introInp = document.getElementById("themeIntroInput");
+  if (zipInp) zipInp.value = "";
+  if (splashInp) splashInp.value = "";
+  if (introInp) introInp.value = "";
+}
+
 /** Bottennav: diskret “vilande” skugga överst på sidan, tydligare när dokumentet skrollats. */
 function initBottomNavScrollElevation() {
   const nav = document.querySelector(".bottom-nav");
@@ -14593,7 +15029,12 @@ async function initRoot() {
     showDebugToast(`Promise-fel: ${ev?.reason?.message || ev?.reason || ev}`);
   });
 
+  initPwaInstallListeners();
+  void registerServiceWorker();
+
   try {
+    await runStartupSequence();
+    await applyThemeToDocumentIcons();
     await initVaultBootstrap();
     applyTheme();
     initSystemThemeListener();
@@ -14617,7 +15058,8 @@ async function initRoot() {
     initBottomNavScrollElevation();
     initActions();
     updateOnboardingVisibility();
-    registerServiceWorker();
+    syncPwaInstallUi();
+    setTimeout(() => maybeShowPwaInstallBanner(), 1800);
   } catch (e) {
     console.error("Init-fel", e);
     showDebugToast(`Init-fel: ${e?.message || e}`);

@@ -1,7 +1,7 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v27";
+const CACHE_NAME = "bjorklunds-budget-v28";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
@@ -9,8 +9,17 @@ const ASSETS_TO_CACHE = [
   "./styles.css",
   "./vault.js",
   "./app.js",
+  "./theme-assets.js",
   "./vendor/chart.umd.min.js",
+  "./vendor/jszip.min.js",
   "./manifest.webmanifest",
+  "./media/bjorklunds_budget_start.png",
+  "./icons/favicon-32.png",
+  "./icons/apple-touch-icon.png",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./icons/icon-maskable-192.png",
+  "./icons/icon-maskable-512.png",
   "./icons/calendar-mask.svg",
   "./icons/calendar-outline.svg",
   "./icons/bas-analys.svg",

@@ -6771,8 +6771,202 @@ body.app-bottom-sheet-open {
   .date-sheet,
   .period-sheet,
   .date-sheet-backdrop,
-  .period-sheet-backdrop {
+  .period-sheet-backdrop,
+  .app-boot-progress--indeterminate .app-boot-progress__fill {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* —— Tillgänglighet: dold etikett —— */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* —— Startskärm + nedladdningsförlopp —— */
+.app-boot-screen {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  z-index: 25000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  padding-top: calc(var(--space-5) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
+  background: var(--bg);
+  overflow: auto;
+}
+
+.app-boot-screen__inner {
+  width: 100%;
+  max-width: min(100%, 22rem);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+}
+
+.app-boot-screen__title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.2rem, 4.5vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--text);
+}
+
+.app-boot-screen__art {
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  background: var(--card);
+}
+
+.app-boot-screen__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.app-boot-screen__video {
+  display: block;
+  width: 100%;
+  max-height: min(52vh, 420px);
+  border-radius: var(--radius-card);
+  object-fit: cover;
+  background: #000;
+}
+
+.app-boot-screen__progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.app-boot-progress {
+  --app-boot-progress-h: 10px;
+  width: 100%;
+  height: var(--app-boot-progress-h);
+  border-radius: calc(var(--app-boot-progress-h) / 2);
+  background: color-mix(in srgb, var(--border) 55%, var(--card));
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.app-boot-progress__fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 88%, #0a1f0f),
+    var(--primary)
+  );
+  transition: width 0.22s var(--motion-ease);
+}
+
+.app-boot-progress--indeterminate .app-boot-progress__fill {
+  width: 42%;
+  transition: none;
+  animation: app-boot-progress-indet 1.05s var(--motion-ease) infinite;
+}
+
+@keyframes app-boot-progress-indet {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.app-boot-screen__status {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+}
+
+.app-boot-screen__skip {
+  align-self: center;
+  min-width: min(100%, 12rem);
+}
+
+/* —— PWA-installationsbanner —— */
+.pwa-install-banner {
+  box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  z-index: 26;
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  margin: 0 var(--space-3);
+  box-shadow: var(--shadow-lg);
+}
+
+html[data-theme="dark"] .pwa-install-banner {
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.pwa-install-banner__text {
+  margin: 0 0 var(--space-3);
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text);
+  text-align: center;
+}
+
+.pwa-install-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+
+.pwa-install-banner__install,
+.pwa-install-banner__dismiss {
+  min-height: 44px;
+  flex: 1 1 8rem;
+  max-width: 100%;
+}
+
+.settings-pwa-card__lead {
+  margin-top: 0;
+}
+
+.settings-pwa-install-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.settings-pwa-installed-note {
+  margin: 0;
+}
+
+.settings-theme-pack-grid .settings-theme-file-input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.settings-theme-pack-actions {
+  margin-top: var(--space-2);
 }
