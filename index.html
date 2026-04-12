@@ -1891,8 +1891,9 @@
 
         <!-- SETTINGS -->
         <section class="view settings-page" data-view="settings">
-          <div class="view-header">
+          <div class="view-header view-header--settings">
             <h2>Inställningar</h2>
+            <a href="#/help" class="settings-help-link">Hjälp</a>
           </div>
 
           <div class="table-card settings-theme-card">
@@ -1981,9 +1982,8 @@
                   Fråga om backup var (dagar)
                   <input id="backupIntervalDays" type="number" inputmode="numeric" min="1" step="1" />
                 </label>
-                <p class="note backup-filename-note">
-                  Exportfilen heter alltid <code class="backup-filename-code">bjorklunds_budget_{YYYY}-{MM}.json</code> (krypterad).
-                  Du kan byta namn i filhanteraren efter nedladdning om du vill.
+                <p class="note backup-export-filename-hint">
+                  Filnamn: <code class="backup-filename-code">bjorklunds_budget.json</code>
                 </p>
               </div>
 
@@ -2009,38 +2009,48 @@
                     <span id="backupRestoreFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
                   </div>
                 </div>
-                <label class="field">
-                  Lösenfras för backup-filen
-                  <input id="backupImportPassphrase" class="settings-password-input" type="password" autocomplete="off" />
-                  <span class="field-help">
-                    Samma lösenfras som när filen exporterades. Efter lyckad import fortsätter du utan ny inloggning.
-                  </span>
-                </label>
+                <p class="note backup-restore-hint">
+                  Välj fil och tryck <strong>Återställ från fil</strong>. Du anger lösenfras i nästa steg. Efter lyckad import
+                  fortsätter du utan ny inloggning.
+                </p>
                 <div class="actions-row settings-restore-row">
                   <button class="danger" id="restoreBtn" type="button">Återställ från fil</button>
                 </div>
-                <div class="note" id="backupRestoreNote"></div>
-              </div>
-            </div>
-
-            <div class="table-card">
-              <div class="table-title">Lokal kryptering</div>
-              <div class="note">
-                Budgeten lagras krypterat i IndexedDB på enheten. Lösenfrasen finns bara i minnet medan appen är upplåst. Vid
-                15 minuters inaktivitet låses appen och sidan laddas om. Glömd lösenfras kan inte återställas utan en fungerande
-                krypterad backup.
+                <div
+                  class="bb-error-summary settings-backup-error-summary"
+                  id="backupRestoreErrorSummary"
+                  hidden
+                  role="alert"
+                  aria-live="polite"
+                ></div>
+                <p class="note backup-restore-success-note" id="backupRestoreNote" hidden></p>
               </div>
             </div>
           </div>
+        </section>
 
-          <div class="table-card settings-save-card">
-            <div class="table-title">Spara ändringar</div>
-            <p class="note settings-save-card__hint">
-              Gäller utseende, löneperiod, matplanering och värden för backup ovan — inte själva budgetposterna.
+        <section class="view help-page" data-view="help">
+          <div class="view-header view-header--help">
+            <h2>Hjälp</h2>
+            <a href="#/settings" class="settings-help-link">Inställningar</a>
+          </div>
+
+          <div class="table-card help-card">
+            <div class="table-title">Lokal kryptering</div>
+            <p class="note help-card__text">
+              Budgeten lagras krypterat i IndexedDB på enheten. Lösenfrasen finns bara i minnet medan appen är upplåst. Vid
+              15 minuters inaktivitet låses appen och sidan laddas om. Glömd lösenfras kan inte återställas utan en fungerande
+              krypterad backup.
             </p>
-            <div class="settings-save-card__actions">
-              <button class="primary" id="saveSettingsBtn" type="button">Spara inställningar</button>
-            </div>
+          </div>
+
+          <div class="table-card help-card">
+            <div class="table-title">Backup och återställning</div>
+            <p class="note help-card__text">
+              Exportera en krypterad JSON-fil under <strong>Inställningar</strong> för att kunna läsa in budgeten på en annan
+              enhet eller efter ominstallation. Import ersätter all data i appen på den här enheten — se till att du har rätt fil
+              och lösenfras.
+            </p>
           </div>
         </section>
       </div>
@@ -2518,6 +2528,48 @@
       </div>
       <div class="date-sheet-body">
         <div id="listPickerOptions" class="list-picker-options" role="listbox"></div>
+      </div>
+    </div>
+
+    <div class="period-sheet-backdrop" id="backupImportSheetBackdrop" hidden aria-hidden="true"></div>
+    <div
+      class="period-sheet backup-import-sheet"
+      id="backupImportSheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="backupImportSheetTitle"
+      hidden
+      aria-hidden="true"
+    >
+      <div class="date-sheet-handle bottom-sheet-drag" id="backupImportSheetHandle" aria-hidden="true"></div>
+      <div class="date-sheet-chrome period-sheet-chrome--simple">
+        <div class="date-sheet-title-wrap">
+          <h2 class="date-sheet-title" id="backupImportSheetTitle" tabindex="-1">Lösenfras för backup</h2>
+        </div>
+      </div>
+      <div class="date-sheet-body backup-import-sheet-body">
+        <label class="field">
+          <span>Lösenfras</span>
+          <input
+            id="backupImportSheetPassphrase"
+            type="password"
+            class="settings-password-input"
+            autocomplete="off"
+            aria-describedby="backupImportSheetHint"
+          />
+        </label>
+        <p class="note backup-import-sheet-hint" id="backupImportSheetHint">Samma lösenfras som när filen exporterades.</p>
+        <div
+          class="bb-error-summary backup-import-sheet-error"
+          id="backupImportSheetErrorSummary"
+          hidden
+          role="alert"
+          aria-live="polite"
+        ></div>
+        <div class="backup-import-sheet-actions">
+          <button type="button" class="primary backup-import-sheet-primary" id="backupImportSheetConfirmBtn">Importera</button>
+          <button type="button" class="secondary backup-import-sheet-cancel" id="backupImportSheetCancelBtn">Avbryt</button>
+        </div>
       </div>
     </div>
 

@@ -14,7 +14,7 @@ const ANALYSIS_MSG_EMPTY_YEAR =
 const ANALYSIS_MSG_EMPTY_PERIOD =
   "Det saknas data för att analysera löneperiod. Lägg till intäkter och utgifter först";
 /** Fast filnamn vid krypterad export (användaren kan döpa om filen lokalt). */
-const BACKUP_EXPORT_FILENAME_PATTERN = "bjorklunds_budget_{YYYY}-{MM}.json";
+const BACKUP_EXPORT_FILENAME = "bjorklunds_budget.json";
 const nowMs = () => Date.now();
 const pad2 = (n) => String(n).padStart(2, "0");
 const DEBUG = true;
@@ -590,6 +590,13 @@ let periodSheetKeydownHandler = null;
 let periodSheetPrevFocusEl = null;
 
 let listPickerOpen = false;
+
+let backupImportSheetOpen = false;
+let backupImportSheetClosing = false;
+let backupImportSheetKeydownHandler = null;
+let backupImportSheetPrevFocusEl = null;
+/** @type {object | null} */
+let backupImportPendingEnvelope = null;
 let listPickerClosing = false;
 let listPickerKeydownHandler = null;
 /** Fokushållare för att undvika aria-hidden-varning vid stängning. */
@@ -1648,7 +1655,8 @@ function renderDateSheetMonth() {
 }
 
 function openDateSheet(inputEl) {
-  if (dateSheetOpen || periodSheetOpen || !inputEl || inputEl.type !== "date") return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen || !inputEl || inputEl.type !== "date")
+    return;
   const { backdrop, sheet, title, grid, monthYearBtn } = getDateSheetEls();
   if (!backdrop || !sheet) return;
 
@@ -1958,7 +1966,7 @@ function commitPeriodSheetAndClose() {
 }
 
 function openFoodPreviewPeriodSheet() {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const ys = document.getElementById("foodPreviewYear");
   const ms = document.getElementById("foodPreviewMonth");
   const { backdrop, sheet } = getPeriodSheetEls();
@@ -1998,7 +2006,7 @@ function openFoodPreviewPeriodSheet() {
 }
 
 function openTaggedListPeriodSheet(cat) {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const C = TAGGED_CATEGORY_CONFIG[cat];
   if (!C) return;
   const ys = document.getElementById(C.ids.listYear);
@@ -2050,7 +2058,7 @@ function openTaggedListPeriodSheet(cat) {
 }
 
 function openIncomeTaggedListPeriodSheet(cat) {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
   if (!C) return;
   const ys = document.getElementById(C.ids.listYear);
@@ -2102,7 +2110,7 @@ function openIncomeTaggedListPeriodSheet(cat) {
 }
 
 function openExpenseFilterPeriodSheet() {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const ys = document.getElementById("expenseYearFilter");
   const ms = document.getElementById("expenseMonthFilter");
   const { backdrop, sheet } = getPeriodSheetEls();
@@ -2137,7 +2145,7 @@ function openExpenseFilterPeriodSheet() {
 }
 
 function openIncomeFilterPeriodSheet() {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const ys = document.getElementById("incomeYearFilter");
   const ms = document.getElementById("incomeMonthFilter");
   const { backdrop, sheet } = getPeriodSheetEls();
@@ -2321,8 +2329,136 @@ function closeListPickerAnimated() {
   backdrop?.classList.remove("period-sheet-backdrop--visible");
 }
 
+function getBackupImportSheetEls() {
+  return {
+    backdrop: document.getElementById("backupImportSheetBackdrop"),
+    sheet: document.getElementById("backupImportSheet"),
+    handle: document.getElementById("backupImportSheetHandle"),
+    pass: document.getElementById("backupImportSheetPassphrase"),
+    err: document.getElementById("backupImportSheetErrorSummary"),
+    confirmBtn: document.getElementById("backupImportSheetConfirmBtn"),
+    cancelBtn: document.getElementById("backupImportSheetCancelBtn")
+  };
+}
+
+function finalizeBackupImportSheetClose() {
+  const { backdrop, sheet } = getBackupImportSheetEls();
+  const active = document.activeElement;
+  if (backdrop) {
+    if (active instanceof Node && backdrop.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
+    backdrop.hidden = true;
+    backdrop.classList.remove("period-sheet-backdrop--visible");
+    backdrop.setAttribute("aria-hidden", "true");
+  }
+  if (sheet) {
+    if (active instanceof Node && sheet.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
+    sheet.hidden = true;
+    sheet.classList.remove("period-sheet--visible");
+    sheet.style.removeProperty("transform");
+    sheet.style.removeProperty("transition");
+    sheet.setAttribute("aria-hidden", "true");
+  }
+  if (backupImportSheetKeydownHandler) {
+    document.removeEventListener("keydown", backupImportSheetKeydownHandler, true);
+    backupImportSheetKeydownHandler = null;
+  }
+  popAppBottomSheetScrollLock();
+  backupImportSheetOpen = false;
+  backupImportSheetClosing = false;
+  backupImportPendingEnvelope = null;
+  const pass = getBackupImportSheetEls().pass;
+  if (pass) pass.value = "";
+  hideErrorSummaryByEl(getBackupImportSheetEls().err);
+  queueMicrotask(() => {
+    if (backupImportSheetPrevFocusEl && typeof backupImportSheetPrevFocusEl.focus === "function") {
+      try {
+        backupImportSheetPrevFocusEl.focus({ preventScroll: true });
+      } catch {
+        try {
+          backupImportSheetPrevFocusEl.focus();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    backupImportSheetPrevFocusEl = null;
+  });
+}
+
+function closeBackupImportSheetAnimated() {
+  if (!backupImportSheetOpen) return;
+  if (backupImportSheetClosing) return;
+  backupImportSheetClosing = true;
+  let didFinish = false;
+  const { backdrop, sheet } = getBackupImportSheetEls();
+  const finish = () => {
+    if (didFinish) return;
+    didFinish = true;
+    backupImportSheetClosing = false;
+    finalizeBackupImportSheetClose();
+  };
+  if (prefersReducedMotionUI()) {
+    sheet?.classList.remove("period-sheet--visible");
+    backdrop?.classList.remove("period-sheet-backdrop--visible");
+    finish();
+    return;
+  }
+  const sheetEl = sheet;
+  const onEnd = (e) => {
+    if (e.target !== sheetEl || e.propertyName !== "transform") return;
+    sheetEl.removeEventListener("transitionend", onEnd);
+    clearTimeout(tid);
+    finish();
+  };
+  const tid = setTimeout(() => {
+    sheetEl?.removeEventListener("transitionend", onEnd);
+    finish();
+  }, 420);
+  sheetEl?.addEventListener("transitionend", onEnd);
+  sheet?.classList.remove("period-sheet--visible");
+  backdrop?.classList.remove("period-sheet-backdrop--visible");
+}
+
+function openBackupImportSheet(envelope) {
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
+  const { backdrop, sheet, pass, err, confirmBtn } = getBackupImportSheetEls();
+  if (!backdrop || !sheet || !envelope) return;
+  backupImportSheetPrevFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  backupImportPendingEnvelope = envelope;
+  if (pass) pass.value = "";
+  hideErrorSummaryByEl(err);
+  if (confirmBtn) confirmBtn.disabled = false;
+
+  backdrop.hidden = false;
+  backdrop.setAttribute("aria-hidden", "false");
+  sheet.hidden = false;
+  sheet.setAttribute("aria-hidden", "false");
+  backdrop.classList.remove("period-sheet-backdrop--visible");
+  sheet.classList.remove("period-sheet--visible");
+  pushAppBottomSheetScrollLock();
+  backupImportSheetOpen = true;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      backdrop.classList.add("period-sheet-backdrop--visible");
+      sheet.classList.add("period-sheet--visible");
+      pass?.focus();
+    });
+  });
+  backupImportSheetKeydownHandler = (ev) => {
+    if (ev.key === "Escape") {
+      ev.preventDefault();
+      closeBackupImportSheetAnimated();
+    }
+  };
+  document.addEventListener("keydown", backupImportSheetKeydownHandler, true);
+}
+
 function openListPickerSheet({ title, options, currentValue, onSelect }) {
-  if (dateSheetOpen || periodSheetOpen || listPickerOpen) return;
+  if (dateSheetOpen || periodSheetOpen || listPickerOpen || backupImportSheetOpen) return;
   const { backdrop, sheet, title: titleEl, options: host, handle } = getListPickerEls();
   if (!backdrop || !sheet || !titleEl || !host) return;
   listPickerPrevFocusEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -2428,6 +2564,14 @@ function initOverviewPeriodSheet() {
   if (lb && ls && lh) {
     lb.addEventListener("click", () => closeListPickerAnimated());
     attachBottomSheetDragDismiss(lh, ls, () => closeListPickerAnimated());
+  }
+
+  const bib = document.getElementById("backupImportSheetBackdrop");
+  const bis = document.getElementById("backupImportSheet");
+  const bih = document.getElementById("backupImportSheetHandle");
+  if (bib && bis && bih) {
+    bib.addEventListener("click", () => closeBackupImportSheetAnimated());
+    attachBottomSheetDragDismiss(bih, bis, () => closeBackupImportSheetAnimated());
   }
 
   document.getElementById("themeModeOpenBtn")?.addEventListener("click", () => {
@@ -6378,7 +6522,7 @@ function initRouting() {
   };
 
   const onChange = () => {
-    const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings"]);
+    const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "help"]);
     const parsed = parseRouteFromHash();
     let route = parsed.route;
     if (!allowed.has(route)) route = "analysis";
@@ -10697,6 +10841,40 @@ function renderSettingsPage() {
   syncFoodWeekdaySummaryLabel();
 }
 
+let settingsAutosaveWired = false;
+function wireSettingsAutosaveOnce() {
+  if (settingsAutosaveWired) return;
+  settingsAutosaveWired = true;
+
+  const persist = () => {
+    if (!state) return;
+    const n = document.getElementById("backupIntervalDays");
+    if (n) state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(n.value)));
+    const fd = document.getElementById("foodPlanningWeekday");
+    if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
+    const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
+    const salaryFixedDayInp = document.getElementById("salaryPeriodFixedDay");
+    const salaryStartMo = document.getElementById("salaryYearStartMonth");
+    if (salaryFixedCh) state.settings.salaryPeriodUseFixedDay = salaryFixedCh.checked;
+    if (salaryFixedDayInp) {
+      state.settings.salaryPeriodFixedDay = Math.max(1, Math.min(31, Math.floor(asNumber(salaryFixedDayInp.value)) || 25));
+    }
+    if (salaryStartMo) {
+      state.settings.salaryYearStartMonth = Math.max(1, Math.min(12, Math.floor(asNumber(salaryStartMo.value)) || 1));
+    }
+    saveState();
+    renderAnalysisViewsIfActive();
+  };
+
+  document.getElementById("backupIntervalDays")?.addEventListener("change", persist);
+  document.getElementById("backupIntervalDays")?.addEventListener("input", persist);
+  document.getElementById("foodPlanningWeekday")?.addEventListener("change", persist);
+  document.getElementById("salaryPeriodUseFixedDay")?.addEventListener("change", persist);
+  document.getElementById("salaryPeriodFixedDay")?.addEventListener("change", persist);
+  document.getElementById("salaryPeriodFixedDay")?.addEventListener("input", persist);
+  document.getElementById("salaryYearStartMonth")?.addEventListener("change", persist);
+}
+
 function renderRoute(route, opts = {}) {
   switch (route) {
     case "analysis": {
@@ -10745,6 +10923,9 @@ function renderRoute(route, opts = {}) {
       renderSettingsPage();
       break;
     }
+    case "help": {
+      break;
+    }
     default:
       renderAnalysisPage();
   }
@@ -10753,7 +10934,7 @@ function renderRoute(route, opts = {}) {
 /** Efter import: vault-session är redan upplåst — uppdatera vy utan reload. */
 function reapplyCurrentRouteAfterStateImport() {
   applyTheme();
-  const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings"]);
+  const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "help"]);
   const parsed = parseRouteFromHash();
   let route = parsed.route;
   if (!allowed.has(route)) route = "analysis";
@@ -13213,7 +13394,7 @@ function initBudgetEditorModalDismiss() {
     "keydown",
     (e) => {
       if (e.key !== "Escape") return;
-      if (periodSheetOpen || listPickerOpen || dateSheetOpen) return;
+      if (periodSheetOpen || listPickerOpen || dateSheetOpen || backupImportSheetOpen) return;
       const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
       const foodPanelOpen =
         foodOverlay &&
@@ -13710,6 +13891,7 @@ function initOnboardingGate() {
 
 function initActions() {
   initOnboardingGate();
+  wireSettingsAutosaveOnce();
   // CAR
   const wireTaggedCategoryActions = (cat) => {
     const C = TAGGED_CATEGORY_CONFIG[cat];
@@ -14149,25 +14331,6 @@ function initActions() {
     renderAnalysisViewsIfActive();
   };
 
-  document.getElementById("saveSettingsBtn").addEventListener("click", () => {
-    state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(document.getElementById("backupIntervalDays").value)));
-    const fd = document.getElementById("foodPlanningWeekday");
-    if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
-    const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
-    const salaryFixedDayInp = document.getElementById("salaryPeriodFixedDay");
-    const salaryStartMo = document.getElementById("salaryYearStartMonth");
-    if (salaryFixedCh) state.settings.salaryPeriodUseFixedDay = salaryFixedCh.checked;
-    if (salaryFixedDayInp) {
-      state.settings.salaryPeriodFixedDay = Math.max(1, Math.min(31, Math.floor(asNumber(salaryFixedDayInp.value)) || 25));
-    }
-    if (salaryStartMo) {
-      state.settings.salaryYearStartMonth = Math.max(1, Math.min(12, Math.floor(asNumber(salaryStartMo.value)) || 1));
-    }
-    saveState();
-    document.getElementById("backupRestoreNote").textContent = "Inställningar sparade.";
-    renderAnalysisViewsIfActive();
-  });
-
   // Backup modal
   const backdrop = document.getElementById("backupModalBackdrop");
   const modal = document.getElementById("backupModal");
@@ -14199,10 +14362,10 @@ function initActions() {
   });
   exportBtn.addEventListener("click", () => {
     hideModal();
-    void doExportJson("backup");
+    void doExportJson();
   });
 
-  document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson("manual"));
+  document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson());
 
   function syncBackupRestoreFileLabel() {
     const input = document.getElementById("backupRestoreInput");
@@ -14214,69 +14377,125 @@ function initActions() {
   document.getElementById("backupRestorePickBtn")?.addEventListener("click", () => {
     document.getElementById("backupRestoreInput")?.click();
   });
-  document.getElementById("backupRestoreInput")?.addEventListener("change", syncBackupRestoreFileLabel);
+  document.getElementById("backupRestoreInput")?.addEventListener("change", () => {
+    syncBackupRestoreFileLabel();
+    hideErrorSummaryByEl(document.getElementById("backupRestoreErrorSummary"));
+    const n = document.getElementById("backupRestoreNote");
+    if (n) {
+      n.textContent = "";
+      n.hidden = true;
+    }
+  });
 
-  // Restore import (krypterad vault-envelope)
-  document.getElementById("restoreBtn").addEventListener("click", async () => {
-    const note = document.getElementById("backupRestoreNote");
-    const input = document.getElementById("backupRestoreInput");
-    const passInp = document.getElementById("backupImportPassphrase");
-    const file = input.files && input.files[0];
-    if (!file) {
-      note.textContent = "Välj en JSON-fil att importera.";
-      return;
-    }
-    const text = await file.text();
-    const parsed = safeParseJson(text);
-    const V = globalThis.BjorkVault;
-    if (!parsed || !V || !V.isEnvelope(parsed)) {
-      note.textContent =
-        "Filen är inte en giltig krypterad Björklunds-backup. Gamla okrypterade JSON-filer kan inte importeras.";
-      return;
-    }
+  async function runBackupImportWithPassphrase() {
+    const errEl = document.getElementById("backupImportSheetErrorSummary");
+    const passInp = document.getElementById("backupImportSheetPassphrase");
+    const confirmBtn = document.getElementById("backupImportSheetConfirmBtn");
+    const env = backupImportPendingEnvelope;
+    hideErrorSummaryByEl(errEl);
     const pass = String(passInp?.value || "").trim();
     if (!pass) {
-      note.textContent = "Ange lösenfrasen som användes när backup-filen skapades.";
+      renderErrorSummary(errEl, [{ label: "Ange lösenfrasen för backup-filen.", jumpId: "backupImportSheetPassphrase" }]);
       return;
     }
-    const r = await V.importReplaceVault(pass, parsed);
+    const V = globalThis.BjorkVault;
+    if (!V || !env) {
+      closeBackupImportSheetAnimated();
+      return;
+    }
+    if (confirmBtn) confirmBtn.disabled = true;
+    const r = await V.importReplaceVault(pass, env);
+    if (confirmBtn) confirmBtn.disabled = false;
     if (!r.ok) {
-      if (r.error === "schema") note.textContent = "Filen har oväntat innehåll efter dekryptering.";
-      else note.textContent = "Fel lösenfras eller skadad fil.";
+      if (r.error === "schema") {
+        renderErrorSummary(errEl, [
+          { label: "Filen har oväntat innehåll efter dekryptering.", jumpId: "backupImportSheetPassphrase" }
+        ]);
+      } else {
+        renderErrorSummary(errEl, [
+          {
+            label: "Fel lösenfras eller skadad fil. Kontrollera lösenfrasen och försök igen.",
+            jumpId: "backupImportSheetPassphrase"
+          }
+        ]);
+      }
       return;
     }
     state = normalizeStateShape(r.data);
-    await saveStateFlush();
-    passInp.value = "";
+    const okFlush = await saveStateFlush();
+    if (!okFlush) {
+      renderErrorSummary(errEl, [{ label: "Kunde inte spara efter import. Försök igen.", jumpId: "backupImportSheetPassphrase" }]);
+      return;
+    }
+    closeBackupImportSheetAnimated();
+    const input = document.getElementById("backupRestoreInput");
     if (input) {
       input.value = "";
       syncBackupRestoreFileLabel();
     }
-    note.textContent = "Import klar. Du kan fortsätta arbeta direkt.";
+    hideErrorSummaryByEl(document.getElementById("backupRestoreErrorSummary"));
+    const note = document.getElementById("backupRestoreNote");
+    if (note) {
+      note.textContent = "Import klar. Du kan fortsätta arbeta direkt.";
+      note.hidden = false;
+    }
     showDebugToast("Backup importerad.");
     reapplyCurrentRouteAfterStateImport();
-  });
-
-  function getFilenameForBackup(kind) {
-    const pattern = BACKUP_EXPORT_FILENAME_PATTERN;
-    const d = new Date();
-    const y = d.getFullYear();
-    const mo = pad2(d.getMonth() + 1);
-    const fn = pattern
-      .replaceAll("{YYYY}", String(y))
-      .replaceAll("{MM}", mo)
-      .replaceAll("{KIND}", kind);
-    return fn;
   }
 
-  async function doExportJson(kind) {
+  document.getElementById("backupImportSheetConfirmBtn")?.addEventListener("click", () => void runBackupImportWithPassphrase());
+  document.getElementById("backupImportSheetCancelBtn")?.addEventListener("click", () => closeBackupImportSheetAnimated());
+  document.getElementById("backupImportSheetPassphrase")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void runBackupImportWithPassphrase();
+    }
+  });
+
+  // Restore import (krypterad vault-envelope): filval på sidan, lösenfras i bottom sheet
+  document.getElementById("restoreBtn").addEventListener("click", async () => {
+    const sumEl = document.getElementById("backupRestoreErrorSummary");
+    const note = document.getElementById("backupRestoreNote");
+    hideErrorSummaryByEl(sumEl);
+    if (note) {
+      note.textContent = "";
+      note.hidden = true;
+    }
+    const input = document.getElementById("backupRestoreInput");
+    const file = input?.files && input.files[0];
+    if (!file) {
+      renderErrorSummary(sumEl, [{ label: "Välj en JSON-fil att importera.", jumpId: "backupRestorePickBtn" }]);
+      return;
+    }
+    let text;
+    try {
+      text = await file.text();
+    } catch {
+      renderErrorSummary(sumEl, [{ label: "Kunde inte läsa filen.", jumpId: "backupRestorePickBtn" }]);
+      return;
+    }
+    const parsed = safeParseJson(text);
+    const V = globalThis.BjorkVault;
+    if (!parsed || !V || !V.isEnvelope(parsed)) {
+      renderErrorSummary(sumEl, [
+        {
+          label: "Filen är inte en giltig krypterad Björklunds-backup. Gamla okrypterade JSON-filer kan inte importeras.",
+          jumpId: "backupRestorePickBtn"
+        }
+      ]);
+      return;
+    }
+    openBackupImportSheet(parsed);
+  });
+
+  async function doExportJson() {
     const V = globalThis.BjorkVault;
     const env = V ? await V.exportEnvelopeJson(state) : null;
     if (!env) {
       showDebugToast("Kunde inte exportera (session inte upplåst).");
       return;
     }
-    const filename = getFilenameForBackup(kind);
+    const filename = BACKUP_EXPORT_FILENAME;
     const blob = new Blob([JSON.stringify(env)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

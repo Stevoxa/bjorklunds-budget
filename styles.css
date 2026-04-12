@@ -5692,11 +5692,29 @@ button.stretch {
   min-width: min(100%, 220px);
 }
 
-.backup-filename-note {
-  margin: 0;
+.backup-export-filename-hint {
+  margin: var(--space-2) 0 0;
   font-size: 0.82rem;
   line-height: 1.45;
   color: var(--muted);
+}
+
+.backup-restore-hint {
+  margin: var(--space-4) 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.backup-restore-success-note {
+  margin: var(--space-3) 0 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.backup-restore-success-note:not([hidden]) {
+  display: block;
 }
 
 .backup-filename-code {
@@ -5846,32 +5864,71 @@ html[data-theme="dark"] .settings-password-input {
   padding: 0 var(--space-4);
 }
 
-.settings-save-card {
-  margin-top: var(--space-4);
-}
-
-.settings-save-card__hint {
-  margin: 0 0 var(--space-4);
-}
-
-.settings-save-card__actions {
+.view-header--settings,
+.view-header--help {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
   gap: var(--space-3);
 }
 
-.settings-save-card__actions .primary {
-  flex: 0 1 auto;
-  min-width: min(100%, 12rem);
-  min-height: 46px;
-  padding-inline: var(--space-5);
+.settings-help-link {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+  white-space: nowrap;
 }
 
-@media (max-width: 480px) {
-  .settings-save-card__actions .primary {
-    width: 100%;
-    max-width: none;
-  }
+.settings-help-link:hover {
+  color: color-mix(in srgb, var(--primary) 88%, var(--text));
+}
+
+.settings-help-link:focus-visible {
+  outline: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.settings-backup-error-summary:not([hidden]) {
+  margin-top: var(--space-4);
+}
+
+.help-page .help-card__text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.help-page .help-card + .help-card {
+  margin-top: var(--space-4);
+}
+
+.backup-import-sheet .backup-import-sheet-body {
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+}
+
+.backup-import-sheet-hint {
+  margin: var(--space-2) 0 0;
+}
+
+.backup-import-sheet-error:not([hidden]) {
+  margin-top: var(--space-4);
+}
+
+.backup-import-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.backup-import-sheet-primary,
+.backup-import-sheet-cancel {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
 }
 
 .settings-grid .field-help {
