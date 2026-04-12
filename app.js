@@ -268,10 +268,27 @@ function getFoodDateInputMaxIso() {
   return `${y}-12-31`;
 }
 
+/** Kalenderår för Mat-redigering (växelvis / hushållsändring / annan kostnad). Endast detta år ska gå att välja i datumfälten. */
+function getFoodMatPlannerYearForDateInputs() {
+  const raw = ui.foodPlannerYear;
+  const y = raw == null || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(y) ? y : NaN;
+}
+
 function applyFoodOverlayDateBounds() {
-  const min = getFoodDateInputMinIso();
-  const max = getFoodDateInputMaxIso();
-  document.querySelectorAll('[data-expview="food"] input[type="date"]').forEach((inp) => {
+  const inputs = document.querySelectorAll('[data-expview="food"] input[type="date"]');
+  const editY = getFoodMatPlannerYearForDateInputs();
+  if (!Number.isFinite(editY)) {
+    inputs.forEach((inp) => {
+      inp.removeAttribute("min");
+      inp.removeAttribute("max");
+    });
+    refreshAllDateFieldRows();
+    return;
+  }
+  const min = `${editY}-01-01`;
+  const max = `${editY}-12-31`;
+  inputs.forEach((inp) => {
     inp.min = min;
     inp.max = max;
   });
