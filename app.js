@@ -9818,8 +9818,11 @@ function renderFoodYearPickerIntoMount() {
     .map((y) => {
       const budgeted = foodYearHasSavedBudget(y);
       const status = budgeted ? "Budgeterad" : "Ej budgeterad";
-        return `<button type="button" class="food-year-picker-row" data-food-pick-year="${y}">
-        <span class="food-year-picker-row__main">Matbudget för ${y} - ${status}</span>
+      return `<button type="button" class="food-year-picker-row" data-food-pick-year="${y}" aria-label="Matbudget ${y}, ${status}">
+        <span class="food-year-picker-row__text">
+          <span class="food-year-picker-row__title">Matbudget för ${y}</span>
+          <span class="food-year-picker-row__status">${escapeHtml(status)}</span>
+        </span>
         <span class="food-year-picker-row__chev" aria-hidden="true">${LIST_ROW_CHEVRON_SVG}</span>
       </button>`;
     })
