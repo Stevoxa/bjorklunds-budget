@@ -9853,7 +9853,9 @@ function renderFoodPage() {
   const plannerSection = document.getElementById("foodPlannerSection");
   const navYearPickerOnly = document.getElementById("foodMatNavYearPickerOnly");
   const navPlanner = document.getElementById("foodMatNavPlanner");
-  const planY = Number(ui.foodPlannerYear);
+  // Viktigt: Number(null) === 0 → annars visas planeraren direkt i stället för årslistan.
+  const rawPlannerY = ui.foodPlannerYear;
+  const planY = rawPlannerY == null || rawPlannerY === "" ? NaN : Number(rawPlannerY);
   const showPicker = !Number.isFinite(planY);
   if (pickerSection) pickerSection.hidden = !showPicker;
   if (plannerSection) plannerSection.hidden = showPicker;
