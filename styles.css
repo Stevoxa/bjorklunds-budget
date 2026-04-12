@@ -2780,9 +2780,14 @@ body.modal-open {
   margin-bottom: calc(26px + var(--bb-notched-panel-margin-extra, 14px));
 }
 
-/* Matkostnad översikt m.m.: samma vertikala separation som form-grid gap + legend-reserv (Hushållet ↔ hubbar) */
+/* Matkostnad översikt: direkt under #foodPlannerSection — extra luft så notchad rubrik + kant inte skär in i hubbkorten */
+.exp-overlay[data-expview="food"] #foodPlannerSection {
+  padding-bottom: var(--space-4);
+}
+
+/* Margin kollapsar inte mot padding; summan ger tydlig lucka hubbar → översikt */
 .exp-overlay[data-expview="food"] .table-card > .bb-notched-panel {
-  margin-top: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px));
+  margin-top: calc(var(--space-3) + var(--bb-notched-panel-margin-extra, 14px) + var(--space-4));
 }
 
 .food-household-card {
@@ -3011,7 +3016,6 @@ html[data-theme="dark"] .food-mat-add-period-card__icon {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  /* Luft till Matkostnad översikt: .table-card > .bb-notched-panel (mat-overlay) */
   margin-bottom: 0;
 }
 
@@ -3188,10 +3192,6 @@ button.food-year-picker-row:hover {
   display: flex;
   align-items: center;
   align-self: center;
-}
-
-.food-mat-planner-close {
-  flex-shrink: 0;
 }
 
 .food-mat-panel-back {

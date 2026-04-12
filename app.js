@@ -2107,8 +2107,8 @@ function openFoodPreviewPeriodSheet() {
   capturePeriodSheetReturnFocus();
   periodSheetKind = "foodPreview";
   const cur = currentYearMonth();
-  let y = Number(ys.value || ui.foodPreviewYear);
-  let m = Number(ms.value || ui.foodPreviewMonth);
+  let y = Number(ui.foodPreviewYear ?? ys.value);
+  let m = Number(ui.foodPreviewMonth ?? ms.value);
   if (!Number.isFinite(y)) y = cur.year;
   if (!Number.isFinite(m) || m < 1 || m > 12) m = cur.month;
   periodSheetDraftYearStr = String(y);
@@ -9894,15 +9894,35 @@ function renderFoodPage() {
   if (ui.foodPreviewMonth == null || !Number.isFinite(Number(ui.foodPreviewMonth))) {
     ui.foodPreviewMonth = planY === cur.year ? cur.month : 1;
   }
-  const previewYear = Number(previewYearSel?.value || ui.foodPreviewYear);
-  const previewMonth = Number(previewMonthSel?.value || ui.foodPreviewMonth);
+  // Förhandsvisning följer `ui`, inte gammalt <select>-värde (annars skriver t.ex. 2026 över nyss valt matår 2025).
+  let previewYear = Number(ui.foodPreviewYear);
+  let previewMonth = Number(ui.foodPreviewMonth);
+  if (!Number.isFinite(previewYear)) previewYear = planY;
+  if (!Number.isFinite(previewMonth) || previewMonth < 1 || previewMonth > 12) {
+    previewMonth = planY === cur.year ? cur.month : 1;
+  }
+  const selectableFoodYears = getSelectableAppYears();
+  if (!selectableFoodYears.includes(previewYear)) {
+    previewYear = planY;
+    ui.foodPreviewYear = planY;
+  }
   ui.foodPreviewYear = previewYear;
   ui.foodPreviewMonth = previewMonth;
   ui.expensesFoodMonth = previewMonth;
   if (previewYearSel) setYear3Options(previewYearSel, previewYear);
-  if (previewYearSel) previewYearSel.onchange = () => renderFoodPage();
+  if (previewYearSel) {
+    previewYearSel.onchange = () => {
+      ui.foodPreviewYear = Number(previewYearSel.value);
+      renderFoodPage();
+    };
+  }
   if (previewMonthSel) setMonthOptions(previewMonthSel, previewMonth);
-  if (previewMonthSel) previewMonthSel.onchange = () => renderFoodPage();
+  if (previewMonthSel) {
+    previewMonthSel.onchange = () => {
+      ui.foodPreviewMonth = Number(previewMonthSel.value);
+      renderFoodPage();
+    };
+  }
   syncFoodPreviewSummaryLabel();
   const cfg = getFoodConfigForYear(planY);
   const periodsCopy = Array.isArray(cfg.custodyPeriods)
