@@ -295,6 +295,42 @@ function applyFoodOverlayDateBounds() {
   refreshAllDateFieldRows();
 }
 
+const FOOD_OVERLAY_PICKER_INTRO =
+  "Välj vilket kalenderår du vill budgetera mat för. Varje år har egen matplan och egna veckoutgifter. När du sparar skapas en utgift per vecka för det året.";
+
+const FOOD_OVERLAY_PLANNER_INTRO =
+  "Justera hushåll, beräknad kostnad och perioder för det här året. Använd förhandsvisningen längre ner för att se veckor per månad.";
+
+/** Rubrik, ingress och returtexter: årslista vs vald matbudget vs undersidor (växelvis m.m.). */
+function syncFoodMatOverlayChrome(planY) {
+  const inPlanner = Number.isFinite(Number(planY));
+  const titleEl = document.getElementById("foodOverlayTitle");
+  const introEl = document.getElementById("foodIntroText");
+  const backPlannerBtn = document.getElementById("foodBackToYearPickerBtn");
+  const budgetLabel = inPlanner ? `Matbudget ${planY}` : "";
+
+  if (titleEl) titleEl.textContent = inPlanner ? budgetLabel : "Mat";
+  if (introEl) introEl.textContent = inPlanner ? FOOD_OVERLAY_PLANNER_INTRO : FOOD_OVERLAY_PICKER_INTRO;
+
+  if (backPlannerBtn) {
+    backPlannerBtn.textContent = "Mat";
+    backPlannerBtn.setAttribute("aria-label", "Tillbaka till Mat");
+  }
+
+  const subIds = ["foodMatBackCustody", "foodMatBackHousehold", "foodMatBackDeviation"];
+  for (const id of subIds) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    if (inPlanner) {
+      btn.textContent = budgetLabel;
+      btn.setAttribute("aria-label", `Tillbaka till ${budgetLabel}`);
+    } else {
+      btn.textContent = "Mat";
+      btn.setAttribute("aria-label", "Tillbaka till Mat");
+    }
+  }
+}
+
 function isGeneratedMatExpenseInSelectableWindow(exp) {
   if (!isMatLikeExpense(exp)) return false;
   const years = getSelectableAppYears();
@@ -9882,10 +9918,13 @@ function renderFoodPage() {
   if (navYearPickerOnly) navYearPickerOnly.hidden = !showPicker;
   if (navPlanner) navPlanner.hidden = showPicker;
   if (showPicker) {
+    syncFoodMatOverlayChrome(NaN);
     renderFoodYearPickerIntoMount();
     applyFoodOverlayDateBounds();
     return;
   }
+
+  syncFoodMatOverlayChrome(planY);
 
   const previewYearSel = document.getElementById("foodPreviewYear");
   const previewMonthSel = document.getElementById("foodPreviewMonth");
