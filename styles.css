@@ -6961,6 +6961,13 @@ html[data-theme="dark"] .pwa-install-banner {
   margin: 0;
 }
 
+.settings-pwa-replay-hint {
+  margin: var(--space-3) 0 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 .settings-theme-pack-grid .settings-theme-file-input {
   width: 100%;
   min-width: 0;

@@ -25,10 +25,10 @@
     >
       <div class="app-boot-screen__inner">
         <h1 id="appBootTitle" class="app-boot-screen__title">Björklunds budget</h1>
-        <div class="app-boot-screen__art">
+        <div id="appBootSplashArt" class="app-boot-screen__art">
           <img id="appBootSplashImg" class="app-boot-screen__img" src="media/bjorklunds_budget_start.png" alt="" />
         </div>
-        <div class="app-boot-screen__progress-wrap">
+        <div id="appBootProgressWrap" class="app-boot-screen__progress-wrap">
           <span class="visually-hidden" id="appBootProgressLabel">Laddar startfilm</span>
           <div
             id="appBootProgress"
@@ -1950,8 +1950,10 @@
             </p>
             <div class="settings-pwa-install-row">
               <button type="button" class="primary" id="pwaInstallFromSettingsBtn" hidden>Lägg till på hemskärmen</button>
+              <button type="button" class="secondary" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
               <span class="note settings-pwa-installed-note" id="pwaInstalledNote" hidden>Appen körs som installerad.</span>
             </div>
+            <p class="note settings-pwa-replay-hint">Startfilmen visas högst en gång per dag. Knappen ovan nollställer det och laddar om sidan.</p>
             <div class="form-grid narrow settings-theme-pack-grid">
               <label class="field">
                 <span>Eget ikonpaket (ZIP)</span>

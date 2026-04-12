@@ -9,6 +9,8 @@ const PWA_BANNER_DISMISSED_KEY = "bjk_pwa_banner_dismissed_v1";
 const BUILTIN_START_VIDEO_URL = "./media/bjorklunds_budget_start.mp4";
 const BUILTIN_SPLASH_URL = "./media/bjorklunds_budget_start.png";
 const THEME_INTRO_DEFAULT_CACHE = "introDefaultCache";
+/** Stillbild när startfilm redan spelats samma dag. */
+const STATIC_SPLASH_HOLD_MS = 2800;
 
 function localCalendarYmd() {
   const d = new Date();
@@ -13907,6 +13909,14 @@ function initActions() {
   wireSettingsAutosaveOnce();
   document.getElementById("themePackApplyBtn")?.addEventListener("click", () => void applyThemePackFromSettingsInputs());
   document.getElementById("themePackResetBtn")?.addEventListener("click", () => void resetThemePackToDefault());
+  document.getElementById("pwaReplayIntroBtn")?.addEventListener("click", () => {
+    try {
+      localStorage.removeItem(INTRO_LAST_PLAY_KEY);
+    } catch {
+      /* ignore */
+    }
+    location.reload();
+  });
   // CAR
   const wireTaggedCategoryActions = (cat) => {
     const C = TAGGED_CATEGORY_CONFIG[cat];
@@ -14675,34 +14685,85 @@ async function runStartupSequence() {
   const boot = document.getElementById("appBootScreen");
   if (!boot) return;
 
+  const splashArt = document.getElementById("appBootSplashArt");
+  const progressWrap = document.getElementById("appBootProgressWrap");
+  const splashImg = document.getElementById("appBootSplashImg");
+  const fillEl = document.getElementById("appBootProgressFill");
+  const barEl = document.getElementById("appBootProgress");
+  const statusEl = document.getElementById("appBootStatus");
+  const skipBtn = document.getElementById("appBootSkipBtn");
+  const TA = globalThis.BjorkThemeAssets;
+  const today = localCalendarYmd();
+
   let lastIntroDay = "";
   try {
     lastIntroDay = localStorage.getItem(INTRO_LAST_PLAY_KEY) || "";
   } catch {
     /* ignore */
   }
-  if (lastIntroDay === localCalendarYmd()) return;
 
-  const splashImg = document.getElementById("appBootSplashImg");
-  const fillEl = document.getElementById("appBootProgressFill");
-  const barEl = document.getElementById("appBootProgress");
-  const statusEl = document.getElementById("appBootStatus");
-  const skipBtn = document.getElementById("appBootSkipBtn");
-
-  const TA = globalThis.BjorkThemeAssets;
-  const splashBlob = TA ? await TA.getBlob("splashPng").catch(() => null) : null;
-  let splashObjectUrl = "";
-  if (splashBlob && splashBlob.size > 0 && splashImg instanceof HTMLImageElement) {
-    splashObjectUrl = URL.createObjectURL(splashBlob);
-    splashImg.src = splashObjectUrl;
-  } else if (splashImg instanceof HTMLImageElement) {
+  /** @returns {Promise<string>} object URL to revoke, or "" */
+  async function applySplashToImg() {
+    if (!(splashImg instanceof HTMLImageElement)) return "";
+    let blob;
+    try {
+      blob = TA ? await TA.getBlob("splashPng") : undefined;
+    } catch {
+      blob = undefined;
+    }
+    if (blob && blob.size > 0) {
+      const u = URL.createObjectURL(blob);
+      splashImg.src = u;
+      return u;
+    }
     splashImg.src = BUILTIN_SPLASH_URL;
+    return "";
   }
 
-  boot.hidden = false;
-  boot.setAttribute("aria-hidden", "false");
-  if (statusEl) statusEl.textContent = "Förbereder startfilm …";
+  function setBootParts({ showSplash, showProgress, showSkip }) {
+    boot.hidden = false;
+    boot.setAttribute("aria-hidden", "false");
+    if (splashArt instanceof HTMLElement) splashArt.hidden = !showSplash;
+    if (progressWrap instanceof HTMLElement) progressWrap.hidden = !showProgress;
+    if (skipBtn instanceof HTMLButtonElement) skipBtn.hidden = !showSkip;
+  }
 
+  async function delayOrSkip(ms) {
+    return new Promise((resolve) => {
+      let done = false;
+      const fin = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(tid);
+        skipBtn?.removeEventListener("click", onSkip);
+        resolve();
+      };
+      const tid = setTimeout(fin, ms);
+      const onSkip = () => fin();
+      skipBtn?.addEventListener("click", onSkip);
+    });
+  }
+
+  /** Redan spelat idag: bara stillbild några sekunder, sedan app. */
+  if (lastIntroDay === today) {
+    const splashRevoke = await applySplashToImg();
+    setBootParts({ showSplash: true, showProgress: false, showSkip: true });
+    if (statusEl) statusEl.textContent = "";
+    if (barEl) barEl.setAttribute("aria-busy", "false");
+    await delayOrSkip(STATIC_SPLASH_HOLD_MS);
+    if (splashRevoke) {
+      try {
+        URL.revokeObjectURL(splashRevoke);
+      } catch {
+        /* ignore */
+      }
+    }
+    boot.hidden = true;
+    boot.setAttribute("aria-hidden", "true");
+    return;
+  }
+
+  let splashObjectUrl = "";
   const controller = new AbortController();
   let finished = false;
   let videoPlayUrl = "";
@@ -14731,6 +14792,8 @@ async function runStartupSequence() {
     boot.querySelector(".app-boot-screen__video")?.remove();
     cleanupUrls(videoPlayUrl);
     videoPlayUrl = "";
+    if (splashArt instanceof HTMLElement) splashArt.hidden = false;
+    if (splashImg instanceof HTMLElement) splashImg.style.display = "";
     boot.hidden = true;
     boot.setAttribute("aria-hidden", "true");
     if (barEl) {
@@ -14756,38 +14819,45 @@ async function runStartupSequence() {
   });
 
   let introBlob = null;
+  let needsNetworkFetch = false;
 
   try {
     const customIntro = TA ? await TA.getBlob("introMp4").catch(() => null) : null;
-    if (customIntro && customIntro.size > 0) {
-      introBlob = customIntro;
-      if (statusEl) statusEl.textContent = "Öppnar din startfilm …";
-      setBootProgressDeterminate(fillEl, barEl, 1);
-    } else {
-      const cached = TA ? await TA.getBlob(THEME_INTRO_DEFAULT_CACHE).catch(() => null) : null;
-      if (cached && cached.size > 0) {
-        introBlob = cached;
-        if (statusEl) statusEl.textContent = "Öppnar startfilm …";
-        setBootProgressDeterminate(fillEl, barEl, 1);
-      } else {
-        if (statusEl) statusEl.textContent = "Laddar ner startfilm (första gången) …";
-        setBootProgressIndeterminate(barEl);
-        introBlob = await fetchVideoWithProgress(
-          BUILTIN_START_VIDEO_URL,
-          (r) => {
-            if (r < 0) setBootProgressIndeterminate(barEl);
-            else setBootProgressDeterminate(fillEl, barEl, r);
-          },
-          controller.signal
-        );
-        if (TA && introBlob && introBlob.size > 0) {
-          try {
-            await TA.putBlob(THEME_INTRO_DEFAULT_CACHE, introBlob);
-          } catch {
-            /* ignore */
-          }
+    const cached = TA ? await TA.getBlob(THEME_INTRO_DEFAULT_CACHE).catch(() => null) : null;
+    needsNetworkFetch = !(customIntro && customIntro.size > 0) && !(cached && cached.size > 0);
+
+    if (needsNetworkFetch) {
+      /** Första nedladdningen: ingen stillbild, endast förlopp + text. */
+      setBootParts({ showSplash: false, showProgress: true, showSkip: true });
+      if (statusEl) statusEl.textContent = "Laddar ner startfilm (första gången) …";
+      setBootProgressIndeterminate(barEl);
+      introBlob = await fetchVideoWithProgress(
+        BUILTIN_START_VIDEO_URL,
+        (r) => {
+          if (r < 0) setBootProgressIndeterminate(barEl);
+          else setBootProgressDeterminate(fillEl, barEl, r);
+        },
+        controller.signal
+      );
+      if (TA && introBlob && introBlob.size > 0) {
+        try {
+          await TA.putBlob(THEME_INTRO_DEFAULT_CACHE, introBlob);
+        } catch {
+          /* ignore */
         }
       }
+    } else if (customIntro && customIntro.size > 0) {
+      splashObjectUrl = await applySplashToImg();
+      setBootParts({ showSplash: true, showProgress: true, showSkip: true });
+      if (statusEl) statusEl.textContent = "Öppnar din startfilm …";
+      setBootProgressDeterminate(fillEl, barEl, 1);
+      introBlob = customIntro;
+    } else {
+      splashObjectUrl = await applySplashToImg();
+      setBootParts({ showSplash: true, showProgress: true, showSkip: true });
+      if (statusEl) statusEl.textContent = "Öppnar startfilm …";
+      setBootProgressDeterminate(fillEl, barEl, 1);
+      introBlob = cached;
     }
 
     if (!introBlob || introBlob.size < 1) throw new Error("empty intro");
@@ -14804,7 +14874,7 @@ async function runStartupSequence() {
     const inner = boot.querySelector(".app-boot-screen__inner");
     if (inner) inner.appendChild(video);
 
-    if (splashImg instanceof HTMLElement) splashImg.style.display = "none";
+    if (splashArt instanceof HTMLElement) splashArt.hidden = true;
 
     await new Promise((resolve) => {
       const done = () => {
@@ -14820,12 +14890,18 @@ async function runStartupSequence() {
     });
 
     video.remove();
+    if (splashArt instanceof HTMLElement) splashArt.hidden = false;
     if (splashImg instanceof HTMLElement) splashImg.style.display = "";
     finish(true);
   } catch {
     if (finished) return;
     cleanupUrls(videoPlayUrl);
     videoPlayUrl = "";
+    setBootParts({
+      showSplash: !needsNetworkFetch,
+      showProgress: true,
+      showSkip: true
+    });
     if (statusEl) statusEl.textContent = "Kunde inte spela startfilm. Fortsätter till appen.";
     setBootProgressDeterminate(fillEl, barEl, 0);
     await new Promise((r) => setTimeout(r, 900));
