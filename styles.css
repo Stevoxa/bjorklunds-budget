@@ -80,9 +80,9 @@
   --motion-sheet-ease: cubic-bezier(0.33, 1, 0.68, 1);
   --motion-modal: 240ms;
   --motion-modal-ease: cubic-bezier(0.33, 1, 0.68, 1);
-  /* Bekräftelseark: kort in, snabb ut */
-  --bottom-sheet-enter-ms: 200ms;
-  --bottom-sheet-exit-ms: 110ms;
+  /* Bekräftelseark: lite lugnare tempo; stängning fortfarande snabbare än öppning */
+  --bottom-sheet-enter-ms: 280ms;
+  --bottom-sheet-exit-ms: 165ms;
   /* Analysvy: måttlig rörelse — tydlig inbromsning, lugn kontroll; respekterar prefers-reduced-motion i JS. */
   --motion-analysis-chart-ms: 220ms;
   --motion-analysis-enter: 260ms;

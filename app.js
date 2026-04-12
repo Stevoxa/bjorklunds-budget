@@ -525,7 +525,7 @@ function closeBottomSheetModal(backdropEl, modalEl, opts) {
     if (e.propertyName !== "transform" && e.propertyName !== "opacity") return;
     once();
   };
-  const fallbackTimer = setTimeout(once, 360);
+  const fallbackTimer = setTimeout(once, 520);
   modalEl.addEventListener("transitionend", onTrans);
   modalEl.classList.remove("bottom-sheet-card--open");
   backdropEl.classList.remove("bottom-sheet-card-backdrop--open");
@@ -5921,7 +5921,7 @@ async function initVaultBootstrap() {
     };
 
     const openRestartModal = () => {
-      vaultRestartBackdropIgnoreUntil = Date.now() + 450;
+      vaultRestartBackdropIgnoreUntil = Date.now() + 520;
       openBottomSheetModal(vaultRestartBackdrop, vaultRestartModal);
       document.documentElement.classList.add("modal-open");
       document.body.classList.add("modal-open");
@@ -5957,17 +5957,22 @@ async function initVaultBootstrap() {
     };
 
     vaultRestartConfirmBtn.onclick = () => {
-      closeRestartModal();
-      enteredSetupFromUnlock = true;
-      vaultUnlockSection.hidden = true;
-      vaultSetupSection.hidden = false;
-      vaultRestartSetupBtn.hidden = true;
-      vaultImportFileInput.value = "";
-      vaultImportPass.value = "";
-      syncVaultImportFileLabel();
-      vaultCreatePass.value = "";
-      vaultCreatePassConfirm.value = "";
-      showSetupChoice(true);
+      closeBottomSheetModal(vaultRestartBackdrop, vaultRestartModal, {
+        onDone: () => {
+          document.documentElement.classList.remove("modal-open");
+          document.body.classList.remove("modal-open");
+          enteredSetupFromUnlock = true;
+          vaultUnlockSection.hidden = true;
+          vaultSetupSection.hidden = false;
+          vaultRestartSetupBtn.hidden = true;
+          vaultImportFileInput.value = "";
+          vaultImportPass.value = "";
+          syncVaultImportFileLabel();
+          vaultCreatePass.value = "";
+          vaultCreatePassConfirm.value = "";
+          showSetupChoice(true);
+        }
+      });
     };
 
     vaultChooseCreateBtn.onclick = () => {
@@ -12475,8 +12480,8 @@ function showConfirmDeleteSalaryPeriodModal() {
   openBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"));
 }
 
-function hideConfirmDeleteSalaryPeriodModal() {
-  closeBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"));
+function hideConfirmDeleteSalaryPeriodModal(opts) {
+  closeBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"), opts);
 }
 
 function renderIncomesPage() {
@@ -12773,8 +12778,8 @@ function showConfirmDeleteIncomeModal() {
   openBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"));
 }
 
-function hideConfirmDeleteIncomeModal() {
-  closeBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"));
+function hideConfirmDeleteIncomeModal(opts) {
+  closeBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"), opts);
 }
 
 function paymentsCountForInterval(interval) {
@@ -13347,13 +13352,17 @@ function renderExpensesSummaryPage() {
   requireEl("closeDeleteExpenseModalBtn").onclick = hideConfirmDeleteExpenseModal;
   requireEl("cancelDeleteExpenseBtn").onclick = hideConfirmDeleteExpenseModal;
   requireEl("confirmDeleteExpenseBtn").onclick = () => {
-    if (!ui.editExpenseId) return hideConfirmDeleteExpenseModal();
-    state.expenses = (state.expenses || []).filter((x) => x.id !== ui.editExpenseId);
-    saveState();
-    hideConfirmDeleteExpenseModal();
-    closeExpenseOverlay();
-    renderExpensesList();
-    renderAnalysisViewsIfActive();
+    const id = ui.editExpenseId;
+    if (!id) return hideConfirmDeleteExpenseModal();
+    closeBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"), {
+      onDone: () => {
+        state.expenses = (state.expenses || []).filter((x) => x.id !== id);
+        saveState();
+        closeExpenseOverlay();
+        renderExpensesList();
+        renderAnalysisViewsIfActive();
+      }
+    });
   };
 
   renderExpensesList();
@@ -13620,8 +13629,8 @@ function closeExpenseOverlay() {
 function showConfirmDeleteExpenseModal() {
   openBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"));
 }
-function hideConfirmDeleteExpenseModal() {
-  closeBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"));
+function hideConfirmDeleteExpenseModal(opts) {
+  closeBottomSheetModal(requireEl("confirmDeleteExpenseBackdrop"), requireEl("confirmDeleteExpenseModal"), opts);
 }
 
 let foodMatDeleteConfirmFn = null;
@@ -13759,8 +13768,12 @@ function initUnsavedEditorModal() {
 function initFoodMatDeleteConfirmModal() {
   requireEl("confirmDeleteFoodMatPeriodBtn").onclick = () => {
     const fn = foodMatDeleteConfirmFn;
-    hideFoodMatDeleteConfirmModal();
-    if (typeof fn === "function") fn();
+    closeBottomSheetModal(requireEl("confirmDeleteFoodMatPeriodBackdrop"), requireEl("confirmDeleteFoodMatPeriodModal"), {
+      onDone: () => {
+        foodMatDeleteConfirmFn = null;
+        if (typeof fn === "function") fn();
+      }
+    });
   };
   requireEl("cancelDeleteFoodMatPeriodBtn").onclick = hideFoodMatDeleteConfirmModal;
   requireEl("confirmDeleteFoodMatPeriodBackdrop").onclick = (ev) => {
@@ -14260,8 +14273,8 @@ function showConfirmDeleteLoanModal() {
   openBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"));
 }
 
-function hideConfirmDeleteLoanModal() {
-  closeBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"));
+function hideConfirmDeleteLoanModal(opts) {
+  closeBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"), opts);
 }
 
 function initOnboardingGate() {
@@ -14498,16 +14511,21 @@ function initActions() {
   requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;
   requireEl("cancelDeleteLoanBtn").onclick = hideConfirmDeleteLoanModal;
   requireEl("confirmDeleteLoanBtn").onclick = () => {
-    if (!ui.editLoanId) return hideConfirmDeleteLoanModal();
-    const loans = getAllLoans().filter((x) => x.id !== ui.editLoanId);
-    persistAllLoans(loans);
-    saveState();
-    hideConfirmDeleteLoanModal();
-    closeLoanEditor();
-    document.getElementById("loanNote").textContent = "Lån borttaget.";
-    renderLoansPage();
-    renderExpensesList();
-    renderAnalysisViewsIfActive();
+    const id = ui.editLoanId;
+    if (!id) return hideConfirmDeleteLoanModal();
+    closeBottomSheetModal(requireEl("confirmDeleteLoanBackdrop"), requireEl("confirmDeleteLoanModal"), {
+      onDone: () => {
+        const loans = getAllLoans().filter((x) => x.id !== id);
+        persistAllLoans(loans);
+        saveState();
+        closeLoanEditor();
+        const note = document.getElementById("loanNote");
+        if (note) note.textContent = "Lån borttaget.";
+        renderLoansPage();
+        renderExpensesList();
+        renderAnalysisViewsIfActive();
+      }
+    });
   };
   ["loanPrincipal", "loanRate", "loanAmortization"].forEach((id) => {
     document.getElementById(id).addEventListener("input", updateLoanDerivedFields);
@@ -14600,11 +14618,15 @@ function initActions() {
   const confirmDelSal = document.getElementById("confirmDeleteSalaryPeriodBtn");
   if (confirmDelSal) {
     confirmDelSal.onclick = () => {
-      if (!ui.editSalaryPeriodId) return hideConfirmDeleteSalaryPeriodModal();
-      const items = getAllSalaryPeriods().filter((x) => x.id !== ui.editSalaryPeriodId);
-      persistSalaryPeriodItems(items);
-      hideConfirmDeleteSalaryPeriodModal();
-      closeSalaryPeriodEditor();
+      const periodId = ui.editSalaryPeriodId;
+      if (!periodId) return hideConfirmDeleteSalaryPeriodModal();
+      closeBottomSheetModal(requireEl("confirmDeleteSalaryPeriodBackdrop"), requireEl("confirmDeleteSalaryPeriodModal"), {
+        onDone: () => {
+          const items = getAllSalaryPeriods().filter((x) => x.id !== periodId);
+          persistSalaryPeriodItems(items);
+          closeSalaryPeriodEditor();
+        }
+      });
     };
   }
   document.getElementById("salaryPeriodIntervalOpenBtn")?.addEventListener("click", () => {
@@ -14715,16 +14737,17 @@ function initActions() {
   requireEl("closeDeleteIncomeModalBtn").onclick = hideConfirmDeleteIncomeModal;
   requireEl("cancelDeleteIncomeBtn").onclick = hideConfirmDeleteIncomeModal;
   requireEl("confirmDeleteIncomeBtn").onclick = () => {
-    if (!ui.editIncomeId) {
-      hideConfirmDeleteIncomeModal();
-      return;
-    }
-    state.incomes = (state.incomes || []).filter((x) => x.id !== ui.editIncomeId);
-    saveState();
-    hideConfirmDeleteIncomeModal();
-    closeIncomeOverlay();
-    renderIncomesList();
-    renderAnalysisViewsIfActive();
+    const id = ui.editIncomeId;
+    if (!id) return hideConfirmDeleteIncomeModal();
+    closeBottomSheetModal(requireEl("confirmDeleteIncomeBackdrop"), requireEl("confirmDeleteIncomeModal"), {
+      onDone: () => {
+        state.incomes = (state.incomes || []).filter((x) => x.id !== id);
+        saveState();
+        closeIncomeOverlay();
+        renderIncomesList();
+        renderAnalysisViewsIfActive();
+      }
+    });
   };
 
   // Backup modal
@@ -14753,13 +14776,23 @@ function initActions() {
   }
   closeBtn.addEventListener("click", hideModal);
   laterBtn.addEventListener("click", () => {
-    state.settings.lastBackupPromptAt = nowMs();
-    saveState();
-    hideModal();
+    closeBottomSheetModal(backdrop, modal, {
+      onDone: () => {
+        state.settings.lastBackupPromptAt = nowMs();
+        saveState();
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+      }
+    });
   });
   exportBtn.addEventListener("click", () => {
-    hideModal();
-    void doExportJson();
+    closeBottomSheetModal(backdrop, modal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+        void doExportJson();
+      }
+    });
   });
 
   document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson());
