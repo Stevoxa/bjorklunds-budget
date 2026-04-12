@@ -342,7 +342,31 @@ html[data-theme="dark"] .bottom-nav {
   background: var(--bg);
 }
 
+.vault-lock-screen__layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.vault-lock-screen__backdrop-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.vault-lock-screen__scrim {
+  background: rgba(4, 8, 14, 0.52);
+}
+
+html[data-theme="dark"] .vault-lock-screen__scrim {
+  background: rgba(0, 0, 0, 0.62);
+}
+
 .vault-lock-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: min(100%, 26rem);
   background: var(--card);
@@ -351,6 +375,15 @@ html[data-theme="dark"] .bottom-nav {
   border: 1px solid var(--border);
   padding: var(--space-5) var(--space-4);
   box-sizing: border-box;
+}
+
+/* Bekräftelsedialog ovanpå låsskärmen (låsskärmen ligger på z-index 20000). */
+#vaultRestartConfirmBackdrop {
+  z-index: 20050;
+}
+
+#vaultRestartConfirmModal {
+  z-index: 20060;
 }
 
 @media (min-width: 400px) {

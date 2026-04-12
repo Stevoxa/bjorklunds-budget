@@ -5576,9 +5576,14 @@ async function initVaultBootstrap() {
   const vaultUnlockSection = document.getElementById("vaultUnlockSection");
   const vaultSetupSection = document.getElementById("vaultSetupSection");
   const vaultUnlockSubtitle = document.getElementById("vaultUnlockSubtitle");
-  const vaultUnlockHint = document.getElementById("vaultUnlockHint");
   const vaultUnlockPass = document.getElementById("vaultUnlockPassphrase");
   const vaultUnlockBtn = document.getElementById("vaultUnlockBtn");
+  const vaultRestartSetupBtn = document.getElementById("vaultRestartSetupBtn");
+  const vaultBackToUnlockBtn = document.getElementById("vaultBackToUnlockBtn");
+  const vaultRestartBackdrop = document.getElementById("vaultRestartConfirmBackdrop");
+  const vaultRestartModal = document.getElementById("vaultRestartConfirmModal");
+  const vaultRestartCancelBtn = document.getElementById("vaultRestartCancelBtn");
+  const vaultRestartConfirmBtn = document.getElementById("vaultRestartConfirmBtn");
   const vaultSetupSubtitle = document.getElementById("vaultSetupSubtitle");
   const vaultSetupHint = document.getElementById("vaultSetupHint");
   const vaultSetupChoice = document.getElementById("vaultSetupChoice");
@@ -5604,9 +5609,14 @@ async function initVaultBootstrap() {
     !vaultUnlockSection ||
     !vaultSetupSection ||
     !vaultUnlockSubtitle ||
-    !vaultUnlockHint ||
     !vaultUnlockPass ||
     !vaultUnlockBtn ||
+    !vaultRestartSetupBtn ||
+    !vaultBackToUnlockBtn ||
+    !vaultRestartBackdrop ||
+    !vaultRestartModal ||
+    !vaultRestartCancelBtn ||
+    !vaultRestartConfirmBtn ||
     !vaultSetupSubtitle ||
     !vaultSetupHint ||
     !vaultSetupChoice ||
@@ -5635,6 +5645,32 @@ async function initVaultBootstrap() {
     throw new Error("No IndexedDB");
   }
 
+  let vaultLockSplashRevoke = "";
+  const splashImg = document.getElementById("vaultLockSplashImg");
+  if (splashImg instanceof HTMLImageElement) {
+    const TA = globalThis.BjorkThemeAssets;
+    let blob;
+    try {
+      blob = TA ? await TA.getBlob("splashPng") : undefined;
+    } catch {
+      blob = undefined;
+    }
+    if (vaultLockSplashRevoke) {
+      try {
+        URL.revokeObjectURL(vaultLockSplashRevoke);
+      } catch {
+        /* ignore */
+      }
+      vaultLockSplashRevoke = "";
+    }
+    if (blob && blob.size > 0) {
+      vaultLockSplashRevoke = URL.createObjectURL(blob);
+      splashImg.src = vaultLockSplashRevoke;
+    } else {
+      splashImg.src = BUILTIN_SPLASH_URL;
+    }
+  }
+
   const showErr = (msg) => {
     errEl.textContent = msg || "";
     errEl.hidden = !msg;
@@ -5643,16 +5679,6 @@ async function initVaultBootstrap() {
   const syncVaultImportFileLabel = () => {
     const f = vaultImportFileInput.files && vaultImportFileInput.files[0];
     vaultImportFileName.textContent = f ? f.name : "Ingen fil vald";
-  };
-
-  const showSetupChoice = () => {
-    showErr("");
-    vaultSetupChoice.hidden = false;
-    vaultSetupCreate.hidden = true;
-    vaultSetupImport.hidden = true;
-    vaultSetupSubtitle.textContent = "Kom igång";
-    vaultSetupHint.textContent =
-      "All data krypteras på enheten. Byter du enhet behöver du en krypterad backup-fil och lösenfrasen.";
   };
 
   let hasVault;
@@ -5664,25 +5690,217 @@ async function initVaultBootstrap() {
     throw e;
   }
 
-  if (hasVault) {
-    vaultUnlockSection.hidden = false;
-    vaultSetupSection.hidden = true;
-    vaultUnlockSubtitle.textContent = "Ange lösenfrasen för att läsa din krypterade budget.";
-    vaultUnlockHint.textContent =
-      "Glömd lösenfras går inte att återställa här. Använd en krypterad backup under Inställningar om du har en.";
-  } else {
-    vaultUnlockSection.hidden = true;
-    vaultSetupSection.hidden = false;
-    showSetupChoice();
-  }
-
   return new Promise((resolve) => {
+    let enteredSetupFromUnlock = false;
+
     const finish = () => {
+      if (vaultLockSplashRevoke) {
+        try {
+          URL.revokeObjectURL(vaultLockSplashRevoke);
+        } catch {
+          /* ignore */
+        }
+        vaultLockSplashRevoke = "";
+      }
       tryRemoveLegacyLocalStorage();
       lockEl.hidden = true;
       mainEl.hidden = false;
       initVaultIdleLock();
       resolve();
+    };
+
+    const showSetupChoice = (fromUnlockRestart) => {
+      showErr("");
+      vaultSetupChoice.hidden = false;
+      vaultSetupCreate.hidden = true;
+      vaultSetupImport.hidden = true;
+      vaultSetupSubtitle.textContent = "Kom igång";
+      if (fromUnlockRestart) {
+        vaultSetupHint.textContent =
+          "När du skapar en ny budget eller importerar en fil ersätts all data som redan finns på enheten. Utan krypterad backup går den datan förlorad.";
+      } else {
+        vaultSetupHint.textContent =
+          "All data krypteras på enheten. Byter du enhet behöver du en krypterad backup-fil och rätt lösenord.";
+      }
+    };
+
+    const openRestartModal = () => {
+      vaultRestartBackdrop.hidden = false;
+      vaultRestartModal.hidden = false;
+      document.documentElement.classList.add("modal-open");
+      document.body.classList.add("modal-open");
+    };
+
+    const closeRestartModal = () => {
+      vaultRestartBackdrop.hidden = true;
+      vaultRestartModal.hidden = true;
+      document.documentElement.classList.remove("modal-open");
+      document.body.classList.remove("modal-open");
+    };
+
+    const showUnlockView = () => {
+      enteredSetupFromUnlock = false;
+      closeRestartModal();
+      vaultBackToUnlockBtn.hidden = true;
+      vaultRestartSetupBtn.hidden = false;
+      vaultUnlockSection.hidden = false;
+      vaultSetupSection.hidden = true;
+      showErr("");
+      vaultUnlockPass.value = "";
+    };
+
+    if (hasVault) {
+      vaultUnlockSection.hidden = false;
+      vaultSetupSection.hidden = true;
+      vaultUnlockSubtitle.textContent =
+        "Du behöver ange ditt lösenord för att komma åt dina budgetuppgifter.";
+      vaultRestartSetupBtn.hidden = false;
+      vaultBackToUnlockBtn.hidden = true;
+    } else {
+      vaultUnlockSection.hidden = true;
+      vaultSetupSection.hidden = false;
+      vaultRestartSetupBtn.hidden = true;
+      vaultBackToUnlockBtn.hidden = true;
+      showSetupChoice(false);
+    }
+
+    vaultRestartCancelBtn.onclick = () => closeRestartModal();
+    vaultRestartBackdrop.onclick = () => closeRestartModal();
+
+    vaultRestartConfirmBtn.onclick = () => {
+      closeRestartModal();
+      enteredSetupFromUnlock = true;
+      vaultUnlockSection.hidden = true;
+      vaultSetupSection.hidden = false;
+      vaultBackToUnlockBtn.hidden = false;
+      vaultRestartSetupBtn.hidden = true;
+      vaultImportFileInput.value = "";
+      vaultImportPass.value = "";
+      syncVaultImportFileLabel();
+      vaultCreatePass.value = "";
+      vaultCreatePassConfirm.value = "";
+      showSetupChoice(true);
+    };
+
+    vaultBackToUnlockBtn.onclick = () => showUnlockView();
+
+    vaultChooseCreateBtn.onclick = () => {
+      showErr("");
+      vaultSetupChoice.hidden = true;
+      vaultSetupCreate.hidden = false;
+      vaultSetupImport.hidden = true;
+      vaultSetupSubtitle.textContent = "Skapa ny budget";
+      vaultSetupHint.textContent = enteredSetupFromUnlock
+        ? "När du skapar en ny budget ersätts all befintlig data på enheten. Spara en backup under Inställningar innan du byter telefon om du behöver behålla nuvarande data."
+        : "Välj ett lösenord som skyddar din budget på enheten. Spara en backup under Inställningar innan du byter telefon.";
+      vaultCreatePass.value = "";
+      vaultCreatePassConfirm.value = "";
+    };
+
+    vaultChooseImportBtn.onclick = () => {
+      showErr("");
+      vaultSetupChoice.hidden = true;
+      vaultSetupCreate.hidden = true;
+      vaultSetupImport.hidden = false;
+      vaultSetupSubtitle.textContent = "Läs in från fil";
+      vaultSetupHint.textContent = enteredSetupFromUnlock
+        ? "Import ersätter all data på enheten. Utan backup går nuvarande data förlorad. Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag."
+        : "Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag — du behöver inte spara direkt.";
+      vaultImportFileInput.value = "";
+      vaultImportPass.value = "";
+      syncVaultImportFileLabel();
+    };
+
+    vaultBackFromCreate.onclick = () => showSetupChoice(enteredSetupFromUnlock);
+    vaultBackFromImport.onclick = () => showSetupChoice(enteredSetupFromUnlock);
+
+    vaultImportFilePickBtn.addEventListener("click", () => vaultImportFileInput.click());
+    vaultImportFileInput.addEventListener("change", syncVaultImportFileLabel);
+
+    const onEnterCreate = (e) => {
+      if (e.key === "Enter") vaultCreateSubmitBtn.click();
+    };
+    vaultCreatePass.addEventListener("keydown", onEnterCreate);
+    vaultCreatePassConfirm.addEventListener("keydown", onEnterCreate);
+
+    vaultCreateSubmitBtn.onclick = async () => {
+      showErr("");
+      const pass = String(vaultCreatePass.value || "");
+      const c2 = String(vaultCreatePassConfirm.value || "");
+      if (pass.length < 8) {
+        showErr("Lösenordet bör vara minst 8 tecken.");
+        return;
+      }
+      if (pass !== c2) {
+        showErr("Lösenorden är inte lika.");
+        return;
+      }
+      vaultCreateSubmitBtn.disabled = true;
+      const defaultNorm = normalizeStateShape(getDefaultState());
+      defaultNorm.settings.lastBackupPromptAt = nowMs();
+      const r = await V.createVault(pass, defaultNorm);
+      vaultCreateSubmitBtn.disabled = false;
+      if (!r.ok) {
+        showErr("Kunde inte skapa vault. Försök igen eller använd en annan webbläsare.");
+        console.error(r.error);
+        return;
+      }
+      state = defaultNorm;
+      ui.deferredBackupPromptAfterFirstDataSave = true;
+      vaultCreatePass.value = "";
+      vaultCreatePassConfirm.value = "";
+      finish();
+    };
+
+    const onEnterImport = (e) => {
+      if (e.key === "Enter") vaultImportSubmitBtn.click();
+    };
+    vaultImportPass.addEventListener("keydown", onEnterImport);
+
+    vaultImportSubmitBtn.onclick = async () => {
+      showErr("");
+      const file = vaultImportFileInput.files && vaultImportFileInput.files[0];
+      if (!file) {
+        showErr("Välj en JSON-fil att importera.");
+        return;
+      }
+      const pass = String(vaultImportPass.value || "").trim();
+      if (!pass) {
+        showErr("Ange lösenordet för backup-filen.");
+        return;
+      }
+      let text;
+      try {
+        text = await file.text();
+      } catch {
+        showErr("Kunde inte läsa filen.");
+        return;
+      }
+      const parsed = safeParseJson(text);
+      if (!parsed || !V.isEnvelope(parsed)) {
+        showErr("Filen är inte en giltig krypterad Björklunds-backup.");
+        return;
+      }
+      vaultImportSubmitBtn.disabled = true;
+      const r = await V.importReplaceVault(pass, parsed);
+      vaultImportSubmitBtn.disabled = false;
+      if (!r.ok) {
+        if (r.error === "schema") showErr("Filen har oväntat innehåll efter dekryptering.");
+        else showErr("Fel lösenord eller skadad fil.");
+        return;
+      }
+      state = normalizeStateShape(r.data);
+      state.settings.lastBackupPromptAt = nowMs();
+      ui.deferredBackupPromptAfterFirstDataSave = false;
+      const okFlush = await saveStateFlush();
+      if (!okFlush) {
+        showErr("Importen lyckades men kunde inte sparas. Försök igen.");
+        return;
+      }
+      vaultImportFileInput.value = "";
+      vaultImportPass.value = "";
+      syncVaultImportFileLabel();
+      finish();
     };
 
     if (hasVault) {
@@ -5695,7 +5913,7 @@ async function initVaultBootstrap() {
         showErr("");
         const pass = String(vaultUnlockPass.value || "");
         if (!pass) {
-          showErr("Ange lösenfras.");
+          showErr("Ange lösenord.");
           return;
         }
         vaultUnlockBtn.disabled = true;
@@ -5703,130 +5921,15 @@ async function initVaultBootstrap() {
         vaultUnlockBtn.disabled = false;
         if (!r.ok) {
           if (r.error === "schema") showErr("Datafilen har oväntat innehåll.");
-          else showErr("Fel lösenfras eller skadad data.");
+          else showErr("Fel lösenord eller skadad data.");
           return;
         }
         state = normalizeStateShape(r.data.state);
         vaultUnlockPass.value = "";
         finish();
       };
-    } else {
-      vaultChooseCreateBtn.onclick = () => {
-        showErr("");
-        vaultSetupChoice.hidden = true;
-        vaultSetupCreate.hidden = false;
-        vaultSetupImport.hidden = true;
-        vaultSetupSubtitle.textContent = "Skapa ny budget";
-        vaultSetupHint.textContent =
-          "Välj en lösenfras som skyddar din budget på enheten. Spara en backup under Inställningar innan du byter telefon.";
-        vaultCreatePass.value = "";
-        vaultCreatePassConfirm.value = "";
-      };
 
-      vaultChooseImportBtn.onclick = () => {
-        showErr("");
-        vaultSetupChoice.hidden = true;
-        vaultSetupCreate.hidden = true;
-        vaultSetupImport.hidden = false;
-        vaultSetupSubtitle.textContent = "Läs in från fil";
-        vaultSetupHint.textContent =
-          "Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag — du behöver inte spara direkt.";
-        vaultImportFileInput.value = "";
-        vaultImportPass.value = "";
-        syncVaultImportFileLabel();
-      };
-
-      vaultBackFromCreate.onclick = () => showSetupChoice();
-      vaultBackFromImport.onclick = () => showSetupChoice();
-
-      vaultImportFilePickBtn.addEventListener("click", () => vaultImportFileInput.click());
-      vaultImportFileInput.addEventListener("change", syncVaultImportFileLabel);
-
-      const onEnterCreate = (e) => {
-        if (e.key === "Enter") vaultCreateSubmitBtn.click();
-      };
-      vaultCreatePass.addEventListener("keydown", onEnterCreate);
-      vaultCreatePassConfirm.addEventListener("keydown", onEnterCreate);
-
-      vaultCreateSubmitBtn.onclick = async () => {
-        showErr("");
-        const pass = String(vaultCreatePass.value || "");
-        const c2 = String(vaultCreatePassConfirm.value || "");
-        if (pass.length < 8) {
-          showErr("Lösenfrasen bör vara minst 8 tecken.");
-          return;
-        }
-        if (pass !== c2) {
-          showErr("Lösenfraserna matchar inte.");
-          return;
-        }
-        vaultCreateSubmitBtn.disabled = true;
-        const defaultNorm = normalizeStateShape(getDefaultState());
-        defaultNorm.settings.lastBackupPromptAt = nowMs();
-        const r = await V.createVault(pass, defaultNorm);
-        vaultCreateSubmitBtn.disabled = false;
-        if (!r.ok) {
-          showErr("Kunde inte skapa vault. Försök igen eller använd en annan webbläsare.");
-          console.error(r.error);
-          return;
-        }
-        state = defaultNorm;
-        ui.deferredBackupPromptAfterFirstDataSave = true;
-        vaultCreatePass.value = "";
-        vaultCreatePassConfirm.value = "";
-        finish();
-      };
-
-      const onEnterImport = (e) => {
-        if (e.key === "Enter") vaultImportSubmitBtn.click();
-      };
-      vaultImportPass.addEventListener("keydown", onEnterImport);
-
-      vaultImportSubmitBtn.onclick = async () => {
-        showErr("");
-        const file = vaultImportFileInput.files && vaultImportFileInput.files[0];
-        if (!file) {
-          showErr("Välj en JSON-fil att importera.");
-          return;
-        }
-        const pass = String(vaultImportPass.value || "").trim();
-        if (!pass) {
-          showErr("Ange lösenfrasen för backup-filen.");
-          return;
-        }
-        let text;
-        try {
-          text = await file.text();
-        } catch {
-          showErr("Kunde inte läsa filen.");
-          return;
-        }
-        const parsed = safeParseJson(text);
-        if (!parsed || !V.isEnvelope(parsed)) {
-          showErr("Filen är inte en giltig krypterad Björklunds-backup.");
-          return;
-        }
-        vaultImportSubmitBtn.disabled = true;
-        const r = await V.importReplaceVault(pass, parsed);
-        vaultImportSubmitBtn.disabled = false;
-        if (!r.ok) {
-          if (r.error === "schema") showErr("Filen har oväntat innehåll efter dekryptering.");
-          else showErr("Fel lösenfras eller skadad fil.");
-          return;
-        }
-        state = normalizeStateShape(r.data);
-        state.settings.lastBackupPromptAt = nowMs();
-        ui.deferredBackupPromptAfterFirstDataSave = false;
-        const okFlush = await saveStateFlush();
-        if (!okFlush) {
-          showErr("Importen lyckades men kunde inte sparas. Försök igen.");
-          return;
-        }
-        vaultImportFileInput.value = "";
-        vaultImportPass.value = "";
-        syncVaultImportFileLabel();
-        finish();
-      };
+      vaultRestartSetupBtn.onclick = () => openRestartModal();
     }
 
     lockEl.hidden = false;
@@ -14424,7 +14527,7 @@ function initActions() {
     hideErrorSummaryByEl(errEl);
     const pass = String(passInp?.value || "").trim();
     if (!pass) {
-      renderErrorSummary(errEl, [{ label: "Ange lösenfrasen för backup-filen.", jumpId: "backupImportSheetPassphrase" }]);
+      renderErrorSummary(errEl, [{ label: "Ange lösenordet för backup-filen.", jumpId: "backupImportSheetPassphrase" }]);
       return;
     }
     const V = globalThis.BjorkVault;
@@ -14443,7 +14546,7 @@ function initActions() {
       } else {
         renderErrorSummary(errEl, [
           {
-            label: "Fel lösenfras eller skadad fil. Kontrollera lösenfrasen och försök igen.",
+            label: "Fel lösenord eller skadad fil. Kontrollera lösenordet och försök igen.",
             jumpId: "backupImportSheetPassphrase"
           }
         ]);
@@ -14492,7 +14595,7 @@ function initActions() {
     }
   });
 
-  // Restore import (krypterad vault-envelope): filval på sidan, lösenfras i bottom sheet
+  // Restore import (krypterad vault-envelope): filval på sidan, lösenord i bottom sheet
   document.getElementById("restoreBtn").addEventListener("click", async () => {
     const sumEl = document.getElementById("backupRestoreErrorSummary");
     const note = document.getElementById("backupRestoreNote");

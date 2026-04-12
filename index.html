@@ -63,6 +63,17 @@
       aria-modal="true"
       aria-labelledby="vaultLockTitle"
     >
+      <div class="vault-lock-screen__layer vault-lock-screen__backdrop" aria-hidden="true">
+        <img
+          class="vault-lock-screen__backdrop-img"
+          id="vaultLockSplashImg"
+          alt=""
+          decoding="async"
+          width="1200"
+          height="1600"
+        />
+      </div>
+      <div class="vault-lock-screen__layer vault-lock-screen__scrim" aria-hidden="true"></div>
       <div class="vault-lock-card">
         <h1 id="vaultLockTitle" class="vault-lock-title">Björklunds budget</h1>
 
@@ -70,17 +81,18 @@
           <p id="vaultUnlockSubtitle" class="note vault-lock-subtitle"></p>
           <div class="vault-lock-fields form-grid narrow">
             <label class="field">
-              <span>Lösenfras</span>
+              <span>Lösenord</span>
               <input type="password" id="vaultUnlockPassphrase" class="vault-lock-input" autocomplete="current-password" />
             </label>
           </div>
           <div class="vault-lock-actions">
             <button type="button" class="primary vault-lock-submit" id="vaultUnlockBtn">Lås upp</button>
+            <button type="button" class="secondary vault-choice-secondary" id="vaultRestartSetupBtn" hidden>Börja om</button>
           </div>
-          <p class="note vault-lock-hint" id="vaultUnlockHint"></p>
         </div>
 
         <div id="vaultSetupSection" class="vault-lock-section" hidden>
+          <button type="button" class="vault-setup-back" id="vaultBackToUnlockBtn" hidden>Tillbaka till inloggning</button>
           <p id="vaultSetupSubtitle" class="note vault-lock-subtitle"></p>
 
           <div id="vaultSetupChoice" class="vault-setup-choice">
@@ -95,11 +107,11 @@
             <button type="button" class="vault-setup-back" id="vaultBackFromCreate">Tillbaka</button>
             <div class="vault-lock-fields form-grid narrow">
               <label class="field">
-                <span>Välj lösenfras</span>
+                <span>Välj lösenord</span>
                 <input type="password" id="vaultCreatePassphrase" class="vault-lock-input" autocomplete="new-password" />
               </label>
               <label class="field">
-                <span>Bekräfta lösenfras</span>
+                <span>Bekräfta lösenord</span>
                 <input type="password" id="vaultCreatePassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
               </label>
             </div>
@@ -111,7 +123,7 @@
           <div id="vaultSetupImport" class="vault-setup-panel" hidden>
             <button type="button" class="vault-setup-back" id="vaultBackFromImport">Tillbaka</button>
             <p class="note vault-import-lead">
-              Välj din krypterade backup-fil och ange samma lösenfras som när du exporterade den.
+              Välj din krypterade backup-fil och ange samma lösenord som när du exporterade den.
             </p>
             <div class="vault-import-file-row">
               <input
@@ -127,7 +139,7 @@
             </div>
             <div class="vault-lock-fields form-grid narrow">
               <label class="field">
-                <span>Lösenfras för filen</span>
+                <span>Lösenord för filen</span>
                 <input type="password" id="vaultImportPassphrase" class="vault-lock-input" autocomplete="current-password" />
               </label>
             </div>
@@ -2088,7 +2100,7 @@
                   </div>
                 </div>
                 <p class="note backup-restore-hint">
-                  Välj fil och tryck <strong>Återställ från fil</strong>. Du anger lösenfras i nästa steg. Efter lyckad import
+                  Välj fil och tryck <strong>Återställ från fil</strong>. Du anger lösenord i nästa steg. Efter lyckad import
                   fortsätter du utan ny inloggning.
                 </p>
                 <div class="actions-row settings-restore-row">
@@ -2116,9 +2128,9 @@
           <div class="table-card help-card">
             <div class="table-title">Lokal kryptering</div>
             <p class="note help-card__text">
-              Budgeten lagras krypterat i IndexedDB på enheten. Lösenfrasen finns bara i minnet medan appen är upplåst. Vid
-              15 minuters inaktivitet låses appen och sidan laddas om. Glömd lösenfras kan inte återställas utan en fungerande
-              krypterad backup.
+              Budgeten lagras krypterat i IndexedDB på enheten. Lösenordet finns bara i minnet medan appen är upplåst. Vid
+              15 minuters inaktivitet låses appen och sidan laddas om. Glömmer du lösenordet kan det inte återställas utan en
+              fungerande krypterad backup.
             </p>
           </div>
 
@@ -2127,7 +2139,7 @@
             <p class="note help-card__text">
               Exportera en krypterad JSON-fil under <strong>Inställningar</strong> för att kunna läsa in budgeten på en annan
               enhet eller efter ominstallation. Import ersätter all data i appen på den här enheten — se till att du har rätt fil
-              och lösenfras.
+              och lösenord.
             </p>
           </div>
         </section>
@@ -2222,6 +2234,30 @@
         </li>
       </ul>
     </nav>
+
+    <div class="modal-backdrop" id="vaultRestartConfirmBackdrop" hidden></div>
+    <div
+      class="modal"
+      id="vaultRestartConfirmModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="vaultRestartConfirmTitle"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="vaultRestartConfirmTitle">Ersätta data på enheten?</div>
+      </div>
+      <div class="modal-body">
+        <p class="note">
+          Befintlig budgetdata på den här enheten ersätts om du skapar en ny budget eller importerar från fil. Utan krypterad
+          backup kan du inte återställa det som finns nu.
+        </p>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="secondary" id="vaultRestartCancelBtn">Avbryt</button>
+        <button type="button" class="danger" id="vaultRestartConfirmBtn">Fortsätt</button>
+      </div>
+    </div>
 
     <!-- BACKUP MODAL -->
     <div class="modal-backdrop" id="backupModalBackdrop" hidden></div>
@@ -2622,12 +2658,12 @@
       <div class="date-sheet-handle bottom-sheet-drag" id="backupImportSheetHandle" aria-hidden="true"></div>
       <div class="date-sheet-chrome period-sheet-chrome--simple">
         <div class="date-sheet-title-wrap">
-          <h2 class="date-sheet-title" id="backupImportSheetTitle" tabindex="-1">Lösenfras för backup</h2>
+          <h2 class="date-sheet-title" id="backupImportSheetTitle" tabindex="-1">Lösenord för backup</h2>
         </div>
       </div>
       <div class="date-sheet-body backup-import-sheet-body">
         <label class="field">
-          <span>Lösenfras</span>
+          <span>Lösenord</span>
           <input
             id="backupImportSheetPassphrase"
             type="password"
@@ -2636,7 +2672,7 @@
             aria-describedby="backupImportSheetHint"
           />
         </label>
-        <p class="note backup-import-sheet-hint" id="backupImportSheetHint">Samma lösenfras som när filen exporterades.</p>
+        <p class="note backup-import-sheet-hint" id="backupImportSheetHint">Samma lösenord som när filen exporterades.</p>
         <div
           class="bb-error-summary backup-import-sheet-error"
           id="backupImportSheetErrorSummary"
