@@ -75,6 +75,7 @@
       </div>
       <div class="vault-lock-screen__layer vault-lock-screen__scrim" aria-hidden="true"></div>
       <div class="vault-lock-card">
+        <div id="vaultLockErrorSummary" class="bb-error-summary" hidden role="alert" aria-live="polite"></div>
         <h1 id="vaultLockTitle" class="vault-lock-title">Björklunds budget</h1>
 
         <div id="vaultUnlockSection" class="vault-lock-section" hidden>
@@ -109,10 +110,12 @@
               <label class="field">
                 <span>Välj lösenord</span>
                 <input type="password" id="vaultCreatePassphrase" class="vault-lock-input" autocomplete="new-password" />
+                <div class="field-error" id="vaultCreatePassphraseError" hidden role="alert"></div>
               </label>
               <label class="field">
                 <span>Bekräfta lösenord</span>
                 <input type="password" id="vaultCreatePassphraseConfirm" class="vault-lock-input" autocomplete="new-password" />
+                <div class="field-error" id="vaultCreatePassphraseConfirmError" hidden role="alert"></div>
               </label>
             </div>
             <div class="vault-lock-actions">
@@ -766,7 +769,7 @@
         <!-- CONFIRM DELETE SALARY PERIOD -->
         <div class="modal-backdrop" id="confirmDeleteSalaryPeriodBackdrop" hidden></div>
         <div
-          class="modal"
+          class="modal bottom-sheet-card bottom-sheet-card--above-nav"
           id="confirmDeleteSalaryPeriodModal"
           role="dialog"
           aria-modal="true"
@@ -780,9 +783,9 @@
           <div class="modal-body">
             <div class="note">Är du säker? Genererade löneutbetalningar i intäktslistan tas bort. Detta kan inte ångras.</div>
           </div>
-          <div class="modal-actions">
-            <button class="secondary" id="cancelDeleteSalaryPeriodBtn" type="button">Avbryt</button>
+          <div class="modal-actions bottom-sheet-card__actions">
             <button class="danger" id="confirmDeleteSalaryPeriodBtn" type="button">Ja, ta bort</button>
+            <button class="secondary" id="cancelDeleteSalaryPeriodBtn" type="button">Avbryt</button>
           </div>
         </div>
 
@@ -1122,7 +1125,7 @@
           <!-- CONFIRM DELETE LOAN -->
           <div class="modal-backdrop" id="confirmDeleteLoanBackdrop" hidden></div>
           <div
-            class="modal"
+            class="modal bottom-sheet-card bottom-sheet-card--above-nav"
             id="confirmDeleteLoanModal"
             role="dialog"
             aria-modal="true"
@@ -1136,9 +1139,9 @@
             <div class="modal-body">
               <div class="note">Är du säker? Detta kan inte ångras.</div>
             </div>
-            <div class="modal-actions">
-              <button class="secondary" id="cancelDeleteLoanBtn" type="button">Avbryt</button>
+            <div class="modal-actions bottom-sheet-card__actions">
               <button class="danger" id="confirmDeleteLoanBtn" type="button">Ja, ta bort</button>
+              <button class="secondary" id="cancelDeleteLoanBtn" type="button">Avbryt</button>
             </div>
           </div>
 
@@ -2390,7 +2393,7 @@
     <!-- CONFIRM DELETE INCOME -->
     <div class="modal-backdrop" id="confirmDeleteIncomeBackdrop" hidden></div>
     <div
-      class="modal"
+      class="modal bottom-sheet-card bottom-sheet-card--above-nav"
       id="confirmDeleteIncomeModal"
       role="dialog"
       aria-modal="true"
@@ -2404,9 +2407,9 @@
       <div class="modal-body">
         <div class="note" id="confirmDeleteIncomeText">Är du säker? Detta kan inte ångras.</div>
       </div>
-      <div class="modal-actions">
-        <button class="secondary" id="cancelDeleteIncomeBtn" type="button">Avbryt</button>
+      <div class="modal-actions bottom-sheet-card__actions">
         <button class="danger" id="confirmDeleteIncomeBtn" type="button">Ja, ta bort</button>
+        <button class="secondary" id="cancelDeleteIncomeBtn" type="button">Avbryt</button>
       </div>
     </div>
 
@@ -2479,7 +2482,7 @@
     <!-- CONFIRM DELETE EXPENSE -->
     <div class="modal-backdrop" id="confirmDeleteExpenseBackdrop" hidden></div>
     <div
-      class="modal"
+      class="modal bottom-sheet-card bottom-sheet-card--above-nav"
       id="confirmDeleteExpenseModal"
       role="dialog"
       aria-modal="true"
@@ -2493,16 +2496,16 @@
       <div class="modal-body">
         <div class="note" id="confirmDeleteExpenseText">Är du säker? Detta kan inte ångras.</div>
       </div>
-      <div class="modal-actions">
-        <button class="secondary" id="cancelDeleteExpenseBtn" type="button">Avbryt</button>
+      <div class="modal-actions bottom-sheet-card__actions">
         <button class="danger" id="confirmDeleteExpenseBtn" type="button">Ja, ta bort</button>
+        <button class="secondary" id="cancelDeleteExpenseBtn" type="button">Avbryt</button>
       </div>
     </div>
 
     <!-- Osparade ändringar (intäkt / utgift) -->
     <div class="modal-backdrop" id="unsavedEditorBackdrop" hidden></div>
     <div
-      class="modal"
+      class="modal bottom-sheet-card bottom-sheet-card--above-nav"
       id="unsavedEditorModal"
       role="alertdialog"
       aria-modal="true"
@@ -2519,9 +2522,31 @@
           Dina ändringar sparas inte om du stänger redigeraren nu. Vill du kasta ändringarna eller fortsätta redigera?
         </div>
       </div>
-      <div class="modal-actions">
+      <div class="modal-actions bottom-sheet-card__actions">
         <button class="danger" id="unsavedEditorDiscardBtn" type="button">Kasta ändringar</button>
         <button class="secondary" id="unsavedEditorStayBtn" type="button">Fortsätt redigera</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" id="confirmDeleteFoodMatPeriodBackdrop" hidden></div>
+    <div
+      class="modal bottom-sheet-card bottom-sheet-card--above-nav"
+      id="confirmDeleteFoodMatPeriodModal"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirmDeleteFoodMatPeriodTitle"
+      aria-describedby="confirmDeleteFoodMatPeriodText"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="confirmDeleteFoodMatPeriodTitle">Ta bort period?</div>
+      </div>
+      <div class="modal-body">
+        <div class="note" id="confirmDeleteFoodMatPeriodText"></div>
+      </div>
+      <div class="modal-actions bottom-sheet-card__actions">
+        <button type="button" class="danger" id="confirmDeleteFoodMatPeriodBtn">Ja, ta bort</button>
+        <button type="button" class="secondary" id="cancelDeleteFoodMatPeriodBtn">Avbryt</button>
       </div>
     </div>
 

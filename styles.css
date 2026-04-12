@@ -377,6 +377,10 @@ html[data-theme="dark"] .vault-lock-screen__scrim {
   box-sizing: border-box;
 }
 
+.vault-lock-card > .bb-error-summary {
+  margin-bottom: var(--space-4);
+}
+
 /* Bekräftelsedialog ovanpå låsskärmen (låsskärmen ligger på z-index 20000). */
 #vaultRestartConfirmBackdrop {
   z-index: 20050;
@@ -3168,6 +3172,15 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 
 .bb-error-summary-item:first-child {
   border-top: 0;
+}
+
+.bb-error-summary-item--static {
+  cursor: default;
+  pointer-events: none;
+}
+
+.bb-error-summary-item--static:active {
+  transform: none;
 }
 
 .bb-error-summary-item-chevron {

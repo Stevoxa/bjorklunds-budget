@@ -360,71 +360,76 @@ function renderErrorSummary(summaryEl, errors) {
   ul.className = "bb-error-summary-list";
 
   list.slice(0, 6).forEach((err) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "bb-error-summary-item";
+    const jumpId = err.jumpId;
+    const jumpSelector = err.jumpSelector;
+    const hasJump = Boolean(jumpId || jumpSelector);
+
+    const row = document.createElement(hasJump ? "button" : "div");
+    if (hasJump) row.type = "button";
+    row.className = "bb-error-summary-item";
+    if (!hasJump) row.classList.add("bb-error-summary-item--static");
 
     const left = document.createElement("div");
     left.textContent = err.label || err.message || "Fel";
+    row.appendChild(left);
 
-    const chev = document.createElement("span");
-    chev.className = "bb-error-summary-item-chevron";
-    chev.innerHTML = LIST_ROW_CHEVRON_SVG;
+    if (hasJump) {
+      const chev = document.createElement("span");
+      chev.className = "bb-error-summary-item-chevron";
+      chev.innerHTML = LIST_ROW_CHEVRON_SVG;
+      row.appendChild(chev);
+    }
 
-    btn.appendChild(left);
-    btn.appendChild(chev);
+    if (hasJump) {
+      row.onclick = () => {
+        let preopenFoodKind = (() => {
+          if (!jumpId) return null;
+          if (jumpId.startsWith("foodCustody") || jumpId === "foodCustodyPeriodsList") return "custody";
+          if (jumpId.startsWith("foodHh") || jumpId === "foodHouseholdChangesSection") return "household";
+          if (jumpId.startsWith("foodDev") || jumpId === "foodDeviationsSection") return "deviation";
+          return null;
+        })();
 
-    btn.onclick = () => {
-      const jumpId = err.jumpId;
-      const jumpSelector = err.jumpSelector;
-      let preopenFoodKind = (() => {
-        if (!jumpId) return null;
-        if (jumpId.startsWith("foodCustody") || jumpId === "foodCustodyPeriodsList") return "custody";
-        if (jumpId.startsWith("foodHh") || jumpId === "foodHouseholdChangesSection") return "household";
-        if (jumpId.startsWith("foodDev") || jumpId === "foodDeviationsSection") return "deviation";
-        return null;
-      })();
-
-      // Fallback: om jump är inne i en dold mat-panel, öppna den.
-      if (!preopenFoodKind) {
-        const targetProbe = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
-        const panel = targetProbe?.closest?.(".food-mat-panel");
-        if (panel?.id === "foodMatPanelCustody") preopenFoodKind = "custody";
-        if (panel?.id === "foodMatPanelHousehold") preopenFoodKind = "household";
-        if (panel?.id === "foodMatPanelDeviation") preopenFoodKind = "deviation";
-      }
-
-      const doJump = () => {
-        const t = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
-        if (!t) return;
-        try {
-          if (typeof t.focus === "function") t.focus({ preventScroll: true });
-        } catch {
-          // ignore focus options
+        if (!preopenFoodKind) {
+          const targetProbe = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
+          const panel = targetProbe?.closest?.(".food-mat-panel");
+          if (panel?.id === "foodMatPanelCustody") preopenFoodKind = "custody";
+          if (panel?.id === "foodMatPanelHousehold") preopenFoodKind = "household";
+          if (panel?.id === "foodMatPanelDeviation") preopenFoodKind = "deviation";
         }
-        t.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        const doJump = () => {
+          const t = jumpId ? document.getElementById(jumpId) : jumpSelector ? document.querySelector(jumpSelector) : null;
+          if (!t) return;
+          try {
+            if (typeof t.focus === "function") t.focus({ preventScroll: true });
+          } catch {
+            /* ignore */
+          }
+          t.scrollIntoView({ behavior: "auto", block: "center" });
+        };
+
+        if (preopenFoodKind) {
+          openFoodMatSubPanel(preopenFoodKind);
+          queueMicrotask(doJump);
+        } else {
+          doJump();
+        }
       };
+    }
 
-      if (preopenFoodKind) {
-        openFoodMatSubPanel(preopenFoodKind);
-        queueMicrotask(doJump);
-      } else {
-        doJump();
-      }
-    };
-
-    ul.appendChild(btn);
+    ul.appendChild(row);
   });
 
   summaryEl.appendChild(ul);
 
-  // Fokus ska ligga på felkortet och vara "i skärm" (inte första felraden).
+  // Fokus på sammanfattningen; scrolla så rutan syns överst i vyn.
   queueMicrotask(() => {
     try {
       summaryEl.scrollIntoView({ behavior: "smooth", block: "start" });
       summaryEl.focus({ preventScroll: true });
     } catch {
-      // ignore focus/scroll options
+      /* ignore */
     }
   });
 }
@@ -452,9 +457,22 @@ function dismissVisibleErrorSummariesForTarget(targetEl) {
     targetEl.setAttribute("aria-invalid", "false");
   }
 
+  const vaultCard = targetEl.closest(".vault-lock-card");
+  if (vaultCard) {
+    vaultCard.querySelectorAll(".field-error").forEach((errEl) => {
+      errEl.hidden = true;
+      errEl.textContent = "";
+    });
+    vaultCard.querySelectorAll(".vault-lock-input--invalid").forEach((inp) => {
+      inp.classList.remove("vault-lock-input--invalid");
+      inp.removeAttribute("aria-describedby");
+      inp.removeAttribute("aria-invalid");
+    });
+  }
+
   // Håll det lokalt till samma overlay/panel som användaren interagerar med.
   const container = targetEl.closest(
-    ".exp-overlay, .modal-body, .table-card, .content-card, .food-mat-panel"
+    ".exp-overlay, .modal-body, .table-card, .content-card, .food-mat-panel, .vault-lock-card"
   );
   const root = container || document;
 
@@ -5593,8 +5611,11 @@ async function initVaultBootstrap() {
   const vaultChooseImportBtn = document.getElementById("vaultChooseImportBtn");
   const vaultBackFromCreate = document.getElementById("vaultBackFromCreate");
   const vaultBackFromImport = document.getElementById("vaultBackFromImport");
+  const vaultLockErrorSummaryEl = document.getElementById("vaultLockErrorSummary");
   const vaultCreatePass = document.getElementById("vaultCreatePassphrase");
   const vaultCreatePassConfirm = document.getElementById("vaultCreatePassphraseConfirm");
+  const vaultCreatePassErr = document.getElementById("vaultCreatePassphraseError");
+  const vaultCreateConfirmErr = document.getElementById("vaultCreatePassphraseConfirmError");
   const vaultCreateSubmitBtn = document.getElementById("vaultCreateSubmitBtn");
   const vaultImportFileInput = document.getElementById("vaultImportFileInput");
   const vaultImportFilePickBtn = document.getElementById("vaultImportFilePickBtn");
@@ -5628,8 +5649,11 @@ async function initVaultBootstrap() {
     !vaultChooseImportBtn ||
     !vaultBackFromCreate ||
     !vaultBackFromImport ||
+    !vaultLockErrorSummaryEl ||
     !vaultCreatePass ||
     !vaultCreatePassConfirm ||
+    !vaultCreatePassErr ||
+    !vaultCreateConfirmErr ||
     !vaultCreateSubmitBtn ||
     !vaultImportFileInput ||
     !vaultImportFilePickBtn ||
@@ -5683,13 +5707,30 @@ async function initVaultBootstrap() {
     vaultUnlockPass.classList.remove("vault-lock-input--invalid");
   };
 
+  const clearVaultCreateFieldErrors = () => {
+    vaultCreatePassErr.textContent = "";
+    vaultCreatePassErr.hidden = true;
+    vaultCreateConfirmErr.textContent = "";
+    vaultCreateConfirmErr.hidden = true;
+    vaultCreatePass.removeAttribute("aria-invalid");
+    vaultCreatePass.removeAttribute("aria-describedby");
+    vaultCreatePass.classList.remove("vault-lock-input--invalid");
+    vaultCreatePassConfirm.removeAttribute("aria-invalid");
+    vaultCreatePassConfirm.removeAttribute("aria-describedby");
+    vaultCreatePassConfirm.classList.remove("vault-lock-input--invalid");
+  };
+
   const showVaultUnlockFieldError = (msg) => {
     errEl.textContent = "";
     errEl.hidden = true;
+    clearVaultImportInlineErrors();
+    clearVaultCreateFieldErrors();
     if (!msg) {
       clearVaultUnlockFieldError();
+      hideErrorSummaryByEl(vaultLockErrorSummaryEl);
       return;
     }
+    renderErrorSummary(vaultLockErrorSummaryEl, [{ label: msg, jumpId: "vaultUnlockPassphrase" }]);
     vaultUnlockFieldErr.textContent = msg;
     vaultUnlockFieldErr.hidden = false;
     vaultUnlockPass.setAttribute("aria-invalid", "true");
@@ -5720,11 +5761,15 @@ async function initVaultBootstrap() {
   const showVaultImportFileFieldError = (msg) => {
     errEl.textContent = "";
     errEl.hidden = true;
+    clearVaultUnlockFieldError();
+    clearVaultCreateFieldErrors();
     clearVaultImportPassFieldError();
     if (!msg) {
       clearVaultImportFileFieldError();
+      hideErrorSummaryByEl(vaultLockErrorSummaryEl);
       return;
     }
+    renderErrorSummary(vaultLockErrorSummaryEl, [{ label: msg, jumpId: "vaultImportFilePickBtn" }]);
     vaultImportFileError.textContent = msg;
     vaultImportFileError.hidden = false;
     vaultImportFilePickBtn.setAttribute("aria-invalid", "true");
@@ -5734,11 +5779,15 @@ async function initVaultBootstrap() {
   const showVaultImportPassFieldError = (msg) => {
     errEl.textContent = "";
     errEl.hidden = true;
+    clearVaultUnlockFieldError();
+    clearVaultCreateFieldErrors();
     clearVaultImportFileFieldError();
     if (!msg) {
       clearVaultImportPassFieldError();
+      hideErrorSummaryByEl(vaultLockErrorSummaryEl);
       return;
     }
+    renderErrorSummary(vaultLockErrorSummaryEl, [{ label: msg, jumpId: "vaultImportPassphrase" }]);
     vaultImportPassFieldErr.textContent = msg;
     vaultImportPassFieldErr.hidden = false;
     vaultImportPass.setAttribute("aria-invalid", "true");
@@ -5749,8 +5798,14 @@ async function initVaultBootstrap() {
   const showErr = (msg) => {
     clearVaultUnlockFieldError();
     clearVaultImportInlineErrors();
-    errEl.textContent = msg || "";
-    errEl.hidden = !msg;
+    clearVaultCreateFieldErrors();
+    errEl.textContent = "";
+    errEl.hidden = true;
+    if (msg) {
+      renderErrorSummary(vaultLockErrorSummaryEl, [{ label: msg }]);
+    } else {
+      hideErrorSummaryByEl(vaultLockErrorSummaryEl);
+    }
   };
 
   const syncVaultImportFileLabel = () => {
@@ -5759,6 +5814,7 @@ async function initVaultBootstrap() {
       vaultImportFileName.textContent = f.name;
       vaultImportFileName.hidden = false;
       clearVaultImportFileFieldError();
+      if (vaultImportPassFieldErr.hidden) hideErrorSummaryByEl(vaultLockErrorSummaryEl);
     } else {
       vaultImportFileName.textContent = "";
       vaultImportFileName.hidden = true;
@@ -5908,12 +5964,31 @@ async function initVaultBootstrap() {
       showErr("");
       const pass = String(vaultCreatePass.value || "");
       const c2 = String(vaultCreatePassConfirm.value || "");
+      const valErrs = [];
       if (pass.length < 8) {
-        showErr("Lösenordet bör vara minst 8 tecken.");
-        return;
+        valErrs.push({ label: "Lösenordet bör vara minst 8 tecken.", jumpId: "vaultCreatePassphrase" });
       }
       if (pass !== c2) {
-        showErr("Lösenorden är inte lika.");
+        valErrs.push({ label: "Lösenorden är inte lika.", jumpId: "vaultCreatePassphraseConfirm" });
+      }
+      if (valErrs.length) {
+        renderErrorSummary(vaultLockErrorSummaryEl, valErrs);
+        if (pass.length < 8) {
+          const m = "Lösenordet bör vara minst 8 tecken.";
+          vaultCreatePassErr.textContent = m;
+          vaultCreatePassErr.hidden = false;
+          vaultCreatePass.setAttribute("aria-invalid", "true");
+          vaultCreatePass.setAttribute("aria-describedby", "vaultCreatePassphraseError");
+          vaultCreatePass.classList.add("vault-lock-input--invalid");
+        }
+        if (pass !== c2) {
+          const m = "Lösenorden är inte lika.";
+          vaultCreateConfirmErr.textContent = m;
+          vaultCreateConfirmErr.hidden = false;
+          vaultCreatePassConfirm.setAttribute("aria-invalid", "true");
+          vaultCreatePassConfirm.setAttribute("aria-describedby", "vaultCreatePassphraseConfirmError");
+          vaultCreatePassConfirm.classList.add("vault-lock-input--invalid");
+        }
         return;
       }
       vaultCreateSubmitBtn.disabled = true;
@@ -5937,9 +6012,6 @@ async function initVaultBootstrap() {
       if (e.key === "Enter") vaultImportSubmitBtn.click();
     };
     vaultImportPass.addEventListener("keydown", onEnterImport);
-    vaultImportPass.addEventListener("input", () => {
-      if (!vaultImportPassFieldErr.hidden) clearVaultImportPassFieldError();
-    });
 
     vaultImportSubmitBtn.onclick = async () => {
       showErr("");
@@ -5986,7 +6058,7 @@ async function initVaultBootstrap() {
       }
       vaultImportFileInput.value = "";
       vaultImportPass.value = "";
-      clearVaultImportInlineErrors();
+      showErr("");
       syncVaultImportFileLabel();
       finish();
     };
@@ -5996,9 +6068,6 @@ async function initVaultBootstrap() {
         if (e.key === "Enter") vaultUnlockBtn.click();
       };
       vaultUnlockPass.addEventListener("keydown", onEnterUnlock);
-      vaultUnlockPass.addEventListener("input", () => {
-        if (!vaultUnlockFieldErr.hidden) clearVaultUnlockFieldError();
-      });
 
       vaultUnlockBtn.onclick = async () => {
         showVaultUnlockFieldError("");
@@ -6017,7 +6086,7 @@ async function initVaultBootstrap() {
         }
         state = normalizeStateShape(r.data.state);
         vaultUnlockPass.value = "";
-        clearVaultUnlockFieldError();
+        showVaultUnlockFieldError("");
         finish();
       };
 
@@ -10116,15 +10185,21 @@ function renderFoodPage() {
     custodyDeleteBtn.onclick = () => {
       if (editingCustodyIndex < 0) return;
       const idxToDelete = editingCustodyIndex;
-      ui.foodConfigDraft.custodyPeriods.splice(idxToDelete, 1);
-      if (ui.foodConfigDraft.custodyPeriods.length === 0) delete ui.foodConfigDraft._custodyHhSnapGlobal;
-      editingCustodyIndex = -1;
-      custodyEditorDraft = null;
-      custodyEditorBackup = null;
-      clearCustodyEditorFieldErrors();
-      hideErrorSummaryById("foodCustodyErrorSummary");
-      renderCustodyEditor();
-      draw();
+      showFoodMatDeleteConfirmModal(
+        "Ta bort period?",
+        "Du har valt att ta bort den här perioden för växelvis boende. Perioden försvinner från listan och matkostnadsberäkningen uppdateras. Det går inte att ångra i appen.",
+        () => {
+          ui.foodConfigDraft.custodyPeriods.splice(idxToDelete, 1);
+          if (ui.foodConfigDraft.custodyPeriods.length === 0) delete ui.foodConfigDraft._custodyHhSnapGlobal;
+          editingCustodyIndex = -1;
+          custodyEditorDraft = null;
+          custodyEditorBackup = null;
+          clearCustodyEditorFieldErrors();
+          hideErrorSummaryById("foodCustodyErrorSummary");
+          renderCustodyEditor();
+          draw();
+        }
+      );
     };
   }
   document.getElementById("foodCustodyEditStart").oninput = () => {
@@ -10605,28 +10680,34 @@ function renderFoodPage() {
     hhDeleteBtn.onclick = () => {
       if (editingHouseholdChangeIndex < 0) return;
       const idxToDelete = editingHouseholdChangeIndex;
-      ui.foodConfigDraft.householdChanges.splice(idxToDelete, 1);
-      editingHouseholdChangeIndex = -1;
-      householdEditorDraft = null;
-      householdEditorBackup = null;
-      const hhErr = document.getElementById("foodHouseholdError");
-      if (hhErr) {
-        hhErr.hidden = true;
-        hhErr.textContent = "";
-      }
-      ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.hidden = true;
-          el.textContent = "";
+      showFoodMatDeleteConfirmModal(
+        "Ta bort hushållsändring?",
+        "Du har valt att ta bort den här hushållsändringen. Den försvinner från listan och matkostnadsberäkningen uppdateras. Det går inte att ångra i appen.",
+        () => {
+          ui.foodConfigDraft.householdChanges.splice(idxToDelete, 1);
+          editingHouseholdChangeIndex = -1;
+          householdEditorDraft = null;
+          householdEditorBackup = null;
+          const hhErr = document.getElementById("foodHouseholdError");
+          if (hhErr) {
+            hhErr.hidden = true;
+            hhErr.textContent = "";
+          }
+          ["foodHhErrStart", "foodHhErrEnd"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.hidden = true;
+              el.textContent = "";
+            }
+          });
+          document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
+          document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
+          hideErrorSummaryById("foodHouseholdErrorSummary");
+          renderHouseholdEditor();
+          renderHouseholdChanges();
+          draw();
         }
-      });
-      document.getElementById("foodHhEditStart")?.classList.remove("input-invalid");
-      document.getElementById("foodHhEditEnd")?.classList.remove("input-invalid");
-      hideErrorSummaryById("foodHouseholdErrorSummary");
-      renderHouseholdEditor();
-      renderHouseholdChanges();
-      draw();
+      );
     };
   }
   document.getElementById("foodAddHouseholdChangeBtn").onclick = () => {
@@ -10898,28 +10979,34 @@ function renderFoodPage() {
     devDeleteBtn.onclick = () => {
       if (editingDeviationIndex < 0) return;
       const idxToDelete = editingDeviationIndex;
-      ui.foodConfigDraft.deviations.splice(idxToDelete, 1);
-      editingDeviationIndex = -1;
-      deviationEditorDraft = null;
-      deviationEditorBackup = null;
-      const devErr = document.getElementById("foodDeviationsError");
-      if (devErr) {
-        devErr.hidden = true;
-        devErr.textContent = "";
-      }
-      ["foodDevErrStart", "foodDevErrEnd"].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.hidden = true;
-          el.textContent = "";
+      showFoodMatDeleteConfirmModal(
+        "Ta bort avvikelse?",
+        "Du har valt att ta bort den här avvikelsen. Den försvinner från listan och matkostnadsberäkningen uppdateras. Det går inte att ångra i appen.",
+        () => {
+          ui.foodConfigDraft.deviations.splice(idxToDelete, 1);
+          editingDeviationIndex = -1;
+          deviationEditorDraft = null;
+          deviationEditorBackup = null;
+          const devErr = document.getElementById("foodDeviationsError");
+          if (devErr) {
+            devErr.hidden = true;
+            devErr.textContent = "";
+          }
+          ["foodDevErrStart", "foodDevErrEnd"].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.hidden = true;
+              el.textContent = "";
+            }
+          });
+          document.getElementById("foodDevEditStart")?.classList.remove("input-invalid");
+          document.getElementById("foodDevEditEnd")?.classList.remove("input-invalid");
+          hideErrorSummaryById("foodDeviationErrorSummary");
+          renderDeviationEditor();
+          renderDeviations();
+          draw();
         }
-      });
-      document.getElementById("foodDevEditStart")?.classList.remove("input-invalid");
-      document.getElementById("foodDevEditEnd")?.classList.remove("input-invalid");
-      hideErrorSummaryById("foodDeviationErrorSummary");
-      renderDeviationEditor();
-      renderDeviations();
-      draw();
+      );
     };
   }
   document.getElementById("foodAddDeviationBtn").onclick = () => {
@@ -13492,6 +13579,24 @@ function hideConfirmDeleteExpenseModal() {
   requireEl("confirmDeleteExpenseModal").hidden = true;
 }
 
+let foodMatDeleteConfirmFn = null;
+
+function showFoodMatDeleteConfirmModal(titleText, bodyText, onConfirm) {
+  foodMatDeleteConfirmFn = onConfirm;
+  const titleEl = document.getElementById("confirmDeleteFoodMatPeriodTitle");
+  const bodyEl = document.getElementById("confirmDeleteFoodMatPeriodText");
+  if (titleEl) titleEl.textContent = titleText || "Ta bort?";
+  if (bodyEl) bodyEl.textContent = bodyText || "";
+  requireEl("confirmDeleteFoodMatPeriodBackdrop").hidden = false;
+  requireEl("confirmDeleteFoodMatPeriodModal").hidden = false;
+}
+
+function hideFoodMatDeleteConfirmModal() {
+  requireEl("confirmDeleteFoodMatPeriodBackdrop").hidden = true;
+  requireEl("confirmDeleteFoodMatPeriodModal").hidden = true;
+  foodMatDeleteConfirmFn = null;
+}
+
 function captureIncomeOverlaySnapshotJson() {
   const modal = document.getElementById("incomeModal");
   if (!modal || modal.hidden) return "";
@@ -13598,6 +13703,19 @@ function initUnsavedEditorModal() {
   };
 }
 
+function initFoodMatDeleteConfirmModal() {
+  requireEl("confirmDeleteFoodMatPeriodBtn").onclick = () => {
+    const fn = foodMatDeleteConfirmFn;
+    hideFoodMatDeleteConfirmModal();
+    if (typeof fn === "function") fn();
+  };
+  requireEl("cancelDeleteFoodMatPeriodBtn").onclick = hideFoodMatDeleteConfirmModal;
+  requireEl("confirmDeleteFoodMatPeriodBackdrop").onclick = (ev) => {
+    if (ev.target !== requireEl("confirmDeleteFoodMatPeriodBackdrop")) return;
+    hideFoodMatDeleteConfirmModal();
+  };
+}
+
 /** Escape + backdrop: samma mönster för intäkts- och utgiftsredigerare (och deras radera-dialoger). */
 function initBudgetEditorModalDismiss() {
   document.addEventListener(
@@ -13605,12 +13723,6 @@ function initBudgetEditorModalDismiss() {
     (e) => {
       if (e.key !== "Escape") return;
       if (periodSheetOpen || listPickerOpen || dateSheetOpen || backupImportSheetOpen) return;
-      const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
-      const foodPanelOpen =
-        foodOverlay &&
-        !foodOverlay.hidden &&
-        Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
-      if (foodPanelOpen) return;
 
       const incDel = document.getElementById("confirmDeleteIncomeModal");
       if (incDel && !incDel.hidden) {
@@ -13624,12 +13736,25 @@ function initBudgetEditorModalDismiss() {
         hideConfirmDeleteExpenseModal();
         return;
       }
+      const foodMatDel = document.getElementById("confirmDeleteFoodMatPeriodModal");
+      if (foodMatDel && !foodMatDel.hidden) {
+        e.preventDefault();
+        hideFoodMatDeleteConfirmModal();
+        return;
+      }
       const unsavedM = document.getElementById("unsavedEditorModal");
       if (unsavedM && !unsavedM.hidden) {
         e.preventDefault();
         hideUnsavedEditorConfirmModal();
         return;
       }
+
+      const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+      const foodPanelOpen =
+        foodOverlay &&
+        !foodOverlay.hidden &&
+        Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+      if (foodPanelOpen) return;
       const incomeM = document.getElementById("incomeModal");
       if (incomeM && !incomeM.hidden) {
         e.preventDefault();
@@ -15295,6 +15420,7 @@ async function initRoot() {
     wireTaggedListPeriodPickers();
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
+    initFoodMatDeleteConfirmModal();
     initExpenseOverlayHistory();
     initUnsavedEditorModal();
     initBudgetEditorModalDismiss();
