@@ -514,8 +514,14 @@ html[data-theme="dark"] .vault-lock-screen__scrim {
   margin-bottom: var(--space-4);
 }
 
+.vault-import-file-picker-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
 .vault-import-file-pick-btn {
   width: 100%;
+  justify-content: center;
 }
 
 .vault-import-file-display {
@@ -528,11 +534,15 @@ html[data-theme="dark"] .vault-lock-screen__scrim {
   word-break: break-word;
 }
 
-/* Felram: kring hela notchade ytan (lösenord / Välj fil) */
+/* Felram: kring notchade lösenordsfält */
 .vault-lock-card .vault-notched-field:has(.bb-notched-field-plain-input[aria-invalid="true"]),
-.vault-lock-card .vault-notched-field:has(.bb-notched-field-plain-input.vault-lock-input--invalid),
-.vault-lock-card .vault-notched-field:has(.vault-import-file-pick-btn.vault-lock-input--invalid),
-.vault-lock-card .vault-notched-field:has(.vault-import-file-pick-btn[aria-invalid="true"]) {
+.vault-lock-card .vault-notched-field:has(.bb-notched-field-plain-input.vault-lock-input--invalid) {
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--border-strong));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
+}
+
+.vault-lock-card .vault-import-file-pick-btn[aria-invalid="true"],
+.vault-lock-card .vault-import-file-pick-btn.vault-lock-input--invalid {
   border-color: color-mix(in srgb, var(--danger) 58%, var(--border-strong));
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 35%, transparent);
 }
@@ -2034,14 +2044,6 @@ a.subnav-btn {
   font-weight: 650;
 }
 
-#confirmDeleteLoanBackdrop {
-  z-index: 90;
-}
-
-#confirmDeleteLoanModal {
-  z-index: 91;
-}
-
 .form-row {
   margin-bottom: 12px;
 }
@@ -2052,9 +2054,10 @@ a.subnav-btn {
 }
 
 /*
- * Modal lager: över .exp-overlay/.inc-overlay (70) och .food-mat-panel (80) så bekräftelser
- * syns ovanpå helskärmsredigerare — men under datum/period/listark (95/96) så datumväljare
- * fortfarande kan ligga ovanpå intäkts-/utgiftsmodaler.
+ * Modal lager: över .exp-overlay/.inc-overlay (70) och .food-mat-panel (80).
+ * Vanliga modaler: backdrop 85 / dialog 86. Bekräftelseark (.modal-backdrop--bottom-sheet / .bottom-sheet-card):
+ * 92 / 93 så scrim och kort ligger ovanpå intäkts-/utgiftsmodal — annars går klick igenom till redigeraren.
+ * Datum/period/listark (95/96) ligger fortfarande ovanpå.
  */
 .modal-backdrop {
   position: fixed;
@@ -2062,6 +2065,8 @@ a.subnav-btn {
   background: rgba(4, 8, 14, 0.52);
   z-index: 85;
   animation: backdrop-in var(--motion-modal) var(--motion-modal-ease) both;
+  touch-action: none;
+  pointer-events: auto;
 }
 
 html[data-theme="dark"] .modal-backdrop {
@@ -2092,6 +2097,7 @@ html[data-theme="dark"] .modal-backdrop {
   display: flex;
   flex-direction: column;
   animation: modal-in var(--motion-modal) var(--motion-modal-ease) both;
+  touch-action: auto;
 }
 
 @keyframes modal-in {
@@ -2155,8 +2161,12 @@ html[data-theme="dark"] .modal-backdrop {
   margin-left: auto;
   margin-right: auto;
   margin-bottom: 0;
+  height: auto;
+  min-height: 0;
   max-height: min(calc(100vh - var(--space-6) - env(safe-area-inset-top)), 85vh);
   padding: 0;
+  /* Över intäkts-/utgiftsmodal (86) så scrim fångar klick; under datum-/periodark (95/96). */
+  z-index: 93;
   animation: none;
   transform: translateY(calc(100% + 28px));
   opacity: 0;
@@ -2183,10 +2193,13 @@ html[data-theme="dark"] .modal-backdrop {
 }
 
 .modal-backdrop.modal-backdrop--bottom-sheet {
+  z-index: 92;
   animation: none;
   opacity: 0;
   --bs-dur: var(--bottom-sheet-exit-ms);
   transition: opacity var(--bs-dur) var(--motion-sheet-ease);
+  touch-action: none;
+  pointer-events: auto;
 }
 
 .modal-backdrop.modal-backdrop--bottom-sheet.bottom-sheet-card-backdrop--open {
@@ -3418,8 +3431,8 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
     grid-template-columns: 1fr;
   }
 
-  /* Fullscreen modal on phones (sheet-känsla) */
-  .modal {
+  /* Fullscreen modal on phones (sheet-känsla) — inte bekräftelseark (.bottom-sheet-card) */
+  .modal:not(.bottom-sheet-card) {
     left: 0;
     top: 0;
     transform: none;

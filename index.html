@@ -150,19 +150,21 @@
               Välj din krypterade backup-fil och ange samma lösenord som när du exporterade den.
             </p>
             <div class="vault-import-file-block">
-              <input
-                type="file"
-                id="vaultImportFileInput"
-                accept="application/json"
-                class="backup-restore-sr-input"
-                tabindex="-1"
-                aria-label="Välj krypterad backup-fil"
-              />
-              <div class="bb-notched-field vault-notched-field" role="group" aria-label="Backup-fil">
-                <div class="bb-notched-field-legend">Backup-fil</div>
-                <button type="button" class="bb-notched-field-btn vault-import-file-pick-btn" id="vaultImportFilePickBtn">
-                  <span class="bb-notched-field-value">Välj fil</span>
-                </button>
+              <div class="field vault-import-file-field">
+                <span class="backup-import-field__label">Backup-fil</span>
+                <div class="backup-file-picker-row vault-import-file-picker-row">
+                  <input
+                    type="file"
+                    id="vaultImportFileInput"
+                    accept="application/json"
+                    class="backup-restore-sr-input"
+                    tabindex="-1"
+                    aria-label="Välj krypterad backup-fil"
+                  />
+                  <button type="button" class="secondary backup-file-picker-btn vault-import-file-pick-btn" id="vaultImportFilePickBtn">
+                    Välj fil
+                  </button>
+                </div>
               </div>
               <p id="vaultImportFileName" class="vault-import-file-display" hidden aria-live="polite"></p>
               <div class="field-error" id="vaultImportFileError" hidden role="alert"></div>
