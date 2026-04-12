@@ -556,13 +556,57 @@ html[data-theme="dark"] .vault-lock-card .vault-notched-field {
   position: fixed;
   inset: 0;
   z-index: 40;
+  background: var(--bg);
+}
+
+.onboarding-screen__backdrop,
+.onboarding-screen__scrim {
+  position: absolute;
+  inset: 0;
+}
+
+.onboarding-screen__backdrop {
+  z-index: 0;
+  pointer-events: none;
+}
+
+.onboarding-screen__backdrop-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.onboarding-screen__scrim {
+  z-index: 1;
+  background: rgba(4, 8, 14, 0.45);
+  pointer-events: auto;
+}
+
+html[data-theme="dark"] .onboarding-screen__scrim {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.onboarding-screen__content {
+  box-sizing: border-box;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-5);
   padding-top: calc(var(--space-5) + env(safe-area-inset-top));
   padding-bottom: calc(92px + env(safe-area-inset-bottom));
-  background: var(--bg);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: none;
+}
+
+.onboarding-screen__content .onboarding-card {
+  pointer-events: auto;
 }
 
 .onboarding-card {
@@ -570,7 +614,7 @@ html[data-theme="dark"] .vault-lock-card .vault-notched-field {
   max-width: 480px;
   background: var(--card);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-lg);
   border: 1px solid var(--border);
   padding: var(--space-6);
 }
@@ -2147,7 +2191,7 @@ html[data-theme="dark"] .modal-backdrop {
 
 /*
  * Bekräftelse-/valark: äkta bottenark — full bredd, platt mot nav eller skärmunderkant,
- * bara övre hörn rundade, skugga uppåt. Destruktiva m.m. delar samma skal (--above-nav / --vault-lock).
+ * bara övre hörn rundade, skugga uppåt. Läge: --dock-bottom (viewport-botten) eller --vault-lock (låsskärm).
  * Öppning/stängning: .bottom-sheet-card--open + transition (app.js).
  */
 .modal.bottom-sheet-card {
@@ -2213,14 +2257,7 @@ html[data-theme="dark"] .modal.bottom-sheet-card {
 }
 
 /*
- * Ovanför bottennav (t.ex. backup-prompt med grön primär — menyn syns under arket).
- */
-.modal.bottom-sheet-card.bottom-sheet-card--above-nav {
-  bottom: calc(72px + env(safe-area-inset-bottom));
-}
-
-/*
- * Viewport-botten: täcker bottennav (destruktiva bekräftelser, osparade, PWA m.m.).
+ * Viewport-botten: täcker bottennav (backup-prompt, destruktiva bekräftelser, osparade, PWA m.m.).
  * — vault-lock: låsskärm
  * — dock-bottom: övriga flöden
  */
@@ -2255,6 +2292,10 @@ html[data-theme="dark"] .modal.bottom-sheet-card {
   letter-spacing: -0.03em;
   line-height: 1.25;
   color: var(--text);
+}
+
+.modal.bottom-sheet-card .modal-header:not(:has(.icon-btn)) > div:first-child {
+  padding-right: 0;
 }
 
 .modal.bottom-sheet-card .modal-header .icon-btn {

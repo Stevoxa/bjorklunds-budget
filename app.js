@@ -21,6 +21,8 @@ const VAULT_IDLE_MS = 15 * 60 * 1000;
 let vaultSaveTimer = null;
 let vaultIdleTimer = null;
 let backupRestoreSuccessNoteTimer = null;
+/** Object URL för anpassad splash på onboarding — återkallas vid byte av bild. */
+let onboardingSplashObjectUrl = "";
 
 const WEEKS_PER_MONTH = 4.33;
 const ANALYSIS_MSG_EMPTY_YEAR =
@@ -492,6 +494,23 @@ function openBottomSheetModal(backdropEl, modalEl) {
   requestAnimationFrame(() => {
     backdropEl.classList.add("bottom-sheet-card-backdrop--open");
     modalEl.classList.add("bottom-sheet-card--open");
+  });
+}
+
+/** Stänger backup-prompten som om användaren valt «Inte nu» (tidsstämpel + modal-open). */
+function dismissBackupRecommendModalAsLater() {
+  const backdrop = document.getElementById("backupModalBackdrop");
+  const modal = document.getElementById("backupModal");
+  if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement) || modal.hidden) return;
+  closeBottomSheetModal(backdrop, modal, {
+    onDone: () => {
+      if (state?.settings) {
+        state.settings.lastBackupPromptAt = nowMs();
+        saveState();
+      }
+      document.documentElement.classList.remove("modal-open");
+      document.body.classList.remove("modal-open");
+    }
   });
 }
 
@@ -5550,11 +5569,38 @@ function hasAnyBudgetData(s) {
   return false;
 }
 
+async function hydrateOnboardingSplashImg() {
+  const img = document.getElementById("onboardingSplashImg");
+  if (!(img instanceof HTMLImageElement)) return;
+  const TA = globalThis.BjorkThemeAssets;
+  let blob;
+  try {
+    blob = TA ? await TA.getBlob("splashPng") : undefined;
+  } catch {
+    blob = undefined;
+  }
+  if (onboardingSplashObjectUrl) {
+    try {
+      URL.revokeObjectURL(onboardingSplashObjectUrl);
+    } catch {
+      /* ignore */
+    }
+    onboardingSplashObjectUrl = "";
+  }
+  if (blob && blob.size > 0) {
+    onboardingSplashObjectUrl = URL.createObjectURL(blob);
+    img.src = onboardingSplashObjectUrl;
+  } else {
+    img.src = BUILTIN_SPLASH_URL;
+  }
+}
+
 function updateOnboardingVisibility() {
   const el = document.getElementById("onboardingScreen");
   if (!el) return;
   const show = Boolean(state) && !hasAnyBudgetData(state) && !ui.onboardingDismissedForSession;
   el.hidden = !show;
+  if (show) void hydrateOnboardingSplashImg();
 }
 
 function tryRemoveLegacyLocalStorage() {
@@ -13822,6 +13868,13 @@ function initBudgetEditorModalDismiss() {
         return;
       }
 
+      const backupRec = document.getElementById("backupModal");
+      if (backupRec && !backupRec.hidden) {
+        e.preventDefault();
+        dismissBackupRecommendModalAsLater();
+        return;
+      }
+
       const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
       const foodPanelOpen =
         foodOverlay &&
@@ -14762,7 +14815,6 @@ function initActions() {
   const modal = document.getElementById("backupModal");
   const modalTitle = document.getElementById("backupModalTitle");
   const modalText = document.getElementById("backupModalText");
-  const closeBtn = document.getElementById("closeBackupModalBtn");
   const laterBtn = document.getElementById("backupLaterBtn");
   const exportBtn = document.getElementById("backupExportModalBtn");
 
@@ -14773,26 +14825,12 @@ function initActions() {
     document.documentElement.classList.add("modal-open");
     document.body.classList.add("modal-open");
   }
-  function hideModal() {
-    closeBottomSheetModal(backdrop, modal, {
-      onDone: () => {
-        document.documentElement.classList.remove("modal-open");
-        document.body.classList.remove("modal-open");
-      }
-    });
-  }
-  closeBtn.addEventListener("click", hideModal);
-  laterBtn.addEventListener("click", () => {
-    closeBottomSheetModal(backdrop, modal, {
-      onDone: () => {
-        state.settings.lastBackupPromptAt = nowMs();
-        saveState();
-        document.documentElement.classList.remove("modal-open");
-        document.body.classList.remove("modal-open");
-      }
-    });
+  laterBtn?.addEventListener("click", () => dismissBackupRecommendModalAsLater());
+  backdrop?.addEventListener("click", (ev) => {
+    if (ev.target !== backdrop || modal.hidden) return;
+    dismissBackupRecommendModalAsLater();
   });
-  exportBtn.addEventListener("click", () => {
+  exportBtn?.addEventListener("click", () => {
     closeBottomSheetModal(backdrop, modal, {
       onDone: () => {
         document.documentElement.classList.remove("modal-open");
@@ -15465,6 +15503,8 @@ async function applyThemePackFromSettingsInputs() {
     note.textContent =
       "Sparat på enheten. Webbläsarens flik-ikon uppdateras direkt; vid nästa appstart används nya startbild/film.";
   await applyThemeToDocumentIcons();
+  const obScr = document.getElementById("onboardingScreen");
+  if (obScr && !obScr.hidden) void hydrateOnboardingSplashImg();
   if (zipInp) zipInp.value = "";
   if (splashInp) splashInp.value = "";
   if (introInp) introInp.value = "";
@@ -15482,6 +15522,8 @@ async function resetThemePackToDefault() {
   }
   if (note) note.textContent = "Standard återställd. Ladda om sidan om ikoner inte uppdateras.";
   await applyThemeToDocumentIcons();
+  const obReset = document.getElementById("onboardingScreen");
+  if (obReset && !obReset.hidden) void hydrateOnboardingSplashImg();
   const zipInp = document.getElementById("themePackZipInput");
   const splashInp = document.getElementById("themeSplashInput");
   const introInp = document.getElementById("themeIntroInput");

@@ -210,6 +210,19 @@
 
     <main class="app-main" hidden>
       <div id="onboardingScreen" class="onboarding-screen" hidden>
+        <div class="onboarding-screen__backdrop" aria-hidden="true">
+          <img
+            id="onboardingSplashImg"
+            class="onboarding-screen__backdrop-img"
+            src="media/bjorklunds_budget_start.png"
+            alt=""
+            decoding="async"
+            width="1200"
+            height="1600"
+          />
+        </div>
+        <div class="onboarding-screen__scrim" aria-hidden="true"></div>
+        <div class="onboarding-screen__content">
         <div class="onboarding-card">
           <h1 class="onboarding-title">Välkommen till Björklunds budget</h1>
           <p class="note onboarding-subtitle">Börja med att lägg in en intäkt. Välj kategori att börja med:</p>
@@ -245,6 +258,7 @@
               <span class="subnav-tile-label">Gåvor</span>
             </button>
           </div>
+        </div>
         </div>
       </div>
       <div class="content-card">
@@ -2323,10 +2337,16 @@
 
     <!-- BACKUP MODAL -->
     <div class="modal-backdrop modal-backdrop--bottom-sheet" id="backupModalBackdrop" hidden></div>
-    <div class="modal bottom-sheet-card bottom-sheet-card--above-nav" id="backupModal" role="dialog" aria-modal="true" aria-labelledby="backupModalTitle" hidden>
+    <div
+      class="modal bottom-sheet-card bottom-sheet-card--dock-bottom bottom-sheet-card--positive"
+      id="backupModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="backupModalTitle"
+      hidden
+    >
       <div class="modal-header">
         <div id="backupModalTitle">Backup rekommenderas</div>
-        <button class="icon-btn" id="closeBackupModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="note" id="backupModalText"></div>
