@@ -6607,7 +6607,7 @@ function renderTaggedIncomeCategoryPage(cat) {
     u.listMonth !== "all" &&
     (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12)
   ) {
-    u.listMonth = cur.month;
+    u.listMonth = "all";
   }
   if (listYearSel) {
     setYearOptionsWithAll(listYearSel, appYears, u.listYear);
@@ -9289,7 +9289,8 @@ function renderTaggedCategoryPage(cat) {
     u.listMonth !== "all" &&
     (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12)
   ) {
-    u.listMonth = cur.month;
+    u.listMonth =
+      cat === "car" || cat === "home" || cat === "children" ? "all" : cur.month;
   }
 
   if (listYearSel) {
