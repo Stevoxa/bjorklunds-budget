@@ -13790,6 +13790,13 @@ function initBudgetEditorModalDismiss() {
       if (e.key !== "Escape") return;
       if (periodSheetOpen || listPickerOpen || dateSheetOpen || backupImportSheetOpen) return;
 
+      const pwaInstallM = document.getElementById("pwaInstallBannerModal");
+      if (pwaInstallM && !pwaInstallM.hidden) {
+        e.preventDefault();
+        dismissPwaInstallSheetPermanently();
+        return;
+      }
+
       const incDel = document.getElementById("confirmDeleteIncomeModal");
       if (incDel && !incDel.hidden) {
         e.preventDefault();
@@ -15289,6 +15296,40 @@ async function runStartupSequence() {
 
 let deferredPwaInstallPrompt = null;
 
+function getPwaInstallSheetEls() {
+  return {
+    backdrop: document.getElementById("pwaInstallBannerBackdrop"),
+    modal: document.getElementById("pwaInstallBannerModal")
+  };
+}
+
+function closePwaInstallSheet() {
+  const { backdrop, modal } = getPwaInstallSheetEls();
+  if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement)) return;
+  closeBottomSheetModal(backdrop, modal, {
+    onDone: () => backdrop.setAttribute("aria-hidden", "true")
+  });
+}
+
+function openPwaInstallSheet() {
+  const { backdrop, modal } = getPwaInstallSheetEls();
+  if (!(backdrop instanceof HTMLElement) || !(modal instanceof HTMLElement)) return;
+  backdrop.setAttribute("aria-hidden", "false");
+  openBottomSheetModal(backdrop, modal);
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => document.getElementById("pwaInstallBannerBtn")?.focus());
+  });
+}
+
+function dismissPwaInstallSheetPermanently() {
+  try {
+    localStorage.setItem(PWA_BANNER_DISMISSED_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  closePwaInstallSheet();
+}
+
 function isStandaloneDisplayMode() {
   try {
     if (window.matchMedia("(display-mode: standalone)").matches) return true;
@@ -15319,8 +15360,7 @@ function initPwaInstallListeners() {
   });
   window.addEventListener("appinstalled", () => {
     deferredPwaInstallPrompt = null;
-    const b = document.getElementById("pwaInstallBanner");
-    if (b) b.hidden = true;
+    closePwaInstallSheet();
     syncPwaInstallUi();
   });
 
@@ -15346,20 +15386,17 @@ function initPwaInstallListeners() {
     } catch {
       /* ignore */
     }
-    const b = document.getElementById("pwaInstallBanner");
-    if (b) b.hidden = true;
     deferredPwaInstallPrompt = null;
+    closePwaInstallSheet();
     syncPwaInstallUi();
   });
 
-  document.getElementById("pwaInstallBannerDismiss")?.addEventListener("click", () => {
-    try {
-      localStorage.setItem(PWA_BANNER_DISMISSED_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    const b = document.getElementById("pwaInstallBanner");
-    if (b) b.hidden = true;
+  document.getElementById("pwaInstallBannerDismiss")?.addEventListener("click", () => dismissPwaInstallSheetPermanently());
+
+  document.getElementById("pwaInstallBannerBackdrop")?.addEventListener("click", (ev) => {
+    if (ev.target !== document.getElementById("pwaInstallBannerBackdrop")) return;
+    const m = document.getElementById("pwaInstallBannerModal");
+    if (m && !m.hidden) dismissPwaInstallSheetPermanently();
   });
 }
 
@@ -15372,8 +15409,7 @@ function maybeShowPwaInstallBanner() {
     /* ignore */
   }
   if (dismissed) return;
-  const b = document.getElementById("pwaInstallBanner");
-  if (b) b.hidden = false;
+  openPwaInstallSheet();
 }
 
 async function applyThemePackFromSettingsInputs() {

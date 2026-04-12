@@ -2146,21 +2146,19 @@ html[data-theme="dark"] .modal-backdrop {
 }
 
 /*
- * Bekräftelse-/valark: flytande kort vid skärmens nedre kant (inte helskärm), tydlig skugga,
- * innehåll vänsterställt; knappar staplade med fylld destruktiv först.
- * Öppning/stängning styrs med .bottom-sheet-card--open + transition (se app.js).
+ * Bekräftelse-/valark: äkta bottenark — full bredd, platt mot nav eller skärmunderkant,
+ * bara övre hörn rundade, skugga uppåt. Destruktiva m.m. delar samma skal (--above-nav / --vault-lock).
+ * Öppning/stängning: .bottom-sheet-card--open + transition (app.js).
  */
 .modal.bottom-sheet-card {
   box-sizing: border-box;
   position: fixed;
-  left: max(var(--space-3), env(safe-area-inset-left));
-  right: max(var(--space-3), env(safe-area-inset-right));
+  left: 0;
+  right: 0;
   top: auto;
-  width: auto;
-  max-width: 26rem;
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   height: auto;
   min-height: 0;
   max-height: min(calc(100vh - var(--space-6) - env(safe-area-inset-top)), 85vh);
@@ -2178,11 +2176,12 @@ html[data-theme="dark"] .modal-backdrop {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 20px;
+  border-radius: 20px 20px 0 0;
   border: 1px solid var(--border-strong);
+  border-bottom: none;
   box-shadow:
-    0 12px 40px rgba(20, 26, 22, 0.14),
-    0 4px 16px rgba(20, 26, 22, 0.08);
+    0 -10px 36px rgba(20, 26, 22, 0.14),
+    0 -3px 14px rgba(20, 26, 22, 0.08);
 }
 
 .modal.bottom-sheet-card.bottom-sheet-card--open {
@@ -2209,53 +2208,21 @@ html[data-theme="dark"] .modal-backdrop {
 
 html[data-theme="dark"] .modal.bottom-sheet-card {
   box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.55),
-    0 6px 20px rgba(0, 0, 0, 0.35);
-}
-
-/* Ovanför undermenyn + luft mellan kort och nav. */
-.modal.bottom-sheet-card.bottom-sheet-card--above-nav {
-  bottom: calc(72px + var(--space-3) + env(safe-area-inset-bottom));
-}
-
-/*
- * På låsskärmen: äkta bottenark (inte flytande kort med luft under).
- * Kant i kant med viewport-botten; bara övre hörn rundade; safe area i padding.
- */
-.modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
-  bottom: 0;
-  border-radius: 20px 20px 0 0;
-  border-bottom: none;
-  box-shadow:
-    0 -10px 36px rgba(20, 26, 22, 0.14),
-    0 -3px 14px rgba(20, 26, 22, 0.08);
-}
-
-html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
-  box-shadow:
     0 -14px 44px rgba(0, 0, 0, 0.5),
     0 -5px 18px rgba(0, 0, 0, 0.32);
 }
 
-.modal.bottom-sheet-card.bottom-sheet-card--vault-lock .modal-header {
-  padding-left: max(var(--space-4), env(safe-area-inset-left));
-  padding-right: max(var(--space-4), env(safe-area-inset-right));
+/* Kant i kant med bottennavens överkant (ingen extra glipa). */
+.modal.bottom-sheet-card.bottom-sheet-card--above-nav {
+  bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
-.modal.bottom-sheet-card.bottom-sheet-card--vault-lock .modal-body {
-  padding-left: max(var(--space-4), env(safe-area-inset-left));
-  padding-right: max(var(--space-4), env(safe-area-inset-right));
+/* Låsskärm: samma ark, mot viewport-botten (ingen nav) — extra luft ned mot hemkant. */
+.modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
+  bottom: 0;
 }
 
 .modal.bottom-sheet-card.bottom-sheet-card--vault-lock .modal-actions.bottom-sheet-card__actions {
-  padding-left: max(var(--space-4), env(safe-area-inset-left));
-  padding-right: max(var(--space-4), env(safe-area-inset-right));
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom));
 }
 
@@ -2265,7 +2232,10 @@ html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
   align-items: flex-start;
   text-align: left;
   border-bottom: none;
-  padding: var(--space-5) var(--space-4) var(--space-2);
+  padding-top: var(--space-5);
+  padding-bottom: var(--space-2);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
 }
 
 .modal.bottom-sheet-card .modal-header > div:first-child {
@@ -2293,7 +2263,10 @@ html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 var(--space-4) var(--space-3);
+  padding-top: 0;
+  padding-bottom: var(--space-3);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
 }
 
 .modal.bottom-sheet-card .modal-body .note,
@@ -2312,7 +2285,10 @@ html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--vault-lock {
   justify-content: flex-start;
   gap: var(--space-3);
   border-top: none;
-  padding: var(--space-3) var(--space-4) var(--space-5);
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-5);
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
   background: transparent;
 }
 
@@ -7163,46 +7139,36 @@ body.app-bottom-sheet-open {
   font-size: 0.88rem;
 }
 
-/* —— PWA-installationsbanner —— */
-.pwa-install-banner {
-  box-sizing: border-box;
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(72px + env(safe-area-inset-bottom));
-  z-index: 26;
-  padding: var(--space-4);
-  background: var(--card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-card);
-  margin: 0 var(--space-3);
-  box-shadow: var(--shadow-lg);
+/* —— PWA-installation: samma bottom sheet som bekräftelseark, grön primär (bottom-sheet-card--positive) —— */
+.pwa-install-sheet-lead {
+  margin: 0;
+  text-align: left;
 }
 
-html[data-theme="dark"] .pwa-install-banner {
-  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.45);
+.modal.bottom-sheet-card.bottom-sheet-card--positive .modal-actions.bottom-sheet-card__actions .primary {
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 72%, #0a120e);
+  color: #fff;
+  box-shadow: 0 2px 14px color-mix(in srgb, var(--primary) 32%, transparent);
 }
 
-.pwa-install-banner__text {
-  margin: 0 0 var(--space-3);
-  font-size: 0.95rem;
-  line-height: 1.45;
-  color: var(--text);
-  text-align: center;
+.modal.bottom-sheet-card.bottom-sheet-card--positive .modal-actions.bottom-sheet-card__actions .primary:hover {
+  filter: brightness(1.05);
 }
 
-.pwa-install-banner__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: center;
+.modal.bottom-sheet-card.bottom-sheet-card--positive .modal-actions.bottom-sheet-card__actions .primary:focus-visible {
+  outline: 2px solid color-mix(in srgb, #fff 85%, var(--primary));
+  outline-offset: 2px;
 }
 
-.pwa-install-banner__install,
-.pwa-install-banner__dismiss {
-  min-height: 44px;
-  flex: 1 1 8rem;
-  max-width: 100%;
+html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--positive .modal-actions.bottom-sheet-card__actions .primary {
+  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 55%, #000);
+  color: #fff;
+}
+
+html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--positive .modal-actions.bottom-sheet-card__actions .primary:hover {
+  filter: brightness(1.08);
 }
 
 .settings-pwa-card__lead {

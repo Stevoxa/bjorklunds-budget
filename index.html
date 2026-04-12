@@ -46,11 +46,24 @@
       </div>
     </div>
 
-    <div id="pwaInstallBanner" class="pwa-install-banner" hidden role="region" aria-label="Installera app">
-      <p class="pwa-install-banner__text">Vill du installera Björklunds budget som app på enheten?</p>
-      <div class="pwa-install-banner__actions">
-        <button type="button" class="primary pwa-install-banner__install" id="pwaInstallBannerBtn">Installera</button>
-        <button type="button" class="secondary pwa-install-banner__dismiss" id="pwaInstallBannerDismiss">Inte nu</button>
+    <div class="modal-backdrop modal-backdrop--bottom-sheet" id="pwaInstallBannerBackdrop" hidden aria-hidden="true"></div>
+    <div
+      id="pwaInstallBannerModal"
+      class="modal bottom-sheet-card bottom-sheet-card--above-nav bottom-sheet-card--positive"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pwaInstallBannerTitle"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="pwaInstallBannerTitle">Installera app</div>
+      </div>
+      <div class="modal-body">
+        <p class="note pwa-install-sheet-lead">Vill du installera Björklunds budget som app på enheten?</p>
+      </div>
+      <div class="modal-actions bottom-sheet-card__actions">
+        <button type="button" class="primary" id="pwaInstallBannerBtn">Installera</button>
+        <button type="button" class="secondary" id="pwaInstallBannerDismiss">Inte nu</button>
       </div>
     </div>
 
