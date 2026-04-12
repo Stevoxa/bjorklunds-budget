@@ -5579,7 +5579,6 @@ async function initVaultBootstrap() {
   const vaultUnlockPass = document.getElementById("vaultUnlockPassphrase");
   const vaultUnlockBtn = document.getElementById("vaultUnlockBtn");
   const vaultRestartSetupBtn = document.getElementById("vaultRestartSetupBtn");
-  const vaultBackToUnlockBtn = document.getElementById("vaultBackToUnlockBtn");
   const vaultRestartBackdrop = document.getElementById("vaultRestartConfirmBackdrop");
   const vaultRestartModal = document.getElementById("vaultRestartConfirmModal");
   const vaultRestartCancelBtn = document.getElementById("vaultRestartCancelBtn");
@@ -5612,7 +5611,6 @@ async function initVaultBootstrap() {
     !vaultUnlockPass ||
     !vaultUnlockBtn ||
     !vaultRestartSetupBtn ||
-    !vaultBackToUnlockBtn ||
     !vaultRestartBackdrop ||
     !vaultRestartModal ||
     !vaultRestartCancelBtn ||
@@ -5714,13 +5712,17 @@ async function initVaultBootstrap() {
       vaultSetupChoice.hidden = false;
       vaultSetupCreate.hidden = true;
       vaultSetupImport.hidden = true;
-      vaultSetupSubtitle.textContent = "Kom igång";
+      vaultSetupSubtitle.textContent = "";
+      vaultSetupSubtitle.hidden = true;
       if (fromUnlockRestart) {
         vaultSetupHint.textContent =
           "När du skapar en ny budget eller importerar en fil ersätts all data som redan finns på enheten. Utan krypterad backup går den datan förlorad.";
+        vaultSetupHint.hidden = false;
+        vaultSetupHint.classList.add("vault-lock-hint--replace-warning");
       } else {
-        vaultSetupHint.textContent =
-          "All data krypteras på enheten. Byter du enhet behöver du en krypterad backup-fil och rätt lösenord.";
+        vaultSetupHint.textContent = "";
+        vaultSetupHint.hidden = true;
+        vaultSetupHint.classList.remove("vault-lock-hint--replace-warning");
       }
     };
 
@@ -5738,29 +5740,16 @@ async function initVaultBootstrap() {
       document.body.classList.remove("modal-open");
     };
 
-    const showUnlockView = () => {
-      enteredSetupFromUnlock = false;
-      closeRestartModal();
-      vaultBackToUnlockBtn.hidden = true;
-      vaultRestartSetupBtn.hidden = false;
-      vaultUnlockSection.hidden = false;
-      vaultSetupSection.hidden = true;
-      showErr("");
-      vaultUnlockPass.value = "";
-    };
-
     if (hasVault) {
       vaultUnlockSection.hidden = false;
       vaultSetupSection.hidden = true;
       vaultUnlockSubtitle.textContent =
         "Du behöver ange ditt lösenord för att komma åt dina budgetuppgifter.";
       vaultRestartSetupBtn.hidden = false;
-      vaultBackToUnlockBtn.hidden = true;
     } else {
       vaultUnlockSection.hidden = true;
       vaultSetupSection.hidden = false;
       vaultRestartSetupBtn.hidden = true;
-      vaultBackToUnlockBtn.hidden = true;
       showSetupChoice(false);
     }
 
@@ -5772,7 +5761,6 @@ async function initVaultBootstrap() {
       enteredSetupFromUnlock = true;
       vaultUnlockSection.hidden = true;
       vaultSetupSection.hidden = false;
-      vaultBackToUnlockBtn.hidden = false;
       vaultRestartSetupBtn.hidden = true;
       vaultImportFileInput.value = "";
       vaultImportPass.value = "";
@@ -5782,17 +5770,17 @@ async function initVaultBootstrap() {
       showSetupChoice(true);
     };
 
-    vaultBackToUnlockBtn.onclick = () => showUnlockView();
-
     vaultChooseCreateBtn.onclick = () => {
       showErr("");
       vaultSetupChoice.hidden = true;
       vaultSetupCreate.hidden = false;
       vaultSetupImport.hidden = true;
       vaultSetupSubtitle.textContent = "Skapa ny budget";
-      vaultSetupHint.textContent = enteredSetupFromUnlock
-        ? "När du skapar en ny budget ersätts all befintlig data på enheten. Spara en backup under Inställningar innan du byter telefon om du behöver behålla nuvarande data."
-        : "Välj ett lösenord som skyddar din budget på enheten. Spara en backup under Inställningar innan du byter telefon.";
+      vaultSetupSubtitle.hidden = false;
+      vaultSetupHint.textContent =
+        "Välj ett lösenord som skyddar din budget på enheten. Spara en backup under Inställningar innan du byter telefon.";
+      vaultSetupHint.hidden = false;
+      vaultSetupHint.classList.remove("vault-lock-hint--replace-warning");
       vaultCreatePass.value = "";
       vaultCreatePassConfirm.value = "";
     };
@@ -5803,9 +5791,11 @@ async function initVaultBootstrap() {
       vaultSetupCreate.hidden = true;
       vaultSetupImport.hidden = false;
       vaultSetupSubtitle.textContent = "Läs in från fil";
-      vaultSetupHint.textContent = enteredSetupFromUnlock
-        ? "Import ersätter all data på enheten. Utan backup går nuvarande data förlorad. Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag."
-        : "Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag — du behöver inte spara direkt.";
+      vaultSetupSubtitle.hidden = false;
+      vaultSetupHint.textContent =
+        "Efter import är du inloggad direkt. Påminnelsen om backup startar om från idag — du behöver inte spara direkt.";
+      vaultSetupHint.hidden = false;
+      vaultSetupHint.classList.remove("vault-lock-hint--replace-warning");
       vaultImportFileInput.value = "";
       vaultImportPass.value = "";
       syncVaultImportFileLabel();

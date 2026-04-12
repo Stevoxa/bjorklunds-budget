@@ -92,8 +92,7 @@
         </div>
 
         <div id="vaultSetupSection" class="vault-lock-section" hidden>
-          <button type="button" class="vault-setup-back" id="vaultBackToUnlockBtn" hidden>Tillbaka till inloggning</button>
-          <p id="vaultSetupSubtitle" class="note vault-lock-subtitle"></p>
+          <p id="vaultSetupSubtitle" class="note vault-lock-subtitle" hidden></p>
 
           <div id="vaultSetupChoice" class="vault-setup-choice">
             <p class="note vault-setup-lead">Välj hur du vill komma igång på den här enheten.</p>
@@ -148,7 +147,7 @@
             </div>
           </div>
 
-          <p class="note vault-lock-hint" id="vaultSetupHint"></p>
+          <p class="note vault-lock-hint" id="vaultSetupHint" hidden></p>
         </div>
 
         <p id="vaultLockError" class="vault-lock-error" role="alert" hidden></p>
@@ -2237,7 +2236,7 @@
 
     <div class="modal-backdrop" id="vaultRestartConfirmBackdrop" hidden></div>
     <div
-      class="modal"
+      class="modal modal--vault-destructive-confirm"
       id="vaultRestartConfirmModal"
       role="dialog"
       aria-modal="true"
@@ -2245,7 +2244,7 @@
       hidden
     >
       <div class="modal-header">
-        <div id="vaultRestartConfirmTitle">Ersätta data på enheten?</div>
+        <div id="vaultRestartConfirmTitle">Ersätt data på enheten?</div>
       </div>
       <div class="modal-body">
         <p class="note">
@@ -2253,9 +2252,9 @@
           backup kan du inte återställa det som finns nu.
         </p>
       </div>
-      <div class="modal-actions">
-        <button type="button" class="secondary" id="vaultRestartCancelBtn">Avbryt</button>
+      <div class="modal-actions modal-actions--stacked-destructive">
         <button type="button" class="danger" id="vaultRestartConfirmBtn">Fortsätt</button>
+        <button type="button" class="secondary" id="vaultRestartCancelBtn">Avbryt</button>
       </div>
     </div>
 

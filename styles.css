@@ -386,6 +386,14 @@ html[data-theme="dark"] .vault-lock-screen__scrim {
   z-index: 20060;
 }
 
+.vault-lock-hint--replace-warning {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  color: color-mix(in srgb, var(--text) 88%, var(--danger));
+}
+
 @media (min-width: 400px) {
   .vault-lock-card {
     padding: var(--space-6);
@@ -2117,6 +2125,42 @@ html[data-theme="dark"] .modal-backdrop {
   border-top: 1px solid var(--border);
   flex-shrink: 0;
   background: color-mix(in srgb, var(--card) 96%, var(--bg));
+}
+
+@keyframes vault-destructive-modal-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -47%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Vault ”ersätt data”: kompakt kort med marginal (inte helskärmslik höjd). Destruktivt val först (SJ m.fl.). */
+#vaultRestartConfirmModal.modal--vault-destructive-confirm {
+  width: min(26rem, calc(100vw - var(--space-6)));
+  max-height: none;
+  animation: vault-destructive-modal-in var(--motion-modal) var(--motion-modal-ease) both;
+}
+
+#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-body {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-actions.modal-actions--stacked-destructive {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+
+#vaultRestartConfirmModal.modal--vault-destructive-confirm .modal-actions.modal-actions--stacked-destructive button {
+  width: 100%;
+  min-height: 48px;
+  font-weight: 700;
 }
 
 /* Income editor action layout:
