@@ -2165,81 +2165,11 @@
               <div class="settings-advanced-nav-card__body">
                 <div class="settings-advanced-nav-card__title">Avancerat</div>
                 <p class="note settings-advanced-nav-card__ingress tagged-exp-overlay-intro">
-                  Tema, startfilm, rensa appdata och mer.
+                  Avancerade inställningar, innehåll, tema, startfilm och rensning av appdata.
                 </p>
               </div>
               <span class="settings-advanced-nav-card__chev" aria-hidden="true"></span>
             </a>
-          </div>
-
-          <div class="table-card settings-content-card">
-            <div class="table-title-row">
-              <div class="table-title">Innehåll</div>
-            </div>
-            <p class="note settings-card-ingress tagged-exp-overlay-intro">Löneperiod för analys och dag för matplanering.</p>
-            <div class="settings-slide-row settings-slide-row--content">
-              <label class="settings-slide-label" for="salaryPeriodUseFixedDay">
-                <span class="settings-slide-label__text">Fast lönedag i månaden</span>
-                <input type="checkbox" id="salaryPeriodUseFixedDay" class="settings-slide-input" />
-                <span class="settings-slide-track" aria-hidden="true">
-                  <span class="settings-slide-check" aria-hidden="true">✓</span>
-                  <span class="settings-slide-thumb"></span>
-                </span>
-              </label>
-            </div>
-            <div class="form-grid narrow settings-salary-analysis-card">
-              <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Lönedag">
-                  <div class="bb-notched-field-legend">Dag i månaden</div>
-                  <input id="salaryPeriodFixedDay" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" max="31" step="1" />
-                </div>
-                <span class="field-help">Stäng av ovan om du vill att appen föreslår dag utifrån din största intäkt (standard 25).</span>
-              </label>
-              <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Löneåret börjar">
-                  <div class="bb-notched-field-legend">Löneåret börjar</div>
-                  <div class="bb-notched-field-select-wrap">
-                    <select id="salaryYearStartMonth" class="bb-notched-field-select">
-                      <option value="1">Januari</option>
-                      <option value="2">Februari</option>
-                      <option value="3">Mars</option>
-                      <option value="4">April</option>
-                      <option value="5">Maj</option>
-                      <option value="6">Juni</option>
-                      <option value="7">Juli</option>
-                      <option value="8">Augusti</option>
-                      <option value="9">September</option>
-                      <option value="10">Oktober</option>
-                      <option value="11">November</option>
-                      <option value="12">December</option>
-                    </select>
-                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                  </div>
-                </div>
-                <span class="field-help">Var året räknas som börjar (standard januari).</span>
-              </label>
-            </div>
-            <div class="form-grid narrow settings-food-card">
-              <div class="field">
-                <div class="bb-notched-field" role="group" aria-label="Veckodag för matplanering">
-                  <div class="bb-notched-field-legend">Matplanering — veckodag</div>
-                  <button type="button" class="bb-notched-field-btn" id="foodWeekdayOpenBtn">
-                    <span class="bb-notched-field-value" id="foodWeekdaySummary">—</span>
-                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                  </button>
-                </div>
-                <select id="foodPlanningWeekday" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                  <option value="1">Måndag</option>
-                  <option value="2">Tisdag</option>
-                  <option value="3">Onsdag</option>
-                  <option value="4">Torsdag</option>
-                  <option value="5">Fredag</option>
-                  <option value="6">Lördag</option>
-                  <option value="7">Söndag</option>
-                </select>
-                <span class="field-help">När matveckan läggs in i budgeten.</span>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -2248,11 +2178,24 @@
             <h2>Avancerat</h2>
             <a href="#/settings" class="settings-help-link">Inställningar</a>
           </div>
-          <p class="note settings-card-ingress tagged-exp-overlay-intro settings-advanced-page-ingress">
-            Sällan använda val — startfilm, egna mediafiler och rensning av appdata.
-          </p>
 
-          <div class="settings-komp-stack">
+          <div class="table-card settings-advanced-outer-card">
+            <div class="table-title-row">
+              <div class="table-title">Avancerade inställningar</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">
+              Sällan använda val — startfilm, egna mediafiler och rensning av appdata.
+            </p>
+
+            <div
+              class="bb-error-summary settings-theme-pack-error-summary"
+              id="themePackErrorSummary"
+              hidden
+              role="alert"
+              aria-live="polite"
+            ></div>
+
+            <div class="settings-komp-stack">
             <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvIntroLegend">
               <div class="bb-notched-panel-legend" id="settingsAdvIntroLegend">Startfilm</div>
               <div class="settings-slide-row settings-slide-row--advanced">
@@ -2283,12 +2226,10 @@
                 tabindex="-1"
                 aria-label="Välj ikonpaket (ZIP)"
               />
-              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
-                <button type="button" class="bb-notched-field-btn" id="themePackZipPickBtn">
-                  <span class="bb-notched-field-value" id="themePackZipFileName" aria-live="polite">Ingen fil vald</span>
-                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                </button>
+              <div class="actions-row settings-theme-asset-pick-row">
+                <button type="button" class="primary stretch" id="themePackZipPickBtn">Välj ZIP-fil</button>
               </div>
+              <p class="note settings-theme-asset-file-name" id="themePackZipFileName" aria-live="polite">Ingen fil vald</p>
               <p class="field-help">Samma filnamn som standard funkar bra. Sparas när du väljer fil.</p>
             </div>
 
@@ -2302,12 +2243,10 @@
                 tabindex="-1"
                 aria-label="Välj startbild (PNG)"
               />
-              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
-                <button type="button" class="bb-notched-field-btn" id="themeSplashPickBtn">
-                  <span class="bb-notched-field-value" id="themeSplashFileName" aria-live="polite">Ingen fil vald</span>
-                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                </button>
+              <div class="actions-row settings-theme-asset-pick-row">
+                <button type="button" class="primary stretch" id="themeSplashPickBtn">Välj PNG-fil</button>
               </div>
+              <p class="note settings-theme-asset-file-name" id="themeSplashFileName" aria-live="polite">Ingen fil vald</p>
             </div>
 
             <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvIntroFileLegend">
@@ -2320,12 +2259,10 @@
                 tabindex="-1"
                 aria-label="Välj startfilm (MP4)"
               />
-              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
-                <button type="button" class="bb-notched-field-btn" id="themeIntroPickBtn">
-                  <span class="bb-notched-field-value" id="themeIntroFileName" aria-live="polite">Ingen fil vald</span>
-                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                </button>
+              <div class="actions-row settings-theme-asset-pick-row">
+                <button type="button" class="primary stretch" id="themeIntroPickBtn">Välj MP4-fil</button>
               </div>
+              <p class="note settings-theme-asset-file-name" id="themeIntroFileName" aria-live="polite">Ingen fil vald</p>
             </div>
 
             <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvResetLegend">
@@ -2347,6 +2284,77 @@
               </p>
               <div class="actions-row settings-advanced-wipe-row">
                 <button type="button" class="danger stretch" id="settingsWipeAppDataBtn">Rensa appdata</button>
+              </div>
+            </div>
+            </div>
+
+            <div class="settings-advanced-innehåll-block settings-content-card">
+              <div class="table-title-row settings-advanced-innehåll-title">
+                <div class="table-title">Innehåll</div>
+              </div>
+              <p class="note settings-card-ingress tagged-exp-overlay-intro">Löneperiod för analys och dag för matplanering.</p>
+              <div class="settings-slide-row settings-slide-row--content">
+                <label class="settings-slide-label" for="salaryPeriodUseFixedDay">
+                  <span class="settings-slide-label__text">Fast lönedag i månaden</span>
+                  <input type="checkbox" id="salaryPeriodUseFixedDay" class="settings-slide-input" />
+                  <span class="settings-slide-track" aria-hidden="true">
+                    <span class="settings-slide-check" aria-hidden="true">✓</span>
+                    <span class="settings-slide-thumb"></span>
+                  </span>
+                </label>
+              </div>
+              <div class="form-grid narrow settings-salary-analysis-card">
+                <label class="field">
+                  <div class="bb-notched-field" role="group" aria-label="Lönedag">
+                    <div class="bb-notched-field-legend">Dag i månaden</div>
+                    <input id="salaryPeriodFixedDay" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" max="31" step="1" />
+                  </div>
+                  <span class="field-help">Stäng av ovan om du vill att appen föreslår dag utifrån din största intäkt (standard 25).</span>
+                </label>
+                <label class="field">
+                  <div class="bb-notched-field" role="group" aria-label="Löneåret börjar">
+                    <div class="bb-notched-field-legend">Löneåret börjar</div>
+                    <div class="bb-notched-field-select-wrap">
+                      <select id="salaryYearStartMonth" class="bb-notched-field-select">
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Mars</option>
+                        <option value="4">April</option>
+                        <option value="5">Maj</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Augusti</option>
+                        <option value="9">September</option>
+                        <option value="10">Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                      </select>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </div>
+                  </div>
+                  <span class="field-help">Var året räknas som börjar (standard januari).</span>
+                </label>
+              </div>
+              <div class="form-grid narrow settings-food-card">
+                <div class="field">
+                  <div class="bb-notched-field" role="group" aria-label="Veckodag för matplanering">
+                    <div class="bb-notched-field-legend">Matplanering — veckodag</div>
+                    <button type="button" class="bb-notched-field-btn" id="foodWeekdayOpenBtn">
+                      <span class="bb-notched-field-value" id="foodWeekdaySummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="foodPlanningWeekday" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                    <option value="1">Måndag</option>
+                    <option value="2">Tisdag</option>
+                    <option value="3">Onsdag</option>
+                    <option value="4">Torsdag</option>
+                    <option value="5">Fredag</option>
+                    <option value="6">Lördag</option>
+                    <option value="7">Söndag</option>
+                  </select>
+                  <span class="field-help">När matveckan läggs in i budgeten.</span>
+                </div>
               </div>
             </div>
           </div>

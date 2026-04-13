@@ -6616,13 +6616,36 @@ button.stretch {
   opacity: 0.55;
 }
 
-.settings-advanced-page-ingress {
-  margin: 0 0 var(--space-4) !important;
-}
-
-.settings-page.settings-advanced-page > .settings-komp-stack {
+.settings-advanced-outer-card .settings-komp-stack {
   margin-top: 0;
   gap: calc(var(--space-6) + var(--space-4));
+}
+
+.settings-theme-pack-error-summary:not([hidden]) {
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.settings-advanced-page .settings-komp-panel .settings-theme-asset-pick-row {
+  margin-top: var(--space-2);
+}
+
+.settings-advanced-page .settings-komp-panel .settings-theme-asset-file-name {
+  margin: var(--space-2) 0 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.settings-advanced-innehåll-block {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.settings-advanced-innehåll-title {
+  margin-bottom: var(--space-3);
 }
 
 .settings-slide-row--advanced {
@@ -6632,10 +6655,6 @@ button.stretch {
 .settings-advanced-page .settings-komp-panel .settings-pwa-replay-hint {
   margin-top: 0;
   margin-bottom: var(--space-3);
-}
-
-.settings-advanced-page .settings-komp-panel .settings-theme-asset-field {
-  margin-top: var(--space-2);
 }
 
 .settings-advanced-page .settings-komp-panel .field-help {

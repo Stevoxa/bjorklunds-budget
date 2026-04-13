@@ -16421,16 +16421,39 @@ function syncAllThemeAssetFileLabels() {
   syncThemeAssetFileLabel("themeIntroInput", "themeIntroFileName");
 }
 
+function getThemePackErrorSummaryEl() {
+  return document.getElementById("themePackErrorSummary");
+}
+
+function clearThemePackErrors() {
+  hideErrorSummaryByEl(getThemePackErrorSummaryEl());
+}
+
+/** @param {string} message @param {string} [jumpId] */
+function showThemePackError(message, jumpId) {
+  const note = document.getElementById("themePackNote");
+  if (note) note.textContent = "";
+  const summary = getThemePackErrorSummaryEl();
+  if (jumpId) renderErrorSummary(summary, [{ label: message, jumpId }]);
+  else renderErrorSummary(summary, [{ label: message }]);
+}
+
+/** @param {string} message */
+function showThemePackSuccess(message) {
+  clearThemePackErrors();
+  const note = document.getElementById("themePackNote");
+  if (note) note.textContent = message;
+}
+
 /** @param {"zip" | "splash" | "intro"} kind */
 async function applyThemePackFromKind(kind) {
-  const note = document.getElementById("themePackNote");
   const zipInp = document.getElementById("themePackZipInput");
   const splashInp = document.getElementById("themeSplashInput");
   const introInp = document.getElementById("themeIntroInput");
   const TA = globalThis.BjorkThemeAssets;
   const JSZipCtor = globalThis.JSZip;
   if (!TA) {
-    if (note) note.textContent = "Den här webbläsaren verkar inte kunna spara egna bilder här. Prova en annan webbläsare.";
+    showThemePackError("Den här webbläsaren verkar inte kunna spara egna bilder här. Prova en annan webbläsare.");
     return;
   }
   const out = /** @type {Record<string, Blob>} */ ({});
@@ -16438,8 +16461,9 @@ async function applyThemePackFromKind(kind) {
   if (kind === "zip") {
     const zipFile = zipInp?.files && zipInp.files[0];
     if (!zipFile) return;
+    clearThemePackErrors();
     if (!JSZipCtor) {
-      if (note) note.textContent = "ZIP-filer stöds inte just nu. Ladda om sidan och försök igen.";
+      showThemePackError("ZIP-filer stöds inte just nu. Ladda om sidan och försök igen.", "themePackZipPickBtn");
       return;
     }
     try {
@@ -16455,11 +16479,11 @@ async function applyThemePackFromKind(kind) {
         if (blob && blob.size > 0) out[key] = blob;
       }
     } catch {
-      if (note) note.textContent = "ZIP-filen gick inte att läsa. Kontrollera att filen är hel och försök igen.";
+      showThemePackError("ZIP-filen gick inte att läsa. Kontrollera att filen är hel och försök igen.", "themePackZipPickBtn");
       return;
     }
     if (Object.keys(out).length === 0) {
-      if (note) note.textContent = "ZIP:et innehöll inga ikoner som appen känner igen. Jämför med standardfilnamnen i hjälpen.";
+      showThemePackError("ZIP:et innehöll inga ikoner som appen känner igen. Jämför med standardfilnamnen i hjälpen.", "themePackZipPickBtn");
       if (zipInp) zipInp.value = "";
       syncThemeAssetFileLabel("themePackZipInput", "themePackZipFileName");
       return;
@@ -16467,20 +16491,23 @@ async function applyThemePackFromKind(kind) {
   } else if (kind === "splash") {
     const sp = splashInp?.files && splashInp.files[0];
     if (!sp || sp.size <= 0) return;
+    clearThemePackErrors();
     out.splashPng = sp;
   } else if (kind === "intro") {
     const intro = introInp?.files && introInp.files[0];
     if (!intro || intro.size <= 0) return;
+    clearThemePackErrors();
     out.introMp4 = intro;
   }
 
+  const saveJumpId = kind === "zip" ? "themePackZipPickBtn" : kind === "splash" ? "themeSplashPickBtn" : "themeIntroPickBtn";
   try {
     await TA.putMany(out);
   } catch {
-    if (note) note.textContent = "Kunde inte spara på enheten. Kontrollera utrymme och försök igen.";
+    showThemePackError("Kunde inte spara på enheten. Kontrollera utrymme och försök igen.", saveJumpId);
     return;
   }
-  if (note) note.textContent = "Sparat. Ikoner uppdateras direkt; ny startbild eller film syns vid nästa appstart.";
+  showThemePackSuccess("Sparat. Ikoner uppdateras direkt; ny startbild eller film syns vid nästa appstart.");
   await applyThemeToDocumentIcons();
   const obScr = document.getElementById("onboardingScreen");
   if (obScr && !obScr.hidden) void hydrateOnboardingSplashImg();
@@ -16491,16 +16518,18 @@ async function applyThemePackFromKind(kind) {
 }
 
 async function resetThemePackToDefault() {
-  const note = document.getElementById("themePackNote");
   const TA = globalThis.BjorkThemeAssets;
-  if (!TA) return;
+  if (!TA) {
+    showThemePackError("Den här webbläsaren verkar inte kunna spara egna bilder här. Prova en annan webbläsare.");
+    return;
+  }
   try {
     await TA.clearAll();
   } catch {
-    if (note) note.textContent = "Kunde inte återställa. Försök igen om en stund.";
+    showThemePackError("Kunde inte återställa. Försök igen om en stund.", "themePackResetBtn");
     return;
   }
-  if (note) note.textContent = "Standard återställd. Ladda om sidan om ikoner eller startbild inte uppdateras.";
+  showThemePackSuccess("Standard återställd. Ladda om sidan om ikoner eller startbild inte uppdateras.");
   await applyThemeToDocumentIcons();
   const obReset = document.getElementById("onboardingScreen");
   if (obReset && !obReset.hidden) void hydrateOnboardingSplashImg();
