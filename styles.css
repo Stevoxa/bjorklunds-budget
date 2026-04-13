@@ -6312,6 +6312,35 @@ button.stretch {
   margin-bottom: 0;
 }
 
+/* Snabb upplåsning: inline feedback (samma kort som knapparna), inte debug-toast. */
+.settings-vault-bio-feedback {
+  margin: var(--space-3) 0 0;
+}
+
+.settings-vault-bio-feedback.settings-vault-bio-feedback--success {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--success) 42%, var(--border));
+  background: color-mix(in srgb, var(--success) 11%, var(--card-2));
+  color: var(--text);
+}
+
+.settings-vault-bio-feedback.settings-vault-bio-feedback--error {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  border: 1px solid color-mix(in srgb, var(--danger) 38%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--card-2));
+  color: var(--text);
+}
+
+.settings-vault-bio-feedback.settings-vault-bio-feedback--info {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--card-2);
+  color: var(--muted);
+}
+
 .backup-import-sheet .backup-import-sheet-body {
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
 }

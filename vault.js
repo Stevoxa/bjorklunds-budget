@@ -330,7 +330,11 @@
             extensions: { prf: { eval: { first: prfSalt } } }
           }
         });
-      } catch {
+      } catch (e) {
+        const name = e && e.name;
+        if (name === "NotAllowedError" || name === "AbortError") {
+          return { ok: false, error: "webauthn-cancelled" };
+        }
         return { ok: false, error: "webauthn-fail" };
       }
 
