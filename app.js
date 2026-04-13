@@ -656,24 +656,10 @@ function resolvedDocumentTheme() {
 }
 
 /**
- * Diagramfärger per tema. Sätt till `false` för att återställa hela paletten till v4 (en rad).
- * v5: dämpad naturtong (preview v5.0), men recurringExpenses följer alltid varumärkesgrön
- *     ljust #255f33 / mörkt #6fcf7e (samma som --primary i styles.css).
+ * Diagramsegment per tema: dämpad naturtong. recurringExpenses = varumärkesgrön
+ * (#255f33 ljus / #6fcf7e mörk, samma som --primary).
  */
-const USE_CHART_SEGMENT_PALETTE_V5 = true;
-
-const CHART_SEGMENT_PALETTE_V4 = {
-  recurringExpenses: { light: "#255f33", dark: "#8edb9a" },
-  foodGenerated: { light: "#e65100", dark: "#ffb74d" },
-  car: { light: "#005fa3", dark: "#90caf9" },
-  housing: { light: "#00695c", dark: "#80cbc4" },
-  loans: { light: "#6a1b9a", dark: "#ce93d8" },
-  children: { light: "#2e7d32", dark: "#a5d6a7" },
-  savings: { light: "#f59e0b", dark: "#ffe082" },
-  oneOffExpenses: { light: "#c62828", dark: "#ffab91" }
-};
-
-const CHART_SEGMENT_PALETTE_V5 = {
+const CHART_SEGMENT_PALETTE = {
   recurringExpenses: { light: "#255f33", dark: "#6fcf7e" },
   foodGenerated: { light: "#a3a35a", dark: "#d6d686" },
   car: { light: "#5f8a90", dark: "#8fb7bd" },
@@ -683,10 +669,6 @@ const CHART_SEGMENT_PALETTE_V5 = {
   savings: { light: "#c8a85a", dark: "#e8cc8a" },
   oneOffExpenses: { light: "#d08a6a", dark: "#e5b09a" }
 };
-
-const CHART_SEGMENT_PALETTE = USE_CHART_SEGMENT_PALETTE_V5
-  ? CHART_SEGMENT_PALETTE_V5
-  : CHART_SEGMENT_PALETTE_V4;
 
 function chartSegmentHex(key) {
   const pair = CHART_SEGMENT_PALETTE[key];
@@ -8546,9 +8528,10 @@ function buildSalaryPeriodFixedVariableWeekBarsSv(startIso, endIso) {
 }
 
 /** HTML-lista som löneperiods-donuten: prick + etikett + belopp (hel löneperiod). */
-function buildSalaryPeriodFixedVarLegendHtml(fvModel, palette) {
+function buildSalaryPeriodFixedVarLegendHtml(fvModel) {
   if (!fvModel?.labels?.length) return "";
-  const varFill = palette.dark ? "rgba(197, 131, 68, 0.42)" : "rgba(233, 203, 179, 0.95)";
+  const fixedColor = chartSegmentHex("housing");
+  const variableColor = chartSegmentHex("oneOffExpenses");
   const mkRow = (lab, kr, dotBg) => `<div class="analysis-salary-year-spend__legend-row">
         <span class="analysis-salary-year-spend__legend-left">
           <span class="analysis-salary-year-spend__legend-dot" style="background-color:${escapeHtml(dotBg)}" aria-hidden="true"></span>
@@ -8557,8 +8540,8 @@ function buildSalaryPeriodFixedVarLegendHtml(fvModel, palette) {
         <span class="analysis-salary-year-spend__legend-amt">${escapeHtml(formatKr(kr))}</span>
       </div>`;
   return (
-    mkRow("Fasta", fvModel.legendFixedTotal ?? 0, palette.balanceSoft) +
-    mkRow("Rörliga", fvModel.legendVariableTotal ?? 0, varFill)
+    mkRow("Fasta", fvModel.legendFixedTotal ?? 0, fixedColor) +
+    mkRow("Rörliga", fvModel.legendVariableTotal ?? 0, variableColor)
   );
 }
 
@@ -9222,8 +9205,8 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
   if (!fvModel?.labels?.length || typeof window.Chart === "undefined" || !canvas) return;
 
   const palette = getAnalysisChartPalette();
-  const varFill = palette.dark ? "rgba(197, 131, 68, 0.42)" : "rgba(233, 203, 179, 0.95)";
-  const varBorder = palette.mat;
+  const fixedFill = chartSegmentHex("housing");
+  const variableFill = chartSegmentHex("oneOffExpenses");
 
   window.Chart.defaults.font.family = palette.chartFont;
   window.Chart.defaults.color = palette.muted;
@@ -9237,18 +9220,16 @@ function wireSalaryPeriodFixedVariableChart(fvModel) {
         {
           label: "Fasta",
           data: fvModel.fixed,
-          backgroundColor: palette.balanceSoft,
-          borderColor: palette.balance,
-          borderWidth: 1,
+          backgroundColor: fixedFill,
+          borderWidth: 0,
           borderRadius: 8,
           stack: "fv"
         },
         {
           label: "Rörliga",
           data: fvModel.variable,
-          backgroundColor: varFill,
-          borderColor: varBorder,
-          borderWidth: 1,
+          backgroundColor: variableFill,
+          borderWidth: 0,
           borderRadius: 8,
           stack: "fv"
         }
@@ -12737,7 +12718,7 @@ function renderAnalysisPage() {
   let fixedVarPeriodBlock = "";
   if (win?.startIso && win?.endIso) {
     salaryPeriodFvModel = buildSalaryPeriodFixedVariableWeekBarsSv(win.startIso, win.endIso);
-    const fvLegendHtml = buildSalaryPeriodFixedVarLegendHtml(salaryPeriodFvModel, getAnalysisChartPalette());
+    const fvLegendHtml = buildSalaryPeriodFixedVarLegendHtml(salaryPeriodFvModel);
     fixedVarPeriodBlock =
       salaryPeriodFvModel?.labels?.length
         ? `<div class="table-card analysis-salary-period-fixed-var">
