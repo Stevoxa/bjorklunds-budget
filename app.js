@@ -1045,8 +1045,45 @@ function initFoodMatSubPanelHistory() {
   });
 }
 
-/** Bottenmenyns ordning — vänster→höger-svep byter till nästa flik (sluten cykel). */
+/**
+ * Bottenmenyns ordning (vänster→höger i menyn).
+ * Vänsterkant, svep V→H: ett steg mot analysis (föregående i listan, cykel).
+ * Högerkant, svep H→V: ett steg mot settings (nästa i listan), bara när ingen undersida är öppen.
+ */
 const APP_MAIN_NAV_CYCLE = ["analysis", "incomes", "expenses", "savings", "settings"];
+
+function appEdgeSwipeViewportWidth() {
+  try {
+    const vv = window.visualViewport;
+    if (vv && vv.width > 0) return vv.width;
+  } catch {
+    /* ignore */
+  }
+  return window.innerWidth || document.documentElement?.clientWidth || 0;
+}
+
+/** Sant om något som vänsterkants-svep hanterar (modaler, utgifts-/intäkts-overlays) är öppet. */
+function appEdgeSwipeOverlaysOrModalsOpen() {
+  const expenseModal = document.getElementById("expenseModal");
+  if (expenseModal && !expenseModal.hidden) return true;
+  const incomeModal = document.getElementById("incomeModal");
+  if (incomeModal && !incomeModal.hidden) return true;
+  const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+  if (foodOverlay && !foodOverlay.hidden) return true;
+  for (const cat of TAGGED_CATEGORY_KEYS) {
+    const C = TAGGED_CATEGORY_CONFIG[cat];
+    if (!C?.overlayKey) continue;
+    const el = document.querySelector(`[data-expview="${C.overlayKey}"]`);
+    if (el && !el.hidden) return true;
+  }
+  const loansEl = document.querySelector('[data-expview="loans"]');
+  if (loansEl && !loansEl.hidden) return true;
+  if (anyIncomeSalaryOverlayOpen()) return true;
+  for (const cat of INCOME_TAGGED_KEYS) {
+    if (incomeTaggedOverlayIsOpen(cat)) return true;
+  }
+  return false;
+}
 
 function appEdgeSwipeEnvironmentBlocked() {
   const boot = document.getElementById("appBootScreen");
@@ -1071,10 +1108,9 @@ function appEdgeSwipeTargetBlocksNavigation(target) {
 }
 
 /**
- * Vänsterkant → svep högerut: undersidor (steg tillbaka / Avbryt), därefter nästa huvudflik.
- * Höger→vänster används inte för navigation (ingen åtgärd).
+ * Vänsterkant → svep högerut: undersidor (steg tillbaka / Avbryt), därefter ett steg mot analysis i huvudmenyn.
  */
-function appEdgeSwipeTryConsumeLtr() {
+function appEdgeSwipeTryConsumeFromLeftEdge() {
   if (appEdgeSwipeEnvironmentBlocked()) return false;
 
   const expenseModal = document.getElementById("expenseModal");
@@ -1159,7 +1195,25 @@ function appEdgeSwipeTryConsumeLtr() {
 
   const route = ui.activeRoute || parseRouteFromHash().route;
   const idx = APP_MAIN_NAV_CYCLE.indexOf(route);
-  const next = idx < 0 ? APP_MAIN_NAV_CYCLE[0] : APP_MAIN_NAV_CYCLE[(idx + 1) % APP_MAIN_NAV_CYCLE.length];
+  const prev =
+    idx < 0 ? APP_MAIN_NAV_CYCLE[0] : APP_MAIN_NAV_CYCLE[(idx - 1 + APP_MAIN_NAV_CYCLE.length) % APP_MAIN_NAV_CYCLE.length];
+  const prevHash = `#/${prev}`;
+  if (location.hash !== prevHash) location.hash = prevHash;
+  return true;
+}
+
+/**
+ * Högerkant → svep vänsterut: ett steg mot settings i huvudmenyn (endast när ingen undersida/modal är öppen).
+ */
+function appEdgeSwipeTryConsumeFromRightEdge() {
+  if (appEdgeSwipeEnvironmentBlocked()) return false;
+  if (appEdgeSwipeOverlaysOrModalsOpen()) return false;
+  const route = ui.activeRoute || parseRouteFromHash().route;
+  const idx = APP_MAIN_NAV_CYCLE.indexOf(route);
+  const next =
+    idx < 0
+      ? APP_MAIN_NAV_CYCLE[APP_MAIN_NAV_CYCLE.length - 1]
+      : APP_MAIN_NAV_CYCLE[(idx + 1) % APP_MAIN_NAV_CYCLE.length];
   const nextHash = `#/${next}`;
   if (location.hash !== nextHash) location.hash = nextHash;
   return true;
@@ -1180,9 +1234,10 @@ function initAppEdgeSwipeNavigation() {
   let startY = 0;
   let startT = 0;
   let active = false;
-  let edgeOk = false;
+  /** "left" = vänsterkant V→H; "right" = högerkant H→V (huvudmeny mot settings). */
+  let edgeSide = null;
   let lastConsumeAt = 0;
-  /** När vi fångat en tydlig LTR-gest från kanten: fortsätt preventDefault så webbläsaren inte tar över (history.back / lämna PWA). */
+  /** Tydlig horisontell kantgest: fortsätt preventDefault så webbläsaren inte tar över. */
   let suppressBrowserNav = false;
 
   const leftEdgeLimitPx = () => {
@@ -1197,19 +1252,37 @@ function initAppEdgeSwipeNavigation() {
     return EDGE_PX + inset;
   };
 
+  const rightEdgeLimitPx = () => {
+    let inset = 0;
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--app-safe-area-inset-right").trim();
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) inset = Math.max(0, n);
+    } catch {
+      /* ignore */
+    }
+    return EDGE_PX + inset;
+  };
+
   const begin = (x, y, target) => {
     suppressBrowserNav = false;
+    edgeSide = null;
+    active = false;
     if (appEdgeSwipeEnvironmentBlocked()) return;
     if (appEdgeSwipeTargetBlocksNavigation(target)) return;
     startX = x;
     startY = y;
     startT = performance.now();
-    edgeOk = x <= leftEdgeLimitPx();
-    active = edgeOk;
+    const w = appEdgeSwipeViewportWidth();
+    if (!w) return;
+    if (x <= leftEdgeLimitPx()) edgeSide = "left";
+    else if (x >= w - rightEdgeLimitPx()) edgeSide = "right";
+    else return;
+    active = true;
   };
 
   const move = (x, y, ev) => {
-    if (!active) return;
+    if (!active || !edgeSide) return;
     const dx = x - startX;
     const dy = y - startY;
     if (suppressBrowserNav) {
@@ -1218,9 +1291,13 @@ function initAppEdgeSwipeNavigation() {
     }
     if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) {
       active = false;
+      edgeSide = null;
       return;
     }
-    if (edgeOk && dx > dxTrigger && dx > Math.abs(dy) * dxRatio) {
+    if (edgeSide === "left" && dx > dxTrigger && dx > Math.abs(dy) * dxRatio) {
+      suppressBrowserNav = true;
+      if (ev && ev.cancelable) ev.preventDefault();
+    } else if (edgeSide === "right" && dx < -dxTrigger && -dx > Math.abs(dy) * dxRatio) {
       suppressBrowserNav = true;
       if (ev && ev.cancelable) ev.preventDefault();
     }
@@ -1229,19 +1306,26 @@ function initAppEdgeSwipeNavigation() {
   const end = (x, y) => {
     suppressBrowserNav = false;
     if (!active) return;
+    const side = edgeSide;
     active = false;
-    if (!edgeOk) return;
+    edgeSide = null;
+    if (!side) return;
     const dx = x - startX;
     const dy = y - startY;
     const dt = performance.now() - startT;
-    if (dx <= 80 || Math.abs(dy) >= 40 || dt >= 900) return;
+    if (side === "left") {
+      if (dx <= 80 || Math.abs(dy) >= 40 || dt >= 900) return;
+    } else {
+      if (dx >= -80 || Math.abs(dy) >= 40 || dt >= 900) return;
+    }
     if (performance.now() - lastConsumeAt < 400) return;
-    lastConsumeAt = performance.now();
-    appEdgeSwipeTryConsumeLtr();
+    const consumed = side === "left" ? appEdgeSwipeTryConsumeFromLeftEdge() : appEdgeSwipeTryConsumeFromRightEdge();
+    if (consumed) lastConsumeAt = performance.now();
   };
 
   const resetTouchTracking = () => {
     active = false;
+    edgeSide = null;
     suppressBrowserNav = false;
   };
 
