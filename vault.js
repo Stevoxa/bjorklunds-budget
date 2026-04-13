@@ -545,7 +545,7 @@
      * @returns {Promise<{ ok: boolean, error?: string }>}
      */
     async wipeVaultDatabase() {
-      lock();
+      BjorkVault.lock();
       return new Promise((resolve) => {
         const req = indexedDB.deleteDatabase(DB_NAME);
         req.onerror = () => resolve({ ok: false, error: String(req.error?.message || "delete-fail") });
