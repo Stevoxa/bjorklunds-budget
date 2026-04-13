@@ -361,12 +361,20 @@
       }
     },
 
+    /** Läs nuvarande vault-rad (för prefetch innan WebAuthn — se registerBiometricUnlock). */
+    async getVaultRow() {
+      return idbGet();
+    },
+
     /**
      * Kräver upplåst vault (lösenfras). Skapar passkey och sparar PRF-wrap av sessionsnyckeln.
+     * @param {{ vaultRow?: object | null }} [opts]
+     *        Om `vaultRow` sätts (prefetch från IndexedDB innan klick) blir `navigator.credentials.create`
+     *        första await i kedjan — krävs på Android Chrome annars visas ofta ingen systemdialog (user activation).
      */
-    async registerBiometricUnlock() {
+    async registerBiometricUnlock(opts) {
       if (!sessionCryptoKey || !sessionSalt) return { ok: false, error: "locked" };
-      const row = await idbGet();
+      const row = opts?.vaultRow !== undefined ? opts.vaultRow : await idbGet();
       if (!row?.envelope) return { ok: false, error: "no-vault" };
       if (validateWebAuthnBlob(row.webAuthn)) return { ok: false, error: "already" };
 
@@ -380,23 +388,47 @@
       const challenge = randomBytes(32);
       const userId = randomBytes(16);
 
+      const publicKeyBase = {
+        challenge,
+        timeout: 120000,
+        rp: { name: "Björklunds budget", id: rpId },
+        user: { id: userId, name: "local-vault", displayName: "Lokal budget" },
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },
+          { type: "public-key", alg: -257 }
+        ],
+        attestation: "none",
+        extensions: { prf: { eval: { first: prfSalt } } }
+      };
+
       let credential;
       try {
         credential = await global.navigator.credentials.create({
           publicKey: {
-            challenge,
-            rp: { name: "Björklunds budget", id: rpId },
-            user: { id: userId, name: "local-vault", displayName: "Lokal budget" },
-            pubKeyCredParams: [
-              { type: "public-key", alg: -7 },
-              { type: "public-key", alg: -257 }
-            ],
-            authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
-            extensions: { prf: { eval: { first: prfSalt } } }
+            ...publicKeyBase,
+            authenticatorSelection: {
+              authenticatorAttachment: "platform",
+              residentKey: "required",
+              userVerification: "required"
+            }
           }
         });
-      } catch {
-        return { ok: false, error: "create-fail" };
+      } catch (e1) {
+        try {
+          credential = await global.navigator.credentials.create({
+            publicKey: {
+              ...publicKeyBase,
+              authenticatorSelection: { residentKey: "preferred", userVerification: "required" }
+            }
+          });
+        } catch (e2) {
+          try {
+            console.error("BjorkVault registerBiometricUnlock create", e1, e2);
+          } catch {
+            /* ignore */
+          }
+          return { ok: false, error: "create-fail" };
+        }
       }
 
       if (!(credential instanceof global.PublicKeyCredential)) return { ok: false, error: "bad-credential" };
@@ -421,8 +453,10 @@
           }
         };
 
+        const fresh = await idbGet();
+        const base = fresh && validateEnvelope(fresh.envelope) ? fresh : row;
         await idbSetRow({
-          ...row,
+          ...base,
           webAuthn,
           updatedAt: new Date().toISOString()
         });

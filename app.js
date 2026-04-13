@@ -5811,7 +5811,13 @@ const ui = {
   /** På välkomstskärm: döljs för session efter val av intäktskategori (återkommer vid omstart om fortfarande tom). */
   onboardingDismissedForSession: false,
   /** Ny vault via "Skapa budget": visa backup-modal efter första sparning när budgetdata finns. */
-  deferredBackupPromptAfterFirstDataSave: false
+  deferredBackupPromptAfterFirstDataSave: false,
+  /**
+   * Prefetchead IndexedDB-rad för Snabb upplåsning. På Android Chrome tappar klick ofta "user activation"
+   * om IndexedDB await körs i samma hanterare före navigator.credentials.create.
+   */
+  vaultRowSnapshot: null,
+  vaultRowSnapshotReady: false
 };
 
 function countOneOffNested(root) {
@@ -11743,6 +11749,16 @@ async function syncSettingsVaultBiometricUi() {
   }
   card.hidden = false;
 
+  ui.vaultRowSnapshotReady = false;
+  en.disabled = true;
+  dis.disabled = true;
+  try {
+    ui.vaultRowSnapshot = typeof V.getVaultRow === "function" ? await V.getVaultRow() : null;
+  } catch {
+    ui.vaultRowSnapshot = null;
+  }
+  ui.vaultRowSnapshotReady = true;
+
   const prf = await V.isBiometricUnlockLikelySupported();
   const has = await V.hasBiometricUnlock();
 
@@ -11751,20 +11767,24 @@ async function syncSettingsVaultBiometricUi() {
     en.disabled = true;
     en.hidden = false;
     dis.hidden = true;
+    dis.disabled = false;
     return;
   }
 
-  en.disabled = false;
   if (has) {
     en.hidden = true;
+    en.disabled = false;
     dis.hidden = false;
+    dis.disabled = false;
     status.textContent =
       "Snabb upplåsning är på. Ny enhet eller borttagen biometrik: använd lösenord och aktivera igen här om du vill.";
   } else {
     en.hidden = false;
     dis.hidden = true;
+    dis.disabled = false;
+    en.disabled = false;
     status.textContent = prf
-      ? "Aktivera när vaulten är upplåst. Ditt lösenord ändras inte."
+      ? "Aktivera när vaulten är upplåst. Ditt lösenord ändras inte. På Android visas ofta en nederställ (inte ett separat fönster som på dator)."
       : "Webbläsaren rapporterar begränsat PRF-stöd (behövs för den här lösningen). Provaknappen kan ändå fungera i nyare Chrome på Android.";
   }
 }
@@ -11801,8 +11821,17 @@ function wireVaultBiometricSettingsOnce() {
     en.addEventListener("click", async () => {
       const V = globalThis.BjorkVault;
       if (!V) return;
+      if (!ui.vaultRowSnapshotReady) {
+        showDebugToast("Laddar inställningar — vänta en sekund och tryck igen.");
+        return;
+      }
+      const row = ui.vaultRowSnapshot;
+      if (!row?.envelope) {
+        showDebugToast("Kunde inte läsa vault från enheten. Gå ur Inställningar och tillbaka, eller ladda om sidan.");
+        return;
+      }
       en.disabled = true;
-      const r = await V.registerBiometricUnlock();
+      const r = await V.registerBiometricUnlock({ vaultRow: row });
       en.disabled = false;
       if (!r.ok) {
         showDebugToast(vaultBiometricRegisterErrorSv(r.error));
