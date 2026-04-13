@@ -2171,9 +2171,9 @@
         </section>
 
         <section class="view settings-page settings-advanced-page" data-view="settingsAdvanced">
-          <div class="view-header view-header--settings">
-            <h2>Avancerat</h2>
-            <a href="#/settings" class="settings-help-link">Inställningar</a>
+          <div class="view-header view-header--settings view-header--settings-sub">
+            <h2 class="visually-hidden">Avancerat</h2>
+            <a href="#/settings" class="settings-header-back" aria-label="Tillbaka till Inställningar">Inställningar</a>
           </div>
 
           <div class="table-card settings-advanced-outer-card">
@@ -2282,13 +2282,16 @@
                 <button type="button" class="danger stretch" id="settingsWipeAppDataBtn">Rensa appdata</button>
               </div>
             </div>
-            </div>
 
-            <div class="settings-advanced-innehåll-block settings-content-card">
-              <div class="table-title-row settings-advanced-innehåll-title">
-                <div class="table-title">Innehåll</div>
-              </div>
-              <p class="note settings-card-ingress tagged-exp-overlay-intro">Löneperiod för analys och dag för matplanering.</p>
+            <div
+              class="bb-notched-panel settings-komp-panel settings-content-card"
+              role="group"
+              aria-labelledby="settingsAdvInnehållLegend"
+            >
+              <div class="bb-notched-panel-legend" id="settingsAdvInnehållLegend">Innehåll</div>
+              <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">
+                Löneperiod för analys och dag för matplanering.
+              </p>
               <div class="settings-slide-row settings-slide-row--content">
                 <label class="settings-slide-label" for="salaryPeriodUseFixedDay">
                   <span class="settings-slide-label__text">Fast lönedag i månaden</span>
@@ -2353,13 +2356,14 @@
                 </div>
               </div>
             </div>
+            </div>
           </div>
         </section>
 
         <section class="view help-page settings-page settings-help-page" data-view="settingsHelp">
-          <div class="view-header view-header--help">
-            <h2>Hjälp</h2>
-            <a href="#/settings" class="settings-help-link">Inställningar</a>
+          <div class="view-header view-header--help view-header--settings-sub">
+            <h2 class="visually-hidden">Hjälp</h2>
+            <a href="#/settings" class="settings-header-back" aria-label="Tillbaka till Inställningar">Inställningar</a>
           </div>
 
           <div class="table-card help-card">

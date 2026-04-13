@@ -6314,6 +6314,11 @@ button.stretch {
   -webkit-backdrop-filter: blur(12px);
 }
 
+.view-header--settings.view-header--settings-sub,
+.view-header--help.view-header--settings-sub {
+  justify-content: flex-start;
+}
+
 .settings-help-link {
   font-size: 0.95rem;
   font-weight: 650;
@@ -6330,6 +6335,47 @@ button.stretch {
 .settings-help-link:focus-visible {
   outline: none;
   border-radius: 6px;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.settings-header-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px 10px 10px;
+  margin-inline-start: calc(-1 * 10px);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--primary);
+  font-family: inherit;
+  font-weight: 750;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--motion-ease), background var(--motion-fast) var(--motion-ease);
+}
+
+.settings-header-back::before {
+  content: "‹";
+  display: block;
+  flex-shrink: 0;
+  font-size: 1.65rem;
+  font-weight: 300;
+  line-height: 1;
+  transform: translateY(-0.06em);
+}
+
+.settings-header-back:hover {
+  color: color-mix(in srgb, var(--primary) 72%, var(--text));
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.settings-header-back:focus-visible {
+  outline: none;
   box-shadow: 0 0 0 3px var(--focus);
 }
 
@@ -6641,16 +6687,6 @@ button.stretch {
 .settings-advanced-page .settings-komp-panel .settings-theme-asset-file-name:empty {
   display: none;
   margin: 0;
-}
-
-.settings-advanced-innehåll-block {
-  margin-top: var(--space-6);
-  padding-top: var(--space-5);
-  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-}
-
-.settings-advanced-innehåll-title {
-  margin-bottom: var(--space-3);
 }
 
 .settings-slide-row--advanced {
