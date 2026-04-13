@@ -656,10 +656,13 @@ function resolvedDocumentTheme() {
 }
 
 /**
- * Diagramfärger: ljusa mättade segment, mörkläge med högre luminans och kontrast.
- * (Komplement till varumärkesgrön #255f33.)
+ * Diagramfärger per tema. Sätt till `false` för att återställa hela paletten till v4 (en rad).
+ * v5: dämpad naturtong (preview v5.0), men recurringExpenses följer alltid varumärkesgrön
+ *     ljust #255f33 / mörkt #6fcf7e (samma som --primary i styles.css).
  */
-const CHART_SEGMENT_PALETTE = {
+const USE_CHART_SEGMENT_PALETTE_V5 = true;
+
+const CHART_SEGMENT_PALETTE_V4 = {
   recurringExpenses: { light: "#255f33", dark: "#8edb9a" },
   foodGenerated: { light: "#e65100", dark: "#ffb74d" },
   car: { light: "#005fa3", dark: "#90caf9" },
@@ -669,6 +672,21 @@ const CHART_SEGMENT_PALETTE = {
   savings: { light: "#f59e0b", dark: "#ffe082" },
   oneOffExpenses: { light: "#c62828", dark: "#ffab91" }
 };
+
+const CHART_SEGMENT_PALETTE_V5 = {
+  recurringExpenses: { light: "#255f33", dark: "#6fcf7e" },
+  foodGenerated: { light: "#a3a35a", dark: "#d6d686" },
+  car: { light: "#5f8a90", dark: "#8fb7bd" },
+  housing: { light: "#7fa06b", dark: "#a6c48e" },
+  loans: { light: "#8c5e4a", dark: "#c08a6c" },
+  children: { light: "#6faf8f", dark: "#9fd4b8" },
+  savings: { light: "#c8a85a", dark: "#e8cc8a" },
+  oneOffExpenses: { light: "#d08a6a", dark: "#e5b09a" }
+};
+
+const CHART_SEGMENT_PALETTE = USE_CHART_SEGMENT_PALETTE_V5
+  ? CHART_SEGMENT_PALETTE_V5
+  : CHART_SEGMENT_PALETTE_V4;
 
 function chartSegmentHex(key) {
   const pair = CHART_SEGMENT_PALETTE[key];
