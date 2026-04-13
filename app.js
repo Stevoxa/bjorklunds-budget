@@ -1045,132 +1045,142 @@ function initFoodMatSubPanelHistory() {
   });
 }
 
-function initFoodMatSwipeBack() {
-  const overlays = document.querySelectorAll('.exp-overlay[data-expview="food"] .food-mat-panel');
-  overlays.forEach((panel) => {
-    let startX = 0;
-    let startY = 0;
-    let startT = 0;
-    let active = false;
-    let edgeOk = false;
+/** Bottenmenyns ordning — vänster→höger-svep byter till nästa flik (sluten cykel). */
+const APP_MAIN_NAV_CYCLE = ["analysis", "incomes", "expenses", "savings", "settings"];
 
-    const begin = (x, y) => {
-      if (!panel || panel.hidden) return;
-      startX = x;
-      startY = y;
-      startT = performance.now();
-      // Require swipe to start near left edge to avoid fighting scroll/taps.
-      edgeOk = startX <= 28;
-      active = true;
-    };
-
-    const move = (x, y) => {
-      if (!active) return;
-      const dx = x - startX;
-      const dy = y - startY;
-      if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
-    };
-
-    const end = (x, y) => {
-      if (!active) return;
-      active = false;
-      if (!edgeOk) return;
-      const dx = x - startX;
-      const dy = y - startY;
-      const dt = performance.now() - startT;
-      if (dx > 80 && Math.abs(dy) < 40 && dt < 900) closeFoodMatSubPanelFromBackButton();
-    };
-
-    panel.addEventListener(
-      "pointerdown",
-      (e) => {
-        if (e.pointerType === "mouse") return;
-        begin(e.clientX, e.clientY);
-      },
-      { passive: true }
-    );
-
-    panel.addEventListener(
-      "pointermove",
-      (e) => {
-        move(e.clientX, e.clientY);
-      },
-      { passive: true }
-    );
-
-    panel.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { passive: true });
-    panel.addEventListener("pointercancel", () => {
-      active = false;
-    }, { passive: true });
-
-    // Android WebView/Chrome can be inconsistent with PointerEvents in some modes;
-    // add TouchEvents as a fallback.
-    const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
-    panel.addEventListener(
-      "touchstart",
-      (ev) => {
-        const t = getTouch(ev);
-        if (!t) return;
-        begin(t.clientX, t.clientY);
-      },
-      { passive: true }
-    );
-    panel.addEventListener(
-      "touchmove",
-      (ev) => {
-        const t = getTouch(ev);
-        if (!t) return;
-        move(t.clientX, t.clientY);
-      },
-      { passive: true }
-    );
-    panel.addEventListener(
-      "touchend",
-      (ev) => {
-        const t = getTouch(ev);
-        if (!t) return;
-        end(t.clientX, t.clientY);
-      },
-      { passive: true }
-    );
-    panel.addEventListener(
-      "touchcancel",
-      () => {
-        active = false;
-      },
-      { passive: true }
-    );
-  });
+function appEdgeSwipeEnvironmentBlocked() {
+  const boot = document.getElementById("appBootScreen");
+  if (boot && !boot.hidden) return true;
+  const ob = document.getElementById("onboardingScreen");
+  if (ob && !ob.hidden) return true;
+  const main = document.querySelector("main.app-main");
+  if (main && main.hidden) return true;
+  if (typeof dateSheetOpen !== "undefined" && dateSheetOpen) return true;
+  if (typeof periodSheetOpen !== "undefined" && periodSheetOpen) return true;
+  if (typeof listPickerOpen !== "undefined" && listPickerOpen) return true;
+  if (typeof backupImportSheetOpen !== "undefined" && backupImportSheetOpen) return true;
+  if (typeof appBottomSheetLockDepth !== "undefined" && appBottomSheetLockDepth > 0) return true;
+  return false;
 }
 
-function foodMatPlannerSwipeContextOk() {
+function appEdgeSwipeTargetBlocksNavigation(target) {
+  if (!(target instanceof Element)) return true;
+  if (target.closest("input, textarea, select, [contenteditable]")) return true;
+  if (target.closest(".bottom-nav")) return true;
+  return false;
+}
+
+/**
+ * Vänsterkant → svep högerut: undersidor (steg tillbaka / Avbryt), därefter nästa huvudflik.
+ * Höger→vänster används inte för navigation (ingen åtgärd).
+ */
+function appEdgeSwipeTryConsumeLtr() {
+  if (appEdgeSwipeEnvironmentBlocked()) return false;
+
+  const expenseModal = document.getElementById("expenseModal");
+  if (expenseModal && !expenseModal.hidden) {
+    requestCloseExpenseOverlay();
+    return true;
+  }
+  const incomeModal = document.getElementById("incomeModal");
+  if (incomeModal && !incomeModal.hidden) {
+    requestCloseIncomeOverlay();
+    return true;
+  }
+
   const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
-  if (!foodOverlay || foodOverlay.hidden) return false;
-  if (Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden)) return false;
-  const ps = document.getElementById("foodPlannerSection");
-  if (!ps || ps.hidden) return false;
-  const raw = ui.foodPlannerYear;
-  const py = raw == null || raw === "" ? NaN : Number(raw);
-  return Number.isFinite(py);
+  if (foodOverlay && !foodOverlay.hidden) {
+    const subPanelOpen = Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden);
+    if (subPanelOpen) {
+      closeFoodMatSubPanelFromBackButton();
+      return true;
+    }
+    const rawPy = ui.foodPlannerYear;
+    const planY = rawPy == null || rawPy === "" ? NaN : Number(rawPy);
+    const plannerSection = document.getElementById("foodPlannerSection");
+    if (plannerSection && !plannerSection.hidden && Number.isFinite(planY)) {
+      ui.foodPlannerYear = null;
+      renderFoodPage();
+      return true;
+    }
+    closeExpenseCategoryOverlayFromUi();
+    return true;
+  }
+
+  for (const cat of TAGGED_CATEGORY_KEYS) {
+    const C = TAGGED_CATEGORY_CONFIG[cat];
+    if (!C?.overlayKey) continue;
+    const el = document.querySelector(`[data-expview="${C.overlayKey}"]`);
+    if (!el || el.hidden) continue;
+    const u = ui.tagged[cat];
+    if (u?.editorOpen) {
+      const cancel = document.getElementById(C.ids.cancelBtn);
+      if (cancel) cancel.click();
+      else {
+        u.editorOpen = false;
+        u.editingId = null;
+        if (cat === "car") renderCarPage();
+        else if (cat === "home") renderHomePage();
+        else if (cat === "children") renderChildrenPage();
+        else if (cat === "savings") renderSavingsPage();
+      }
+      return true;
+    }
+    closeExpenseCategoryOverlayFromUi();
+    return true;
+  }
+
+  const loansEl = document.querySelector('[data-expview="loans"]');
+  if (loansEl && !loansEl.hidden) {
+    if (ui.loanEditorOpen) document.getElementById("loanEditorCancelBtn")?.click();
+    else closeExpenseCategoryOverlayFromUi();
+    return true;
+  }
+
+  if (anyIncomeSalaryOverlayOpen()) {
+    if (ui.salaryPeriodEditorOpen) closeSalaryPeriodEditor();
+    else closeIncomeSalaryOverlayFromUi();
+    return true;
+  }
+
+  for (const cat of INCOME_TAGGED_KEYS) {
+    if (!incomeTaggedOverlayIsOpen(cat)) continue;
+    const u = ui.incomeTagged[cat];
+    const C = INCOME_TAGGED_CATEGORY_CONFIG[cat];
+    if (u?.editorOpen && C?.ids?.cancelBtn) {
+      document.getElementById(C.ids.cancelBtn)?.click();
+      return true;
+    }
+    closeIncomeTaggedOverlay(cat);
+    const parsed = parseRouteFromHash();
+    if (parsed.route === "incomes" && parsed.incomeOverlay === cat) location.hash = "#/incomes";
+    return true;
+  }
+
+  const route = ui.activeRoute || parseRouteFromHash().route;
+  const idx = APP_MAIN_NAV_CYCLE.indexOf(route);
+  const next = idx < 0 ? APP_MAIN_NAV_CYCLE[0] : APP_MAIN_NAV_CYCLE[(idx + 1) % APP_MAIN_NAV_CYCLE.length];
+  const nextHash = `#/${next}`;
+  if (location.hash !== nextHash) location.hash = nextHash;
+  return true;
 }
 
-/** Kantsvep på matplaneraren (ej underpaneler) → samma som returknappen Mat / årsval. */
-function initFoodMatPlannerSwipeToYearList() {
-  const target = document.querySelector('.exp-overlay[data-expview="food"] .table-card');
-  if (!target) return;
+function initAppEdgeSwipeNavigation() {
   let startX = 0;
   let startY = 0;
   let startT = 0;
   let active = false;
   let edgeOk = false;
+  let lastConsumeAt = 0;
 
-  const begin = (x, y) => {
-    if (!foodMatPlannerSwipeContextOk()) return;
+  const begin = (x, y, target) => {
+    if (appEdgeSwipeEnvironmentBlocked()) return;
+    if (appEdgeSwipeTargetBlocksNavigation(target)) return;
     startX = x;
     startY = y;
     startT = performance.now();
-    edgeOk = startX <= 28;
-    active = true;
+    edgeOk = x <= 28;
+    active = edgeOk;
   };
 
   const move = (x, y) => {
@@ -1187,60 +1197,65 @@ function initFoodMatPlannerSwipeToYearList() {
     const dx = x - startX;
     const dy = y - startY;
     const dt = performance.now() - startT;
-    if (dx > 80 && Math.abs(dy) < 40 && dt < 900 && foodMatPlannerSwipeContextOk()) {
-      ui.foodPlannerYear = null;
-      renderFoodPage();
-    }
+    if (dx <= 80 || Math.abs(dy) >= 40 || dt >= 900) return;
+    if (performance.now() - lastConsumeAt < 400) return;
+    lastConsumeAt = performance.now();
+    appEdgeSwipeTryConsumeLtr();
   };
 
-  target.addEventListener(
+  const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
+
+  document.addEventListener(
     "pointerdown",
     (e) => {
       if (e.pointerType === "mouse") return;
-      begin(e.clientX, e.clientY);
+      begin(e.clientX, e.clientY, e.target);
     },
-    { passive: true }
+    { capture: true, passive: true }
   );
-  target.addEventListener("pointermove", (e) => move(e.clientX, e.clientY), { passive: true });
-  target.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { passive: true });
-  target.addEventListener("pointercancel", () => {
-    active = false;
-  }, { passive: true });
+  document.addEventListener("pointermove", (e) => move(e.clientX, e.clientY), { capture: true, passive: true });
+  document.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { capture: true, passive: true });
+  document.addEventListener(
+    "pointercancel",
+    () => {
+      active = false;
+    },
+    { capture: true, passive: true }
+  );
 
-  const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
-  target.addEventListener(
+  document.addEventListener(
     "touchstart",
     (ev) => {
       const t = getTouch(ev);
       if (!t) return;
-      begin(t.clientX, t.clientY);
+      begin(t.clientX, t.clientY, ev.target);
     },
-    { passive: true }
+    { capture: true, passive: true }
   );
-  target.addEventListener(
+  document.addEventListener(
     "touchmove",
     (ev) => {
       const t = getTouch(ev);
       if (!t) return;
       move(t.clientX, t.clientY);
     },
-    { passive: true }
+    { capture: true, passive: true }
   );
-  target.addEventListener(
+  document.addEventListener(
     "touchend",
     (ev) => {
       const t = getTouch(ev);
       if (!t) return;
       end(t.clientX, t.clientY);
     },
-    { passive: true }
+    { capture: true, passive: true }
   );
-  target.addEventListener(
+  document.addEventListener(
     "touchcancel",
     () => {
       active = false;
     },
-    { passive: true }
+    { capture: true, passive: true }
   );
 }
 
@@ -15949,8 +15964,7 @@ async function initRoot() {
     initOverviewPeriodSheet();
     wireTaggedListPeriodPickers();
     initFoodMatSubPanelHistory();
-    initFoodMatSwipeBack();
-    initFoodMatPlannerSwipeToYearList();
+    initAppEdgeSwipeNavigation();
     initFoodMatDeleteConfirmModal();
     initExpenseOverlayHistory();
     initUnsavedEditorModal();
