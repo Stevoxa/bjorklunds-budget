@@ -207,7 +207,8 @@ body {
 
 .bottom-nav__list {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  /* Lite smalare mittenkolumner så Intäkter / Utgifter / Spara inte sprids lika långt isär */
+  grid-template-columns: minmax(0, 1.22fr) minmax(0, 0.86fr) minmax(0, 0.86fr) minmax(0, 0.86fr) minmax(0, 1.22fr);
   gap: 0;
   list-style: none;
   margin: 0;
@@ -1846,7 +1847,7 @@ tr.month-break td {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-4);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
@@ -3556,6 +3557,7 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
     justify-content: space-between;
     margin-inline: -12px;
     margin-block-start: -12px;
+    margin-block-end: 0;
     padding-inline: 12px;
     padding-top: var(--space-2);
   }
@@ -6175,6 +6177,8 @@ button.stretch {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  padding-top: calc(var(--space-4) + var(--space-1));
+  padding-bottom: calc(var(--space-4) + var(--space-2));
 }
 
 .settings-page .form-grid,
@@ -6241,15 +6245,11 @@ button.stretch {
   font-weight: 500;
 }
 
-.settings-page .table-card {
-  max-width: 100%;
-}
-
 .settings-page .settings-backup-export-row,
 .settings-page .settings-backup-import-row {
   justify-content: flex-start;
   flex-wrap: wrap;
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
   width: 100%;
 }
 
@@ -6278,6 +6278,7 @@ button.stretch {
   z-index: 8;
   margin-inline: calc(-1 * var(--space-4));
   margin-block-start: calc(-1 * var(--space-3));
+  margin-block-end: 0;
   padding: var(--space-3) var(--space-4);
   padding-top: max(var(--space-2), env(safe-area-inset-top));
   background: color-mix(in srgb, var(--bg) 90%, var(--card));
@@ -6405,28 +6406,29 @@ button.stretch {
 }
 
 .settings-page .table-card > .table-title-row:first-child {
-  margin-bottom: 0;
+  margin-bottom: var(--space-3);
 }
 
 .settings-page .settings-card-ingress {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-5);
+  line-height: 1.45;
 }
 
 .settings-page .table-card .actions-row {
-  margin-top: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .settings-komp-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: calc(var(--space-6) + var(--space-2));
   min-width: 0;
-  margin-top: var(--space-1);
+  margin-top: var(--space-2);
 }
 
 .settings-page .settings-komp-panel.bb-notched-panel {
-  --bb-notched-panel-margin-extra: 10px;
-  padding-bottom: 12px;
+  --bb-notched-panel-margin-extra: 14px;
+  padding-bottom: calc(var(--space-4) + var(--space-1));
   width: 100%;
   box-sizing: border-box;
 }
@@ -6436,7 +6438,8 @@ button.stretch {
 }
 
 .settings-komp-panel__lead {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--space-4);
+  line-height: 1.45;
 }
 
 .settings-advanced-theme-grid {
@@ -6449,9 +6452,10 @@ button.stretch {
 }
 
 .settings-theme-notch-panel {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
   width: 100%;
   box-sizing: border-box;
+  padding-bottom: calc(var(--space-4) + var(--space-1));
 }
 
 .settings-theme-notch-panel__body {
@@ -6474,7 +6478,7 @@ button.stretch {
 }
 
 .settings-backup-reminder-block {
-  margin: var(--space-4) 0 var(--space-5);
+  margin: var(--space-5) 0 var(--space-6);
 }
 
 .settings-backup-reminder-label {
@@ -6495,7 +6499,7 @@ button.stretch {
   font-size: 1.02rem;
   letter-spacing: -0.02em;
   color: var(--text);
-  margin: var(--space-5) 0 var(--space-2);
+  margin: var(--space-6) 0 var(--space-3);
 }
 
 .settings-backup-export-block .settings-subsection-title {
@@ -6503,7 +6507,8 @@ button.stretch {
 }
 
 .settings-subsection-ingress {
-  margin: 0 0 var(--space-3) !important;
+  margin: 0 0 var(--space-4) !important;
+  line-height: 1.45;
 }
 
 .settings-backup-import-block {
@@ -6525,7 +6530,16 @@ button.stretch {
   border-top: 1px solid var(--border);
 }
 
-.settings-pwa-install-row,
+.settings-pwa-install-row {
+  justify-content: stretch;
+  width: 100%;
+}
+
+.settings-pwa-install-row .primary {
+  width: 100%;
+  min-height: 48px;
+}
+
 .settings-vault-bio-actions {
   justify-content: center;
 }
@@ -6539,18 +6553,18 @@ button.stretch {
 }
 
 .settings-theme-notch-hint {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-4) 0 0;
   font-size: 0.78rem;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--muted);
 }
 
 .settings-slide-row {
-  margin: var(--space-4) 0;
+  margin: var(--space-5) 0;
 }
 
 .settings-advanced-card > .settings-slide-row:first-of-type {
-  margin-top: var(--space-3);
+  margin-top: var(--space-4);
 }
 
 .settings-slide-row--content {
