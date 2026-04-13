@@ -1046,10 +1046,12 @@ function initFoodMatSubPanelHistory() {
 }
 
 /**
- * Kant-svep i huvudflik: bara Analys ↔ Intäkter (inga steg vidare till utgifter/sparande/inställningar).
- * Vänsterkant V→H: Intäkter → Analys; på Analys ingen åtgärd.
- * Högerkant H→V: Analys → Intäkter; på Intäkter ingen åtgärd (när ingen undersida är öppen).
+ * Kant-svep i huvudflik: linjär ordning (ingen cirkulär wrap).
+ * Ordning: Analys → Intäkter → Utgifter → Spara → Inställningar.
+ * Vänsterkant V→H: ett steg mot Analys (stopp på Analys).
+ * Högerkant H→V: ett steg mot Inställningar (stopp på Inställningar), bara utan öppen undersida/modal.
  */
+const APP_MAIN_NAV_ORDER = ["analysis", "incomes", "expenses", "savings", "settings"];
 
 function appEdgeSwipeViewportWidth() {
   try {
@@ -1107,7 +1109,7 @@ function appEdgeSwipeTargetBlocksNavigation(target) {
 }
 
 /**
- * Vänsterkant → svep högerut: undersidor (steg tillbaka / Avbryt), därefter Intäkter → Analys om aktuell flik är intäkter.
+ * Vänsterkant → svep högerut: undersidor (steg tillbaka / Avbryt), därefter ett steg mot Analys i huvudmenyn (linjärt, stopp på Analys).
  */
 function appEdgeSwipeTryConsumeFromLeftEdge() {
   if (appEdgeSwipeEnvironmentBlocked()) return false;
@@ -1193,27 +1195,27 @@ function appEdgeSwipeTryConsumeFromLeftEdge() {
   }
 
   const route = ui.activeRoute || parseRouteFromHash().route;
-  if (route === "incomes") {
-    if (location.hash !== "#/analysis") location.hash = "#/analysis";
-    return true;
-  }
-  if (route === "analysis") return false;
-  return false;
+  const idx = APP_MAIN_NAV_ORDER.indexOf(route);
+  if (idx <= 0) return false;
+  const prev = APP_MAIN_NAV_ORDER[idx - 1];
+  const prevHash = `#/${prev}`;
+  if (location.hash !== prevHash) location.hash = prevHash;
+  return true;
 }
 
 /**
- * Högerkant → svep vänsterut: Analys → Intäkter om aktuell flik är analys (endast när ingen undersida/modal är öppen).
+ * Högerkant → svep vänsterut: ett steg mot Inställningar (linjärt, stopp på Inställningar), endast utan öppen undersida/modal.
  */
 function appEdgeSwipeTryConsumeFromRightEdge() {
   if (appEdgeSwipeEnvironmentBlocked()) return false;
   if (appEdgeSwipeOverlaysOrModalsOpen()) return false;
   const route = ui.activeRoute || parseRouteFromHash().route;
-  if (route === "analysis") {
-    if (location.hash !== "#/incomes") location.hash = "#/incomes";
-    return true;
-  }
-  if (route === "incomes") return false;
-  return false;
+  const idx = APP_MAIN_NAV_ORDER.indexOf(route);
+  if (idx < 0 || idx >= APP_MAIN_NAV_ORDER.length - 1) return false;
+  const next = APP_MAIN_NAV_ORDER[idx + 1];
+  const nextHash = `#/${next}`;
+  if (location.hash !== nextHash) location.hash = nextHash;
+  return true;
 }
 
 function initAppEdgeSwipeNavigation() {
@@ -1231,7 +1233,7 @@ function initAppEdgeSwipeNavigation() {
   let startY = 0;
   let startT = 0;
   let active = false;
-  /** "left" = vänsterkant V→H; "right" = högerkant H→V (Analys ↔ Intäkter). */
+  /** "left" = vänsterkant V→H (mot Analys); "right" = högerkant H→V (mot Inställningar). */
   let edgeSide = null;
   let lastConsumeAt = 0;
   /** Tydlig horisontell kantgest: fortsätt preventDefault så webbläsaren inte tar över. */
