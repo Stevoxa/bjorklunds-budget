@@ -1166,31 +1166,48 @@ function appEdgeSwipeTryConsumeLtr() {
 }
 
 function initAppEdgeSwipeNavigation() {
+  /** Lite bredare kant — lättare att träffa; samma zon som ofta används för webbläsarens “tillbaka”. */
+  const EDGE_PX = 44;
   let startX = 0;
   let startY = 0;
   let startT = 0;
   let active = false;
   let edgeOk = false;
   let lastConsumeAt = 0;
+  /** När vi fångat en tydlig LTR-gest från kanten: fortsätt preventDefault så webbläsaren inte tar över (history.back / lämna PWA). */
+  let suppressBrowserNav = false;
 
   const begin = (x, y, target) => {
+    suppressBrowserNav = false;
     if (appEdgeSwipeEnvironmentBlocked()) return;
     if (appEdgeSwipeTargetBlocksNavigation(target)) return;
     startX = x;
     startY = y;
     startT = performance.now();
-    edgeOk = x <= 28;
+    edgeOk = x <= EDGE_PX;
     active = edgeOk;
   };
 
-  const move = (x, y) => {
+  const move = (x, y, ev) => {
     if (!active) return;
     const dx = x - startX;
     const dy = y - startY;
-    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
+    if (suppressBrowserNav) {
+      if (ev && ev.cancelable) ev.preventDefault();
+      return;
+    }
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) {
+      active = false;
+      return;
+    }
+    if (edgeOk && dx > 18 && dx > Math.abs(dy) * 1.35) {
+      suppressBrowserNav = true;
+      if (ev && ev.cancelable) ev.preventDefault();
+    }
   };
 
   const end = (x, y) => {
+    suppressBrowserNav = false;
     if (!active) return;
     active = false;
     if (!edgeOk) return;
@@ -1203,30 +1220,32 @@ function initAppEdgeSwipeNavigation() {
     appEdgeSwipeTryConsumeLtr();
   };
 
-  const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
+  const resetTouchTracking = () => {
+    active = false;
+    suppressBrowserNav = false;
+  };
 
-  document.addEventListener(
-    "pointerdown",
-    (e) => {
-      if (e.pointerType === "mouse") return;
-      begin(e.clientX, e.clientY, e.target);
-    },
-    { capture: true, passive: true }
-  );
-  document.addEventListener("pointermove", (e) => move(e.clientX, e.clientY), { capture: true, passive: true });
-  document.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { capture: true, passive: true });
-  document.addEventListener(
-    "pointercancel",
-    () => {
-      active = false;
-    },
-    { capture: true, passive: true }
-  );
+  /** Pekskärm: använd bara touch (pointer+touch dubbel “end” och passive pointer kan inte stoppa webbläsaren). */
+  const touchScreenDevice = (typeof navigator !== "undefined" && (navigator.maxTouchPoints || 0) > 0) || typeof window !== "undefined" && "ontouchstart" in window;
+
+  if (!touchScreenDevice) {
+    document.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (e.pointerType === "mouse") return;
+        begin(e.clientX, e.clientY, e.target);
+      },
+      { capture: true, passive: true }
+    );
+    document.addEventListener("pointermove", (e) => move(e.clientX, e.clientY, null), { capture: true, passive: true });
+    document.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { capture: true, passive: true });
+    document.addEventListener("pointercancel", resetTouchTracking, { capture: true, passive: true });
+  }
 
   document.addEventListener(
     "touchstart",
     (ev) => {
-      const t = getTouch(ev);
+      const t = ev.touches && ev.touches[0];
       if (!t) return;
       begin(t.clientX, t.clientY, ev.target);
     },
@@ -1235,28 +1254,22 @@ function initAppEdgeSwipeNavigation() {
   document.addEventListener(
     "touchmove",
     (ev) => {
-      const t = getTouch(ev);
+      const t = ev.touches && ev.touches[0];
       if (!t) return;
-      move(t.clientX, t.clientY);
+      move(t.clientX, t.clientY, ev);
     },
-    { capture: true, passive: true }
+    { capture: true, passive: false }
   );
   document.addEventListener(
     "touchend",
     (ev) => {
-      const t = getTouch(ev);
+      const t = ev.changedTouches && ev.changedTouches[0];
       if (!t) return;
       end(t.clientX, t.clientY);
     },
     { capture: true, passive: true }
   );
-  document.addEventListener(
-    "touchcancel",
-    () => {
-      active = false;
-    },
-    { capture: true, passive: true }
-  );
+  document.addEventListener("touchcancel", resetTouchTracking, { capture: true, passive: true });
 }
 
 // Notched outline is implemented with markup/CSS (no JS sync needed).
