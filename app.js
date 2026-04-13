@@ -5548,7 +5548,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       listPanelLegend: "Utbetalningar för bidrag",
       pageTitle: "Bidrag",
       intro:
-        "Lägg in bidrag som barnbidrag, studiebidrag och ersättningar för att få med alla inkomster.",
+        "Lägg in dina bidrag för att få en tydlig bild av dina återkommande inkomster varje månad.",
       nameRequiredHint: "Ange namn.",
       dateOnceHint: "Ange utbetalningsdatum.",
       dateRecurringHint: "Ange första utbetalningsdatum.",
@@ -5596,7 +5596,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       monthTotalPrefix: "Totalt denna period",
       listPanelLegend: "Utbetalningar för kapital",
       pageTitle: "Kapital",
-      intro: "Fyll i planerade inkomster från ränta, utdelning och avkastning.",
+      intro: "Lägg in dina kapitalinkomster som ränta, utdelning och avkastning.",
       nameRequiredHint: "Ange namn.",
       dateOnceHint: "Ange utbetalningsdatum.",
       dateRecurringHint: "Ange första utbetalningsdatum.",
@@ -5644,7 +5644,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       monthTotalPrefix: "Totalt denna period",
       listPanelLegend: "Utbetalningar för gåva",
       pageTitle: "Gåvor",
-      intro: "Registrera gåvor, arv och privata överföringar som en del av dina intäkter.",
+      intro: "Lägg in dina gåvor och andra tillfälliga inkomster.",
       nameRequiredHint: "Ange namn.",
       dateOnceHint: "Ange utbetalningsdatum.",
       dateRecurringHint: "Ange första utbetalningsdatum.",
@@ -14205,11 +14205,11 @@ function renderExpensesList() {
   const noteEl = requireEl("expenseListNote");
   noteEl.textContent = "";
   if (rows.length === 0) {
-    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga utgifter för valt filter.</div>`;
+    mount.innerHTML = `<div class="tagged-expense-list-empty">Inga planerade utgifter för valt filter.</div>`;
     return;
   }
   const total = rows.reduce((s, r) => s + asNumber(r.amount), 0);
-  noteEl.textContent = `Utgifter totalt: ${formatKr(total)}`;
+  noteEl.textContent = `Planerade utgifter totalt: ${formatKr(total)}`;
   let prevMonthKey = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;

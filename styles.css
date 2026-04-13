@@ -5989,6 +5989,10 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
   line-height: 1.5;
 }
 
+.view[data-view="savings"] .savings-plan-ingress {
+  margin: 0 0 var(--space-4);
+}
+
 .tagged-omkostnader-panel {
   margin-top: calc(var(--space-6) + var(--space-2));
 }

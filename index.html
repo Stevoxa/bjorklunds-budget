@@ -301,9 +301,6 @@
         <section class="view" data-view="incomes">
           <div class="view-header">
             <h2>Intäkter</h2>
-            <p class="note income-page-intro">
-              Lägg in dina intäkter för att få en tydlig överblick över dina inkomster.
-            </p>
           </div>
 
           <div class="subnav subnav--income" role="group" aria-label="Intäktskategorier">
@@ -348,7 +345,10 @@
               <div class="table-title">Planerade intäkter</div>
             </div>
             <div class="filter-toolbar">
-              <div class="note">0 kr visas inte. Tryck på en rad för att redigera.</div>
+              <div class="note">
+                Lägg in dina intäkter för att få en tydlig bild av hur mycket pengar som kommer in varje månad. 0 kr visas inte.
+                Tryck på en rad för att redigera.
+              </div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>
@@ -382,8 +382,7 @@
               </div>
               <div class="table-title">Lön</div>
               <p class="note tagged-exp-overlay-intro">
-                Registrera inkomster från lön, bonus och arvoden för att planera din månadsbudget. Löneperioder genererar
-                utbetalningar i listan över planerade intäkter (vardagar; helg justeras till närmaste bankdag före).
+                Lägg in din lön för att få en tydlig bild av dina återkommande inkomster varje månad.
               </p>
 
               <section id="salaryPeriodEditorSection" hidden>
@@ -491,7 +490,7 @@
               </div>
               <div class="table-title">Bidrag</div>
               <p class="note tagged-exp-overlay-intro">
-                Lägg in bidrag som barnbidrag, studiebidrag och ersättningar för att få med alla inkomster.
+                Lägg in dina bidrag för att få en tydlig bild av dina återkommande inkomster varje månad.
               </p>
               <div
                 class="bb-notched-panel tagged-editor-panel"
@@ -608,7 +607,7 @@
               </div>
               <div class="table-title">Kapital</div>
               <p class="note tagged-exp-overlay-intro">
-                Fyll i planerade inkomster från ränta, utdelning och avkastning.
+                Lägg in dina kapitalinkomster som ränta, utdelning och avkastning.
               </p>
               <div
                 class="bb-notched-panel tagged-editor-panel"
@@ -725,7 +724,7 @@
               </div>
               <div class="table-title">Gåvor</div>
               <p class="note tagged-exp-overlay-intro">
-                Registrera gåvor, arv och privata överföringar som en del av dina intäkter.
+                Lägg in dina gåvor och andra tillfälliga inkomster.
               </p>
               <div class="bb-notched-panel tagged-editor-panel" id="giftEditorCard" hidden role="group" aria-labelledby="giftEditorPanelLegend">
                 <div class="bb-notched-panel-legend" id="giftEditorPanelLegend">Lägg till intäkt</div>
@@ -910,12 +909,13 @@
 
           <div class="table-card">
             <div class="table-title-row">
-              <div class="table-title">Utgifter</div>
+              <div class="table-title">Planerade utgifter</div>
             </div>
             <div class="filter-toolbar">
               <div class="note">
-                En rad per utbetalning (0 kr visas inte). Planerat sparande ingår inte här — använd länken under listan eller
-                fliken Spara. Tryck på en rad för att öppna redigering.
+                Lägg till och följ dina utgifter för att få en tydlig bild av vart pengarna tar vägen varje månad. En rad per
+                utbetalning (0 kr visas inte). Planerat sparande ingår inte här — använd länken under listan eller fliken Spara.
+                Tryck på en rad för att öppna redigering.
               </div>
               <div class="picker-row bb-filter-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -934,7 +934,7 @@
                 id="expensePaymentsListMount"
                 class="tagged-expense-preview-list expense-payments-list"
                 role="list"
-                aria-label="Utgifter"
+                aria-label="Planerade utgifter"
               ></div>
             </div>
             <div class="note payments-list-total-note" id="expenseListNote"></div>
@@ -1092,7 +1092,7 @@
               </div>
               <div class="table-title">Lån</div>
               <p class="note tagged-exp-overlay-intro">
-                Registrera dina lån och månadskostnader så att ränta och amortering syns i budget och översikt.
+                Lägg in dina lånekostnader som ränta och amortering för att få en tydlig överblick.
               </p>
 
               <section id="loanEditorSection" hidden>
@@ -1222,7 +1222,7 @@
               </div>
               <div class="table-title">Bil</div>
               <p class="note tagged-exp-overlay-intro">
-                Lägg in alla utgifter kopplade till bilen, som bränsle, service, försäkring och skatt.
+                Lägg in dina bilkostnader som bränsle, försäkring, service och andra löpande kostnader.
               </p>
               <div class="bb-notched-panel tagged-editor-panel" id="carEditorCard" hidden role="group" aria-label="Lägg till utgift">
                 <div class="bb-notched-panel-legend" id="carEditorPanelLegend">Lägg till utgift</div>
@@ -1797,7 +1797,7 @@
               </div>
               <div class="table-title">Barn</div>
               <p class="note tagged-exp-overlay-intro">
-                Fyll i utgifter för barnen, till exempel kläder, aktiviteter och skolrelaterade kostnader.
+                Lägg in dina barnrelaterade utgifter som kläder, aktiviteter och andra löpande kostnader.
               </p>
               <div class="bb-notched-panel tagged-editor-panel" id="childrenEditorCard" hidden role="group" aria-label="Lägg till utgift">
                 <div class="bb-notched-panel-legend" id="childrenEditorPanelLegend">Lägg till utgift</div>
@@ -1919,9 +1919,6 @@
         <section class="view" data-view="savings">
           <div class="view-header">
             <h2>Spara</h2>
-            <p class="note income-page-intro">
-              Planera ditt sparande och sätt mål för hur mycket du vill lägga undan över tid.
-            </p>
           </div>
 
           <div class="bb-error-summary tagged-editor-error-summary" id="savingsErrorSummary" hidden role="alert" aria-live="polite"></div>
@@ -1930,6 +1927,9 @@
             <div class="table-title-row">
               <div class="table-title">Planerat sparande</div>
             </div>
+            <p class="note tagged-exp-overlay-intro savings-plan-ingress">
+              Planera ditt sparande och följ dina mål för att få bättre kontroll över hur mycket du lägger undan över tid.
+            </p>
             <div class="bb-notched-panel tagged-editor-panel" id="savingsEditorCard" hidden role="group" aria-label="Lägg till sparande">
               <div class="bb-notched-panel-legend" id="savingsEditorPanelLegend">Lägg till sparande</div>
               <div class="form-grid narrow">
@@ -2003,8 +2003,7 @@
               </div>
               <div class="note" id="savingsNote"></div>
             </div>
-            <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Planerat sparande">
-              <div class="bb-notched-panel-legend">Sparposter</div>
+            <div class="tagged-omkostnader-panel savings-plan-list" role="group" aria-label="Sparposter och period">
               <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>
