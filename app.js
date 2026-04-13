@@ -16412,7 +16412,7 @@ function syncThemeAssetFileLabel(inputId, nameId) {
   const nameEl = document.getElementById(nameId);
   if (!input || !nameEl) return;
   const f = input.files && input.files[0];
-  nameEl.textContent = f ? f.name : "Ingen fil vald";
+  nameEl.textContent = f ? f.name : "";
 }
 
 function syncAllThemeAssetFileLabels() {

@@ -6638,6 +6638,11 @@ button.stretch {
   overflow-wrap: anywhere;
 }
 
+.settings-advanced-page .settings-komp-panel .settings-theme-asset-file-name:empty {
+  display: none;
+  margin: 0;
+}
+
 .settings-advanced-innehåll-block {
   margin-top: var(--space-6);
   padding-top: var(--space-5);
