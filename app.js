@@ -44,9 +44,22 @@ const ANALYSIS_MSG_EMPTY_YEAR =
   "Det saknas data för att analysera löneår. Lägg till intäkter och utgifter först";
 const ANALYSIS_MSG_EMPTY_PERIOD =
   "Det saknas data för att analysera löneperiod. Lägg till intäkter och utgifter först";
-/** Fast filnamn vid krypterad export (användaren kan döpa om filen lokalt). */
-const BACKUP_EXPORT_FILENAME = "bjorklunds_budget.json";
 const nowMs = () => Date.now();
+
+/** Visning under ”Senaste export” i inställningar. */
+function formatBackupExportLineTimestamp(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** Nedladdningsfilnamn: bjorklunds_budget_YYYY_MM_DD.json (lokal tid vid export). */
+function buildBackupExportFilename(ms = Date.now()) {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const mm = pad2(d.getMonth() + 1);
+  const dd = pad2(d.getDate());
+  return `bjorklunds_budget_${y}_${mm}_${dd}.json`;
+}
 const pad2 = (n) => String(n).padStart(2, "0");
 const DEBUG = true;
 
@@ -12016,8 +12029,7 @@ function updateSettingsLastExportUi() {
     return;
   }
   line.hidden = false;
-  const formatted = new Date(t).toLocaleString("sv-SE", { dateStyle: "medium", timeStyle: "short" });
-  line.textContent = `Senaste export : ${formatted}`;
+  line.textContent = `Senaste export : ${formatBackupExportLineTimestamp(t)}`;
 }
 
 function renderSettingsPage() {
@@ -15892,7 +15904,8 @@ function initActions() {
       showDebugToast("Kunde inte exportera (session inte upplåst).");
       return;
     }
-    const filename = BACKUP_EXPORT_FILENAME;
+    const exportAt = nowMs();
+    const filename = buildBackupExportFilename(exportAt);
     const blob = new Blob([JSON.stringify(env)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -15902,7 +15915,7 @@ function initActions() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    state.settings.lastBackupExportAt = nowMs();
+    state.settings.lastBackupExportAt = exportAt;
     const flushOk = await saveStateFlush();
     if (!flushOk) {
       showDebugToast("Exporten sparades, men tiden för ”senaste export” kunde inte skrivas till vault.");
