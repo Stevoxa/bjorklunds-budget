@@ -243,14 +243,22 @@
       );
     },
 
-    /** Säker kontext + WebAuthn; PRF-kapabilitet om webbläsaren rapporterar den. */
+    /**
+     * Om biometrik *kan* provas (säker kontext + WebAuthn).
+     * Obs: `getClientCapabilities().prf` är ofta `undefined` eller fel i PWA på Android även när PRF fungerar —
+     * vi blockeras därför bara om webbläsaren uttryckligen rapporterar `prf: false`.
+     */
     async isBiometricUnlockLikelySupported() {
       try {
         if (!global.isSecureContext) return false;
         if (typeof global.PublicKeyCredential === "undefined") return false;
         if (typeof global.PublicKeyCredential.getClientCapabilities === "function") {
-          const caps = await global.PublicKeyCredential.getClientCapabilities();
-          return caps.prf === true;
+          try {
+            const caps = await global.PublicKeyCredential.getClientCapabilities();
+            if (caps && caps.prf === false) return false;
+          } catch {
+            /* capabilities kan fallera i vissa webbvyer — prova ändå */
+          }
         }
         return true;
       } catch {
@@ -364,7 +372,9 @@
 
       const rpId = getRpId();
       if (!rpId) return { ok: false, error: "no-rpid" };
-      if (!(await BjorkVault.isBiometricUnlockLikelySupported())) return { ok: false, error: "unsupported" };
+      if (!global.isSecureContext || typeof global.PublicKeyCredential === "undefined") {
+        return { ok: false, error: "unsupported" };
+      }
 
       const prfSalt = randomBytes(32);
       const challenge = randomBytes(32);
