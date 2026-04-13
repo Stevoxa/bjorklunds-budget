@@ -1103,8 +1103,8 @@ button:focus:not(:focus-visible) {
 }
 
 .settings-content-card .settings-food-card {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border);
 }
 
@@ -1647,7 +1647,7 @@ button:focus:not(:focus-visible) {
 }
 
 .settings-theme-card {
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
 }
 
 .table-title {
@@ -1841,7 +1841,7 @@ tr.month-break td {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
@@ -6135,6 +6135,12 @@ button.stretch {
   color: var(--muted);
 }
 
+.settings-page .backup-restore-hint {
+  margin-top: var(--space-3);
+  font-size: 0.86rem;
+  line-height: 1.42;
+}
+
 .backup-restore-success-note {
   margin: var(--space-3) 0 0;
   font-size: 0.9rem;
@@ -6152,6 +6158,11 @@ button.stretch {
   border-top: 1px solid var(--border);
   min-width: 0;
   max-width: 100%;
+}
+
+.settings-page .backup-restore {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
 }
 
 /* Backup & restore: håll innehåll inom skärmbredd (filväljare, långa knapptexter) */
@@ -6233,7 +6244,7 @@ button.stretch {
 .settings-restore-row {
   justify-content: flex-start;
   flex-wrap: wrap;
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .settings-backup-export-row > button,
@@ -6377,26 +6388,51 @@ button.stretch {
   overflow-wrap: anywhere;
 }
 
+.settings-page .form-grid.narrow {
+  gap: var(--space-2);
+}
+
+.settings-page .table-card > .table-title:first-child {
+  margin-bottom: var(--space-2);
+}
+
+.settings-page .table-card > .note.settings-section-card__ingress {
+  margin-top: 0;
+}
+
+.settings-page .table-card .actions-row {
+  margin-top: var(--space-2);
+}
+
 .settings-section-card__ingress {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-3);
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .settings-komp-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-width: 0;
 }
 
+.settings-page .settings-komp-panel.bb-notched-panel {
+  --bb-notched-panel-margin-extra: 10px;
+  padding-bottom: 12px;
+}
+
+.settings-page .settings-komp-panel > .note:first-of-type {
+  margin-top: 0;
+}
+
 .settings-komp-panel__lead {
-  margin: 0 0 var(--space-3);
+  margin: 0 0 var(--space-2);
 }
 
 .settings-backup-export-meta {
-  margin: var(--space-4) 0 0;
+  margin: var(--space-3) 0 0;
 }
 
 .settings-inline-summary {
@@ -6410,23 +6446,25 @@ button.stretch {
 .settings-inline-summary__label {
   color: var(--muted);
   font-weight: 650;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
+  line-height: 1.35;
 }
 
 .settings-inline-summary__value {
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
   color: var(--text);
   text-align: right;
 }
 
 .settings-advanced-theme-grid {
-  margin-top: var(--space-4);
+  margin-top: var(--space-3);
 }
 
 .settings-advanced-danger-zone {
-  margin-top: var(--space-5);
-  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--border);
 }
 
@@ -7443,7 +7481,7 @@ html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--positive .mo
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
 }
 
 .settings-pwa-installed-note {
@@ -7451,9 +7489,9 @@ html[data-theme="dark"] .modal.bottom-sheet-card.bottom-sheet-card--positive .mo
 }
 
 .settings-pwa-replay-hint {
-  margin: var(--space-3) 0 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
+  margin: var(--space-2) 0 0;
+  font-size: 0.84rem;
+  line-height: 1.42;
   color: var(--muted);
 }
 
