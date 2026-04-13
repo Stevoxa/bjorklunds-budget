@@ -2046,8 +2046,8 @@
               Gör det här först för att få bästa upplevelsen av appen.
             </p>
             <div class="settings-komp-stack">
-              <div class="bb-notched-field bb-notched-field--block settings-komp-panel" role="group" aria-labelledby="settingsPwaNotchLegend">
-                <div class="bb-notched-field-legend" id="settingsPwaNotchLegend">Lägg till på hemskärmen</div>
+              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsPwaNotchLegend">
+                <div class="bb-notched-panel-legend" id="settingsPwaNotchLegend">Lägg till på hemskärmen</div>
                 <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">
                   Lägg till appen på din hemskärm för snabb åtkomst och en bättre upplevelse. För iOS, se hjälpavsnittet.
                 </p>
@@ -2058,12 +2058,12 @@
               </div>
 
               <div
-                class="bb-notched-field bb-notched-field--block settings-komp-panel"
+                class="bb-notched-panel settings-komp-panel"
                 id="settingsVaultBiometricCard"
                 role="group"
                 aria-labelledby="settingsBioNotchLegend"
               >
-                <div class="bb-notched-field-legend" id="settingsBioNotchLegend">Snabb upplåsning</div>
+                <div class="bb-notched-panel-legend" id="settingsBioNotchLegend">Snabb upplåsning</div>
                 <p class="note settings-komp-panel__lead tagged-exp-overlay-intro" id="settingsVaultBiometricLead">
                   Aktivera Face ID eller fingeravtryck för att snabbt och säkert låsa upp appen.
                 </p>
@@ -2088,17 +2088,19 @@
               <div class="table-title">Utseende &amp; start</div>
             </div>
             <p class="note settings-card-ingress tagged-exp-overlay-intro">Anpassa hur appen ser ut.</p>
-            <div class="bb-notched-field bb-notched-field--block settings-theme-notch-block" role="group" aria-labelledby="settingsThemeLegend">
-              <div class="bb-notched-field-legend" id="settingsThemeLegend">Tema</div>
-              <button type="button" class="bb-notched-field-btn settings-theme-mode-btn" id="themeModeOpenBtn">
-                <span class="bb-notched-field-value" id="themeModeSummary">Enhet</span>
-                <span class="bb-notched-field-chev" aria-hidden="true"></span>
-              </button>
-              <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                <option value="system">Enhet</option>
-                <option value="light">Ljust</option>
-                <option value="dark">Mörkt</option>
-              </select>
+            <div class="bb-notched-panel settings-theme-notch-panel" role="group" aria-labelledby="settingsThemeNotchLegend">
+              <div class="bb-notched-panel-legend" id="settingsThemeNotchLegend">Tema</div>
+              <div class="settings-theme-notch-panel__body">
+                <button type="button" class="bb-notched-field-btn settings-theme-mode-btn" id="themeModeOpenBtn">
+                  <span class="bb-notched-field-value" id="themeModeSummary">Enhet</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+                <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                  <option value="system">Enhet</option>
+                  <option value="light">Ljust</option>
+                  <option value="dark">Mörkt</option>
+                </select>
+              </div>
               <p class="note settings-theme-notch-hint">Ljust, mörkt eller som enheten.</p>
             </div>
           </div>
@@ -2108,48 +2110,44 @@
               <div class="table-title">Säkerhet &amp; data</div>
             </div>
             <p class="note settings-card-ingress tagged-exp-overlay-intro">Säkerhetskopiera och återställ din budget.</p>
-            <div class="form-grid narrow">
-              <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Påminnelse om backup">
-                  <div class="bb-notched-field-legend">Påminnelse (dagar)</div>
-                  <input id="backupIntervalDays" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" step="1" />
-                </div>
-                <span class="field-help">Hur ofta du får en påminnelse om att spara en kopia.</span>
-              </label>
-            </div>
 
-            <div class="settings-backup-export-meta">
-              <div class="settings-inline-summary">
-                <span class="settings-inline-summary__label">Senaste export</span>
-                <span class="settings-inline-summary__value" id="settingsLastExportSummary">Aldrig</span>
+            <div class="settings-backup-reminder-block">
+              <span class="settings-backup-reminder-label">Påminnelse (dagar)</span>
+              <div class="bb-stepper bb-stepper--round" role="group" aria-label="Påminnelse om backup i dagar">
+                <button type="button" class="bb-stepper__btn" id="backupIntervalDaysMinus" aria-label="Minska antal dagar">
+                  −
+                </button>
+                <span class="bb-stepper__value" id="backupIntervalDaysDisplay" aria-live="polite">30</span>
+                <input type="hidden" id="backupIntervalDays" value="30" />
+                <button type="button" class="bb-stepper__btn" id="backupIntervalDaysPlus" aria-label="Öka antal dagar">
+                  +
+                </button>
               </div>
+              <p class="field-help settings-backup-reminder-help">Hur ofta du får en påminnelse om att spara en kopia. Steg om 5 dagar (0–60). Välj 0 för att stänga av automatiska påminnelser.</p>
             </div>
 
-            <div class="actions-row settings-backup-export-row">
-              <button class="secondary" id="backupNowBtn" type="button">Exportera backup</button>
-            </div>
-
-            <div class="backup-restore">
-              <div class="field backup-import-field">
-                <span class="backup-import-field__label">Importera backup</span>
-                <div class="backup-file-picker-row">
-                  <input
-                    id="backupRestoreInput"
-                    type="file"
-                    accept="application/json"
-                    class="backup-restore-sr-input"
-                    tabindex="-1"
-                    aria-label="Välj backupfil"
-                  />
-                  <button type="button" class="secondary backup-file-picker-btn" id="backupRestorePickBtn">Välj fil</button>
-                  <span id="backupRestoreFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
-                </div>
+            <div class="settings-backup-export-block">
+              <div class="settings-subsection-title">Exportera backup</div>
+              <p class="note settings-subsection-ingress tagged-exp-overlay-intro">Spara en krypterad kopia av din budget.</p>
+              <div class="actions-row settings-backup-export-row">
+                <button class="secondary stretch" id="backupNowBtn" type="button">Exportera backup</button>
               </div>
-              <p class="note backup-restore-hint">
-                Välj fil och tryck <strong>Återställ</strong>. Lösenordet till backupen behövs i nästa steg.
-              </p>
-              <div class="actions-row settings-restore-row">
-                <button class="danger" id="restoreBtn" type="button">Återställ</button>
+              <p class="note settings-last-export-line" id="settingsLastExportLine" hidden></p>
+            </div>
+
+            <div class="settings-backup-import-block">
+              <div class="settings-subsection-title">Importera backup</div>
+              <p class="note settings-subsection-ingress tagged-exp-overlay-intro">Återställ din budget från en tidigare backup.</p>
+              <input
+                id="backupRestoreInput"
+                type="file"
+                accept="application/json"
+                class="backup-restore-sr-input"
+                tabindex="-1"
+                aria-label="Välj backupfil"
+              />
+              <div class="actions-row settings-backup-import-row">
+                <button class="danger stretch" id="backupImportStartBtn" type="button">Importera backup</button>
               </div>
               <div
                 class="bb-error-summary settings-backup-error-summary"
@@ -2591,6 +2589,31 @@
       <div class="modal-actions bottom-sheet-card__actions">
         <button type="button" class="danger" id="confirmWipeAppDataBtn">Ja, rensa allt</button>
         <button type="button" class="secondary" id="cancelWipeAppDataBtn">Avbryt</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop modal-backdrop--bottom-sheet" id="confirmBackupImportBackdrop" hidden></div>
+    <div
+      class="modal bottom-sheet-card bottom-sheet-card--dock-bottom"
+      id="confirmBackupImportModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmBackupImportTitle"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="confirmBackupImportTitle">Importera backup?</div>
+        <button class="icon-btn" id="closeBackupImportModalBtn" type="button" aria-label="Stäng">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="note">
+          All budget på <strong>den här enheten</strong> ersätts med innehållet i filen du väljer. Det går inte att ångra. Du
+          får ange lösenordet till backupen i nästa steg.
+        </p>
+      </div>
+      <div class="modal-actions bottom-sheet-card__actions">
+        <button type="button" class="primary" id="confirmBackupImportContinueBtn">Välj fil och fortsätt</button>
+        <button type="button" class="secondary" id="cancelBackupImportBtn">Avbryt</button>
       </div>
     </div>
 

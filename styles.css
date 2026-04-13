@@ -659,6 +659,11 @@ html[data-theme="dark"] .onboarding-screen__scrim {
   display: block;
 }
 
+.view.settings-page.active {
+  display: flex;
+  flex-direction: column;
+}
+
 .view-header {
   display: flex;
   flex-wrap: wrap;
@@ -6240,17 +6245,19 @@ button.stretch {
   max-width: 100%;
 }
 
-.settings-backup-export-row,
-.settings-restore-row {
+.settings-page .settings-backup-export-row,
+.settings-page .settings-backup-import-row {
   justify-content: flex-start;
   flex-wrap: wrap;
   margin-top: var(--space-3);
+  width: 100%;
 }
 
-.settings-backup-export-row > button,
-.settings-restore-row > button {
-  flex: 0 1 auto;
+.settings-page .settings-backup-export-row > button,
+.settings-page .settings-backup-import-row > button {
+  flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   max-width: 100%;
   min-height: 46px;
   white-space: normal;
@@ -6417,7 +6424,9 @@ button.stretch {
   margin-top: var(--space-1);
 }
 
-.settings-page .settings-komp-panel.bb-notched-field--block {
+.settings-page .settings-komp-panel.bb-notched-panel {
+  --bb-notched-panel-margin-extra: 10px;
+  padding-bottom: 12px;
   width: 100%;
   box-sizing: border-box;
 }
@@ -6430,33 +6439,6 @@ button.stretch {
   margin: 0 0 var(--space-2);
 }
 
-.settings-backup-export-meta {
-  margin: var(--space-3) 0 0;
-}
-
-.settings-inline-summary {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-}
-
-.settings-inline-summary__label {
-  color: var(--muted);
-  font-weight: 650;
-  font-size: 0.86rem;
-  line-height: 1.35;
-}
-
-.settings-inline-summary__value {
-  font-weight: 700;
-  font-size: 0.9rem;
-  line-height: 1.35;
-  color: var(--text);
-  text-align: right;
-}
-
 .settings-advanced-theme-grid {
   margin-top: var(--space-3);
 }
@@ -6466,14 +6448,75 @@ button.stretch {
   margin-bottom: 0;
 }
 
-.settings-security-card .form-grid.narrow:first-of-type {
+.settings-theme-notch-panel {
+  margin-top: var(--space-5);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.settings-theme-notch-panel__body {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-strong);
+  --bb-notched-bg: color-mix(in srgb, var(--card) 92%, transparent);
+  background: var(--bb-notched-bg);
+}
+
+.settings-theme-notch-panel__body:focus-within {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.settings-theme-notch-panel .settings-theme-mode-btn {
+  width: 100%;
+  border-radius: inherit;
+}
+
+.settings-backup-reminder-block {
+  margin: var(--space-4) 0 var(--space-5);
+}
+
+.settings-backup-reminder-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.settings-backup-reminder-help {
+  margin-top: var(--space-2);
   margin-bottom: 0;
 }
 
-.settings-security-card .settings-backup-export-meta {
-  padding-top: var(--space-3);
-  margin-top: var(--space-3);
+.settings-subsection-title {
+  font-weight: 700;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.settings-backup-export-block .settings-subsection-title {
+  margin-top: 0;
+}
+
+.settings-subsection-ingress {
+  margin: 0 0 var(--space-3) !important;
+}
+
+.settings-backup-import-block {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
   border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.settings-last-export-line {
+  margin: var(--space-2) 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--muted);
 }
 
 .settings-advanced-danger-zone {
@@ -6493,17 +6536,6 @@ button.stretch {
   font-size: 0.88rem;
   line-height: 1.45;
   color: var(--text);
-}
-
-.settings-theme-notch-block {
-  margin-top: var(--space-5);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.settings-theme-notch-block .settings-theme-mode-btn {
-  width: 100%;
-  border-radius: inherit;
 }
 
 .settings-theme-notch-hint {

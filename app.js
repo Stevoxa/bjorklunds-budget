@@ -95,6 +95,35 @@ function asNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Tillåtna värden för backup-påminnelse (dagar). 0 = ingen automatisk påminnelse. */
+const BACKUP_REMINDER_DAY_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+
+function snapBackupReminderDays(raw) {
+  const n = Math.floor(asNumber(raw));
+  if (!Number.isFinite(n)) return 30;
+  const clamped = Math.max(0, Math.min(60, n));
+  let closest = BACKUP_REMINDER_DAY_STEPS[0];
+  let best = Math.abs(clamped - closest);
+  for (let i = 1; i < BACKUP_REMINDER_DAY_STEPS.length; i++) {
+    const s = BACKUP_REMINDER_DAY_STEPS[i];
+    const d = Math.abs(clamped - s);
+    if (d < best) {
+      closest = s;
+      best = d;
+    }
+  }
+  return closest;
+}
+
+/** @param {-1 | 1} delta */
+function stepBackupReminderDays(currentValue, delta) {
+  const cur = snapBackupReminderDays(currentValue);
+  let idx = BACKUP_REMINDER_DAY_STEPS.indexOf(cur);
+  if (idx < 0) idx = 6;
+  const nextIdx = Math.max(0, Math.min(BACKUP_REMINDER_DAY_STEPS.length - 1, idx + delta));
+  return BACKUP_REMINDER_DAY_STEPS[nextIdx];
+}
+
 function uid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return `id_${Math.random().toString(16).slice(2)}_${Date.now()}`;
@@ -3235,7 +3264,7 @@ function normalizeStateShape(state) {
   normalized.themeMode = ["system", "light", "dark"].includes(normalized.themeMode) ? normalized.themeMode : "system";
 
   normalized.settings = { ...base.settings, ...(normalized.settings || {}) };
-  normalized.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(normalized.settings.backupIntervalDays || 30)));
+  normalized.settings.backupIntervalDays = snapBackupReminderDays(normalized.settings.backupIntervalDays ?? 30);
   normalized.settings.lastBackupExportAt = Math.max(0, asNumber(normalized.settings.lastBackupExportAt || 0));
   delete normalized.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
@@ -11977,17 +12006,28 @@ function wireVaultBiometricSettingsOnce() {
   }
 }
 
+function updateSettingsLastExportUi() {
+  const line = document.getElementById("settingsLastExportLine");
+  if (!line) return;
+  const t = asNumber(state?.settings?.lastBackupExportAt || 0);
+  if (t <= 0) {
+    line.hidden = true;
+    line.textContent = "";
+    return;
+  }
+  line.hidden = false;
+  const formatted = new Date(t).toLocaleString("sv-SE", { dateStyle: "medium", timeStyle: "short" });
+  line.textContent = `Senaste export : ${formatted}`;
+}
+
 function renderSettingsPage() {
   // Settings inputs
-  document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
-  const lastEx = document.getElementById("settingsLastExportSummary");
-  if (lastEx) {
-    const t = asNumber(state.settings.lastBackupExportAt || 0);
-    lastEx.textContent =
-      t > 0
-        ? new Date(t).toLocaleString("sv-SE", { dateStyle: "medium", timeStyle: "short" })
-        : "Aldrig";
-  }
+  const backupHid = document.getElementById("backupIntervalDays");
+  const backupDisp = document.getElementById("backupIntervalDaysDisplay");
+  const backupIv = snapBackupReminderDays(state.settings.backupIntervalDays ?? 30);
+  if (backupHid) backupHid.value = String(backupIv);
+  if (backupDisp) backupDisp.textContent = String(backupIv);
+  updateSettingsLastExportUi();
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
   const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
@@ -12021,7 +12061,7 @@ function wireSettingsAutosaveOnce() {
   const persist = () => {
     if (!state) return;
     const n = document.getElementById("backupIntervalDays");
-    if (n) state.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(n.value)));
+    if (n) state.settings.backupIntervalDays = snapBackupReminderDays(n.value);
     const fd = document.getElementById("foodPlanningWeekday");
     if (fd) state.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(fd.value || 1))));
     const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
@@ -12043,8 +12083,23 @@ function wireSettingsAutosaveOnce() {
     renderAnalysisViewsIfActive();
   };
 
-  document.getElementById("backupIntervalDays")?.addEventListener("change", persist);
-  document.getElementById("backupIntervalDays")?.addEventListener("input", persist);
+  (function wireBackupIntervalStepper() {
+    const hid = document.getElementById("backupIntervalDays");
+    const disp = document.getElementById("backupIntervalDaysDisplay");
+    const minus = document.getElementById("backupIntervalDaysMinus");
+    const plus = document.getElementById("backupIntervalDaysPlus");
+    if (!hid || !disp || !minus || !plus || minus.dataset.bjkWired) return;
+    minus.dataset.bjkWired = "1";
+    const apply = (next) => {
+      const c = snapBackupReminderDays(next);
+      hid.value = String(c);
+      disp.textContent = String(c);
+      persist();
+    };
+    minus.addEventListener("click", () => apply(stepBackupReminderDays(hid.value, -1)));
+    plus.addEventListener("click", () => apply(stepBackupReminderDays(hid.value, 1)));
+  })();
+
   document.getElementById("foodPlanningWeekday")?.addEventListener("change", persist);
   document.getElementById("salaryPeriodUseFixedDay")?.addEventListener("change", persist);
   document.getElementById("salaryPeriodFixedDay")?.addEventListener("change", persist);
@@ -15637,7 +15692,7 @@ function initActions() {
     });
   });
 
-  document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson());
+  document.getElementById("backupNowBtn")?.addEventListener("click", () => void doExportJson());
 
   const wipeBackdrop = document.getElementById("confirmWipeAppDataBackdrop");
   const wipeModal = document.getElementById("confirmWipeAppDataModal");
@@ -15679,11 +15734,77 @@ function initActions() {
     const f = input.files && input.files[0];
     nameEl.textContent = f ? f.name : "Ingen fil vald";
   }
-  document.getElementById("backupRestorePickBtn")?.addEventListener("click", () => {
-    document.getElementById("backupRestoreInput")?.click();
+
+  const confirmImportBackdrop = document.getElementById("confirmBackupImportBackdrop");
+  const confirmImportModal = document.getElementById("confirmBackupImportModal");
+  const closeConfirmImportModal = () => {
+    if (!confirmImportBackdrop || !confirmImportModal) return;
+    closeBottomSheetModal(confirmImportBackdrop, confirmImportModal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+      }
+    });
+  };
+  document.getElementById("backupImportStartBtn")?.addEventListener("click", () => {
+    if (!confirmImportBackdrop || !confirmImportModal) return;
+    openBottomSheetModal(confirmImportBackdrop, confirmImportModal);
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
   });
+  document.getElementById("confirmBackupImportContinueBtn")?.addEventListener("click", () => {
+    closeBottomSheetModal(confirmImportBackdrop, confirmImportModal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+        document.getElementById("backupRestoreInput")?.click();
+      }
+    });
+  });
+  document.getElementById("cancelBackupImportBtn")?.addEventListener("click", () => closeConfirmImportModal());
+  document.getElementById("closeBackupImportModalBtn")?.addEventListener("click", () => closeConfirmImportModal());
+  confirmImportBackdrop?.addEventListener("click", (ev) => {
+    if (ev.target === confirmImportBackdrop && !confirmImportModal?.hidden) closeConfirmImportModal();
+  });
+
+  async function runBackupRestoreFromPickedFile() {
+    const sumEl = document.getElementById("backupRestoreErrorSummary");
+    const note = document.getElementById("backupRestoreNote");
+    hideErrorSummaryByEl(sumEl);
+    if (note) {
+      note.textContent = "";
+      note.hidden = true;
+    }
+    const input = document.getElementById("backupRestoreInput");
+    const file = input?.files && input.files[0];
+    if (!file) {
+      return;
+    }
+    let text;
+    try {
+      text = await file.text();
+    } catch {
+      renderErrorSummary(sumEl, [{ label: "Kunde inte läsa filen.", jumpId: "backupImportStartBtn" }]);
+      if (input) input.value = "";
+      return;
+    }
+    const parsed = safeParseJson(text);
+    const V = globalThis.BjorkVault;
+    if (!parsed || !V || !V.isEnvelope(parsed)) {
+      renderErrorSummary(sumEl, [
+        {
+          label: "Filen är inte en giltig krypterad Björklunds-backup. Gamla okrypterade JSON-filer kan inte importeras.",
+          jumpId: "backupImportStartBtn"
+        }
+      ]);
+      if (input) input.value = "";
+      return;
+    }
+    if (input) input.value = "";
+    openBackupImportSheet(parsed);
+  }
+
   document.getElementById("backupRestoreInput")?.addEventListener("change", () => {
-    syncBackupRestoreFileLabel();
     hideErrorSummaryByEl(document.getElementById("backupRestoreErrorSummary"));
     if (backupRestoreSuccessNoteTimer) {
       clearTimeout(backupRestoreSuccessNoteTimer);
@@ -15694,6 +15815,7 @@ function initActions() {
       n.textContent = "";
       n.hidden = true;
     }
+    void runBackupRestoreFromPickedFile();
   });
 
   async function runBackupImportWithPassphrase() {
@@ -15773,42 +15895,6 @@ function initActions() {
     }
   });
 
-  // Restore import (krypterad vault-envelope): filval på sidan, lösenord i bottom sheet
-  document.getElementById("restoreBtn").addEventListener("click", async () => {
-    const sumEl = document.getElementById("backupRestoreErrorSummary");
-    const note = document.getElementById("backupRestoreNote");
-    hideErrorSummaryByEl(sumEl);
-    if (note) {
-      note.textContent = "";
-      note.hidden = true;
-    }
-    const input = document.getElementById("backupRestoreInput");
-    const file = input?.files && input.files[0];
-    if (!file) {
-      renderErrorSummary(sumEl, [{ label: "Välj en JSON-fil att importera.", jumpId: "backupRestorePickBtn" }]);
-      return;
-    }
-    let text;
-    try {
-      text = await file.text();
-    } catch {
-      renderErrorSummary(sumEl, [{ label: "Kunde inte läsa filen.", jumpId: "backupRestorePickBtn" }]);
-      return;
-    }
-    const parsed = safeParseJson(text);
-    const V = globalThis.BjorkVault;
-    if (!parsed || !V || !V.isEnvelope(parsed)) {
-      renderErrorSummary(sumEl, [
-        {
-          label: "Filen är inte en giltig krypterad Björklunds-backup. Gamla okrypterade JSON-filer kan inte importeras.",
-          jumpId: "backupRestorePickBtn"
-        }
-      ]);
-      return;
-    }
-    openBackupImportSheet(parsed);
-  });
-
   async function doExportJson() {
     const V = globalThis.BjorkVault;
     const env = V ? await V.exportEnvelopeJson(state) : null;
@@ -15831,20 +15917,15 @@ function initActions() {
     if (!flushOk) {
       showDebugToast("Exporten sparades, men tiden för ”senaste export” kunde inte skrivas till vault.");
     }
-    const lastEx = document.getElementById("settingsLastExportSummary");
-    if (lastEx) {
-      lastEx.textContent = new Date(state.settings.lastBackupExportAt).toLocaleString("sv-SE", {
-        dateStyle: "medium",
-        timeStyle: "short"
-      });
-    }
+    updateSettingsLastExportUi();
   }
 
   // Make functions reachable
   window.__bjk_doExportJson = doExportJson;
 
   function maybePromptBackup() {
-    const intervalDays = Math.max(1, Math.floor(asNumber(state.settings.backupIntervalDays || 30)));
+    const intervalDays = snapBackupReminderDays(state.settings.backupIntervalDays ?? 30);
+    if (intervalDays <= 0) return;
     const last = asNumber(state.settings.lastBackupPromptAt || 0);
     const msInterval = intervalDays * 24 * 60 * 60 * 1000;
     const due = nowMs() - last >= msInterval;
