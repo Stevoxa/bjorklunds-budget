@@ -1143,6 +1143,107 @@ function initFoodMatSwipeBack() {
   });
 }
 
+function foodMatPlannerSwipeContextOk() {
+  const foodOverlay = document.querySelector('.exp-overlay[data-expview="food"]');
+  if (!foodOverlay || foodOverlay.hidden) return false;
+  if (Array.from(foodOverlay.querySelectorAll(".food-mat-panel")).some((p) => !p.hidden)) return false;
+  const ps = document.getElementById("foodPlannerSection");
+  if (!ps || ps.hidden) return false;
+  const raw = ui.foodPlannerYear;
+  const py = raw == null || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(py);
+}
+
+/** Kantsvep på matplaneraren (ej underpaneler) → samma som returknappen Mat / årsval. */
+function initFoodMatPlannerSwipeToYearList() {
+  const target = document.querySelector('.exp-overlay[data-expview="food"] .table-card');
+  if (!target) return;
+  let startX = 0;
+  let startY = 0;
+  let startT = 0;
+  let active = false;
+  let edgeOk = false;
+
+  const begin = (x, y) => {
+    if (!foodMatPlannerSwipeContextOk()) return;
+    startX = x;
+    startY = y;
+    startT = performance.now();
+    edgeOk = startX <= 28;
+    active = true;
+  };
+
+  const move = (x, y) => {
+    if (!active) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 16) active = false;
+  };
+
+  const end = (x, y) => {
+    if (!active) return;
+    active = false;
+    if (!edgeOk) return;
+    const dx = x - startX;
+    const dy = y - startY;
+    const dt = performance.now() - startT;
+    if (dx > 80 && Math.abs(dy) < 40 && dt < 900 && foodMatPlannerSwipeContextOk()) {
+      ui.foodPlannerYear = null;
+      renderFoodPage();
+    }
+  };
+
+  target.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (e.pointerType === "mouse") return;
+      begin(e.clientX, e.clientY);
+    },
+    { passive: true }
+  );
+  target.addEventListener("pointermove", (e) => move(e.clientX, e.clientY), { passive: true });
+  target.addEventListener("pointerup", (e) => end(e.clientX, e.clientY), { passive: true });
+  target.addEventListener("pointercancel", () => {
+    active = false;
+  }, { passive: true });
+
+  const getTouch = (ev) => (ev.changedTouches && ev.changedTouches[0]) || (ev.touches && ev.touches[0]) || null;
+  target.addEventListener(
+    "touchstart",
+    (ev) => {
+      const t = getTouch(ev);
+      if (!t) return;
+      begin(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+  target.addEventListener(
+    "touchmove",
+    (ev) => {
+      const t = getTouch(ev);
+      if (!t) return;
+      move(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+  target.addEventListener(
+    "touchend",
+    (ev) => {
+      const t = getTouch(ev);
+      if (!t) return;
+      end(t.clientX, t.clientY);
+    },
+    { passive: true }
+  );
+  target.addEventListener(
+    "touchcancel",
+    () => {
+      active = false;
+    },
+    { passive: true }
+  );
+}
+
 // Notched outline is implemented with markup/CSS (no JS sync needed).
 
 function updateFoodMatHubTitles(draft) {
@@ -14803,6 +14904,11 @@ function initActions() {
     if (foodNoteOk) foodNoteOk.textContent = "";
     renderAnalysisViewsIfActive();
     renderExpensesList();
+    ui.foodPlannerYear = null;
+    renderFoodPage();
+  });
+  document.getElementById("foodPlannerCancelBtn")?.addEventListener("click", () => {
+    ui.foodPlannerYear = null;
     renderFoodPage();
   });
 
@@ -15844,6 +15950,7 @@ async function initRoot() {
     wireTaggedListPeriodPickers();
     initFoodMatSubPanelHistory();
     initFoodMatSwipeBack();
+    initFoodMatPlannerSwipeToYearList();
     initFoodMatDeleteConfirmModal();
     initExpenseOverlayHistory();
     initUnsavedEditorModal();
