@@ -6517,6 +6517,70 @@ button.stretch {
   border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
 }
 
+/* Säkerhet & data: tätare topp (rubrik → ingress → påminnelse), luftigare delblock, backup-knappar verkligen fullbredd */
+.settings-page .settings-security-card > .table-title-row:first-child {
+  margin-bottom: var(--space-2);
+}
+
+.settings-page .settings-security-card > .settings-card-ingress {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+.settings-page .settings-security-card .settings-backup-reminder-block {
+  margin-top: 0;
+  margin-bottom: var(--space-5);
+  padding: var(--space-4) var(--space-2) var(--space-5);
+}
+
+.settings-page .settings-security-card .settings-backup-reminder-label {
+  margin-bottom: var(--space-3);
+}
+
+.settings-page .settings-security-card .settings-backup-reminder-help {
+  margin-top: var(--space-4);
+  line-height: 1.45;
+}
+
+.settings-page .settings-security-card .settings-backup-export-block {
+  padding: var(--space-5) var(--space-2) var(--space-6);
+}
+
+.settings-page .settings-security-card .settings-backup-export-block .settings-subsection-title {
+  margin-bottom: var(--space-3);
+}
+
+.settings-page .settings-security-card .settings-backup-import-block {
+  margin-top: 0;
+  padding: var(--space-6) var(--space-2) var(--space-3);
+  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.settings-page .settings-security-card .settings-backup-import-block .settings-subsection-title {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+.settings-page .settings-security-card .settings-subsection-ingress {
+  margin-bottom: var(--space-5) !important;
+}
+
+.settings-page .settings-security-card .settings-backup-export-row,
+.settings-page .settings-security-card .settings-backup-import-row {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-4);
+}
+
+.settings-page .settings-security-card .settings-backup-export-row > button,
+.settings-page .settings-security-card .settings-backup-import-row > button {
+  display: block;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  min-height: 48px;
+}
+
 .settings-last-export-line {
   margin: var(--space-2) 0 0;
   font-size: 0.78rem;

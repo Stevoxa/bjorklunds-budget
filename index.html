@@ -840,7 +840,6 @@
         >
           <div class="modal-header">
             <div id="confirmDeleteSalaryPeriodTitle">Ta bort löneperiod?</div>
-            <button class="icon-btn" id="closeDeleteSalaryPeriodModalBtn" type="button" aria-label="Stäng">✕</button>
           </div>
           <div class="modal-body">
             <div class="note">Är du säker? Genererade löneutbetalningar i intäktslistan tas bort. Detta kan inte ångras.</div>
@@ -1195,10 +1194,9 @@
             aria-labelledby="confirmDeleteLoanTitle"
             hidden
           >
-            <div class="modal-header">
-              <div id="confirmDeleteLoanTitle">Ta bort lån?</div>
-              <button class="icon-btn" id="closeDeleteLoanModalBtn" type="button" aria-label="Stäng">✕</button>
-            </div>
+          <div class="modal-header">
+            <div id="confirmDeleteLoanTitle">Ta bort lån?</div>
+          </div>
             <div class="modal-body">
               <div class="note">Är du säker? Detta kan inte ångras.</div>
             </div>
@@ -2123,14 +2121,14 @@
                   +
                 </button>
               </div>
-              <p class="field-help settings-backup-reminder-help">Hur ofta du får en påminnelse om att spara en kopia. Steg om 5 dagar (0–60). Välj 0 för att stänga av automatiska påminnelser.</p>
+              <p class="field-help settings-backup-reminder-help">0 = av. Övriga värden i steg om 5 dagar upp till 60.</p>
             </div>
 
             <div class="settings-backup-export-block">
               <div class="settings-subsection-title">Exportera backup</div>
               <p class="note settings-subsection-ingress tagged-exp-overlay-intro">Spara en krypterad kopia av din budget.</p>
               <div class="actions-row settings-backup-export-row">
-                <button class="secondary stretch" id="backupNowBtn" type="button">Exportera backup</button>
+                <button class="primary stretch" id="backupNowBtn" type="button">Exportera backup</button>
               </div>
               <p class="note settings-last-export-line" id="settingsLastExportLine" hidden></p>
             </div>
@@ -2147,7 +2145,7 @@
                 aria-label="Välj backupfil"
               />
               <div class="actions-row settings-backup-import-row">
-                <button class="danger stretch" id="backupImportStartBtn" type="button">Importera backup</button>
+                <button class="primary stretch" id="backupImportStartBtn" type="button">Importera backup</button>
               </div>
               <div
                 class="bb-error-summary settings-backup-error-summary"
@@ -2578,7 +2576,6 @@
     >
       <div class="modal-header">
         <div id="confirmWipeAppDataTitle">Rensa all appdata?</div>
-        <button class="icon-btn" id="closeWipeAppDataModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <p class="note">
@@ -2603,7 +2600,6 @@
     >
       <div class="modal-header">
         <div id="confirmBackupImportTitle">Importera backup?</div>
-        <button class="icon-btn" id="closeBackupImportModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <p class="note">
@@ -2612,7 +2608,7 @@
         </p>
       </div>
       <div class="modal-actions bottom-sheet-card__actions">
-        <button type="button" class="primary" id="confirmBackupImportContinueBtn">Välj fil och fortsätt</button>
+        <button type="button" class="danger" id="confirmBackupImportContinueBtn">Välj fil och fortsätt</button>
         <button type="button" class="secondary" id="cancelBackupImportBtn">Avbryt</button>
       </div>
     </div>
@@ -2622,7 +2618,6 @@
     <div class="modal" id="incomeModal" role="dialog" aria-modal="true" aria-labelledby="incomeModalTitle" hidden>
       <div class="modal-header">
         <div id="incomeModalTitle">Ny intäkt</div>
-        <button class="icon-btn" id="closeIncomeModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="bb-error-summary" id="incomeErrorSummary" hidden role="alert" aria-live="polite"></div>
@@ -2797,7 +2792,6 @@
     >
       <div class="modal-header">
         <div id="confirmDeleteIncomeTitle">Ta bort intäkt?</div>
-        <button class="icon-btn" id="closeDeleteIncomeModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="note" id="confirmDeleteIncomeText">Är du säker? Detta kan inte ångras.</div>
@@ -2813,7 +2807,6 @@
     <div class="modal" id="expenseModal" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle" hidden>
       <div class="modal-header">
         <div id="expenseModalTitle">Redigera utgift</div>
-        <button class="icon-btn" id="closeExpenseModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="bb-error-summary" id="expenseErrorSummary" hidden role="alert" aria-live="polite"></div>
@@ -2911,7 +2904,6 @@
     >
       <div class="modal-header">
         <div id="confirmDeleteExpenseTitle">Ta bort utgift?</div>
-        <button class="icon-btn" id="closeDeleteExpenseModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="note" id="confirmDeleteExpenseText">Är du säker? Detta kan inte ångras.</div>
@@ -2935,7 +2927,6 @@
     >
       <div class="modal-header">
         <div id="unsavedEditorTitle">Osparade ändringar</div>
-        <button class="icon-btn" id="closeUnsavedEditorModalBtn" type="button" aria-label="Stäng">✕</button>
       </div>
       <div class="modal-body">
         <div class="note" id="unsavedEditorDesc">

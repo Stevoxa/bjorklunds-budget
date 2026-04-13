@@ -13459,7 +13459,6 @@ function renderIncomesPage() {
     applyIncomeDefaultFieldToEditorRows("amount");
   };
 
-  requireEl("closeIncomeModalBtn").onclick = requestCloseIncomeOverlay;
   requireEl("incomeCancelBtn").onclick = requestCloseIncomeOverlay;
   requireEl("incomeSaveBtn").onclick = saveIncomeFromOverlay;
 
@@ -14216,14 +14215,12 @@ function renderExpensesSummaryPage() {
     applyExpenseDefaultFieldToEditorRows("amount");
   };
 
-  requireEl("closeExpenseModalBtn").onclick = requestCloseExpenseOverlay;
   requireEl("expenseCancelBtn").onclick = requestCloseExpenseOverlay;
   requireEl("expenseSaveBtn").onclick = saveExpenseFromOverlay;
   requireEl("expenseDeleteBtn").onclick = () => {
     if (!ui.editExpenseId) return;
     showConfirmDeleteExpenseModal();
   };
-  requireEl("closeDeleteExpenseModalBtn").onclick = hideConfirmDeleteExpenseModal;
   requireEl("cancelDeleteExpenseBtn").onclick = hideConfirmDeleteExpenseModal;
   requireEl("confirmDeleteExpenseBtn").onclick = () => {
     const id = ui.editExpenseId;
@@ -14633,7 +14630,6 @@ function confirmUnsavedEditorDiscard() {
 function initUnsavedEditorModal() {
   requireEl("unsavedEditorDiscardBtn").onclick = confirmUnsavedEditorDiscard;
   requireEl("unsavedEditorStayBtn").onclick = hideUnsavedEditorConfirmModal;
-  requireEl("closeUnsavedEditorModalBtn").onclick = hideUnsavedEditorConfirmModal;
   requireEl("unsavedEditorBackdrop").onclick = () => {
     if (!requireEl("unsavedEditorModal").hidden) hideUnsavedEditorConfirmModal();
   };
@@ -15420,7 +15416,6 @@ function initActions() {
     showConfirmDeleteLoanModal();
   });
   document.getElementById("loanEditorCancelBtn").addEventListener("click", () => closeLoanEditor());
-  requireEl("closeDeleteLoanModalBtn").onclick = hideConfirmDeleteLoanModal;
   requireEl("cancelDeleteLoanBtn").onclick = hideConfirmDeleteLoanModal;
   requireEl("confirmDeleteLoanBtn").onclick = () => {
     const id = ui.editLoanId;
@@ -15523,8 +15518,6 @@ function initActions() {
     if (!ui.editSalaryPeriodId) return;
     showConfirmDeleteSalaryPeriodModal();
   });
-  const closeDelSal = document.getElementById("closeDeleteSalaryPeriodModalBtn");
-  if (closeDelSal) closeDelSal.onclick = hideConfirmDeleteSalaryPeriodModal;
   const cancelDelSal = document.getElementById("cancelDeleteSalaryPeriodBtn");
   if (cancelDelSal) cancelDelSal.onclick = hideConfirmDeleteSalaryPeriodModal;
   const confirmDelSal = document.getElementById("confirmDeleteSalaryPeriodBtn");
@@ -15646,7 +15639,6 @@ function initActions() {
     showConfirmDeleteIncomeModal();
   };
 
-  requireEl("closeDeleteIncomeModalBtn").onclick = hideConfirmDeleteIncomeModal;
   requireEl("cancelDeleteIncomeBtn").onclick = hideConfirmDeleteIncomeModal;
   requireEl("confirmDeleteIncomeBtn").onclick = () => {
     const id = ui.editIncomeId;
@@ -15713,7 +15705,6 @@ function initActions() {
   };
   document.getElementById("settingsWipeAppDataBtn")?.addEventListener("click", () => openWipeModal());
   document.getElementById("cancelWipeAppDataBtn")?.addEventListener("click", () => closeWipeModal());
-  document.getElementById("closeWipeAppDataModalBtn")?.addEventListener("click", () => closeWipeModal());
   wipeBackdrop?.addEventListener("click", (ev) => {
     if (ev.target === wipeBackdrop && !wipeModal?.hidden) closeWipeModal();
   });
@@ -15762,7 +15753,6 @@ function initActions() {
     });
   });
   document.getElementById("cancelBackupImportBtn")?.addEventListener("click", () => closeConfirmImportModal());
-  document.getElementById("closeBackupImportModalBtn")?.addEventListener("click", () => closeConfirmImportModal());
   confirmImportBackdrop?.addEventListener("click", (ev) => {
     if (ev.target === confirmImportBackdrop && !confirmImportModal?.hidden) closeConfirmImportModal();
   });
