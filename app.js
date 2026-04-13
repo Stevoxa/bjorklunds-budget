@@ -1168,6 +1168,14 @@ function appEdgeSwipeTryConsumeLtr() {
 function initAppEdgeSwipeNavigation() {
   /** Lite bredare kant — lättare att träffa; samma zon som ofta används för webbläsarens “tillbaka”. */
   const EDGE_PX = 44;
+  /** iOS (Safari, Chrome, Firefox, Edge — alla WebKit): kant-tillbaka aktiveras tidigare än på Android Chrome. */
+  const iOSOrIOSWrappedBrowser =
+    typeof navigator !== "undefined" &&
+    (/iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      /\bCriOS\/|FxiOS\/|EdgiOS\//i.test(navigator.userAgent) ||
+      (navigator.userAgent.includes("Mac") && (navigator.maxTouchPoints || 0) > 1));
+  const dxTrigger = iOSOrIOSWrappedBrowser ? 14 : 18;
+  const dxRatio = iOSOrIOSWrappedBrowser ? 1.28 : 1.35;
   let startX = 0;
   let startY = 0;
   let startT = 0;
@@ -1177,6 +1185,18 @@ function initAppEdgeSwipeNavigation() {
   /** När vi fångat en tydlig LTR-gest från kanten: fortsätt preventDefault så webbläsaren inte tar över (history.back / lämna PWA). */
   let suppressBrowserNav = false;
 
+  const leftEdgeLimitPx = () => {
+    let inset = 0;
+    try {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue("--app-safe-area-inset-left").trim();
+      const n = parseFloat(raw);
+      if (Number.isFinite(n)) inset = Math.max(0, n);
+    } catch {
+      /* ignore */
+    }
+    return EDGE_PX + inset;
+  };
+
   const begin = (x, y, target) => {
     suppressBrowserNav = false;
     if (appEdgeSwipeEnvironmentBlocked()) return;
@@ -1184,7 +1204,7 @@ function initAppEdgeSwipeNavigation() {
     startX = x;
     startY = y;
     startT = performance.now();
-    edgeOk = x <= EDGE_PX;
+    edgeOk = x <= leftEdgeLimitPx();
     active = edgeOk;
   };
 
@@ -1200,7 +1220,7 @@ function initAppEdgeSwipeNavigation() {
       active = false;
       return;
     }
-    if (edgeOk && dx > 18 && dx > Math.abs(dy) * 1.35) {
+    if (edgeOk && dx > dxTrigger && dx > Math.abs(dy) * dxRatio) {
       suppressBrowserNav = true;
       if (ev && ev.cancelable) ev.preventDefault();
     }
@@ -1226,7 +1246,9 @@ function initAppEdgeSwipeNavigation() {
   };
 
   /** Pekskärm: använd bara touch (pointer+touch dubbel “end” och passive pointer kan inte stoppa webbläsaren). */
-  const touchScreenDevice = (typeof navigator !== "undefined" && (navigator.maxTouchPoints || 0) > 0) || typeof window !== "undefined" && "ontouchstart" in window;
+  const touchScreenDevice =
+    (typeof navigator !== "undefined" && (navigator.maxTouchPoints || 0) > 0) ||
+    (typeof window !== "undefined" && "ontouchstart" in window);
 
   if (!touchScreenDevice) {
     document.addEventListener(
@@ -1242,6 +1264,7 @@ function initAppEdgeSwipeNavigation() {
     document.addEventListener("pointercancel", resetTouchTracking, { capture: true, passive: true });
   }
 
+  /* passive: false — WebKit tillåter då reliably preventDefault på touchmove för kantgesten (iOS Safari / Chrome). */
   document.addEventListener(
     "touchstart",
     (ev) => {
@@ -1249,7 +1272,7 @@ function initAppEdgeSwipeNavigation() {
       if (!t) return;
       begin(t.clientX, t.clientY, ev.target);
     },
-    { capture: true, passive: true }
+    { capture: true, passive: false }
   );
   document.addEventListener(
     "touchmove",
