@@ -2109,52 +2109,54 @@
             </div>
             <p class="note settings-card-ingress tagged-exp-overlay-intro">Säkerhetskopiera och återställ din budget.</p>
 
-            <div class="settings-backup-reminder-block">
-              <span class="settings-backup-reminder-label">Påminnelse (dagar)</span>
-              <div class="bb-stepper bb-stepper--round" role="group" aria-label="Påminnelse om backup i dagar">
-                <button type="button" class="bb-stepper__btn" id="backupIntervalDaysMinus" aria-label="Minska antal dagar">
-                  −
-                </button>
-                <span class="bb-stepper__value" id="backupIntervalDaysDisplay" aria-live="polite">30</span>
-                <input type="hidden" id="backupIntervalDays" value="30" />
-                <button type="button" class="bb-stepper__btn" id="backupIntervalDaysPlus" aria-label="Öka antal dagar">
-                  +
-                </button>
+            <div class="settings-komp-stack">
+              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsBackupReminderLegend">
+                <div class="bb-notched-panel-legend" id="settingsBackupReminderLegend">Påminnelse (dagar)</div>
+                <div class="bb-stepper bb-stepper--round" role="group" aria-label="Påminnelse om backup i dagar">
+                  <button type="button" class="bb-stepper__btn" id="backupIntervalDaysMinus" aria-label="Minska antal dagar">
+                    −
+                  </button>
+                  <span class="bb-stepper__value" id="backupIntervalDaysDisplay" aria-live="polite">30</span>
+                  <input type="hidden" id="backupIntervalDays" value="30" />
+                  <button type="button" class="bb-stepper__btn" id="backupIntervalDaysPlus" aria-label="Öka antal dagar">
+                    +
+                  </button>
+                </div>
+                <p class="field-help settings-backup-reminder-help">Hur ofta du får en påminnelse i appen om att spara en ny backup.</p>
               </div>
-              <p class="field-help settings-backup-reminder-help">0 = av. Övriga värden i steg om 5 dagar upp till 60.</p>
-            </div>
 
-            <div class="settings-backup-export-block">
-              <div class="settings-subsection-title">Exportera backup</div>
-              <p class="note settings-subsection-ingress tagged-exp-overlay-intro">Spara en krypterad kopia av din budget.</p>
-              <div class="actions-row settings-backup-export-row">
-                <button class="primary stretch" id="backupNowBtn" type="button">Exportera backup</button>
+              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsBackupExportLegend">
+                <div class="bb-notched-panel-legend" id="settingsBackupExportLegend">Exportera backup</div>
+                <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">Spara en krypterad kopia av din budget.</p>
+                <div class="actions-row settings-backup-export-row">
+                  <button class="primary stretch" id="backupNowBtn" type="button">Exportera backup</button>
+                </div>
+                <p class="note settings-last-export-line" id="settingsLastExportLine" hidden></p>
               </div>
-              <p class="note settings-last-export-line" id="settingsLastExportLine" hidden></p>
-            </div>
 
-            <div class="settings-backup-import-block">
-              <div class="settings-subsection-title">Importera backup</div>
-              <p class="note settings-subsection-ingress tagged-exp-overlay-intro">Återställ din budget från en tidigare backup.</p>
-              <input
-                id="backupRestoreInput"
-                type="file"
-                accept="application/json"
-                class="backup-restore-sr-input"
-                tabindex="-1"
-                aria-label="Välj backupfil"
-              />
-              <div class="actions-row settings-backup-import-row">
-                <button class="primary stretch" id="backupImportStartBtn" type="button">Importera backup</button>
+              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsBackupImportLegend">
+                <div class="bb-notched-panel-legend" id="settingsBackupImportLegend">Importera backup</div>
+                <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">Återställ din budget från en tidigare backup.</p>
+                <input
+                  id="backupRestoreInput"
+                  type="file"
+                  accept="application/json"
+                  class="backup-restore-sr-input"
+                  tabindex="-1"
+                  aria-label="Välj backupfil"
+                />
+                <div class="actions-row settings-backup-import-row">
+                  <button class="primary stretch" id="backupImportStartBtn" type="button">Importera backup</button>
+                </div>
+                <div
+                  class="bb-error-summary settings-backup-error-summary"
+                  id="backupRestoreErrorSummary"
+                  hidden
+                  role="alert"
+                  aria-live="polite"
+                ></div>
+                <p class="note backup-restore-success-note" id="backupRestoreNote" hidden></p>
               </div>
-              <div
-                class="bb-error-summary settings-backup-error-summary"
-                id="backupRestoreErrorSummary"
-                hidden
-                role="alert"
-                aria-live="polite"
-              ></div>
-              <p class="note backup-restore-success-note" id="backupRestoreNote" hidden></p>
             </div>
           </div>
 
