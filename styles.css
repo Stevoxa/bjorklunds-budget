@@ -663,6 +663,7 @@ html[data-theme="dark"] .onboarding-screen__scrim {
 .view.settings-page.active {
   display: flex;
   flex-direction: column;
+  gap: var(--space-4);
 }
 
 .view.settings-advanced-page.active {
@@ -1862,10 +1863,8 @@ tr.month-break td {
   gap: 16px;
 }
 
+/* Ingen display här — annars vinner denna över .view { display:none } (samma specificitet, senare i filen). */
 .settings-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
