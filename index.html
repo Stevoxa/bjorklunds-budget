@@ -2038,64 +2038,54 @@
             <a href="#/help" class="settings-help-link">Hjälp</a>
           </div>
 
-          <div class="table-card settings-pwa-card">
-            <div class="table-title">App & start</div>
-            <p class="note settings-pwa-card__lead">
-              Installera som app på Android eller dator (Chrome/Edge). Egna bilder och film lagras bara på den här enheten.
+          <div class="table-card settings-section-card">
+            <div class="table-title">Kom igång</div>
+            <p class="note settings-section-card__ingress">
+              Gör det här först för att få bästa upplevelsen av appen.
             </p>
-            <div class="settings-pwa-install-row">
-              <button type="button" class="primary" id="pwaInstallFromSettingsBtn" hidden>Lägg till på hemskärmen</button>
-              <button type="button" class="secondary" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
-              <span class="note settings-pwa-installed-note" id="pwaInstalledNote" hidden>Appen körs som installerad.</span>
-            </div>
-            <p class="note settings-pwa-replay-hint">Knappen ovan nollställer och laddar om sidan.</p>
-            <label class="field settings-intro-film-rarely">
-              <input type="checkbox" id="settingsIntroFilmRarely" />
-              <span>Visa start film sällan</span>
-            </label>
-            <div class="form-grid narrow settings-theme-pack-grid">
-              <label class="field">
-                <span>Eget ikonpaket (ZIP)</span>
-                <input id="themePackZipInput" type="file" accept=".zip,application/zip" class="settings-theme-file-input" />
-                <span class="field-help">Valfritt: samma filnamn som standard (t.ex. icon-192.png, apple-touch-icon.png).</span>
-              </label>
-              <label class="field">
-                <span>Egen startbild (PNG)</span>
-                <input id="themeSplashInput" type="file" accept="image/png" class="settings-theme-file-input" />
-              </label>
-              <label class="field">
-                <span>Egen startfilm (MP4)</span>
-                <input id="themeIntroInput" type="file" accept="video/mp4" class="settings-theme-file-input" />
-              </label>
-              <div class="actions-row settings-theme-pack-actions">
-                <button type="button" class="secondary" id="themePackApplyBtn">Spara temafiler</button>
-                <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
+            <div class="settings-komp-stack">
+              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsPwaNotchLegend">
+                <div class="bb-notched-panel-legend" id="settingsPwaNotchLegend">Lägg till på hemskärmen</div>
+                <p class="note settings-komp-panel__lead">
+                  Lägg till appen på hemskärmen för snabb åtkomst och bättre appkänsla. På iPhone och iPad: använd Safari och
+                  öppna <strong>Hjälp</strong> uppe till höger för stegvis guide.
+                </p>
+                <div class="actions-row settings-pwa-install-row">
+                  <button type="button" class="primary" id="pwaInstallFromSettingsBtn" hidden>Lägg till på hemskärmen</button>
+                  <span class="note settings-pwa-installed-note" id="pwaInstalledNote" hidden>Appen körs som installerad.</span>
+                </div>
               </div>
-              <p class="note" id="themePackNote" role="status"></p>
-            </div>
-          </div>
 
-          <div class="table-card" id="settingsVaultBiometricCard">
-            <div class="table-title">Snabb upplåsning</div>
-            <p class="note" id="settingsVaultBiometricLead">
-              Valfritt. Lösenord är alltid den primära nyckeln. Biometrik används bara lokalt på den här enheten (ingen server).
-            </p>
-            <p class="note" id="settingsVaultBiometricStatus" role="status"></p>
-            <div class="actions-row settings-vault-bio-actions">
-              <button type="button" class="primary" id="settingsVaultBiometricEnableBtn">Aktivera Face ID / fingeravtryck</button>
-              <button type="button" class="secondary" id="settingsVaultBiometricDisableBtn" hidden>Stäng av snabb upplåsning</button>
+              <div
+                class="bb-notched-panel settings-komp-panel"
+                id="settingsVaultBiometricCard"
+                role="group"
+                aria-labelledby="settingsBioNotchLegend"
+              >
+                <div class="bb-notched-panel-legend" id="settingsBioNotchLegend">Snabb upplåsning</div>
+                <p class="note settings-komp-panel__lead" id="settingsVaultBiometricLead">
+                  Aktivera Face ID eller fingeravtryck för att låsa upp snabbt och säkert. Biometrik används bara på den här
+                  enheten.
+                </p>
+                <p class="note" id="settingsVaultBiometricStatus" role="status"></p>
+                <div class="actions-row settings-vault-bio-actions">
+                  <button type="button" class="primary" id="settingsVaultBiometricEnableBtn">Aktivera Face ID / fingeravtryck</button>
+                  <button type="button" class="secondary" id="settingsVaultBiometricDisableBtn" hidden>Stäng av snabb upplåsning</button>
+                </div>
+                <p
+                  class="note settings-vault-bio-feedback"
+                  id="settingsVaultBiometricFeedback"
+                  hidden
+                  role="status"
+                  aria-live="polite"
+                ></p>
+              </div>
             </div>
-            <p
-              class="note settings-vault-bio-feedback"
-              id="settingsVaultBiometricFeedback"
-              hidden
-              role="status"
-              aria-live="polite"
-            ></p>
           </div>
 
           <div class="table-card settings-theme-card">
-            <div class="table-title">Utseende</div>
+            <div class="table-title">Utseende &amp; start</div>
+            <p class="note settings-section-card__ingress">Anpassa hur appen ser ut.</p>
             <div class="form-grid narrow">
               <div class="field">
                 <div class="bb-notched-field" role="group" aria-label="Tema">
@@ -2105,6 +2095,7 @@
                     <span class="bb-notched-field-chev" aria-hidden="true"></span>
                   </button>
                 </div>
+                <span class="field-help">Ljust, mörkt eller följ enhetens inställning.</span>
                 <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                   <option value="system">System</option>
                   <option value="light">Ljust</option>
@@ -2114,9 +2105,114 @@
             </div>
           </div>
 
-          <div class="table-card settings-salary-analysis-card">
-            <div class="table-title">Ny analys — löneperiod</div>
+          <div class="table-card settings-security-card">
+            <div class="table-title">Säkerhet &amp; data</div>
+            <p class="note settings-section-card__ingress">Hantera säkerhetskopia och återställning.</p>
             <div class="form-grid narrow">
+              <label class="field">
+                <div class="bb-notched-field" role="group" aria-label="Påminn om backup">
+                  <div class="bb-notched-field-legend">Påminn om backup (dagar)</div>
+                  <input id="backupIntervalDays" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" step="1" />
+                </div>
+                <span class="field-help">Hur ofta appen frågar om du vill spara en kopia.</span>
+              </label>
+            </div>
+
+            <div class="settings-backup-export-meta">
+              <div class="settings-inline-summary">
+                <span class="settings-inline-summary__label">Senaste export</span>
+                <span class="settings-inline-summary__value" id="settingsLastExportSummary">Aldrig</span>
+              </div>
+            </div>
+
+            <div class="actions-row settings-backup-export-row">
+              <button class="secondary" id="backupNowBtn" type="button">Exportera backup</button>
+            </div>
+
+            <div class="backup-restore">
+              <div class="field backup-import-field">
+                <span class="backup-import-field__label">Importera backup</span>
+                <div class="backup-file-picker-row">
+                  <input
+                    id="backupRestoreInput"
+                    type="file"
+                    accept="application/json"
+                    class="backup-restore-sr-input"
+                    tabindex="-1"
+                    aria-label="Välj backupfil"
+                  />
+                  <button type="button" class="secondary backup-file-picker-btn" id="backupRestorePickBtn">Välj fil</button>
+                  <span id="backupRestoreFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
+                </div>
+              </div>
+              <p class="note backup-restore-hint">
+                Välj en sparad kopia och tryck <strong>Återställ</strong>. Du får ange lösenord i nästa steg. Efter lyckad
+                import fortsätter du utan ny inloggning.
+              </p>
+              <div class="actions-row settings-restore-row">
+                <button class="danger" id="restoreBtn" type="button">Återställ</button>
+              </div>
+              <div
+                class="bb-error-summary settings-backup-error-summary"
+                id="backupRestoreErrorSummary"
+                hidden
+                role="alert"
+                aria-live="polite"
+              ></div>
+              <p class="note backup-restore-success-note" id="backupRestoreNote" hidden></p>
+            </div>
+          </div>
+
+          <div class="table-card settings-advanced-card">
+            <div class="table-title">Avancerat</div>
+            <p class="note settings-section-card__ingress">
+              Temafiler, startfilm och andra val som du sällan behöver ändra. Ändringar sparas oftast automatiskt.
+            </p>
+            <label class="field settings-intro-film-rarely">
+              <input type="checkbox" id="settingsIntroFilmRarely" />
+              <span>Visa startfilm mer sällan</span>
+            </label>
+            <p class="note settings-pwa-replay-hint">
+              Ladda om sidan och spela startfilmen direkt (bra om du bytt egen film).
+            </p>
+            <div class="actions-row">
+              <button type="button" class="secondary" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
+            </div>
+            <div class="form-grid narrow settings-theme-pack-grid settings-advanced-theme-grid">
+              <label class="field">
+                <span>Ikonpaket (ZIP)</span>
+                <input id="themePackZipInput" type="file" accept=".zip,application/zip" class="settings-theme-file-input" />
+                <span class="field-help">Valfritt: samma filnamn som standard (t.ex. icon-192.png).</span>
+              </label>
+              <label class="field">
+                <span>Startbild (PNG)</span>
+                <input id="themeSplashInput" type="file" accept="image/png" class="settings-theme-file-input" />
+              </label>
+              <label class="field">
+                <span>Startfilm (MP4)</span>
+                <input id="themeIntroInput" type="file" accept="video/mp4" class="settings-theme-file-input" />
+              </label>
+              <div class="actions-row settings-theme-pack-actions">
+                <button type="button" class="secondary" id="themePackApplyBtn">Spara temafiler</button>
+                <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
+              </div>
+              <p class="note" id="themePackNote" role="status"></p>
+            </div>
+            <div class="settings-advanced-danger-zone">
+              <p class="note settings-komp-panel__lead">
+                Rensa allt som sparats på enheten — budget, vault och egna temabilder. Du måste sätta upp appen igen eller
+                importera backup. Går inte att ångra.
+              </p>
+              <div class="actions-row">
+                <button type="button" class="danger" id="settingsWipeAppDataBtn">Rensa appdata</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-card settings-content-card">
+            <div class="table-title">Innehåll</div>
+            <p class="note settings-section-card__ingress">Styr hur analys och matplanering beräknas.</p>
+            <div class="form-grid narrow settings-salary-analysis-card">
               <label class="field field-checkbox-row">
                 <input id="salaryPeriodUseFixedDay" type="checkbox" />
                 Sätt fast löneperiod (månadsdag)
@@ -2126,7 +2222,7 @@
                   <div class="bb-notched-field-legend">Fast lönedag i månaden</div>
                   <input id="salaryPeriodFixedDay" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </div>
-                <span class="field-help">Används när kryssrutan ovan är ikryssad (standard 25). Annars härleds dagen från första utbetalningen för den största månadsvisa intäkten.</span>
+                <span class="field-help">Används när kryssrutan är på (standard 25). Annars härleds dagen från din största månadsvisa intäkt.</span>
               </label>
               <label class="field">
                 <div class="bb-notched-field" role="group" aria-label="Löneåret börjar">
@@ -2152,13 +2248,9 @@
                 <span class="field-help">Första månaden i löneåret (standard januari).</span>
               </label>
             </div>
-          </div>
-
-          <div class="table-card settings-food-card">
-            <div class="table-title">Matplanering</div>
-            <div class="form-grid narrow">
+            <div class="form-grid narrow settings-food-card">
               <div class="field">
-                <div class="bb-notched-field" role="group" aria-label="Veckodag (planeringsdag)">
+                <div class="bb-notched-field" role="group" aria-label="Veckodag för matplanering">
                   <div class="bb-notched-field-legend">Veckodag (planeringsdag)</div>
                   <button type="button" class="bb-notched-field-btn" id="foodWeekdayOpenBtn">
                     <span class="bb-notched-field-value" id="foodWeekdaySummary">—</span>
@@ -2174,63 +2266,7 @@
                   <option value="6">Lördag</option>
                   <option value="7">Söndag</option>
                 </select>
-                <span class="field-help">Styr vilket datum som matveckan bokförs på.</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-grid">
-            <div class="table-card">
-              <div class="table-title">Backup & restore</div>
-              <div class="form-grid narrow">
-              <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Fråga om backup var (dagar)">
-                  <div class="bb-notched-field-legend">Fråga om backup var (dagar)</div>
-                  <input id="backupIntervalDays" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" step="1" />
-                </div>
-              </label>
-                <p class="note backup-export-filename-hint">
-                  Filnamn: <code class="backup-filename-code">bjorklunds_budget.json</code>
-                </p>
-              </div>
-
-              <div class="actions-row settings-backup-export-row">
-                <button class="secondary" id="backupNowBtn" type="button">Exportera krypterad backup</button>
-              </div>
-
-              <div class="backup-restore">
-                <div class="field backup-import-field">
-                  <span class="backup-import-field__label">Importera krypterad backup (JSON)</span>
-                  <div class="backup-file-picker-row">
-                    <input
-                      id="backupRestoreInput"
-                      type="file"
-                      accept="application/json"
-                      class="backup-restore-sr-input"
-                      tabindex="-1"
-                      aria-label="Välj krypterad JSON-backup"
-                    />
-                    <button type="button" class="secondary backup-file-picker-btn" id="backupRestorePickBtn">
-                      Välj fil
-                    </button>
-                    <span id="backupRestoreFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
-                  </div>
-                </div>
-                <p class="note backup-restore-hint">
-                  Välj fil och tryck <strong>Återställ från fil</strong>. Du anger lösenord i nästa steg. Efter lyckad import
-                  fortsätter du utan ny inloggning.
-                </p>
-                <div class="actions-row settings-restore-row">
-                  <button class="danger" id="restoreBtn" type="button">Återställ från fil</button>
-                </div>
-                <div
-                  class="bb-error-summary settings-backup-error-summary"
-                  id="backupRestoreErrorSummary"
-                  hidden
-                  role="alert"
-                  aria-live="polite"
-                ></div>
-                <p class="note backup-restore-success-note" id="backupRestoreNote" hidden></p>
+                <span class="field-help">Vilket veckodag matveckan bokförs på.</span>
               </div>
             </div>
           </div>
@@ -2460,6 +2496,31 @@
       <div class="modal-actions bottom-sheet-card__actions">
         <button class="primary" id="backupExportModalBtn" type="button">Exportera krypterad backup</button>
         <button class="secondary" id="backupLaterBtn" type="button">Inte nu</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop modal-backdrop--bottom-sheet" id="confirmWipeAppDataBackdrop" hidden></div>
+    <div
+      class="modal bottom-sheet-card bottom-sheet-card--dock-bottom"
+      id="confirmWipeAppDataModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirmWipeAppDataTitle"
+      hidden
+    >
+      <div class="modal-header">
+        <div id="confirmWipeAppDataTitle">Rensa all appdata?</div>
+        <button class="icon-btn" id="closeWipeAppDataModalBtn" type="button" aria-label="Stäng">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="note">
+          All budget, vault och egna temabilder på den här enheten tas bort. Det går inte att ångra. Ha en backup om du vill
+          kunna återställa senare.
+        </p>
+      </div>
+      <div class="modal-actions bottom-sheet-card__actions">
+        <button type="button" class="danger" id="confirmWipeAppDataBtn">Ja, rensa allt</button>
+        <button type="button" class="secondary" id="cancelWipeAppDataBtn">Avbryt</button>
       </div>
     </div>
 

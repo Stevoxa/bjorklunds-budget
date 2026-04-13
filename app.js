@@ -3139,6 +3139,8 @@ function getDefaultState() {
     settings: {
       backupIntervalDays: 30,
       lastBackupPromptAt: 0,
+      /** ms epoch — senaste lyckade export från inställningar (eller modal). */
+      lastBackupExportAt: 0,
       foodPlanningWeekday: 1,
       /** Ny analys: fast lönedag i månaden när checkbox är på */
       salaryPeriodUseFixedDay: false,
@@ -3234,6 +3236,7 @@ function normalizeStateShape(state) {
 
   normalized.settings = { ...base.settings, ...(normalized.settings || {}) };
   normalized.settings.backupIntervalDays = Math.max(1, Math.floor(asNumber(normalized.settings.backupIntervalDays || 30)));
+  normalized.settings.lastBackupExportAt = Math.max(0, asNumber(normalized.settings.lastBackupExportAt || 0));
   delete normalized.settings.backupFilenamePattern;
   normalized.settings.foodPlanningWeekday = Math.max(1, Math.min(7, Math.floor(asNumber(normalized.settings.foodPlanningWeekday || 1))));
   delete normalized.settings.analysisLayout;
@@ -5910,6 +5913,40 @@ function tryRemoveLegacyLocalStorage() {
   } catch {
     /* ignore */
   }
+}
+
+/** Raderar vault-IDB, temaresurser och appens localStorage-nycklar; laddar om sidan. */
+async function wipeAllLocalAppDataAndReload() {
+  const V = globalThis.BjorkVault;
+  if (V && typeof V.wipeVaultDatabase === "function") {
+    const r = await V.wipeVaultDatabase();
+    if (!r.ok) {
+      showDebugToast(
+        r.error === "blocked"
+          ? "Stäng andra flikar med appen och försök igen."
+          : "Kunde inte rensa all data. Försök igen."
+      );
+      return;
+    }
+  }
+  const TA = globalThis.BjorkThemeAssets;
+  if (TA && typeof TA.clearAll === "function") {
+    try {
+      await TA.clearAll();
+    } catch {
+      /* ignore */
+    }
+  }
+  tryRemoveLegacyLocalStorage();
+  try {
+    localStorage.removeItem(INTRO_LAST_PLAY_KEY);
+    localStorage.removeItem(INTRO_LAST_PLAY_MS_KEY);
+    localStorage.removeItem(INTRO_FILM_RARELY_KEY);
+    localStorage.removeItem(PWA_BANNER_DISMISSED_KEY);
+  } catch {
+    /* ignore */
+  }
+  location.reload();
 }
 
 /** @returns {boolean} false om session är låst eller schemaläggning misslyckades. */
@@ -11938,6 +11975,14 @@ function wireVaultBiometricSettingsOnce() {
 function renderSettingsPage() {
   // Settings inputs
   document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
+  const lastEx = document.getElementById("settingsLastExportSummary");
+  if (lastEx) {
+    const t = asNumber(state.settings.lastBackupExportAt || 0);
+    lastEx.textContent =
+      t > 0
+        ? new Date(t).toLocaleString("sv-SE", { dateStyle: "medium", timeStyle: "short" })
+        : "Aldrig";
+  }
   const foodDay = document.getElementById("foodPlanningWeekday");
   if (foodDay) foodDay.value = String(state.settings.foodPlanningWeekday || 1);
   const salaryFixedCh = document.getElementById("salaryPeriodUseFixedDay");
@@ -15575,6 +15620,39 @@ function initActions() {
 
   document.getElementById("backupNowBtn").addEventListener("click", () => void doExportJson());
 
+  const wipeBackdrop = document.getElementById("confirmWipeAppDataBackdrop");
+  const wipeModal = document.getElementById("confirmWipeAppDataModal");
+  const openWipeModal = () => {
+    if (!wipeBackdrop || !wipeModal) return;
+    openBottomSheetModal(wipeBackdrop, wipeModal);
+    document.documentElement.classList.add("modal-open");
+    document.body.classList.add("modal-open");
+  };
+  const closeWipeModal = () => {
+    if (!wipeBackdrop || !wipeModal) return;
+    closeBottomSheetModal(wipeBackdrop, wipeModal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+      }
+    });
+  };
+  document.getElementById("settingsWipeAppDataBtn")?.addEventListener("click", () => openWipeModal());
+  document.getElementById("cancelWipeAppDataBtn")?.addEventListener("click", () => closeWipeModal());
+  document.getElementById("closeWipeAppDataModalBtn")?.addEventListener("click", () => closeWipeModal());
+  wipeBackdrop?.addEventListener("click", (ev) => {
+    if (ev.target === wipeBackdrop && !wipeModal?.hidden) closeWipeModal();
+  });
+  document.getElementById("confirmWipeAppDataBtn")?.addEventListener("click", () => {
+    closeBottomSheetModal(wipeBackdrop, wipeModal, {
+      onDone: () => {
+        document.documentElement.classList.remove("modal-open");
+        document.body.classList.remove("modal-open");
+        void wipeAllLocalAppDataAndReload();
+      }
+    });
+  });
+
   function syncBackupRestoreFileLabel() {
     const input = document.getElementById("backupRestoreInput");
     const nameEl = document.getElementById("backupRestoreFileName");
@@ -15729,6 +15807,18 @@ function initActions() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    state.settings.lastBackupExportAt = nowMs();
+    const flushOk = await saveStateFlush();
+    if (!flushOk) {
+      showDebugToast("Exporten sparades, men tiden för ”senaste export” kunde inte skrivas till vault.");
+    }
+    const lastEx = document.getElementById("settingsLastExportSummary");
+    if (lastEx) {
+      lastEx.textContent = new Date(state.settings.lastBackupExportAt).toLocaleString("sv-SE", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      });
+    }
   }
 
   // Make functions reachable

@@ -538,6 +538,20 @@
       } catch {
         return { ok: false, error: "decrypt-fail" };
       }
+    },
+
+    /**
+     * Raderar vault i IndexedDB och nollställer session. Anropa `location.reload()` efteråt.
+     * @returns {Promise<{ ok: boolean, error?: string }>}
+     */
+    async wipeVaultDatabase() {
+      lock();
+      return new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase(DB_NAME);
+        req.onerror = () => resolve({ ok: false, error: String(req.error?.message || "delete-fail") });
+        req.onsuccess = () => resolve({ ok: true });
+        req.onblocked = () => resolve({ ok: false, error: "blocked" });
+      });
     }
   };
 
