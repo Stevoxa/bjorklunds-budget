@@ -2039,16 +2039,17 @@
           </div>
 
           <div class="table-card settings-section-card">
-            <div class="table-title">Kom igång</div>
-            <p class="note settings-section-card__ingress">
+            <div class="table-title-row">
+              <div class="table-title">Kom igång</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">
               Gör det här först för att få bästa upplevelsen av appen.
             </p>
             <div class="settings-komp-stack">
-              <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsPwaNotchLegend">
-                <div class="bb-notched-panel-legend" id="settingsPwaNotchLegend">Lägg till på hemskärmen</div>
-                <p class="note settings-komp-panel__lead">
-                  Lägg till appen på hemskärmen för snabb åtkomst och bättre appkänsla. På iPhone och iPad: använd Safari och
-                  öppna <strong>Hjälp</strong> uppe till höger för stegvis guide.
+              <div class="bb-notched-field bb-notched-field--block settings-komp-panel" role="group" aria-labelledby="settingsPwaNotchLegend">
+                <div class="bb-notched-field-legend" id="settingsPwaNotchLegend">Lägg till på hemskärmen</div>
+                <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">
+                  Lägg till appen på din hemskärm för snabb åtkomst och en bättre upplevelse. För iOS, se hjälpavsnittet.
                 </p>
                 <div class="actions-row settings-pwa-install-row">
                   <button type="button" class="primary" id="pwaInstallFromSettingsBtn" hidden>Lägg till på hemskärmen</button>
@@ -2057,19 +2058,14 @@
               </div>
 
               <div
-                class="bb-notched-panel settings-komp-panel"
+                class="bb-notched-field bb-notched-field--block settings-komp-panel"
                 id="settingsVaultBiometricCard"
                 role="group"
                 aria-labelledby="settingsBioNotchLegend"
               >
-                <div class="bb-notched-panel-legend" id="settingsBioNotchLegend">Snabb upplåsning</div>
-                <p class="note settings-komp-panel__lead" id="settingsVaultBiometricLead">
-                  Aktivera Face ID eller fingeravtryck för att låsa upp snabbt och säkert. Biometrik används bara på den här
-                  enheten.
-                </p>
-                <p class="note settings-vault-bio-hint" id="settingsVaultBiometricHint">
-                  Aktivera när vaulten är upplåst. Ditt lösenord ändras inte. På Android visas ofta en nederställ (inte ett
-                  separat fönster som på dator).
+                <div class="bb-notched-field-legend" id="settingsBioNotchLegend">Snabb upplåsning</div>
+                <p class="note settings-komp-panel__lead tagged-exp-overlay-intro" id="settingsVaultBiometricLead">
+                  Aktivera Face ID eller fingeravtryck för att snabbt och säkert låsa upp appen.
                 </p>
                 <p class="note settings-vault-bio-status-line" id="settingsVaultBiometricStatus" role="status" hidden></p>
                 <div class="actions-row settings-vault-bio-actions">
@@ -2088,28 +2084,30 @@
           </div>
 
           <div class="table-card settings-theme-card">
-            <div class="table-title">Utseende &amp; start</div>
-            <p class="note settings-section-card__ingress">Anpassa hur appen ser ut.</p>
-            <div class="bb-notched-panel settings-theme-notch-panel" role="group" aria-labelledby="settingsThemeNotchLegend">
-              <div class="bb-notched-panel-legend" id="settingsThemeNotchLegend">Tema</div>
-              <div class="settings-theme-notch-panel__body">
-                <button type="button" class="bb-notched-field-btn settings-theme-mode-btn" id="themeModeOpenBtn">
-                  <span class="bb-notched-field-value" id="themeModeSummary">System</span>
-                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                </button>
-                <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
-                  <option value="system">System</option>
-                  <option value="light">Ljust</option>
-                  <option value="dark">Mörkt</option>
-                </select>
-              </div>
+            <div class="table-title-row">
+              <div class="table-title">Utseende &amp; start</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">Anpassa hur appen ser ut.</p>
+            <div class="bb-notched-field bb-notched-field--block settings-theme-notch-block" role="group" aria-labelledby="settingsThemeLegend">
+              <div class="bb-notched-field-legend" id="settingsThemeLegend">Tema</div>
+              <button type="button" class="bb-notched-field-btn settings-theme-mode-btn" id="themeModeOpenBtn">
+                <span class="bb-notched-field-value" id="themeModeSummary">Enhet</span>
+                <span class="bb-notched-field-chev" aria-hidden="true"></span>
+              </button>
+              <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                <option value="system">Enhet</option>
+                <option value="light">Ljust</option>
+                <option value="dark">Mörkt</option>
+              </select>
               <p class="note settings-theme-notch-hint">Ljust, mörkt eller som enheten.</p>
             </div>
           </div>
 
           <div class="table-card settings-security-card">
-            <div class="table-title">Säkerhet &amp; data</div>
-            <p class="note settings-section-card__ingress">Säkerhetskopiera och återställ din budget.</p>
+            <div class="table-title-row">
+              <div class="table-title">Säkerhet &amp; data</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">Säkerhetskopiera och återställ din budget.</p>
             <div class="form-grid narrow">
               <label class="field">
                 <div class="bb-notched-field" role="group" aria-label="Påminnelse om backup">
@@ -2165,8 +2163,10 @@
           </div>
 
           <div class="table-card settings-advanced-card">
-            <div class="table-title">Avancerat</div>
-            <p class="note settings-section-card__ingress">Sällan använda val — tema, startfilm med mera.</p>
+            <div class="table-title-row">
+              <div class="table-title">Avancerat</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">Sällan använda val — tema, startfilm med mera.</p>
             <div class="settings-slide-row">
               <label class="settings-slide-label" for="settingsIntroFilmRarely">
                 <span class="settings-slide-label__text">Visa startfilm mer sällan</span>
@@ -2247,8 +2247,10 @@
           </div>
 
           <div class="table-card settings-content-card">
-            <div class="table-title">Innehåll</div>
-            <p class="note settings-section-card__ingress">Löneperiod för analys och dag för matplanering.</p>
+            <div class="table-title-row">
+              <div class="table-title">Innehåll</div>
+            </div>
+            <p class="note settings-card-ingress tagged-exp-overlay-intro">Löneperiod för analys och dag för matplanering.</p>
             <div class="settings-slide-row settings-slide-row--content">
               <label class="settings-slide-label" for="salaryPeriodUseFixedDay">
                 <span class="settings-slide-label__text">Fast lönedag i månaden</span>

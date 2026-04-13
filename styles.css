@@ -1841,7 +1841,7 @@ tr.month-break td {
 .settings-page {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
@@ -6397,35 +6397,29 @@ button.stretch {
   gap: var(--space-3);
 }
 
-.settings-page .table-card > .table-title:first-child {
-  margin-bottom: var(--space-2);
+.settings-page .table-card > .table-title-row:first-child {
+  margin-bottom: 0;
 }
 
-.settings-page .table-card > .note.settings-section-card__ingress {
-  margin-top: 0;
+.settings-page .settings-card-ingress {
+  margin: 0 0 var(--space-4);
 }
 
 .settings-page .table-card .actions-row {
   margin-top: var(--space-2);
 }
 
-.settings-section-card__ingress {
-  margin: 0 0 var(--space-4);
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.45;
-}
-
 .settings-komp-stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-6);
   min-width: 0;
+  margin-top: var(--space-1);
 }
 
-.settings-page .settings-komp-panel.bb-notched-panel {
-  --bb-notched-panel-margin-extra: 10px;
-  padding-bottom: 12px;
+.settings-page .settings-komp-panel.bb-notched-field--block {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .settings-page .settings-komp-panel > .note:first-of-type {
@@ -6493,13 +6487,6 @@ button.stretch {
   justify-content: center;
 }
 
-.settings-vault-bio-hint {
-  margin: var(--space-3) 0 var(--space-2);
-  font-size: 0.86rem;
-  line-height: 1.45;
-  color: var(--muted);
-}
-
 .settings-vault-bio-status-line:not([hidden]) {
   display: block;
   margin: var(--space-2) 0 var(--space-3);
@@ -6508,25 +6495,14 @@ button.stretch {
   color: var(--text);
 }
 
-.settings-theme-notch-panel {
-  margin-top: var(--space-2);
-}
-
-.settings-theme-notch-panel__body {
-  position: relative;
+.settings-theme-notch-block {
+  margin-top: var(--space-5);
   width: 100%;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--border-strong);
-  --bb-notched-bg: color-mix(in srgb, var(--card) 92%, transparent);
-  background: var(--bb-notched-bg);
+  box-sizing: border-box;
 }
 
-.settings-theme-notch-panel__body:focus-within {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
-.settings-theme-mode-btn {
+.settings-theme-notch-block .settings-theme-mode-btn {
+  width: 100%;
   border-radius: inherit;
 }
 

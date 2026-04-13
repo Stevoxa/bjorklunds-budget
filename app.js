@@ -11802,7 +11802,6 @@ async function syncSettingsVaultBiometricUi() {
   const V = globalThis.BjorkVault;
   const card = document.getElementById("settingsVaultBiometricCard");
   const status = document.getElementById("settingsVaultBiometricStatus");
-  const hint = document.getElementById("settingsVaultBiometricHint");
   const en = document.getElementById("settingsVaultBiometricEnableBtn");
   const dis = document.getElementById("settingsVaultBiometricDisableBtn");
   if (!card || !status || !en || !dis) return;
@@ -11826,7 +11825,6 @@ async function syncSettingsVaultBiometricUi() {
   const has = await V.hasBiometricUnlock();
 
   if (!window.isSecureContext) {
-    if (hint) hint.hidden = true;
     status.hidden = false;
     status.textContent = "Öppna appen via säker adress (låst hänglås) eller som genväg från hemskärmen.";
     en.disabled = true;
@@ -11837,7 +11835,6 @@ async function syncSettingsVaultBiometricUi() {
   }
 
   if (has) {
-    if (hint) hint.hidden = true;
     en.hidden = true;
     en.disabled = false;
     dis.hidden = false;
@@ -11845,7 +11842,6 @@ async function syncSettingsVaultBiometricUi() {
     status.hidden = false;
     status.textContent = "På på den här enheten.";
   } else {
-    if (hint) hint.hidden = false;
     en.hidden = false;
     dis.hidden = true;
     dis.disabled = false;
