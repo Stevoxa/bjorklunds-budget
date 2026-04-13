@@ -1,6 +1,11 @@
 /**
  * Lokal vault: IndexedDB + Web Crypto (PBKDF2-SHA256 → AES-256-GCM).
- * Nyckel hålls endast i minnet under upplåst session (non-extractable CryptoKey).
+ * Sessionsnyckel hålls i minnet. Nyckeln är extractable så att valfri
+ * WebAuthn PRF-baserad “snabb upplåsning” kan kryptera en kopia av rånyckeln
+ * (endast på enheten; lösenfras förblir alltid giltig).
+ *
+ * Biometrik: WebAuthn med PRF-tillägget — kräver säker kontext (HTTPS/localhost)
+ * och webbläsare som exponerar prf (t.ex. nyare Chrome; iOS varierar).
  */
 (function (global) {
   "use strict";
@@ -14,6 +19,9 @@
   const FORMAT_VERSION = 1;
   const PAYLOAD_SCHEMA_VERSION = 1;
   const PBKDF2_ITERATIONS = 350000;
+
+  const WEBAUTHN_BLOB_VERSION = 1;
+  const HKDF_BIO_INFO = new TextEncoder().encode("bjork-vault-bio-wrap-v1");
 
   /** @type {CryptoKey | null} */
   let sessionCryptoKey = null;
@@ -48,6 +56,7 @@
   }
 
   /**
+   * Extractable: krävs för att packa in samma AES-nyckel med PRF-nyckel vid aktivering av biometrik.
    * @param {string} passphrase
    * @param {Uint8Array} salt
    * @param {number} iterations
@@ -59,7 +68,7 @@
       { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
       material,
       { name: "AES-GCM", length: 256 },
-      false,
+      true,
       ["encrypt", "decrypt"]
     );
   }
@@ -94,6 +103,34 @@
       typeof e.crypto.saltB64 === "string" &&
       Number.isFinite(it) &&
       it >= 100000
+    );
+  }
+
+  function validateWebAuthnBlob(w) {
+    return (
+      w &&
+      typeof w === "object" &&
+      Number(w.v) === WEBAUTHN_BLOB_VERSION &&
+      typeof w.credentialIdB64 === "string" &&
+      typeof w.prfSaltB64 === "string" &&
+      w.wrap &&
+      typeof w.wrap.ivB64 === "string" &&
+      typeof w.wrap.ctB64 === "string"
+    );
+  }
+
+  /**
+   * @param {ArrayBuffer | ArrayBufferView} prfOutput
+   */
+  async function deriveBioAesFromPrf(prfOutput) {
+    const u8 = prfOutput instanceof ArrayBuffer ? new Uint8Array(prfOutput) : new Uint8Array(prfOutput.buffer, prfOutput.byteOffset, prfOutput.byteLength);
+    const baseKey = await crypto.subtle.importKey("raw", u8, "HKDF", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: HKDF_BIO_INFO },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
     );
   }
 
@@ -142,14 +179,38 @@
     });
   }
 
-  async function idbPutEnvelope(envelope) {
+  async function idbSetRow(row) {
     const db = await openDb();
     return new Promise((res, rej) => {
       const tx = db.transaction(STORE, "readwrite");
       tx.oncomplete = () => res();
       tx.onerror = () => rej(tx.error);
-      tx.objectStore(STORE).put({ envelope, updatedAt: new Date().toISOString() }, ROW_KEY);
+      tx.objectStore(STORE).put(row, ROW_KEY);
     });
+  }
+
+  /** Byt envelope men behåll webAuthn om den redan finns. */
+  async function idbPutEnvelopeMerge(envelope) {
+    const prev = await idbGet();
+    const next = {
+      envelope,
+      updatedAt: new Date().toISOString(),
+      ...(prev && validateWebAuthnBlob(prev.webAuthn) ? { webAuthn: prev.webAuthn } : {})
+    };
+    await idbSetRow(next);
+  }
+
+  /** Ny vault-rad (skapande / import) — utan biometrik. */
+  async function idbPutEnvelopeFresh(envelope) {
+    await idbSetRow({ envelope, updatedAt: new Date().toISOString() });
+  }
+
+  function getRpId() {
+    try {
+      return String(global.location?.hostname || "");
+    } catch {
+      return "";
+    }
   }
 
   const BjorkVault = {
@@ -182,6 +243,26 @@
       );
     },
 
+    /** Säker kontext + WebAuthn; PRF-kapabilitet om webbläsaren rapporterar den. */
+    async isBiometricUnlockLikelySupported() {
+      try {
+        if (!global.isSecureContext) return false;
+        if (typeof global.PublicKeyCredential === "undefined") return false;
+        if (typeof global.PublicKeyCredential.getClientCapabilities === "function") {
+          const caps = await global.PublicKeyCredential.getClientCapabilities();
+          return caps.prf === true;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    async hasBiometricUnlock() {
+      const row = await idbGet();
+      return validateWebAuthnBlob(row?.webAuthn);
+    },
+
     async hasVault() {
       const row = await idbGet();
       return !!(row && validateEnvelope(row.envelope));
@@ -211,6 +292,149 @@
     },
 
     /**
+     * Lås upp med WebAuthn + PRF (samma vault som lösenfras).
+     */
+    async unlockWithBiometric() {
+      const row = await idbGet();
+      if (!row?.envelope || !validateEnvelope(row.envelope)) return { ok: false, error: "no-vault" };
+      const w = row.webAuthn;
+      if (!validateWebAuthnBlob(w)) return { ok: false, error: "no-webauthn" };
+      const rpId = getRpId();
+      if (!rpId) return { ok: false, error: "no-rpid" };
+
+      const challenge = randomBytes(32);
+      const prfSalt = b64decode(w.prfSaltB64);
+      let credId;
+      try {
+        credId = b64decode(w.credentialIdB64);
+      } catch {
+        return { ok: false, error: "bad-cred-id" };
+      }
+
+      let assertion;
+      try {
+        assertion = await global.navigator.credentials.get({
+          publicKey: {
+            challenge,
+            rpId,
+            allowCredentials: [{ type: "public-key", id: credId, transports: ["internal", "hybrid"] }],
+            userVerification: "required",
+            extensions: { prf: { eval: { first: prfSalt } } }
+          }
+        });
+      } catch {
+        return { ok: false, error: "webauthn-fail" };
+      }
+
+      if (!(assertion instanceof global.PublicKeyCredential)) return { ok: false, error: "bad-assertion" };
+
+      const ext = assertion.getClientExtensionResults?.() || {};
+      const prfOut = ext.prf && ext.prf.results && ext.prf.results.first;
+      if (!prfOut) return { ok: false, error: "no-prf" };
+
+      const env = row.envelope;
+      try {
+        const bioAes = await deriveBioAesFromPrf(prfOut);
+        const iv = b64decode(w.wrap.ivB64);
+        const ct = b64decode(w.wrap.ctB64);
+        const rawBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, bioAes, ct);
+        const raw = new Uint8Array(rawBuf);
+        if (raw.length !== 32) return { ok: false, error: "bad-key-len" };
+
+        const key = await crypto.subtle.importKey("raw", raw, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+        const data = await decryptObject(key, env);
+        if (!BjorkVault.validateUnlockedPayload(data)) return { ok: false, error: "schema" };
+        sessionCryptoKey = key;
+        sessionSalt = b64decode(env.crypto.saltB64);
+        sessionIterations = Number(env.crypto.iterations);
+        return { ok: true, data };
+      } catch {
+        return { ok: false, error: "decrypt-fail" };
+      }
+    },
+
+    /**
+     * Kräver upplåst vault (lösenfras). Skapar passkey och sparar PRF-wrap av sessionsnyckeln.
+     */
+    async registerBiometricUnlock() {
+      if (!sessionCryptoKey || !sessionSalt) return { ok: false, error: "locked" };
+      const row = await idbGet();
+      if (!row?.envelope) return { ok: false, error: "no-vault" };
+      if (validateWebAuthnBlob(row.webAuthn)) return { ok: false, error: "already" };
+
+      const rpId = getRpId();
+      if (!rpId) return { ok: false, error: "no-rpid" };
+      if (!(await BjorkVault.isBiometricUnlockLikelySupported())) return { ok: false, error: "unsupported" };
+
+      const prfSalt = randomBytes(32);
+      const challenge = randomBytes(32);
+      const userId = randomBytes(16);
+
+      let credential;
+      try {
+        credential = await global.navigator.credentials.create({
+          publicKey: {
+            challenge,
+            rp: { name: "Björklunds budget", id: rpId },
+            user: { id: userId, name: "local-vault", displayName: "Lokal budget" },
+            pubKeyCredParams: [
+              { type: "public-key", alg: -7 },
+              { type: "public-key", alg: -257 }
+            ],
+            authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
+            extensions: { prf: { eval: { first: prfSalt } } }
+          }
+        });
+      } catch {
+        return { ok: false, error: "create-fail" };
+      }
+
+      if (!(credential instanceof global.PublicKeyCredential)) return { ok: false, error: "bad-credential" };
+
+      const ext = credential.getClientExtensionResults?.() || {};
+      const prfOut = ext.prf && ext.prf.results && ext.prf.results.first;
+      if (!prfOut) return { ok: false, error: "no-prf" };
+
+      try {
+        const bioAes = await deriveBioAesFromPrf(prfOut);
+        const raw = await crypto.subtle.exportKey("raw", sessionCryptoKey);
+        const iv = randomBytes(12);
+        const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, bioAes, raw);
+
+        const webAuthn = {
+          v: WEBAUTHN_BLOB_VERSION,
+          credentialIdB64: b64encode(new Uint8Array(credential.rawId)),
+          prfSaltB64: b64encode(prfSalt),
+          wrap: {
+            ivB64: b64encode(iv),
+            ctB64: b64encode(new Uint8Array(ct))
+          }
+        };
+
+        await idbSetRow({
+          ...row,
+          webAuthn,
+          updatedAt: new Date().toISOString()
+        });
+        return { ok: true };
+      } catch {
+        return { ok: false, error: "wrap-fail" };
+      }
+    },
+
+    /** Tar bort snabb upplåsning på enheten (lösenfras påverkas inte). Kräver upplåst vault. */
+    async clearBiometricUnlock() {
+      if (!sessionCryptoKey) return { ok: false, error: "locked" };
+      const row = await idbGet();
+      if (!row) return { ok: false, error: "no-row" };
+      const next = { ...row };
+      delete next.webAuthn;
+      next.updatedAt = new Date().toISOString();
+      await idbSetRow(next);
+      return { ok: true };
+    },
+
+    /**
      * @param {string} passphrase
      * @param {object} defaultStatePayload redan normaliserat app-state
      */
@@ -220,7 +444,7 @@
         const key = await pbkdf2Derive(passphrase, salt, PBKDF2_ITERATIONS);
         const inner = { schemaVersion: PAYLOAD_SCHEMA_VERSION, state: defaultStatePayload };
         const env = await encryptObject(key, salt, inner, PBKDF2_ITERATIONS);
-        await idbPutEnvelope(env);
+        await idbPutEnvelopeFresh(env);
         sessionCryptoKey = key;
         sessionSalt = salt;
         sessionIterations = PBKDF2_ITERATIONS;
@@ -235,7 +459,7 @@
       if (!sessionCryptoKey || !sessionSalt) return { ok: false, error: "locked" };
       const inner = { schemaVersion: PAYLOAD_SCHEMA_VERSION, state: stateObject };
       const env = await encryptObject(sessionCryptoKey, sessionSalt, inner, sessionIterations);
-      await idbPutEnvelope(env);
+      await idbPutEnvelopeMerge(env);
       return { ok: true };
     },
 
@@ -261,7 +485,7 @@
         sessionCryptoKey = key;
         sessionSalt = salt;
         sessionIterations = Number(envelopeJson.crypto.iterations);
-        await idbPutEnvelope(envelopeJson);
+        await idbPutEnvelopeFresh(envelopeJson);
         return { ok: true, data: data.state };
       } catch {
         return { ok: false, error: "decrypt-fail" };

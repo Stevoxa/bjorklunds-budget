@@ -6281,7 +6281,7 @@ async function initVaultBootstrap() {
       vaultUnlockSection.hidden = false;
       vaultSetupSection.hidden = true;
       vaultUnlockSubtitle.textContent =
-        "Du behöver ange ditt lösenord för att komma åt dina budgetuppgifter.";
+        "Ange lösenord för att komma åt dina budgetuppgifter. Lösenord är alltid giltigt; biometrik är valfritt på den här enheten.";
       vaultRestartSetupBtn.hidden = false;
     } else {
       vaultUnlockSection.hidden = true;
@@ -6489,6 +6489,46 @@ async function initVaultBootstrap() {
         showVaultUnlockFieldError("");
         finish();
       };
+
+      const vaultUnlockBiometricBtn = document.getElementById("vaultUnlockBiometricBtn");
+      const vaultUnlockBiometricHint = document.getElementById("vaultUnlockBiometricHint");
+      const syncVaultLockBiometricUi = async () => {
+        if (!vaultUnlockBiometricBtn) return;
+        const hasBio = await V.hasBiometricUnlock();
+        vaultUnlockBiometricBtn.hidden = !hasBio;
+        if (vaultUnlockBiometricHint) {
+          vaultUnlockBiometricHint.hidden = !hasBio;
+          if (hasBio) {
+            vaultUnlockBiometricHint.textContent =
+              "Lösenord fungerar alltid. Du kan också låsa upp med biometrik på den här enheten.";
+          }
+        }
+      };
+      void syncVaultLockBiometricUi();
+
+      if (vaultUnlockBiometricBtn) {
+        vaultUnlockBiometricBtn.onclick = async () => {
+          showVaultUnlockFieldError("");
+          vaultUnlockBiometricBtn.disabled = true;
+          const r = await V.unlockWithBiometric();
+          vaultUnlockBiometricBtn.disabled = false;
+          if (!r.ok) {
+            if (r.error === "no-prf") {
+              showVaultUnlockFieldError("Webbläsaren gav inget PRF-resultat. Ange lösenord eller uppdatera webbläsaren.");
+            } else if (r.error === "webauthn-fail") {
+              showVaultUnlockFieldError("Biometrisk upplåsning avbröts eller misslyckades. Prova igen eller ange lösenord.");
+            } else {
+              showVaultUnlockFieldError("Kunde inte låsa upp. Ange lösenord.");
+            }
+            return;
+          }
+          state = normalizeStateShape(r.data.state);
+          applyIntroFilmRarelySettingToLocalStorage(state.settings);
+          vaultUnlockPass.value = "";
+          showVaultUnlockFieldError("");
+          finish();
+        };
+      }
 
       vaultRestartSetupBtn.onclick = () => openRestartModal();
     }
@@ -11690,6 +11730,107 @@ function renderFoodPage() {
   draw();
 }
 
+async function syncSettingsVaultBiometricUi() {
+  const V = globalThis.BjorkVault;
+  const card = document.getElementById("settingsVaultBiometricCard");
+  const status = document.getElementById("settingsVaultBiometricStatus");
+  const en = document.getElementById("settingsVaultBiometricEnableBtn");
+  const dis = document.getElementById("settingsVaultBiometricDisableBtn");
+  if (!card || !status || !en || !dis) return;
+  if (!V) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const prf = await V.isBiometricUnlockLikelySupported();
+  const has = await V.hasBiometricUnlock();
+
+  if (!window.isSecureContext) {
+    status.textContent = "WebAuthn kräver säker anslutning (HTTPS) eller lokal installation.";
+    en.disabled = true;
+    en.hidden = false;
+    dis.hidden = true;
+    return;
+  }
+
+  en.disabled = false;
+  if (has) {
+    en.hidden = true;
+    dis.hidden = false;
+    status.textContent =
+      "Snabb upplåsning är på. Ny enhet eller borttagen biometrik: använd lösenord och aktivera igen här om du vill.";
+  } else {
+    en.hidden = false;
+    dis.hidden = true;
+    status.textContent = prf
+      ? "Aktivera när vaulten är upplåst. Ditt lösenord ändras inte."
+      : "Webbläsaren rapporterar begränsat PRF-stöd (behövs för den här lösningen). Provaknappen kan ändå fungera i nyare Chrome på Android.";
+  }
+}
+
+function vaultBiometricRegisterErrorSv(code) {
+  switch (code) {
+    case "locked":
+      return "Lås upp med lösenord först.";
+    case "no-vault":
+      return "Ingen vault hittades.";
+    case "already":
+      return "Snabb upplåsning är redan aktiverad.";
+    case "unsupported":
+      return "Biometrisk nyckel skapades inte — webbläsaren saknar troligen PRF-stöd.";
+    case "no-prf":
+      return "Webbläsaren gav inget PRF-resultat. Prova uppdaterad Chrome eller använd bara lösenord.";
+    case "create-fail":
+      return "Kunde inte skapa nyckel (avbruten biometrik eller ej tillåtet).";
+    case "wrap-fail":
+      return "Kunde inte spara biometrisk koppling. Försök igen.";
+    case "no-rpid":
+      return "Ogiltig adress för WebAuthn.";
+    default:
+      return "Något gick fel. Försök igen eller använd lösenord.";
+  }
+}
+
+function wireVaultBiometricSettingsOnce() {
+  if (vaultBiometricSettingsWired) return;
+  vaultBiometricSettingsWired = true;
+  const en = document.getElementById("settingsVaultBiometricEnableBtn");
+  const dis = document.getElementById("settingsVaultBiometricDisableBtn");
+  if (en) {
+    en.addEventListener("click", async () => {
+      const V = globalThis.BjorkVault;
+      if (!V) return;
+      en.disabled = true;
+      const r = await V.registerBiometricUnlock();
+      en.disabled = false;
+      if (!r.ok) {
+        showDebugToast(vaultBiometricRegisterErrorSv(r.error));
+        await syncSettingsVaultBiometricUi();
+        return;
+      }
+      showDebugToast("Snabb upplåsning är aktiverad på den här enheten.");
+      await syncSettingsVaultBiometricUi();
+    });
+  }
+  if (dis) {
+    dis.addEventListener("click", async () => {
+      const V = globalThis.BjorkVault;
+      if (!V) return;
+      dis.disabled = true;
+      const r = await V.clearBiometricUnlock();
+      dis.disabled = false;
+      if (!r.ok) {
+        showDebugToast("Kunde inte stänga av. Försök igen.");
+        await syncSettingsVaultBiometricUi();
+        return;
+      }
+      showDebugToast("Snabb upplåsning är avstängd.");
+      await syncSettingsVaultBiometricUi();
+    });
+  }
+}
+
 function renderSettingsPage() {
   // Settings inputs
   document.getElementById("backupIntervalDays").value = asNumber(state.settings.backupIntervalDays);
@@ -11714,9 +11855,11 @@ function renderSettingsPage() {
   syncPwaInstallUi();
   const introRarelyCh = document.getElementById("settingsIntroFilmRarely");
   if (introRarelyCh) introRarelyCh.checked = Boolean(state.settings.introFilmRarely);
+  void syncSettingsVaultBiometricUi();
 }
 
 let settingsAutosaveWired = false;
+let vaultBiometricSettingsWired = false;
 function wireSettingsAutosaveOnce() {
   if (settingsAutosaveWired) return;
   settingsAutosaveWired = true;
@@ -14829,6 +14972,7 @@ function initOnboardingGate() {
 function initActions() {
   initOnboardingGate();
   wireSettingsAutosaveOnce();
+  wireVaultBiometricSettingsOnce();
   document.getElementById("themePackApplyBtn")?.addEventListener("click", () => void applyThemePackFromSettingsInputs());
   document.getElementById("themePackResetBtn")?.addEventListener("click", () => void resetThemePackToDefault());
   document.getElementById("pwaReplayIntroBtn")?.addEventListener("click", () => {

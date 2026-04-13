@@ -109,8 +109,12 @@
           </div>
           <div class="vault-lock-actions">
             <button type="button" class="primary vault-lock-submit" id="vaultUnlockBtn">Lås upp</button>
+            <button type="button" class="secondary vault-lock-submit" id="vaultUnlockBiometricBtn" hidden>
+              Lås upp med Face ID / fingeravtryck
+            </button>
             <button type="button" class="secondary vault-choice-secondary" id="vaultRestartSetupBtn" hidden>Börja om</button>
           </div>
+          <p class="note vault-lock-bio-hint" id="vaultUnlockBiometricHint" hidden></p>
         </div>
 
         <div id="vaultSetupSection" class="vault-lock-section" hidden>
@@ -2070,6 +2074,18 @@
                 <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
               </div>
               <p class="note" id="themePackNote" role="status"></p>
+            </div>
+          </div>
+
+          <div class="table-card" id="settingsVaultBiometricCard">
+            <div class="table-title">Snabb upplåsning</div>
+            <p class="note" id="settingsVaultBiometricLead">
+              Valfritt. Lösenord är alltid den primära nyckeln. Biometrik används bara lokalt på den här enheten (ingen server).
+            </p>
+            <p class="note" id="settingsVaultBiometricStatus" role="status"></p>
+            <div class="actions-row settings-vault-bio-actions">
+              <button type="button" class="primary" id="settingsVaultBiometricEnableBtn">Aktivera Face ID / fingeravtryck</button>
+              <button type="button" class="secondary" id="settingsVaultBiometricDisableBtn" hidden>Stäng av snabb upplåsning</button>
             </div>
           </div>
 
