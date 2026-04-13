@@ -6294,6 +6294,24 @@ button.stretch {
   margin-top: var(--space-4);
 }
 
+.help-page .help-card__platform-title {
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.help-page .help-card__list {
+  margin: 0 0 var(--space-2);
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
+.help-page .help-card__list li {
+  margin-bottom: var(--space-2);
+}
+
+.help-page .help-card__list li:last-child {
+  margin-bottom: 0;
+}
+
 .backup-import-sheet .backup-import-sheet-body {
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
 }

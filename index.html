@@ -2254,6 +2254,38 @@
               och lösenord.
             </p>
           </div>
+
+          <div class="table-card help-card">
+            <div class="table-title">Snabb upplåsning (Face ID / fingeravtryck)</div>
+            <p class="note help-card__text">
+              Under <strong>Inställningar → Snabb upplåsning</strong> kan du välja att låsa upp vaulten med biometrik på
+              <em>den här enheten</em>. Det är helt valfritt: <strong>lösenordet är alltid den primära nyckeln</strong> och
+              fungerar även om biometrik saknas, avvisas eller slutar fungera. Ingen budgetdata skickas till någon server;
+              nyckeln kopplas bara lokalt via webbläsarens WebAuthn (med teknik som kallas PRF).
+            </p>
+            <p class="note help-card__text help-card__platform-title"><strong>Android</strong></p>
+            <ul class="note help-card__list">
+              <li>Använd helst <strong>Chrome</strong> (gärna uppdaterad). Funktionen bygger på WebAuthn med PRF-stöd, som är
+                mest förutsägbart där.</li>
+              <li>Appen måste köras i en <strong>säker kontext</strong> (HTTPS eller <code>localhost</code>). Som
+                installerad PWA från hemskärmen är det vanligtvis OK.</li>
+              <li>Aktivera först efter att du <strong>låst upp med lösenord</strong>. Därefter kan du på låsskärmen välja
+                biometrisk upplåsning när den knappen visas.</li>
+              <li>Om aktivering misslyckas eller knappen saknas: använd lösenord. Vid <strong>import av backup</strong> eller
+                ny telefon försvinner den gamla biometrik-kopplingen — aktivera om du vill under Inställningar igen.</li>
+            </ul>
+            <p class="note help-card__text help-card__platform-title"><strong>iOS (iPhone / iPad)</strong></p>
+            <ul class="note help-card__list">
+              <li>Safari och Chrome på iOS bygger på samma webbmotor (WebKit). <strong>Stöd för PRF/passkeys</strong> varierar
+                med iOS-version och kan vara mer begränsat än på Android.</li>
+              <li>Face ID eller Touch ID hanteras av systemet när webbläsaren frågar efter biometrik — samma säkra kontext
+                (HTTPS / installerad PWA) gäller som på Android.</li>
+              <li>Om du <strong>inte kan aktivera</strong> snabb upplåsning, eller upplåsning misslyckas: det är förväntat på
+                vissa kombinationer av enhet och version. <strong>Använd lösenord</strong>; din budget påverkas inte.</li>
+              <li>Ny enhet eller ominstallation: lås upp med lösenord (och ev. backup-fil), sedan kan du slå på biometrik igen
+                om du vill.</li>
+            </ul>
+          </div>
         </section>
       </div>
     </main>
