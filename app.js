@@ -5364,7 +5364,7 @@ const TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Ny bilutgift",
       editItem: "Redigera bilutgift",
-      emptyMonth: "Inga bilutgifter denna månad."
+      emptyMonth: "Inga bilutgifter denna period."
     }
   },
   home: {
@@ -5396,7 +5396,7 @@ const TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Ny hemutgift",
       editItem: "Redigera hemutgift",
-      emptyMonth: "Inga hemomkostnader denna månad."
+      emptyMonth: "Inga hemomkostnader denna period."
     }
   },
   children: {
@@ -5428,7 +5428,7 @@ const TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Ny barnutgift",
       editItem: "Redigera barnutgift",
-      emptyMonth: "Inga barnutgifter denna månad."
+      emptyMonth: "Inga barnutgifter denna period."
     }
   },
   savings: {
@@ -5467,9 +5467,9 @@ const TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Nytt sparande",
       editItem: "Redigera sparande",
-      emptyMonth: "Inget spar denna månad.",
+      emptyMonth: "Inget spar denna period.",
       monthListTitlePrefix: "Sparbelopp",
-      monthTotalPrefix: "Totalt sparat denna månad",
+      monthTotalPrefix: "Totalt sparat denna period",
       nameRequiredHint: "Ange namn på spar.",
       dateOnceHint: "Ange datum för spar.",
       dateRecurringHint: "Ange första spar tillfälle.",
@@ -5542,9 +5542,9 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Lägg till intäkt",
       editItem: "Redigera intäkt",
-      emptyMonth: "Inga utbetalningar denna månad.",
+      emptyMonth: "Inga utbetalningar denna period.",
       monthListTitlePrefix: "Utbetalningar",
-      monthTotalPrefix: "Totalt denna månad",
+      monthTotalPrefix: "Totalt denna period",
       listPanelLegend: "Utbetalningar för bidrag",
       pageTitle: "Bidrag",
       intro:
@@ -5591,9 +5591,9 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Lägg till intäkt",
       editItem: "Redigera intäkt",
-      emptyMonth: "Inga utbetalningar denna månad.",
+      emptyMonth: "Inga utbetalningar denna period.",
       monthListTitlePrefix: "Utbetalningar",
-      monthTotalPrefix: "Totalt denna månad",
+      monthTotalPrefix: "Totalt denna period",
       listPanelLegend: "Utbetalningar för kapital",
       pageTitle: "Kapital",
       intro: "Fyll i planerade inkomster från ränta, utdelning och avkastning.",
@@ -5639,9 +5639,9 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
     labels: {
       newItem: "Lägg till intäkt",
       editItem: "Redigera intäkt",
-      emptyMonth: "Inga utbetalningar denna månad.",
+      emptyMonth: "Inga utbetalningar denna period.",
       monthListTitlePrefix: "Utbetalningar",
-      monthTotalPrefix: "Totalt denna månad",
+      monthTotalPrefix: "Totalt denna period",
       listPanelLegend: "Utbetalningar för gåva",
       pageTitle: "Gåvor",
       intro: "Registrera gåvor, arv och privata överföringar som en del av dina intäkter.",
@@ -6845,7 +6845,7 @@ function renderTaggedIncomeListMount(cat) {
     const totalPrefix =
       year === "all" || month === "all"
         ? "Totalt i urvalet"
-        : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+        : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna period";
     totalEl.textContent = total > 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
   }
   mount.onclick = (e) => {
@@ -9589,12 +9589,12 @@ function renderTaggedExpenseListMount(cat) {
       const totalPrefix =
         year === "all" || month === "all"
           ? "Totalt i urvalet"
-          : (C.labels && C.labels.monthTotalPrefix) || "Totalt sparat denna månad";
+          : (C.labels && C.labels.monthTotalPrefix) || "Totalt sparat denna period";
       totalEl.textContent = totalOther !== 0 ? `${totalPrefix}: ${formatKr(totalOther)}` : "";
       if (setasideTotalEl) {
         if (totalRobinSetaside !== 0) {
           const setasideLabel =
-            year !== "all" && month !== "all" ? "Avsättningar denna månad" : "Avsättningar i urvalet";
+            year !== "all" && month !== "all" ? "Avsättningar denna period" : "Avsättningar i urvalet";
           setasideTotalEl.textContent = `${setasideLabel}: ${formatKr(totalRobinSetaside)}`;
           setasideTotalEl.hidden = false;
         } else {
@@ -9606,7 +9606,7 @@ function renderTaggedExpenseListMount(cat) {
       const totalPrefix =
         year === "all" || month === "all"
           ? "Totalt i urvalet"
-          : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna månad";
+          : (C.labels && C.labels.monthTotalPrefix) || "Totalt denna period";
       totalEl.textContent = total !== 0 ? `${totalPrefix}: ${formatKr(total)}` : "";
       if (setasideTotalEl) {
         setasideTotalEl.textContent = "";
