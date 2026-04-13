@@ -2033,7 +2033,7 @@
         <section class="view settings-page" data-view="settings">
           <div class="view-header view-header--settings">
             <h2>Inställningar</h2>
-            <a href="#/help" class="settings-help-link">Hjälp</a>
+            <a href="#/settings/help" class="settings-help-link">Hjälp</a>
           </div>
 
           <div class="table-card settings-section-card">
@@ -2160,88 +2160,16 @@
             </div>
           </div>
 
-          <div class="table-card settings-advanced-card">
-            <div class="table-title-row">
-              <div class="table-title">Avancerat</div>
-            </div>
-            <p class="note settings-card-ingress tagged-exp-overlay-intro">Sällan använda val — tema, startfilm med mera.</p>
-            <div class="settings-slide-row">
-              <label class="settings-slide-label" for="settingsIntroFilmRarely">
-                <span class="settings-slide-label__text">Visa startfilm mer sällan</span>
-                <input type="checkbox" id="settingsIntroFilmRarely" class="settings-slide-input" />
-                <span class="settings-slide-track" aria-hidden="true">
-                  <span class="settings-slide-check" aria-hidden="true">✓</span>
-                  <span class="settings-slide-thumb"></span>
-                </span>
-              </label>
-            </div>
-            <p class="note settings-pwa-replay-hint">
-              Ladda om sidan om du vill spela startfilmen direkt (t.ex. efter ny film).
-            </p>
-            <div class="actions-row">
-              <button type="button" class="secondary" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
-            </div>
-            <div class="form-grid narrow settings-theme-pack-grid settings-advanced-theme-grid">
-              <label class="field">
-                <span class="backup-import-field__label">Ikonpaket (ZIP)</span>
-                <div class="backup-file-picker-row">
-                  <input
-                    id="themePackZipInput"
-                    type="file"
-                    accept=".zip,application/zip"
-                    class="backup-restore-sr-input"
-                    tabindex="-1"
-                    aria-label="Välj ikonpaket (ZIP)"
-                  />
-                  <button type="button" class="secondary backup-file-picker-btn" id="themePackZipPickBtn">Välj fil</button>
-                  <span id="themePackZipFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
-                </div>
-                <span class="field-help">Samma filnamn som standard funkar bra. Sparas när du väljer fil.</span>
-              </label>
-              <label class="field">
-                <span class="backup-import-field__label">Startbild (PNG)</span>
-                <div class="backup-file-picker-row">
-                  <input
-                    id="themeSplashInput"
-                    type="file"
-                    accept="image/png"
-                    class="backup-restore-sr-input"
-                    tabindex="-1"
-                    aria-label="Välj startbild (PNG)"
-                  />
-                  <button type="button" class="secondary backup-file-picker-btn" id="themeSplashPickBtn">Välj fil</button>
-                  <span id="themeSplashFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
-                </div>
-              </label>
-              <label class="field">
-                <span class="backup-import-field__label">Startfilm (MP4)</span>
-                <div class="backup-file-picker-row">
-                  <input
-                    id="themeIntroInput"
-                    type="file"
-                    accept="video/mp4"
-                    class="backup-restore-sr-input"
-                    tabindex="-1"
-                    aria-label="Välj startfilm (MP4)"
-                  />
-                  <button type="button" class="secondary backup-file-picker-btn" id="themeIntroPickBtn">Välj fil</button>
-                  <span id="themeIntroFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
-                </div>
-              </label>
-              <div class="actions-row settings-theme-pack-actions settings-theme-pack-actions--reset-only">
-                <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
+          <div class="table-card settings-advanced-nav-card">
+            <a href="#/settings/advanced" class="settings-advanced-nav-card__link">
+              <div class="settings-advanced-nav-card__body">
+                <div class="settings-advanced-nav-card__title">Avancerat</div>
+                <p class="note settings-advanced-nav-card__ingress tagged-exp-overlay-intro">
+                  Tema, startfilm, rensa appdata och mer.
+                </p>
               </div>
-              <p class="note settings-theme-pack-note" id="themePackNote" role="status"></p>
-            </div>
-            <div class="settings-advanced-danger-zone">
-              <p class="note settings-komp-panel__lead">
-                Allt på enheten tas bort — budget, vault och egna bilder. Går inte att ångra. Ha en backup om du vill kunna
-                återställa.
-              </p>
-              <div class="actions-row">
-                <button type="button" class="danger" id="settingsWipeAppDataBtn">Rensa appdata</button>
-              </div>
-            </div>
+              <span class="settings-advanced-nav-card__chev" aria-hidden="true"></span>
+            </a>
           </div>
 
           <div class="table-card settings-content-card">
@@ -2315,7 +2243,116 @@
           </div>
         </section>
 
-        <section class="view help-page" data-view="help">
+        <section class="view settings-page settings-advanced-page" data-view="settingsAdvanced">
+          <div class="view-header view-header--settings">
+            <h2>Avancerat</h2>
+            <a href="#/settings" class="settings-help-link">Inställningar</a>
+          </div>
+          <p class="note settings-card-ingress tagged-exp-overlay-intro settings-advanced-page-ingress">
+            Sällan använda val — startfilm, egna mediafiler och rensning av appdata.
+          </p>
+
+          <div class="settings-komp-stack">
+            <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvIntroLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvIntroLegend">Startfilm</div>
+              <div class="settings-slide-row settings-slide-row--advanced">
+                <label class="settings-slide-label" for="settingsIntroFilmRarely">
+                  <span class="settings-slide-label__text">Visa startfilm mer sällan</span>
+                  <input type="checkbox" id="settingsIntroFilmRarely" class="settings-slide-input" />
+                  <span class="settings-slide-track" aria-hidden="true">
+                    <span class="settings-slide-check" aria-hidden="true">✓</span>
+                    <span class="settings-slide-thumb"></span>
+                  </span>
+                </label>
+              </div>
+              <p class="note settings-pwa-replay-hint settings-komp-panel__lead">
+                Ladda om sidan om du vill spela startfilmen direkt (t.ex. efter ny film).
+              </p>
+              <div class="actions-row settings-advanced-replay-row">
+                <button type="button" class="primary stretch" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
+              </div>
+            </div>
+
+            <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvZipLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvZipLegend">Ikonpaket (ZIP)</div>
+              <input
+                id="themePackZipInput"
+                type="file"
+                accept=".zip,application/zip"
+                class="backup-restore-sr-input"
+                tabindex="-1"
+                aria-label="Välj ikonpaket (ZIP)"
+              />
+              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
+                <button type="button" class="bb-notched-field-btn" id="themePackZipPickBtn">
+                  <span class="bb-notched-field-value" id="themePackZipFileName" aria-live="polite">Ingen fil vald</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+              </div>
+              <p class="field-help">Samma filnamn som standard funkar bra. Sparas när du väljer fil.</p>
+            </div>
+
+            <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvSplashLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvSplashLegend">Startbild (PNG)</div>
+              <input
+                id="themeSplashInput"
+                type="file"
+                accept="image/png"
+                class="backup-restore-sr-input"
+                tabindex="-1"
+                aria-label="Välj startbild (PNG)"
+              />
+              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
+                <button type="button" class="bb-notched-field-btn" id="themeSplashPickBtn">
+                  <span class="bb-notched-field-value" id="themeSplashFileName" aria-live="polite">Ingen fil vald</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvIntroFileLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvIntroFileLegend">Startfilm (MP4)</div>
+              <input
+                id="themeIntroInput"
+                type="file"
+                accept="video/mp4"
+                class="backup-restore-sr-input"
+                tabindex="-1"
+                aria-label="Välj startfilm (MP4)"
+              />
+              <div class="bb-notched-field bb-notched-field--block settings-theme-asset-field">
+                <button type="button" class="bb-notched-field-btn" id="themeIntroPickBtn">
+                  <span class="bb-notched-field-value" id="themeIntroFileName" aria-live="polite">Ingen fil vald</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+              </div>
+            </div>
+
+            <div class="bb-notched-panel settings-komp-panel" role="group" aria-labelledby="settingsAdvResetLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvResetLegend">Återställ tema</div>
+              <p class="note settings-komp-panel__lead tagged-exp-overlay-intro">
+                Återställer ikoner, startbild och startfilm till appens standard.
+              </p>
+              <div class="actions-row settings-theme-pack-reset-row">
+                <button type="button" class="secondary stretch" id="themePackResetBtn">Återställ standard</button>
+              </div>
+              <p class="note settings-theme-pack-note" id="themePackNote" role="status"></p>
+            </div>
+
+            <div class="bb-notched-panel settings-komp-panel settings-advanced-danger-notch" role="group" aria-labelledby="settingsAdvWipeLegend">
+              <div class="bb-notched-panel-legend" id="settingsAdvWipeLegend">Rensa appdata</div>
+              <p class="note settings-komp-panel__lead">
+                Allt på enheten tas bort — budget, vault och egna bilder. Går inte att ångra. Ha en backup om du vill kunna
+                återställa.
+              </p>
+              <div class="actions-row settings-advanced-wipe-row">
+                <button type="button" class="danger stretch" id="settingsWipeAppDataBtn">Rensa appdata</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view help-page settings-page settings-help-page" data-view="settingsHelp">
           <div class="view-header view-header--help">
             <h2>Hjälp</h2>
             <a href="#/settings" class="settings-help-link">Inställningar</a>

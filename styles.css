@@ -665,6 +665,24 @@ html[data-theme="dark"] .onboarding-screen__scrim {
   flex-direction: column;
 }
 
+.view.settings-advanced-page.active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.view.settings-help-page.active {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .view-header {
   display: flex;
   flex-wrap: wrap;
@@ -2264,6 +2282,16 @@ html[data-theme="dark"] .modal-backdrop {
   transition: opacity var(--bs-dur) var(--motion-sheet-ease);
   touch-action: none;
   pointer-events: auto;
+  /* Tydligare genomskinlig scrim så vyn under (t.ex. inställningar) skymtar igenom */
+  background: rgba(4, 8, 14, 0.34);
+  backdrop-filter: blur(10px) saturate(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+}
+
+html[data-theme="dark"] .modal-backdrop.modal-backdrop--bottom-sheet {
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px) saturate(1.04);
+  -webkit-backdrop-filter: blur(12px) saturate(1.04);
 }
 
 .modal-backdrop.modal-backdrop--bottom-sheet.bottom-sheet-card-backdrop--open {
@@ -6400,8 +6428,7 @@ button.stretch {
   gap: var(--space-2);
 }
 
-.settings-content-card .form-grid.narrow,
-.settings-advanced-card .settings-theme-pack-grid {
+.settings-content-card .form-grid.narrow {
   gap: var(--space-3);
 }
 
@@ -6440,10 +6467,6 @@ button.stretch {
 .settings-komp-panel__lead {
   margin: 0 0 var(--space-4);
   line-height: 1.45;
-}
-
-.settings-advanced-theme-grid {
-  margin-top: var(--space-3);
 }
 
 .settings-theme-pack-note {
@@ -6498,6 +6521,12 @@ button.stretch {
   gap: calc(var(--space-6) + var(--space-4));
 }
 
+/* Mer luft ovanför ”Påminnelse (dagar)”-notchen (rubrik + övre kant) */
+.settings-page .settings-security-card > .settings-komp-stack > .bb-notched-panel.settings-komp-panel:first-child {
+  --bb-notched-panel-margin-extra: 22px;
+  margin-top: var(--space-3);
+}
+
 .settings-page .settings-security-card .settings-komp-panel .settings-backup-reminder-help {
   margin-top: var(--space-4);
 }
@@ -6533,10 +6562,101 @@ button.stretch {
   color: var(--muted);
 }
 
-.settings-advanced-danger-zone {
+.settings-advanced-nav-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.settings-advanced-nav-card__link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  text-decoration: none;
+  color: inherit;
+  min-height: 72px;
+  box-sizing: border-box;
+  border-radius: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.settings-advanced-nav-card__link:active {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.settings-advanced-nav-card__link:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--focus);
+}
+
+.settings-advanced-nav-card__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-advanced-nav-card__title {
+  font-weight: 750;
+  font-size: 1.06rem;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+.settings-advanced-nav-card__ingress {
+  margin: var(--space-2) 0 0 !important;
+}
+
+.settings-advanced-nav-card__chev {
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-inline-end: 4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  opacity: 0.55;
+}
+
+.settings-advanced-page-ingress {
+  margin: 0 0 var(--space-4) !important;
+}
+
+.settings-page.settings-advanced-page > .settings-komp-stack {
+  margin-top: 0;
+  gap: calc(var(--space-6) + var(--space-4));
+}
+
+.settings-slide-row--advanced {
+  margin: 0 0 var(--space-3);
+}
+
+.settings-advanced-page .settings-komp-panel .settings-pwa-replay-hint {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+.settings-advanced-page .settings-komp-panel .settings-theme-asset-field {
+  margin-top: var(--space-2);
+}
+
+.settings-advanced-page .settings-komp-panel .field-help {
+  margin-top: var(--space-3);
+  margin-bottom: 0;
+}
+
+.settings-advanced-page .settings-komp-panel .actions-row {
   margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+}
+
+.settings-advanced-page .settings-komp-panel .actions-row .stretch {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+}
+
+.settings-advanced-danger-notch .bb-notched-panel-legend {
+  color: color-mix(in srgb, var(--danger) 92%, var(--text));
 }
 
 .settings-pwa-install-row {
@@ -6570,10 +6690,6 @@ button.stretch {
 
 .settings-slide-row {
   margin: var(--space-5) 0;
-}
-
-.settings-advanced-card > .settings-slide-row:first-of-type {
-  margin-top: var(--space-4);
 }
 
 .settings-slide-row--content {
@@ -7496,6 +7612,11 @@ body.app-bottom-sheet-open {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.modal-backdrop--bottom-sheet {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
   .bottom-nav__list > li > a,
   .primary,
   .secondary,

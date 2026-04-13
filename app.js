@@ -7322,6 +7322,14 @@ function parseRouteFromHash() {
   const segments = part.split("/").filter(Boolean);
   let route = segments[0] || "analysis";
   if (route === "overview" || route === "old-analysis") route = "analysis";
+  if (route === "help") {
+    route = "settingsHelp";
+  } else if (route === "settings" && segments[1]) {
+    const s1 = String(segments[1]).toLowerCase();
+    if (s1 === "advanced") route = "settingsAdvanced";
+    else if (s1 === "help") route = "settingsHelp";
+    else route = "settings";
+  }
   let incomeOverlay = null;
   if (route === "incomes" && segments[1]) {
     const s1 = String(segments[1]).toLowerCase();
@@ -7350,15 +7358,16 @@ function initRouting() {
       closeExpenseCategoryOverlay({ fromHistory: false });
       expenseOverlayHistoryDepth = 0;
     }
+    const navRoute = name === "settingsAdvanced" || name === "settingsHelp" ? "settings" : name;
     document.querySelectorAll("[data-navlink]").forEach((el) => {
       const link = el.getAttribute("data-navlink");
-      if (link === name) el.setAttribute("aria-current", "page");
+      if (link === navRoute) el.setAttribute("aria-current", "page");
       else el.removeAttribute("aria-current");
     });
   };
 
   const onChange = () => {
-    const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "help"]);
+    const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "settingsAdvanced", "settingsHelp"]);
     const parsed = parseRouteFromHash();
     let route = parsed.route;
     if (!allowed.has(route)) route = "analysis";
@@ -12168,7 +12177,12 @@ function renderRoute(route, opts = {}) {
       renderSettingsPage();
       break;
     }
-    case "help": {
+    case "settingsAdvanced": {
+      renderSettingsPage();
+      syncAllThemeAssetFileLabels();
+      break;
+    }
+    case "settingsHelp": {
       break;
     }
     default:
@@ -12179,7 +12193,7 @@ function renderRoute(route, opts = {}) {
 /** Efter import: vault-session är redan upplåst — uppdatera vy utan reload. */
 function reapplyCurrentRouteAfterStateImport() {
   applyTheme();
-  const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "help"]);
+  const allowed = new Set(["analysis", "incomes", "expenses", "savings", "settings", "settingsAdvanced", "settingsHelp"]);
   const parsed = parseRouteFromHash();
   let route = parsed.route;
   if (!allowed.has(route)) route = "analysis";
@@ -12210,9 +12224,10 @@ function reapplyCurrentRouteAfterStateImport() {
     closeExpenseCategoryOverlay({ fromHistory: false });
     expenseOverlayHistoryDepth = 0;
   }
+  const navRoute = route === "settingsAdvanced" || route === "settingsHelp" ? "settings" : route;
   document.querySelectorAll("[data-navlink]").forEach((el) => {
     const link = el.getAttribute("data-navlink");
-    if (link === route) el.setAttribute("aria-current", "page");
+    if (link === navRoute) el.setAttribute("aria-current", "page");
     else el.removeAttribute("aria-current");
   });
 
