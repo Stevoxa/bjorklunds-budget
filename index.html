@@ -2067,7 +2067,11 @@
                   Aktivera Face ID eller fingeravtryck för att låsa upp snabbt och säkert. Biometrik används bara på den här
                   enheten.
                 </p>
-                <p class="note" id="settingsVaultBiometricStatus" role="status"></p>
+                <p class="note settings-vault-bio-hint" id="settingsVaultBiometricHint">
+                  Aktivera när vaulten är upplåst. Ditt lösenord ändras inte. På Android visas ofta en nederställ (inte ett
+                  separat fönster som på dator).
+                </p>
+                <p class="note settings-vault-bio-status-line" id="settingsVaultBiometricStatus" role="status" hidden></p>
                 <div class="actions-row settings-vault-bio-actions">
                   <button type="button" class="primary" id="settingsVaultBiometricEnableBtn">Aktivera Face ID / fingeravtryck</button>
                   <button type="button" class="secondary" id="settingsVaultBiometricDisableBtn" hidden>Stäng av snabb upplåsning</button>
@@ -2086,35 +2090,33 @@
           <div class="table-card settings-theme-card">
             <div class="table-title">Utseende &amp; start</div>
             <p class="note settings-section-card__ingress">Anpassa hur appen ser ut.</p>
-            <div class="form-grid narrow">
-              <div class="field">
-                <div class="bb-notched-field" role="group" aria-label="Tema">
-                  <div class="bb-notched-field-legend">Tema</div>
-                  <button type="button" class="bb-notched-field-btn" id="themeModeOpenBtn">
-                    <span class="bb-notched-field-value" id="themeModeSummary">System</span>
-                    <span class="bb-notched-field-chev" aria-hidden="true"></span>
-                  </button>
-                </div>
-                <span class="field-help">Ljust, mörkt eller följ enhetens inställning.</span>
+            <div class="bb-notched-panel settings-theme-notch-panel" role="group" aria-labelledby="settingsThemeNotchLegend">
+              <div class="bb-notched-panel-legend" id="settingsThemeNotchLegend">Tema</div>
+              <div class="settings-theme-notch-panel__body">
+                <button type="button" class="bb-notched-field-btn settings-theme-mode-btn" id="themeModeOpenBtn">
+                  <span class="bb-notched-field-value" id="themeModeSummary">System</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
                 <select id="themeMode" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
                   <option value="system">System</option>
                   <option value="light">Ljust</option>
                   <option value="dark">Mörkt</option>
                 </select>
               </div>
+              <p class="note settings-theme-notch-hint">Ljust, mörkt eller som enheten.</p>
             </div>
           </div>
 
           <div class="table-card settings-security-card">
             <div class="table-title">Säkerhet &amp; data</div>
-            <p class="note settings-section-card__ingress">Hantera säkerhetskopia och återställning.</p>
+            <p class="note settings-section-card__ingress">Säkerhetskopiera och återställ din budget.</p>
             <div class="form-grid narrow">
               <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Påminn om backup">
-                  <div class="bb-notched-field-legend">Påminn om backup (dagar)</div>
+                <div class="bb-notched-field" role="group" aria-label="Påminnelse om backup">
+                  <div class="bb-notched-field-legend">Påminnelse (dagar)</div>
                   <input id="backupIntervalDays" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" step="1" />
                 </div>
-                <span class="field-help">Hur ofta appen frågar om du vill spara en kopia.</span>
+                <span class="field-help">Hur ofta du får en påminnelse om att spara en kopia.</span>
               </label>
             </div>
 
@@ -2146,8 +2148,7 @@
                 </div>
               </div>
               <p class="note backup-restore-hint">
-                Välj en sparad kopia och tryck <strong>Återställ</strong>. Du får ange lösenord i nästa steg. Efter lyckad
-                import fortsätter du utan ny inloggning.
+                Välj fil och tryck <strong>Återställ</strong>. Lösenordet till backupen behövs i nästa steg.
               </p>
               <div class="actions-row settings-restore-row">
                 <button class="danger" id="restoreBtn" type="button">Återställ</button>
@@ -2165,43 +2166,79 @@
 
           <div class="table-card settings-advanced-card">
             <div class="table-title">Avancerat</div>
-            <p class="note settings-section-card__ingress">
-              Temafiler, startfilm och andra val som du sällan behöver ändra. Ändringar sparas oftast automatiskt.
-            </p>
-            <label class="field settings-intro-film-rarely">
-              <input type="checkbox" id="settingsIntroFilmRarely" />
-              <span>Visa startfilm mer sällan</span>
-            </label>
+            <p class="note settings-section-card__ingress">Sällan använda val — tema, startfilm med mera.</p>
+            <div class="settings-slide-row">
+              <label class="settings-slide-label" for="settingsIntroFilmRarely">
+                <span class="settings-slide-label__text">Visa startfilm mer sällan</span>
+                <input type="checkbox" id="settingsIntroFilmRarely" class="settings-slide-input" />
+                <span class="settings-slide-track" aria-hidden="true">
+                  <span class="settings-slide-check" aria-hidden="true">✓</span>
+                  <span class="settings-slide-thumb"></span>
+                </span>
+              </label>
+            </div>
             <p class="note settings-pwa-replay-hint">
-              Ladda om sidan och spela startfilmen direkt (bra om du bytt egen film).
+              Ladda om sidan om du vill spela startfilmen direkt (t.ex. efter ny film).
             </p>
             <div class="actions-row">
               <button type="button" class="secondary" id="pwaReplayIntroBtn">Ladda om och spela startfilm</button>
             </div>
             <div class="form-grid narrow settings-theme-pack-grid settings-advanced-theme-grid">
               <label class="field">
-                <span>Ikonpaket (ZIP)</span>
-                <input id="themePackZipInput" type="file" accept=".zip,application/zip" class="settings-theme-file-input" />
-                <span class="field-help">Valfritt: samma filnamn som standard (t.ex. icon-192.png).</span>
+                <span class="backup-import-field__label">Ikonpaket (ZIP)</span>
+                <div class="backup-file-picker-row">
+                  <input
+                    id="themePackZipInput"
+                    type="file"
+                    accept=".zip,application/zip"
+                    class="backup-restore-sr-input"
+                    tabindex="-1"
+                    aria-label="Välj ikonpaket (ZIP)"
+                  />
+                  <button type="button" class="secondary backup-file-picker-btn" id="themePackZipPickBtn">Välj fil</button>
+                  <span id="themePackZipFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
+                </div>
+                <span class="field-help">Samma filnamn som standard funkar bra. Sparas när du väljer fil.</span>
               </label>
               <label class="field">
-                <span>Startbild (PNG)</span>
-                <input id="themeSplashInput" type="file" accept="image/png" class="settings-theme-file-input" />
+                <span class="backup-import-field__label">Startbild (PNG)</span>
+                <div class="backup-file-picker-row">
+                  <input
+                    id="themeSplashInput"
+                    type="file"
+                    accept="image/png"
+                    class="backup-restore-sr-input"
+                    tabindex="-1"
+                    aria-label="Välj startbild (PNG)"
+                  />
+                  <button type="button" class="secondary backup-file-picker-btn" id="themeSplashPickBtn">Välj fil</button>
+                  <span id="themeSplashFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
+                </div>
               </label>
               <label class="field">
-                <span>Startfilm (MP4)</span>
-                <input id="themeIntroInput" type="file" accept="video/mp4" class="settings-theme-file-input" />
+                <span class="backup-import-field__label">Startfilm (MP4)</span>
+                <div class="backup-file-picker-row">
+                  <input
+                    id="themeIntroInput"
+                    type="file"
+                    accept="video/mp4"
+                    class="backup-restore-sr-input"
+                    tabindex="-1"
+                    aria-label="Välj startfilm (MP4)"
+                  />
+                  <button type="button" class="secondary backup-file-picker-btn" id="themeIntroPickBtn">Välj fil</button>
+                  <span id="themeIntroFileName" class="backup-file-name" aria-live="polite">Ingen fil vald</span>
+                </div>
               </label>
-              <div class="actions-row settings-theme-pack-actions">
-                <button type="button" class="secondary" id="themePackApplyBtn">Spara temafiler</button>
+              <div class="actions-row settings-theme-pack-actions settings-theme-pack-actions--reset-only">
                 <button type="button" class="secondary" id="themePackResetBtn">Återställ standard</button>
               </div>
-              <p class="note" id="themePackNote" role="status"></p>
+              <p class="note settings-theme-pack-note" id="themePackNote" role="status"></p>
             </div>
             <div class="settings-advanced-danger-zone">
               <p class="note settings-komp-panel__lead">
-                Rensa allt som sparats på enheten — budget, vault och egna temabilder. Du måste sätta upp appen igen eller
-                importera backup. Går inte att ångra.
+                Allt på enheten tas bort — budget, vault och egna bilder. Går inte att ångra. Ha en backup om du vill kunna
+                återställa.
               </p>
               <div class="actions-row">
                 <button type="button" class="danger" id="settingsWipeAppDataBtn">Rensa appdata</button>
@@ -2211,18 +2248,24 @@
 
           <div class="table-card settings-content-card">
             <div class="table-title">Innehåll</div>
-            <p class="note settings-section-card__ingress">Styr hur analys och matplanering beräknas.</p>
-            <div class="form-grid narrow settings-salary-analysis-card">
-              <label class="field field-checkbox-row">
-                <input id="salaryPeriodUseFixedDay" type="checkbox" />
-                Sätt fast löneperiod (månadsdag)
+            <p class="note settings-section-card__ingress">Löneperiod för analys och dag för matplanering.</p>
+            <div class="settings-slide-row settings-slide-row--content">
+              <label class="settings-slide-label" for="salaryPeriodUseFixedDay">
+                <span class="settings-slide-label__text">Fast lönedag i månaden</span>
+                <input type="checkbox" id="salaryPeriodUseFixedDay" class="settings-slide-input" />
+                <span class="settings-slide-track" aria-hidden="true">
+                  <span class="settings-slide-check" aria-hidden="true">✓</span>
+                  <span class="settings-slide-thumb"></span>
+                </span>
               </label>
+            </div>
+            <div class="form-grid narrow settings-salary-analysis-card">
               <label class="field">
-                <div class="bb-notched-field" role="group" aria-label="Fast lönedag i månaden">
-                  <div class="bb-notched-field-legend">Fast lönedag i månaden</div>
+                <div class="bb-notched-field" role="group" aria-label="Lönedag">
+                  <div class="bb-notched-field-legend">Dag i månaden</div>
                   <input id="salaryPeriodFixedDay" class="bb-notched-field-plain-input" type="number" inputmode="numeric" min="1" max="31" step="1" />
                 </div>
-                <span class="field-help">Används när kryssrutan är på (standard 25). Annars härleds dagen från din största månadsvisa intäkt.</span>
+                <span class="field-help">Stäng av ovan om du vill att appen föreslår dag utifrån din största intäkt (standard 25).</span>
               </label>
               <label class="field">
                 <div class="bb-notched-field" role="group" aria-label="Löneåret börjar">
@@ -2245,13 +2288,13 @@
                     <span class="bb-notched-field-chev" aria-hidden="true"></span>
                   </div>
                 </div>
-                <span class="field-help">Första månaden i löneåret (standard januari).</span>
+                <span class="field-help">Var året räknas som börjar (standard januari).</span>
               </label>
             </div>
             <div class="form-grid narrow settings-food-card">
               <div class="field">
                 <div class="bb-notched-field" role="group" aria-label="Veckodag för matplanering">
-                  <div class="bb-notched-field-legend">Veckodag (planeringsdag)</div>
+                  <div class="bb-notched-field-legend">Matplanering — veckodag</div>
                   <button type="button" class="bb-notched-field-btn" id="foodWeekdayOpenBtn">
                     <span class="bb-notched-field-value" id="foodWeekdaySummary">—</span>
                     <span class="bb-notched-field-chev" aria-hidden="true"></span>
@@ -2266,7 +2309,7 @@
                   <option value="6">Lördag</option>
                   <option value="7">Söndag</option>
                 </select>
-                <span class="field-help">Vilket veckodag matveckan bokförs på.</span>
+                <span class="field-help">När matveckan läggs in i budgeten.</span>
               </div>
             </div>
           </div>
@@ -2281,18 +2324,51 @@
           <div class="table-card help-card">
             <div class="table-title">Lokal kryptering</div>
             <p class="note help-card__text">
-              Budgeten lagras krypterat i IndexedDB på enheten. Lösenordet finns bara i minnet medan appen är upplåst. Vid
-              15 minuters inaktivitet låses appen och sidan laddas om. Glömmer du lösenordet kan det inte återställas utan en
-              fungerande krypterad backup.
+              Din budget finns bara på den här enheten och är skyddad med det lösenord du valt. Medan appen är öppen och upplåst
+              används lösenordet i bakgrunden; efter en stunds inaktivitet låses allt och du loggar in igen. Om du glömmer
+              lösenordet finns ingen återställningsknapp — då behöver du en säkerhetskopia som du skapat i förväg.
             </p>
           </div>
 
           <div class="table-card help-card">
             <div class="table-title">Backup och återställning</div>
             <p class="note help-card__text">
-              Exportera en krypterad JSON-fil under <strong>Inställningar</strong> för att kunna läsa in budgeten på en annan
-              enhet eller efter ominstallation. Import ersätter all data i appen på den här enheten — se till att du har rätt fil
-              och lösenord.
+              Under <strong>Inställningar</strong> kan du spara en krypterad kopia av budgeten (en fil) till t.ex. molnet eller
+              din dator. Den filen kan du senare läsa in på samma eller en ny telefon. Import <strong>ersätter</strong> allt som
+              finns i appen på enheten du importerar till — dubbelkolla att det är rätt fil och att du minns lösenordet som
+              gällde när kopian skapades.
+            </p>
+          </div>
+
+          <div class="table-card help-card">
+            <div class="table-title">Om något strular i Inställningar</div>
+            <p class="note help-card__text help-card__platform-title"><strong>Säkerhetskopia — exportera</strong></p>
+            <p class="note help-card__text">
+              Du måste vara <strong>inloggad med lösenord</strong> (appen upplåst) för att exportera. Om nedladdningen inte
+              startar: kolla att webbläsaren får spara filer, eller prova från en annan webbläsare.
+            </p>
+            <p class="note help-card__text help-card__platform-title"><strong>Säkerhetskopia — importera</strong></p>
+            <p class="note help-card__text">
+              Filen ska vara den <strong>krypterade</strong> kopia du sparat från den här appen — äldre, okrypterade exporter går
+              inte att använda. Om lösenordet inte accepteras: använd exakt samma lösenord som när backupen skapades (stavfel och
+              mellanslag räknas). Meddelandet på skärmen efter <strong>Återställ</strong> beskriver ofta vad som saknas.
+            </p>
+            <p class="note help-card__text help-card__platform-title"><strong>Eget utseende (ikoner, startbild, film)</strong></p>
+            <p class="note help-card__text">
+              När du väljer en fil sparas den direkt på enheten. ZIP med ikoner måste innehålla filer med samma namn som appens
+              standardikoner (t.ex. <code>icon-192.png</code>) — annars händer inget tydligt resultat. Om det ändå strular: prova
+              mindre filer, ladda om sidan eller använd <strong>Återställ standard</strong> under Avancerat.
+            </p>
+            <p class="note help-card__text help-card__platform-title"><strong>Snabb upplåsning</strong></p>
+            <p class="note help-card__text">
+              Meddelandet under knappen förklarar ofta läget: t.ex. att sidan måste öppnas via <strong>säker adress</strong>
+              (låst hänglås i webbläsaren) eller som app från hemskärmen. Fungerar det inte förlorar du inget — <strong>lösenord
+              fungerar alltid</strong>.
+            </p>
+            <p class="note help-card__text help-card__platform-title"><strong>Rensa appdata</strong></p>
+            <p class="note help-card__text">
+              Tar bort budget, lösenordsskydd och egna bilder på <strong>den här enheten</strong>. Det går inte att ångra. Ha en
+              säkerhetskopia om du kan tänkas vilja ha kvar något.
             </p>
           </div>
 
@@ -2330,34 +2406,26 @@
           <div class="table-card help-card">
             <div class="table-title">Snabb upplåsning (Face ID / fingeravtryck)</div>
             <p class="note help-card__text">
-              Under <strong>Inställningar → Snabb upplåsning</strong> kan du välja att låsa upp vaulten med biometrik på
-              <em>den här enheten</em>. Det är helt valfritt: <strong>lösenordet är alltid den primära nyckeln</strong> och
-              fungerar även om biometrik saknas, avvisas eller slutar fungera. Ingen budgetdata skickas till någon server;
-              nyckeln kopplas bara lokalt via webbläsarens WebAuthn (med teknik som kallas PRF).
+              I <strong>Inställningar</strong> kan du slå på upplåsning med ansikte eller fingeravtryck på <em>den här
+              enheten</em>. Det är frivilligt — <strong>lösenordet fungerar alltid</strong>, även om biometrik inte går att
+              använda. Ingen budget skickas någonstans; kopplingen finns bara lokalt i din webbläsare.
             </p>
             <p class="note help-card__text help-card__platform-title"><strong>Android</strong></p>
             <ul class="note help-card__list">
-              <li>Använd helst <strong>Chrome</strong> (gärna uppdaterad). Funktionen bygger på WebAuthn med PRF-stöd, som är
-                mest förutsägbart där.</li>
-              <li>På telefon visas dialogen ofta som en <strong>panel längst ner</strong> (inte ett separat fönster som på
-                dator). Titta efter den om det “inte händer något”.</li>
-              <li>Appen måste köras i en <strong>säker kontext</strong> (HTTPS eller <code>localhost</code>). Som
-                installerad PWA från hemskärmen är det vanligtvis OK.</li>
-              <li>Aktivera först efter att du <strong>låst upp med lösenord</strong>. Därefter kan du på låsskärmen välja
-                biometrisk upplåsning när den knappen visas.</li>
-              <li>Om aktivering misslyckas eller knappen saknas: använd lösenord. Vid <strong>import av backup</strong> eller
-                ny telefon försvinner den gamla biometrik-kopplingen — aktivera om du vill under Inställningar igen.</li>
+              <li>Chrome (gärna uppdaterad) brukar fungera bäst.</li>
+              <li>På telefon visas bekräftelsen ofta som en <strong>ruta längst ner</strong> — inte som ett eget fönster som på
+                dator.</li>
+              <li>Öppna appen med <strong>säker adress</strong> (låst hänglås) eller som genväg från hemskärmen.</li>
+              <li>Aktivera när du redan <strong>låst upp med lösenord</strong>. Ny telefon eller import av backup: ställ in snabb
+                upplåsning igen om du vill.</li>
             </ul>
             <p class="note help-card__text help-card__platform-title"><strong>iOS (iPhone / iPad)</strong></p>
             <ul class="note help-card__list">
-              <li>Safari och Chrome på iOS bygger på samma webbmotor (WebKit). <strong>Stöd för PRF/passkeys</strong> varierar
-                med iOS-version och kan vara mer begränsat än på Android.</li>
-              <li>Face ID eller Touch ID hanteras av systemet när webbläsaren frågar efter biometrik — samma säkra kontext
-                (HTTPS / installerad PWA) gäller som på Android.</li>
-              <li>Om du <strong>inte kan aktivera</strong> snabb upplåsning, eller upplåsning misslyckas: det är förväntat på
-                vissa kombinationer av enhet och version. <strong>Använd lösenord</strong>; din budget påverkas inte.</li>
-              <li>Ny enhet eller ominstallation: lås upp med lösenord (och ev. backup-fil), sedan kan du slå på biometrik igen
-                om du vill.</li>
+              <li>Stödet varierar med enhet och version — på vissa kombinationer går det inte att slå på.</li>
+              <li>Face ID eller Touch ID visas när systemet frågar; samma krav på säker adress eller installerad genväg som på
+                Android.</li>
+              <li>Går det inte att aktivera eller det slutar fungera: <strong>använd lösenord</strong>. Din budget är oförändrad.</li>
+              <li>Ny enhet: logga in med lösenord (och ev. backup), sedan kan du prova att slå på igen.</li>
             </ul>
           </div>
         </section>

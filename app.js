@@ -11802,6 +11802,7 @@ async function syncSettingsVaultBiometricUi() {
   const V = globalThis.BjorkVault;
   const card = document.getElementById("settingsVaultBiometricCard");
   const status = document.getElementById("settingsVaultBiometricStatus");
+  const hint = document.getElementById("settingsVaultBiometricHint");
   const en = document.getElementById("settingsVaultBiometricEnableBtn");
   const dis = document.getElementById("settingsVaultBiometricDisableBtn");
   if (!card || !status || !en || !dis) return;
@@ -11825,7 +11826,9 @@ async function syncSettingsVaultBiometricUi() {
   const has = await V.hasBiometricUnlock();
 
   if (!window.isSecureContext) {
-    status.textContent = "WebAuthn kräver säker anslutning (HTTPS) eller lokal installation.";
+    if (hint) hint.hidden = true;
+    status.hidden = false;
+    status.textContent = "Öppna appen via säker adress (låst hänglås) eller som genväg från hemskärmen.";
     en.disabled = true;
     en.hidden = false;
     dis.hidden = true;
@@ -11834,20 +11837,26 @@ async function syncSettingsVaultBiometricUi() {
   }
 
   if (has) {
+    if (hint) hint.hidden = true;
     en.hidden = true;
     en.disabled = false;
     dis.hidden = false;
     dis.disabled = false;
-    status.textContent =
-      "Snabb upplåsning är på. Ny enhet eller borttagen biometrik: använd lösenord och aktivera igen här om du vill.";
+    status.hidden = false;
+    status.textContent = "På på den här enheten.";
   } else {
+    if (hint) hint.hidden = false;
     en.hidden = false;
     dis.hidden = true;
     dis.disabled = false;
     en.disabled = false;
-    status.textContent = prf
-      ? "Aktivera när vaulten är upplåst. Ditt lösenord ändras inte. På Android visas ofta en nederställ (inte ett separat fönster som på dator)."
-      : "Webbläsaren rapporterar begränsat PRF-stöd (behövs för den här lösningen). Provaknappen kan ändå fungera i nyare Chrome på Android.";
+    if (prf) {
+      status.textContent = "";
+      status.hidden = true;
+    } else {
+      status.hidden = false;
+      status.textContent = "Begränsat stöd i den här webbläsaren — prova gärna knappen ändå i Chrome på Android.";
+    }
   }
 }
 
@@ -11899,23 +11908,23 @@ function showSettingsVaultBiometricFeedback(message, kind) {
 function vaultBiometricRegisterErrorSv(code) {
   switch (code) {
     case "locked":
-      return "Lås upp med lösenord först.";
+      return "Lås upp budgeten med lösenord först, sedan kan du aktivera här.";
     case "no-vault":
-      return "Ingen vault hittades.";
+      return "Appen hittar ingen sparad budget ännu. Öppna appen som vanligt först.";
     case "already":
-      return "Snabb upplåsning är redan aktiverad.";
+      return "Snabb upplåsning är redan på.";
     case "unsupported":
-      return "Biometrisk nyckel skapades inte — webbläsaren saknar troligen PRF-stöd.";
+      return "Den här webbläsaren verkar inte stödja snabb upplåsning. Lösenord fungerar som vanligt.";
     case "no-prf":
-      return "Webbläsaren gav inget PRF-resultat. Prova uppdaterad Chrome eller använd bara lösenord.";
+      return "Webbläsaren svarade inte som väntat. Prova uppdaterad Chrome — eller använd bara lösenord.";
     case "create-fail":
-      return "Kunde inte skapa nyckel (avbruten biometrik eller ej tillåtet).";
+      return "Aktiveringen avbröts eller nekades. Försök igen eller använd lösenord.";
     case "wrap-fail":
-      return "Kunde inte spara biometrisk koppling. Försök igen.";
+      return "Kunde inte spara inställningen. Försök igen om en stund.";
     case "no-rpid":
-      return "Ogiltig adress för WebAuthn.";
+      return "Adressen till sidan verkar ogiltig för det här valet. Öppna appen från samma adress som vanligt.";
     default:
-      return "Något gick fel. Försök igen eller använd lösenord.";
+      return "Något gick fel. Försök igen — lösenord fungerar alltid.";
   }
 }
 
@@ -15122,7 +15131,21 @@ function initActions() {
   initOnboardingGate();
   wireSettingsAutosaveOnce();
   wireVaultBiometricSettingsOnce();
-  document.getElementById("themePackApplyBtn")?.addEventListener("click", () => void applyThemePackFromSettingsInputs());
+  document.getElementById("themePackZipPickBtn")?.addEventListener("click", () => document.getElementById("themePackZipInput")?.click());
+  document.getElementById("themeSplashPickBtn")?.addEventListener("click", () => document.getElementById("themeSplashInput")?.click());
+  document.getElementById("themeIntroPickBtn")?.addEventListener("click", () => document.getElementById("themeIntroInput")?.click());
+  document.getElementById("themePackZipInput")?.addEventListener("change", () => {
+    syncThemeAssetFileLabel("themePackZipInput", "themePackZipFileName");
+    void applyThemePackFromKind("zip");
+  });
+  document.getElementById("themeSplashInput")?.addEventListener("change", () => {
+    syncThemeAssetFileLabel("themeSplashInput", "themeSplashFileName");
+    void applyThemePackFromKind("splash");
+  });
+  document.getElementById("themeIntroInput")?.addEventListener("change", () => {
+    syncThemeAssetFileLabel("themeIntroInput", "themeIntroFileName");
+    void applyThemePackFromKind("intro");
+  });
   document.getElementById("themePackResetBtn")?.addEventListener("click", () => void resetThemePackToDefault());
   document.getElementById("pwaReplayIntroBtn")?.addEventListener("click", () => {
     try {
@@ -16289,7 +16312,22 @@ function maybeShowPwaInstallBanner() {
   openPwaInstallSheet();
 }
 
-async function applyThemePackFromSettingsInputs() {
+function syncThemeAssetFileLabel(inputId, nameId) {
+  const input = document.getElementById(inputId);
+  const nameEl = document.getElementById(nameId);
+  if (!input || !nameEl) return;
+  const f = input.files && input.files[0];
+  nameEl.textContent = f ? f.name : "Ingen fil vald";
+}
+
+function syncAllThemeAssetFileLabels() {
+  syncThemeAssetFileLabel("themePackZipInput", "themePackZipFileName");
+  syncThemeAssetFileLabel("themeSplashInput", "themeSplashFileName");
+  syncThemeAssetFileLabel("themeIntroInput", "themeIntroFileName");
+}
+
+/** @param {"zip" | "splash" | "intro"} kind */
+async function applyThemePackFromKind(kind) {
   const note = document.getElementById("themePackNote");
   const zipInp = document.getElementById("themePackZipInput");
   const splashInp = document.getElementById("themeSplashInput");
@@ -16297,12 +16335,18 @@ async function applyThemePackFromSettingsInputs() {
   const TA = globalThis.BjorkThemeAssets;
   const JSZipCtor = globalThis.JSZip;
   if (!TA) {
-    if (note) note.textContent = "Temalagring otillgänglig i den här webbläsaren.";
+    if (note) note.textContent = "Den här webbläsaren verkar inte kunna spara egna bilder här. Prova en annan webbläsare.";
     return;
   }
   const out = /** @type {Record<string, Blob>} */ ({});
-  const zipFile = zipInp?.files && zipInp.files[0];
-  if (zipFile && JSZipCtor) {
+
+  if (kind === "zip") {
+    const zipFile = zipInp?.files && zipInp.files[0];
+    if (!zipFile) return;
+    if (!JSZipCtor) {
+      if (note) note.textContent = "ZIP-filer stöds inte just nu. Ladda om sidan och försök igen.";
+      return;
+    }
     try {
       const buf = await zipFile.arrayBuffer();
       const zip = await JSZipCtor.loadAsync(buf);
@@ -16315,38 +16359,40 @@ async function applyThemePackFromSettingsInputs() {
         const blob = await entry.async("blob");
         if (blob && blob.size > 0) out[key] = blob;
       }
-    } catch (e) {
-      if (note) note.textContent = `Kunde inte läsa ZIP: ${e?.message || e}`;
+    } catch {
+      if (note) note.textContent = "ZIP-filen gick inte att läsa. Kontrollera att filen är hel och försök igen.";
       return;
     }
-  } else if (zipFile && !JSZipCtor) {
-    if (note) note.textContent = "ZIP-stöd saknas. Ladda om sidan och försök igen.";
-    return;
+    if (Object.keys(out).length === 0) {
+      if (note) note.textContent = "ZIP:et innehöll inga ikoner som appen känner igen. Jämför med standardfilnamnen i hjälpen.";
+      if (zipInp) zipInp.value = "";
+      syncThemeAssetFileLabel("themePackZipInput", "themePackZipFileName");
+      return;
+    }
+  } else if (kind === "splash") {
+    const sp = splashInp?.files && splashInp.files[0];
+    if (!sp || sp.size <= 0) return;
+    out.splashPng = sp;
+  } else if (kind === "intro") {
+    const intro = introInp?.files && introInp.files[0];
+    if (!intro || intro.size <= 0) return;
+    out.introMp4 = intro;
   }
-  const sp = splashInp?.files && splashInp.files[0];
-  if (sp && sp.size > 0) out.splashPng = sp;
-  const intro = introInp?.files && introInp.files[0];
-  if (intro && intro.size > 0) out.introMp4 = intro;
 
-  if (Object.keys(out).length === 0) {
-    if (note) note.textContent = "Välj minst en fil eller ett ZIP-arkiv.";
-    return;
-  }
   try {
     await TA.putMany(out);
-  } catch (e) {
-    if (note) note.textContent = `Kunde inte spara: ${e?.message || e}`;
+  } catch {
+    if (note) note.textContent = "Kunde inte spara på enheten. Kontrollera utrymme och försök igen.";
     return;
   }
-  if (note)
-    note.textContent =
-      "Sparat på enheten. Webbläsarens flik-ikon uppdateras direkt; vid nästa appstart används nya startbild/film.";
+  if (note) note.textContent = "Sparat. Ikoner uppdateras direkt; ny startbild eller film syns vid nästa appstart.";
   await applyThemeToDocumentIcons();
   const obScr = document.getElementById("onboardingScreen");
   if (obScr && !obScr.hidden) void hydrateOnboardingSplashImg();
-  if (zipInp) zipInp.value = "";
-  if (splashInp) splashInp.value = "";
-  if (introInp) introInp.value = "";
+  if (kind === "zip" && zipInp) zipInp.value = "";
+  if (kind === "splash" && splashInp) splashInp.value = "";
+  if (kind === "intro" && introInp) introInp.value = "";
+  syncAllThemeAssetFileLabels();
 }
 
 async function resetThemePackToDefault() {
@@ -16355,11 +16401,11 @@ async function resetThemePackToDefault() {
   if (!TA) return;
   try {
     await TA.clearAll();
-  } catch (e) {
-    if (note) note.textContent = `Kunde inte rensa: ${e?.message || e}`;
+  } catch {
+    if (note) note.textContent = "Kunde inte återställa. Försök igen om en stund.";
     return;
   }
-  if (note) note.textContent = "Standard återställd. Ladda om sidan om ikoner inte uppdateras.";
+  if (note) note.textContent = "Standard återställd. Ladda om sidan om ikoner eller startbild inte uppdateras.";
   await applyThemeToDocumentIcons();
   const obReset = document.getElementById("onboardingScreen");
   if (obReset && !obReset.hidden) void hydrateOnboardingSplashImg();
@@ -16369,6 +16415,7 @@ async function resetThemePackToDefault() {
   if (zipInp) zipInp.value = "";
   if (splashInp) splashInp.value = "";
   if (introInp) introInp.value = "";
+  syncAllThemeAssetFileLabels();
 }
 
 /** Bottennav: diskret “vilande” skugga överst på sidan, tydligare när dokumentet skrollats. */
