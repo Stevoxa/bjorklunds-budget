@@ -7252,14 +7252,6 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   grid-column: 1 / -1;
 }
 
-/* Löneperiod-redigering: begränsa radbredd på stor skärm så fält inte spänner onödigt breda. */
-@media (min-width: 720px) {
-  .inc-overlay[data-incview="salary"] .salary-period-editor-panel {
-    max-width: 28rem;
-    margin-inline: auto;
-  }
-}
-
 .period-sheet-section-label {
   font-size: 0.7rem;
   font-weight: 750;
