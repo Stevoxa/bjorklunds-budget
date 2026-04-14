@@ -5458,6 +5458,7 @@ const TAGGED_CATEGORY_CONFIG = {
       listYear: "carListYear",
       listMonth: "carListMonth",
       listMount: "carListMount",
+      listLockRoot: "carListLockRoot",
       listMonthTitle: "carListMonthTitle",
       monthTotal: "carMonthTotal",
       addBtn: "carAddBtn"
@@ -5490,6 +5491,7 @@ const TAGGED_CATEGORY_CONFIG = {
       listYear: "homeListYear",
       listMonth: "homeListMonth",
       listMount: "homeListMount",
+      listLockRoot: "homeListLockRoot",
       listMonthTitle: "homeListMonthTitle",
       monthTotal: "homeMonthTotal",
       addBtn: "homeAddBtn"
@@ -5522,6 +5524,7 @@ const TAGGED_CATEGORY_CONFIG = {
       listYear: "childrenListYear",
       listMonth: "childrenListMonth",
       listMount: "childrenListMount",
+      listLockRoot: "childrenListLockRoot",
       listMonthTitle: "childrenListMonthTitle",
       monthTotal: "childrenMonthTotal",
       addBtn: "childrenAddBtn"
@@ -5561,6 +5564,7 @@ const TAGGED_CATEGORY_CONFIG = {
       listYear: "savingsListYear",
       listMonth: "savingsListMonth",
       listMount: "savingsListMount",
+      listLockRoot: "savingsListLockRoot",
       listMonthTitle: "savingsListMonthTitle",
       monthTotal: "savingsMonthTotal",
       addBtn: "savingsAddBtn"
@@ -5635,6 +5639,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       listYear: "benefitListYear",
       listMonth: "benefitListMonth",
       listMount: "benefitListMount",
+      listLockRoot: "benefitListLockRoot",
       listMonthTitle: "benefitListMonthTitle",
       monthTotal: "benefitMonthTotal",
       addBtn: "benefitAddBtn",
@@ -5684,6 +5689,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       listYear: "capitalListYear",
       listMonth: "capitalListMonth",
       listMount: "capitalListMount",
+      listLockRoot: "capitalListLockRoot",
       listMonthTitle: "capitalListMonthTitle",
       monthTotal: "capitalMonthTotal",
       addBtn: "capitalAddBtn",
@@ -5732,6 +5738,7 @@ const INCOME_TAGGED_CATEGORY_CONFIG = {
       listYear: "giftListYear",
       listMonth: "giftListMonth",
       listMount: "giftListMount",
+      listLockRoot: "giftListLockRoot",
       listMonthTitle: "giftListMonthTitle",
       monthTotal: "giftMonthTotal",
       addBtn: "giftAddBtn",
@@ -6889,6 +6896,22 @@ function syncIncomeTaggedEditorPickerSummaries(cat) {
   if (intSel && intSum) intSum.textContent = selectOptionLabelByValue(intSel);
 }
 
+function isOncePaymentInterval(interval) {
+  const iv = String(interval || "").trim();
+  return !iv || iv === "once";
+}
+
+/** Lås list- + periodsektion under redigering (inert + visuellt). */
+function setTaggedEditorListSectionLocked(lockRootId, locked) {
+  if (!lockRootId) return;
+  const el = document.getElementById(String(lockRootId));
+  if (!el) return;
+  const on = Boolean(locked);
+  el.classList.toggle("tagged-editor-list-section--locked", on);
+  if (on) el.setAttribute("inert", "");
+  else el.removeAttribute("inert");
+}
+
 function wireIncomeTaggedEditorPickers(cat) {
   const u = ui.incomeTagged[cat];
   if (!u) return;
@@ -6983,11 +7006,14 @@ function getTaggedIncomeRowsForMonth(year, month, cat) {
       if (sum <= 0) continue;
       paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
       const dateIso = paymentsInMonth[0].dateIso;
+      const line2 = isOncePaymentInterval(inc.interval)
+        ? formatTaggedExpenseDateDisplaySv(dateIso)
+        : intervalLine;
       rows.push({
         incomeId: inc.id,
         nameLine: baseNameLine,
         amount: sum,
-        intervalLine,
+        intervalLine: line2,
         sortKey: dateIso || "9999-12-31"
       });
     }
@@ -7202,6 +7228,7 @@ function renderTaggedIncomeCategoryPage(cat) {
   }
 
   renderTaggedIncomeListMount(cat);
+  setTaggedEditorListSectionLocked(C.ids.listLockRoot, u.editorOpen);
 
   if (intervalSel && intervalSel.getAttribute("data-inc-tag-interval-bound") !== cat) {
     intervalSel.setAttribute("data-inc-tag-interval-bound", cat);
@@ -9693,7 +9720,11 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
         const dp = datePartsFromIso(pm.dateIso);
         let nameLine = robinSetaside ? "Avsättning" : baseNameLine;
         if (!robinSetaside && dp) nameLine = `v${isoWeekNumberForYmdParts(dp.y, dp.m, dp.d)} ${nameLine}`;
-        const line2 = robinSetaside ? formatRobinSetasidePaymentDateLongSv(pm.dateIso) : intervalLine;
+        const line2 = robinSetaside
+          ? formatRobinSetasidePaymentDateLongSv(pm.dateIso)
+          : isOncePaymentInterval(exp.interval)
+            ? formatTaggedExpenseDateDisplaySv(pm.dateIso)
+            : intervalLine;
         rows.push({
           expenseId: exp.id,
           nameLine,
@@ -9710,7 +9741,11 @@ function getTaggedExpenseRowsForMonth(year, month, cat) {
       paymentsInMonth.sort((a, b) => String(a.dateIso).localeCompare(String(b.dateIso)));
       const dateIso = paymentsInMonth[0].dateIso;
       const nameLine = robinSetaside ? "Avsättning" : baseNameLine;
-      const line2 = robinSetaside ? formatRobinSetasidePaymentDateLongSv(dateIso) : intervalLine;
+      const line2 = robinSetaside
+        ? formatRobinSetasidePaymentDateLongSv(dateIso)
+        : isOncePaymentInterval(exp.interval)
+          ? formatTaggedExpenseDateDisplaySv(dateIso)
+          : intervalLine;
       rows.push({
         expenseId: exp.id,
         nameLine,
@@ -9990,6 +10025,7 @@ function renderTaggedCategoryPage(cat) {
   }
 
   renderTaggedExpenseListMount(cat);
+  setTaggedEditorListSectionLocked(C.ids.listLockRoot, u.editorOpen);
 
   if (intervalSel && intervalSel.getAttribute("data-tag-interval-bound") !== cat) {
     intervalSel.setAttribute("data-tag-interval-bound", cat);
@@ -15136,6 +15172,7 @@ function renderLoansPage() {
 
   const editor = document.getElementById("loanEditorSection");
   if (editor) editor.hidden = !ui.loanEditorOpen;
+  setTaggedEditorListSectionLocked("loanListLockRoot", ui.loanEditorOpen);
   updateLoanDerivedFields();
   applyLoanOverlayDateBounds();
 }

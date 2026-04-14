@@ -567,7 +567,7 @@
                 </div>
                 <div class="note" id="benefitNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för bidrag">
+              <div id="benefitListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för bidrag">
                 <div class="bb-notched-panel-legend">Utbetalningar för bidrag</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -684,7 +684,7 @@
                 </div>
                 <div class="note" id="capitalNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för kapital">
+              <div id="capitalListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för kapital">
                 <div class="bb-notched-panel-legend">Utbetalningar för kapital</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -796,7 +796,7 @@
                 </div>
                 <div class="note" id="giftNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för gåva">
+              <div id="giftListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utbetalningar för gåva">
                 <div class="bb-notched-panel-legend">Utbetalningar för gåva</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -853,7 +853,7 @@
             <h2>Utgifter</h2>
           </div>
 
-          <div class="subnav" role="tablist" aria-label="Utgiftsområden">
+          <div class="subnav subnav--expense-tiles" role="tablist" aria-label="Utgiftsområden">
             <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="home">
               <!-- icons/utgift-hem.svg -->
               <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1044,7 +1044,7 @@
                 </div>
                 <div class="note" id="homeNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter i hemmet">
+              <div id="homeListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter i hemmet">
                 <div class="bb-notched-panel-legend">Utgifter i hemmet</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -1161,7 +1161,7 @@
                 </div>
               </section>
 
-              <div class="bb-notched-panel tagged-omkostnader-panel loan-list-omk-panel" role="group" aria-label="Dina lån">
+              <div id="loanListLockRoot" class="bb-notched-panel tagged-omkostnader-panel loan-list-omk-panel" role="group" aria-label="Dina lån">
                 <div class="bb-notched-panel-legend">Dina lån</div>
                 <div class="table-wrap loan-list-table-wrap">
                   <div id="loansListMount" class="tagged-expense-preview-list" role="list" aria-label="Lån"></div>
@@ -1304,7 +1304,7 @@
                 </div>
                 <div class="note" id="carNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för bil">
+              <div id="carListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för bil">
                 <div class="bb-notched-panel-legend">Utgifter för bil</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -1879,7 +1879,7 @@
                 </div>
                 <div class="note" id="childrenNote"></div>
               </div>
-              <div class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för barn">
+              <div id="childrenListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Utgifter för barn">
                 <div class="bb-notched-panel-legend">Utgifter för barn</div>
                 <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                   <div class="bb-notched-field" role="group" aria-label="Månad och år">
@@ -1996,7 +1996,7 @@
               </div>
               <div class="note" id="savingsNote"></div>
             </div>
-            <div class="tagged-omkostnader-panel savings-plan-list" role="group" aria-label="Sparposter och period">
+            <div id="savingsListLockRoot" class="tagged-omkostnader-panel savings-plan-list" role="group" aria-label="Sparposter och period">
               <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
                 <div class="bb-notched-field" role="group" aria-label="Månad och år">
                   <div class="bb-notched-field-legend">Månad och år</div>

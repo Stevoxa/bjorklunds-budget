@@ -2012,6 +2012,26 @@ a.subnav-btn {
   width: 100%;
 }
 
+/* Utgifter: fem kategorier — grid så raden aldrig överskrider viewport (undvik sid-scroll / avklippta tiles). */
+.subnav.subnav--expense-tiles {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  column-gap: 6px;
+  row-gap: 0;
+  margin: 0 0 var(--space-3);
+  padding: var(--space-1) 0 var(--space-3);
+  overflow-x: visible;
+  scroll-snap-type: none;
+  touch-action: pan-y pinch-zoom;
+}
+
+.subnav.subnav--expense-tiles .subnav-btn.subnav-tile {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  padding-inline: var(--space-1);
+}
+
 .exp-overlay,
 .inc-overlay {
   position: fixed;
@@ -6099,6 +6119,13 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
 .tagged-editor-panel {
   margin-top: var(--space-6);
   margin-bottom: var(--space-6);
+}
+
+/* Under redigering: periodfilter + lista + Lägg till — inert sätts i JS; pointer-events som stöd. */
+.tagged-editor-list-section--locked {
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.56;
 }
 
 /*
