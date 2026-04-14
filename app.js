@@ -12367,9 +12367,9 @@ function renderAnalysisPage() {
     if (risks.length > 0) {
       const deficitHint = escapeHtml(salaryYearHeroMonthsHintLine(risks));
       deficitPeriodsMini = `
-        <div class="analysis-salary-hero__mini">
+        <div class="analysis-salary-hero__mini analysis-salary-hero__mini--deficit-periods">
           <div class="analysis-salary-hero__mini-label">Perioder med underskott</div>
-          <div class="analysis-salary-hero__mini-value">${risks.length} st</div>
+          <div class="analysis-salary-hero__mini-value analysis-salary-hero__mini-value--neg">${risks.length} st</div>
           <div class="analysis-salary-hero__mini-hint">${deficitHint}</div>
         </div>`;
     }
