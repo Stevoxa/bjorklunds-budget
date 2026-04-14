@@ -47,6 +47,9 @@
   /* Avsättningsrad + donut "Avsättningar" — tydligare guld, inte nästan vit */
   --analysis-setaside-surface: color-mix(in srgb, #eecf2a 38%, var(--card-2));
   --analysis-setaside-border: color-mix(in srgb, #b89400 28%, var(--border));
+  /* Löneår-diagram (avsättning i staplar): alltid samma guld som ljust tema — läsbart på mörk diagrambakgrund */
+  --analysis-salary-year-chart-setaside-surface: color-mix(in srgb, #eecf2a 38%, #eaf0ec);
+  --analysis-salary-year-chart-setaside-border: color-mix(in srgb, #b89400 28%, rgba(20, 26, 22, 0.11));
   --text: #141a16;
   --muted: #5c6660;
   --border: rgba(20, 26, 22, 0.11);
@@ -5043,8 +5046,8 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
 }
 
 .analysis-salary-year-chart__bar--setaside-from-surplus {
-  fill: var(--analysis-setaside-surface);
-  stroke: var(--analysis-setaside-border);
+  fill: var(--analysis-salary-year-chart-setaside-surface);
+  stroke: var(--analysis-salary-year-chart-setaside-border);
   stroke-width: 0.45;
 }
 
@@ -5078,11 +5081,6 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--expense-within-income 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
   fill: #a8f0c0;
   opacity: 1;
-}
-
-html[data-theme="dark"] .analysis-salary-year-chart__bar--setaside-from-surplus {
-  fill: var(--analysis-setaside-surface);
-  stroke: var(--analysis-setaside-border);
 }
 
 .analysis-salary-year-chart__ylabel {
@@ -5170,8 +5168,8 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--setaside-from-surplus 
 }
 
 .analysis-salary-year-chart-legend-swatch--setaside-from-surplus {
-  background: var(--analysis-setaside-surface);
-  border-color: var(--analysis-setaside-border);
+  background: var(--analysis-salary-year-chart-setaside-surface);
+  border-color: var(--analysis-salary-year-chart-setaside-border);
 }
 
 .analysis-salary-year-chart-legend-swatch--deficit-split {
@@ -5217,11 +5215,6 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--under {
 html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--surplus-only {
   background: #a8f0c0;
   opacity: 1;
-}
-
-html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--setaside-from-surplus {
-  background: var(--analysis-setaside-surface);
-  border-color: var(--analysis-setaside-border);
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--green {

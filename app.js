@@ -5084,7 +5084,7 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear,
   ).toFixed(1)}" text-anchor="end">0</text>`;
 
   return `
-    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Intäkter och utgifter per löneperiod. Vid överskott kan guld visa avsättning från överskott. Streckade linjer: medelintäkt och medelutgift.">
+    <svg class="analysis-salary-year-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Intäkter och utgifter per löneperiod. Vid överskott: ljusgrön överskott, gul avsättningar. Streckade linjer: medelintäkt och medelutgift.">
       ${krLabel}
       ${yMaxTick}
       ${yZeroTick}
@@ -12422,7 +12422,7 @@ function renderAnalysisPage() {
         .join("");
     }
     const yearChartIngressText = syModel
-      ? "Intäkternas fördelning ut över löneåret i förhållande till utgifterna. Guld visar hur mycket av månadens överskott som avsätts enligt plan."
+      ? "Intäkternas fördelning ut över löneåret i förhållande till utgifterna. Gul visar avsättningar under perioden enligt plan."
       : "";
     const avgIncLegendSpaced = `${Math.round(asNumber(avgMonthlyIncomeFromYear)).toLocaleString("sv-SE")} kr`;
     const avgExpLegendSpaced = `${Math.round(asNumber(avgMonthlyExpenseFromYear)).toLocaleString("sv-SE")} kr`;
@@ -12442,8 +12442,8 @@ function renderAnalysisPage() {
           <div class="analysis-salary-year-chart-legend">
             <div class="analysis-salary-year-chart-legend-grid">
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--green" aria-hidden="true"></span><span><strong>Ljusgrön/mörkgrön</strong> Intäkterna under perioden</span></span>
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--surplus-only" aria-hidden="true"></span><span><strong>Ljusgrön</strong> Överskott kvar efter avsättning</span></span>
-              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--setaside-from-surplus" aria-hidden="true"></span><span><strong>Guld</strong> Del av överskott som avsätts</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--surplus-only" aria-hidden="true"></span><span><strong>Ljusgrön</strong> Överskott under perioden</span></span>
+              <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--setaside-from-surplus" aria-hidden="true"></span><span><strong>Gul</strong> Avsättningar under perioden</span></span>
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--under" aria-hidden="true"></span><span><strong>Mörkgrön</strong> Intäkter som täcks av utgifter under perioden</span></span>
               <span class="analysis-salary-year-chart-legend-item"><span class="analysis-salary-year-chart-legend-swatch analysis-salary-year-chart-legend-swatch--deficit-split" aria-hidden="true"></span><span><strong>Röd</strong> Utgifter som utgör ett underskott under perioden</span></span>
               <span class="analysis-salary-year-chart-legend-item analysis-salary-year-chart-legend-item--average"><span class="analysis-salary-year-chart-legend-dash analysis-salary-year-chart-legend-dash--income-avg" aria-hidden="true"></span><span>Medelintäkt <strong>${escapeHtml(avgIncLegendSpaced)}</strong></span></span>
