@@ -6416,6 +6416,17 @@ button.stretch {
   height: 22px;
 }
 
+.settings-help-inline-link {
+  font-weight: 650;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.settings-help-inline-link:hover {
+  color: color-mix(in srgb, var(--primary) 88%, var(--text));
+}
+
 .settings-header-back {
   display: inline-flex;
   align-items: center;
@@ -6468,6 +6479,10 @@ button.stretch {
 
 .help-page .help-card + .help-card {
   margin-top: var(--space-4);
+}
+
+.help-page #help-pwa-home-screen {
+  scroll-margin-top: 4.75rem;
 }
 
 .help-page .help-card__platform-title {

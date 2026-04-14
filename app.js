@@ -7424,9 +7424,21 @@ function openIncomeTaggedEditorFromMainList(cat, incomeId) {
 
 function parseRouteFromHash() {
   const h = (location.hash || "#/analysis").trim();
-  if (!h.startsWith("#/")) return { route: "analysis", incomeOverlay: null };
-  const part = h.slice(2).split("?")[0].trim();
-  const segments = part.split("/").filter(Boolean);
+  if (!h.startsWith("#/")) {
+    return { route: "analysis", incomeOverlay: null, incomeSalary: false, helpSection: null };
+  }
+  const raw = h.slice(2).trim();
+  const qMark = raw.indexOf("?");
+  const pathPart = (qMark >= 0 ? raw.slice(0, qMark) : raw).trim();
+  const queryRaw = qMark >= 0 ? raw.slice(qMark + 1) : "";
+  let helpSection = null;
+  try {
+    const cand = (new URLSearchParams(queryRaw).get("section") || "").trim();
+    if (cand === "help-pwa-home-screen") helpSection = cand;
+  } catch {
+    /* ignore */
+  }
+  const segments = pathPart.split("/").filter(Boolean);
   let route = segments[0] || "analysis";
   if (route === "overview" || route === "old-analysis") route = "analysis";
   if (route === "help") {
@@ -7445,7 +7457,7 @@ function parseRouteFromHash() {
     else if (s1 === "capital") incomeOverlay = "capital";
     else if (s1 === "gift") incomeOverlay = "gift";
   }
-  return { route, incomeOverlay, incomeSalary: incomeOverlay === "salary" };
+  return { route, incomeOverlay, incomeSalary: incomeOverlay === "salary", helpSection };
 }
 
 function initRouting() {
@@ -7492,7 +7504,7 @@ function initRouting() {
     const enteringAnalysis = route === "analysis" && prevNavRoute !== "analysis";
     view(route);
     try {
-      renderRoute(route, { incomeOverlay: incOv, enteringAnalysis });
+      renderRoute(route, { incomeOverlay: incOv, enteringAnalysis, helpSection: parsed.helpSection });
     } catch (e) {
       showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
       throw e;
@@ -12303,6 +12315,16 @@ function renderRoute(route, opts = {}) {
       break;
     }
     case "settingsHelp": {
+      const sid = opts.helpSection;
+      if (sid === "help-pwa-home-screen") {
+        queueMicrotask(() => {
+          const el = document.getElementById(sid);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          else window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        });
+      } else {
+        queueMicrotask(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+      }
       break;
     }
     default:
@@ -12352,7 +12374,7 @@ function reapplyCurrentRouteAfterStateImport() {
   });
 
   try {
-    renderRoute(route, { incomeOverlay: incOv, enteringAnalysis });
+    renderRoute(route, { incomeOverlay: incOv, enteringAnalysis, helpSection: parsed.helpSection });
   } catch (e) {
     showDebugToast(`Uppdatering efter import: ${e?.message || e}`);
   }
