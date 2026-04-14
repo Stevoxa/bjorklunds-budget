@@ -749,20 +749,14 @@ function clampedCalendarDayIso(month1to12, day) {
   return clampIsoToMinMax(isoDateFromParts(y, month1to12, day), min, max);
 }
 
-/** Första utbetalningsdag för ny bidragsintäkt per typ. */
+/** Första utbetalningsdag för ny bidragsintäkt per typ (tomt = användaren väljer datum). */
 function defaultIncomeBenefitFirstDateIso(typeKey) {
   const k = String(typeKey || "");
-  if (k === "annat_bidrag" || k === "foraldrapenning") {
-    const min = getFoodDateInputMinIso();
-    const max = getFoodDateInputMaxIso();
-    return clampIsoToMinMax(todayIsoLocal(), min, max);
-  }
+  if (k === "annat_bidrag" || k === "foraldrapenning") return "";
   if (k === "barnbidrag") return clampedCalendarDayIso(1, 20);
   if (k === "studiebidrag" || k === "sjukpenning") return clampedCalendarDayIso(1, 26);
   if (k === "bostadsbidrag") return clampedCalendarDayIso(1, 27);
-  const min = getFoodDateInputMinIso();
-  const max = getFoodDateInputMaxIso();
-  return clampIsoToMinMax(todayIsoLocal(), min, max);
+  return "";
 }
 
 function monthFullyBeforeMin(viewY, viewM, minIso) {
@@ -10044,7 +10038,7 @@ function renderTaggedCategoryPage(cat) {
       }
       nameInp.value = C.hideTypeInEditor ? "" : defType ? defType.label : "";
       intervalSel.value = "once";
-      firstInp.value = cat === "home" ? clampedCalendarDayIso(1, 20) : "";
+      firstInp.value = "";
       endInp.value = "";
       amtInp.value = "";
     }
@@ -14490,7 +14484,7 @@ function renderExpensesList() {
     return;
   }
   const total = rows.reduce((s, r) => s + asNumber(r.amount), 0);
-  noteEl.textContent = `Planerade utgifter totalt: ${formatKr(total)}`;
+  noteEl.textContent = `Utgifter totalt: ${formatKr(total)}`;
   let prevMonthKey = null;
   for (const r of rows) {
     const monthKey = `${r.date.getFullYear()}-${pad2(r.date.getMonth() + 1)}`;
