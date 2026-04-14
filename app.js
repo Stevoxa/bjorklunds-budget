@@ -4238,6 +4238,14 @@ function salaryYearSnapsBudgetRiskWeak(snaps) {
   });
 }
 
+/** Månadsrad under herominikort (samma som tidigare Riskperioder-hint). */
+function salaryYearHeroMonthsHintLine(periods) {
+  if (!periods?.length) return "";
+  const names = periods.map((r) => String(r.monthLabel || "").toLowerCase()).filter(Boolean);
+  if (names.length <= 4) return names.join(", ");
+  return `${names.slice(0, 3).join(", ")} (+${names.length - 3})`;
+}
+
 const ROBIN_HOOD_EPS = 0.5;
 
 function isRobinHoodGeneratedExpense(exp) {
@@ -12357,18 +12365,22 @@ function renderAnalysisPage() {
     const budgetRiskSnaps = syModel?.snaps?.length ? salaryYearSnapsBudgetRiskWeak(syModel.snaps) : [];
     let deficitPeriodsMini = "";
     if (risks.length > 0) {
+      const deficitHint = escapeHtml(salaryYearHeroMonthsHintLine(risks));
       deficitPeriodsMini = `
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Perioder med underskott</div>
           <div class="analysis-salary-hero__mini-value">${risks.length} st</div>
+          <div class="analysis-salary-hero__mini-hint">${deficitHint}</div>
         </div>`;
     }
     let riskMini = "";
     if (budgetRiskSnaps.length > 0) {
+      const riskHint = escapeHtml(salaryYearHeroMonthsHintLine(budgetRiskSnaps));
       riskMini = `
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Riskperioder</div>
           <div class="analysis-salary-hero__mini-value">${budgetRiskSnaps.length} st</div>
+          <div class="analysis-salary-hero__mini-hint">${riskHint}</div>
         </div>`;
     }
 
