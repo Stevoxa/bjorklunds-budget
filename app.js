@@ -4226,6 +4226,18 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
   return { snaps, yearNet, weakest, risks, bestSurplus, totalInc, totalExp, avgMonthlyIncome, avgMonthlyExpense };
 }
 
+/** Löneperioder utan underskott där utgifter/intäkter >= 0,85 (intäkter > 0). */
+function salaryYearSnapsBudgetRiskWeak(snaps) {
+  if (!snaps?.length) return [];
+  return snaps.filter((s) => {
+    if (asNumber(s.net) < 0) return false;
+    const inc = asNumber(s.inc);
+    if (inc <= 0) return false;
+    const exp = asNumber(s.exp);
+    return exp >= inc * 0.85;
+  });
+}
+
 const ROBIN_HOOD_EPS = 0.5;
 
 function isRobinHoodGeneratedExpense(exp) {
@@ -12342,17 +12354,21 @@ function renderAnalysisPage() {
     }
     const robinBudgetBroken = robinRiskLevel === 3;
 
-    let riskMini = "";
+    const budgetRiskSnaps = syModel?.snaps?.length ? salaryYearSnapsBudgetRiskWeak(syModel.snaps) : [];
+    let deficitPeriodsMini = "";
     if (risks.length > 0) {
-      const names = risks.map((r) => r.monthLabel.toLowerCase());
-      let hint = "";
-      if (names.length <= 4) hint = names.join(", ");
-      else hint = `${names.slice(0, 3).join(", ")} (+${names.length - 3})`;
+      deficitPeriodsMini = `
+        <div class="analysis-salary-hero__mini">
+          <div class="analysis-salary-hero__mini-label">Perioder med underskott</div>
+          <div class="analysis-salary-hero__mini-value">${risks.length} st</div>
+        </div>`;
+    }
+    let riskMini = "";
+    if (budgetRiskSnaps.length > 0) {
       riskMini = `
         <div class="analysis-salary-hero__mini">
           <div class="analysis-salary-hero__mini-label">Riskperioder</div>
-          <div class="analysis-salary-hero__mini-value">${risks.length} st</div>
-          <div class="analysis-salary-hero__mini-hint">${escapeHtml(hint)}</div>
+          <div class="analysis-salary-hero__mini-value">${budgetRiskSnaps.length} st</div>
         </div>`;
     }
 
@@ -12782,6 +12798,7 @@ function renderAnalysisPage() {
         <div class="analysis-salary-hero__eyebrow">${escapeHtml(yearEyebrow)} ${labelYear}</div>
         ${heroMainBlock}
         <div class="analysis-salary-hero__minis analysis-salary-hero__minis--year">
+          ${deficitPeriodsMini}
           ${riskMini}
           ${balanceMini}
           ${surplusMini}
