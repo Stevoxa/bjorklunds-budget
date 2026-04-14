@@ -5042,6 +5042,12 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
   opacity: 0.72;
 }
 
+.analysis-salary-year-chart__bar--setaside-from-surplus {
+  fill: var(--analysis-setaside-surface);
+  stroke: var(--analysis-setaside-border);
+  stroke-width: 0.45;
+}
+
 @media (prefers-color-scheme: dark) {
   .analysis-salary-year-chart__bar--deficit-income-slice,
   .analysis-salary-year-chart__bar--expense-within-income {
@@ -5072,6 +5078,11 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--expense-within-income 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
   fill: #a8f0c0;
   opacity: 1;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__bar--setaside-from-surplus {
+  fill: var(--analysis-setaside-surface);
+  stroke: var(--analysis-setaside-border);
 }
 
 .analysis-salary-year-chart__ylabel {
@@ -5158,6 +5169,11 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
   opacity: 0.88;
 }
 
+.analysis-salary-year-chart-legend-swatch--setaside-from-surplus {
+  background: var(--analysis-setaside-surface);
+  border-color: var(--analysis-setaside-border);
+}
+
 .analysis-salary-year-chart-legend-swatch--deficit-split {
   background: linear-gradient(
     180deg,
@@ -5201,6 +5217,11 @@ html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--under {
 html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--surplus-only {
   background: #a8f0c0;
   opacity: 1;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--setaside-from-surplus {
+  background: var(--analysis-setaside-surface);
+  border-color: var(--analysis-setaside-border);
 }
 
 html[data-theme="dark"] .analysis-salary-year-chart-legend-swatch--green {
