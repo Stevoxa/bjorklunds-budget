@@ -1516,11 +1516,13 @@ button:focus:not(:focus-visible) {
   transform: rotate(45deg) translateY(-1px);
 }
 
-/* Date field rows inside notched containers (mat) */
+/* Date field rows inside notched containers — samma yta som .bb-notched-field-btn (intervall, belopp). */
 .bb-notched-field .date-field-row {
   border: none;
   background: transparent;
   padding: 0;
+  margin: 0;
+  gap: 0;
 }
 
 .bb-notched-field .date-field-row-trigger {
@@ -1539,6 +1541,7 @@ button:focus:not(:focus-visible) {
   justify-content: space-between;
   gap: var(--space-3);
   border-radius: inherit;
+  box-sizing: border-box;
 }
 
 .bb-notched-field .date-field-row-value {
@@ -3559,8 +3562,12 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   }
 }
 
-/* Mobile-first ergonomi (telefon) */
-@media (max-width: 720px) {
+/*
+ * Mobil ergonomi: stående smal vy (≤720px) eller liggande telefon (låg höjd + rimlig bredd).
+ * Liggande telefon är ofta >720px bred — utan andra delen missar den padding/helskärmsmodal m.m.
+ * Stående telefon: bara första villkoret slår → samma som tidigare max-width: 720px.
+ */
+@media (max-width: 720px), (max-height: 520px) and (max-width: 1000px) {
   .app-main {
     padding: 12px;
     padding-top: calc(12px + env(safe-area-inset-top));
@@ -4111,7 +4118,7 @@ input.input-readonly-like {
   width: 100%;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 520px) and (max-width: 1000px) {
   .view[data-view="savings"] > .view-header {
     gap: 10px;
   }
@@ -5985,7 +5992,7 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
   max-width: min(52ch, 100%);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 520px) and (max-width: 1000px) {
   .view[data-view="incomes"] > .view-header {
     gap: 10px;
   }
@@ -6923,7 +6930,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
   transform: translateY(0);
 }
 
-/* Stor skärm: datumblad som begränsat kort (centrerat), i linje med appens UI — inte helsidesbredd. */
+/* Stor skärm: datum- och periodblad som begränsade kort (centrerat), i linje med appens UI — inte helsidesbredd. */
 @media (min-width: 721px) {
   .date-sheet {
     left: 50%;
@@ -6943,6 +6950,27 @@ html[data-theme="dark"] .period-sheet-backdrop {
   }
 
   .date-sheet.date-sheet--visible {
+    transform: translate(-50%, 0);
+  }
+
+  .period-sheet {
+    left: 50%;
+    right: auto;
+    width: min(520px, calc(100vw - 32px));
+    margin: 0;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--border-strong);
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    max-height: min(85vh, 640px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .period-sheet:not(.period-sheet--visible) {
+    transform: translate(-50%, calc(100% + 48px));
+  }
+
+  .period-sheet.period-sheet--visible {
     transform: translate(-50%, 0);
   }
 }
@@ -7697,7 +7725,7 @@ body.app-bottom-sheet-open {
   touch-action: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 520px) and (max-width: 1000px) {
   input[type="date"] {
     cursor: pointer;
     caret-color: transparent;

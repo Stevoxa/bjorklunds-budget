@@ -718,7 +718,8 @@ function chartSegmentHex(key) {
   return resolvedDocumentTheme() === "dark" ? pair.dark : pair.light;
 }
 
-const DATE_SHEET_MQ = "(max-width: 720px)";
+/** Samma breakpoint som mobil ergonomi i styles.css (datumblad / native date-intercept). */
+const DATE_SHEET_MQ = "(max-width: 720px), (max-height: 520px) and (max-width: 1000px)";
 
 function isDateSheetViewport() {
   try {
@@ -1542,9 +1543,7 @@ function applyDateFieldRowTabState(inp) {
 }
 
 function refreshAllDateFieldRows() {
-  document.querySelectorAll(".date-field-row-native").forEach((el) => {
-    if (el instanceof HTMLInputElement) syncDateFieldRow(el);
-  });
+  enhanceAllDateFieldRows();
 }
 
 function enhanceAllDateFieldRows() {
@@ -1552,6 +1551,19 @@ function enhanceAllDateFieldRows() {
     if (!(inp instanceof HTMLInputElement)) return;
     if (inp.hasAttribute("data-native-date")) return;
     if (inp.closest(".date-field-row")) {
+      const row = inp.closest(".date-field-row");
+      const host = row?.closest(".bb-notched-field");
+      if (host) {
+        host.classList.add("bb-notched-field--block");
+        const tr = row?.querySelector(".date-field-row-trigger");
+        if (tr && !tr.querySelector(".bb-notched-field-chev")) {
+          tr.querySelector(".date-field-row-icon")?.remove();
+          const chev = document.createElement("span");
+          chev.className = "bb-notched-field-chev";
+          chev.setAttribute("aria-hidden", "true");
+          tr.appendChild(chev);
+        }
+      }
       syncDateFieldRow(inp);
       applyDateFieldRowTabState(inp);
       return;
@@ -1568,14 +1580,23 @@ function enhanceAllDateFieldRows() {
     const valSpan = document.createElement("span");
     valSpan.className = "date-field-row-value";
     btn.appendChild(valSpan);
-    btn.appendChild(createCalendarIconSvg());
-    wrap.appendChild(btn);
 
     const useNotched = true;
-    if (useNotched && !wrap.closest(".bb-notched-field")) {
+    const willNotch = useNotched && !wrap.closest(".bb-notched-field");
+    if (willNotch) {
+      const chev = document.createElement("span");
+      chev.className = "bb-notched-field-chev";
+      chev.setAttribute("aria-hidden", "true");
+      btn.appendChild(chev);
+    } else {
+      btn.appendChild(createCalendarIconSvg());
+    }
+    wrap.appendChild(btn);
+
+    if (willNotch) {
       const label = inp.getAttribute("data-notch-label") || humanLabelForDateInput(inp);
       const host = document.createElement("div");
-      host.className = "bb-notched-field";
+      host.className = "bb-notched-field bb-notched-field--block";
       host.setAttribute("role", "group");
       host.setAttribute("aria-label", label);
       const legend = document.createElement("div");
