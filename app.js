@@ -1536,13 +1536,9 @@ function applyDateFieldRowTabState(inp) {
   if (!wrap) return;
   const btn = wrap.querySelector(".date-field-row-trigger");
   if (!btn) return;
-  if (isDateSheetViewport()) {
-    inp.tabIndex = -1;
-    btn.removeAttribute("tabindex");
-  } else {
-    inp.removeAttribute("tabindex");
-    btn.tabIndex = -1;
-  }
+  /* Alltid tangentbordsfokus på triggern — samma datumblad på mobil som desktop. */
+  inp.tabIndex = -1;
+  btn.removeAttribute("tabindex");
 }
 
 function refreshAllDateFieldRows() {
@@ -1599,9 +1595,11 @@ function enhanceAllDateFieldRows() {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       if (inp.disabled) return;
-      if (isDateSheetViewport() || inp.hasAttribute("data-date-clear")) openDateSheet(inp);
-      else if (typeof inp.showPicker === "function") inp.showPicker();
-      else inp.focus();
+      if (inp.hasAttribute("data-native-date") && typeof inp.showPicker === "function") {
+        inp.showPicker();
+        return;
+      }
+      openDateSheet(inp);
     });
   });
 }
@@ -3063,8 +3061,9 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
+      const enhanced = t.classList.contains("date-field-row-native");
+      if (!enhanced && !isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
     },
@@ -3076,8 +3075,9 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
+      const enhanced = t.classList.contains("date-field-row-native");
+      if (!enhanced && !isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       openDateSheet(t);
@@ -3090,8 +3090,9 @@ function initMobileDateSheetPicker() {
     (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement) || t.type !== "date") return;
-      if (!isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       if (t.disabled || t.hasAttribute("data-native-date")) return;
+      const enhanced = t.classList.contains("date-field-row-native");
+      if (!enhanced && !isDateSheetViewport() && !t.hasAttribute("data-date-clear")) return;
       t.blur();
       openDateSheet(t);
     },

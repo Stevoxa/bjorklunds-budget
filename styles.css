@@ -6923,6 +6923,30 @@ html[data-theme="dark"] .period-sheet-backdrop {
   transform: translateY(0);
 }
 
+/* Stor skärm: datumblad som begränsat kort (centrerat), i linje med appens UI — inte helsidesbredd. */
+@media (min-width: 721px) {
+  .date-sheet {
+    left: 50%;
+    right: auto;
+    width: min(440px, calc(100vw - 32px));
+    margin: 0;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--border-strong);
+    border-bottom: 1px solid var(--border-strong);
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    max-height: min(85vh, 600px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .date-sheet:not(.date-sheet--visible) {
+    transform: translate(-50%, calc(100% + 48px));
+  }
+
+  .date-sheet.date-sheet--visible {
+    transform: translate(-50%, 0);
+  }
+}
+
 /* Datum- & månadskort */
 .date-sheet {
   -webkit-font-smoothing: antialiased;
@@ -7121,7 +7145,7 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   font-size: 0.95rem;
 }
 
-/* Datumrad: synlig trigger på smal vy, native date på desktop */
+/* Datumrad: dold native input, synlig app-triggger — samma på mobil och stor skärm (datumblad överallt). */
 .date-field-row {
   position: relative;
   display: flex;
@@ -7132,13 +7156,21 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
 }
 
 .date-field-row input[type="date"].date-field-row-native {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .date-field-row-trigger {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
@@ -7192,23 +7224,11 @@ html[data-theme="dark"] .date-sheet-switch--on .date-sheet-switch-track {
   grid-column: 1 / -1;
 }
 
-@media (max-width: 720px) {
-  .date-field-row-native {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .date-field-row-trigger {
-    display: flex;
+/* Löneperiod-redigering: begränsa radbredd på stor skärm så fält inte spänner onödigt breda. */
+@media (min-width: 720px) {
+  .inc-overlay[data-incview="salary"] .salary-period-editor-panel {
+    max-width: 28rem;
+    margin-inline: auto;
   }
 }
 
