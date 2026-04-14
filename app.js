@@ -12236,6 +12236,10 @@ function renderRoute(route, opts = {}) {
     case "settingsAdvanced": {
       renderSettingsPage();
       syncAllThemeAssetFileLabels();
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      });
       break;
     }
     case "settingsHelp": {
@@ -12472,7 +12476,7 @@ function renderAnalysisPage() {
         .join("");
     }
     const yearChartIngressText = syModel
-      ? "Intäkternas fördelning ut över löneåret i förhållande till utgifterna. Gul visar avsättningar under perioden enligt plan."
+      ? "Intäkternas fördelning ut över löneåret i förhållande till utgifterna."
       : "";
     const avgIncLegendSpaced = `${Math.round(asNumber(avgMonthlyIncomeFromYear)).toLocaleString("sv-SE")} kr`;
     const avgExpLegendSpaced = `${Math.round(asNumber(avgMonthlyExpenseFromYear)).toLocaleString("sv-SE")} kr`;
