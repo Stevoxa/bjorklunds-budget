@@ -461,7 +461,12 @@
                 </div>
               </section>
 
-              <div class="bb-notched-panel tagged-omkostnader-panel salary-period-list-panel" role="group" aria-label="Löneperioder">
+              <div
+                id="salaryPeriodListLockRoot"
+                class="bb-notched-panel tagged-omkostnader-panel salary-period-list-panel"
+                role="group"
+                aria-label="Löneperioder"
+              >
                 <div class="bb-notched-panel-legend">Löneperioder</div>
                 <div class="table-wrap loan-list-table-wrap">
                   <div id="salaryPeriodsListMount" class="tagged-expense-preview-list" role="list" aria-label="Löneperioder"></div>
@@ -2028,7 +2033,24 @@
         <section class="view settings-page" data-view="settings">
           <div class="view-header view-header--settings">
             <h2>Inställningar</h2>
-            <a href="#/settings/help" class="settings-help-link">Hjälp</a>
+            <a
+              href="#/settings/help"
+              class="settings-help-icon-link"
+              aria-label="Hjälp"
+              title="Hjälp"
+            >
+              <svg
+                class="settings-help-icon-link__svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.65" />
+                <path d="M12 16.25v-5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" />
+                <circle cx="12" cy="7.85" r="0.9" fill="currentColor" />
+              </svg>
+            </a>
           </div>
 
           <div class="table-card settings-section-card">

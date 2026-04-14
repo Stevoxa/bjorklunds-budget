@@ -741,6 +741,30 @@ function clampIsoToMinMax(iso, minIso, maxIso) {
   return v;
 }
 
+/** Ett kalenderdatum (innevarande år) klampat till appens datumfönster. */
+function clampedCalendarDayIso(month1to12, day) {
+  const y = currentYearMonth().year;
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  return clampIsoToMinMax(isoDateFromParts(y, month1to12, day), min, max);
+}
+
+/** Första utbetalningsdag för ny bidragsintäkt per typ. */
+function defaultIncomeBenefitFirstDateIso(typeKey) {
+  const k = String(typeKey || "");
+  if (k === "annat_bidrag" || k === "foraldrapenning") {
+    const min = getFoodDateInputMinIso();
+    const max = getFoodDateInputMaxIso();
+    return clampIsoToMinMax(todayIsoLocal(), min, max);
+  }
+  if (k === "barnbidrag") return clampedCalendarDayIso(1, 20);
+  if (k === "studiebidrag" || k === "sjukpenning") return clampedCalendarDayIso(1, 26);
+  if (k === "bostadsbidrag") return clampedCalendarDayIso(1, 27);
+  const min = getFoodDateInputMinIso();
+  const max = getFoodDateInputMaxIso();
+  return clampIsoToMinMax(todayIsoLocal(), min, max);
+}
+
 function monthFullyBeforeMin(viewY, viewM, minIso) {
   if (!minIso) return false;
   const lastD = daysInMonth(viewY, viewM);
@@ -7217,7 +7241,8 @@ function renderTaggedIncomeCategoryPage(cat) {
       if (typeSel && defType) typeSel.value = defType.key;
       nameInp.value = defType ? defType.label : "";
       intervalSel.value = "once";
-      firstInp.value = "";
+      const newTypeKey = typeSel?.value || defaultTypeKey;
+      firstInp.value = cat === "benefit" ? defaultIncomeBenefitFirstDateIso(newTypeKey) : "";
       endInp.value = "";
       amtInp.value = "";
     }
@@ -7240,6 +7265,11 @@ function renderTaggedIncomeCategoryPage(cat) {
       if (u.editingId) return;
       const t = C.types.find((x) => x.key === typeSel.value);
       if (t && nameInp) nameInp.value = t.label;
+      if (cat === "benefit" && firstInp) {
+        firstInp.value = defaultIncomeBenefitFirstDateIso(typeSel.value);
+        syncDateFieldRow(firstInp);
+        applyDateFieldRowTabState(firstInp);
+      }
     });
   }
 }
@@ -10014,7 +10044,7 @@ function renderTaggedCategoryPage(cat) {
       }
       nameInp.value = C.hideTypeInEditor ? "" : defType ? defType.label : "";
       intervalSel.value = "once";
-      firstInp.value = "";
+      firstInp.value = cat === "home" ? clampedCalendarDayIso(1, 20) : "";
       endInp.value = "";
       amtInp.value = "";
     }
@@ -13347,7 +13377,7 @@ function openSalaryPeriodEditor(periodId = null) {
   document.getElementById("salaryPeriodEmployerInput").value = existing?.employer || "";
   const f = document.getElementById("salaryPeriodFirstDate");
   const v = document.getElementById("salaryPeriodValidUntil");
-  if (f) f.value = existing?.firstPaymentDate || "";
+  if (f) f.value = existing?.firstPaymentDate || (!existing ? clampedCalendarDayIso(1, 25) : "");
   if (v) v.value = existing?.validUntil || "";
   setSalaryPeriodPayDayValue(existing?.payDay || 25);
   const amt = document.getElementById("salaryPeriodAmountInput");
@@ -13423,6 +13453,7 @@ function renderSalaryPeriodsPage() {
   };
   const editorSec = document.getElementById("salaryPeriodEditorSection");
   if (editorSec) editorSec.hidden = !ui.salaryPeriodEditorOpen;
+  setTaggedEditorListSectionLocked("salaryPeriodListLockRoot", ui.salaryPeriodEditorOpen);
 }
 
 function closeIncomeSalaryOverlay(opts = {}) {
@@ -15267,6 +15298,7 @@ function openLoanEditor(loanId = null) {
   // Visa inte "Ange betaldatum" direkt vid nytt lån — validera vid datumändring eller Spara.
   if (existing) renderLoanDateInlineError();
   updateLoanDerivedFields();
+  renderLoansPage();
   requestAnimationFrame(() => {
     const overlay = document.querySelector('[data-expview="loans"]');
     if (overlay && typeof overlay.scrollTo === "function") overlay.scrollTo({ top: 0, behavior: "smooth" });
@@ -15303,6 +15335,7 @@ function closeLoanEditor() {
   document.getElementById("loanDateError").hidden = true;
   document.getElementById("loanDateError").textContent = "";
   updateLoanDerivedFields();
+  renderLoansPage();
 }
 
 function showConfirmDeleteLoanModal() {
