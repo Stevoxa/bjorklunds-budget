@@ -3954,11 +3954,6 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
   margin-bottom: 2px;
 }
 
-.expense-payments-list > .tagged-expense-preview-row:last-child,
-.income-payments-list > .tagged-expense-preview-row:last-child {
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-}
-
 .expense-payments-list > .expense-list-month-heading + .tagged-expense-preview-row,
 .income-payments-list > .expense-list-month-heading + .tagged-expense-preview-row {
   border-top: none;
@@ -3967,7 +3962,6 @@ html[data-theme="dark"] .field-error:not([hidden])::before {
 .payments-list-total-note:not(:empty) {
   margin-top: 10px;
   padding-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--text);
@@ -4147,32 +4141,6 @@ input.input-readonly-like {
   .view[data-view="savings"] > .view-header {
     gap: 10px;
   }
-}
-
-.expenses-savings-aside {
-  max-width: 780px;
-  margin: var(--space-5) auto 0;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
-  box-sizing: border-box;
-}
-
-.expenses-savings-aside__text {
-  margin: 0;
-  max-width: min(52ch, 100%);
-}
-
-.expenses-savings-aside__link {
-  display: inline-block;
-  margin-top: var(--space-2);
-  font-weight: 650;
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.expenses-savings-aside__link:hover {
-  color: color-mix(in srgb, var(--primary) 88%, var(--text));
 }
 
 /* Ny analysvy — skärningsväljare */
