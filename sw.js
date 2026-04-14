@@ -72,7 +72,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
 
-  // Network-first for app shell (prevents stale HTML/CSS/JS mixes)
+  /**
+   * Network-first: endast de här URL:erna (kärn-skalet), så gammal JS inte blandad med ny HTML.
+   * Övriga GET:er (t.ex. theme-assets.js, jszip, ikoner, typsnitt) går i grenen nedan: cache först,
+   * vid miss hämtas nätverket och svaret läggs i cache — annan strategi än skalet ovan.
+   */
   const isAppShell =
     url.pathname.endsWith("/") ||
     url.pathname.endsWith("/index.html") ||

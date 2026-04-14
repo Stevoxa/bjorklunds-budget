@@ -7425,7 +7425,7 @@ function openIncomeTaggedEditorFromMainList(cat, incomeId) {
 function parseRouteFromHash() {
   const h = (location.hash || "#/analysis").trim();
   if (!h.startsWith("#/")) {
-    return { route: "analysis", incomeOverlay: null, incomeSalary: false, helpSection: null };
+    return { route: "analysis", incomeOverlay: null, helpSection: null };
   }
   const raw = h.slice(2).trim();
   const qMark = raw.indexOf("?");
@@ -7457,7 +7457,7 @@ function parseRouteFromHash() {
     else if (s1 === "capital") incomeOverlay = "capital";
     else if (s1 === "gift") incomeOverlay = "gift";
   }
-  return { route, incomeOverlay, incomeSalary: incomeOverlay === "salary", helpSection };
+  return { route, incomeOverlay, helpSection };
 }
 
 function initRouting() {
