@@ -5387,10 +5387,11 @@ const HOME_EXPENSE_TYPES = [
   { key: "water", label: "Vatten" },
   { key: "garbage", label: "Sophämtning" },
   { key: "internet", label: "Internet" },
+  { key: "insurance", label: "Försäkring" },
   { key: "parking_slot", label: "Parkeringsplats" },
   { key: "streaming", label: "Streaming tjänst" },
   { key: "digital_service", label: "Digitala tjänst" },
-  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "mobile_plan", label: "Mobilabonnemang" },
   { key: "association_fee", label: "Föreningsavgift" },
   { key: "bus_card", label: "Busskort" },
   { key: "other", label: "Annan" }
@@ -5399,7 +5400,8 @@ const HOME_EXPENSE_TYPES = [
 const CHILDREN_EXPENSE_TYPES = [
   { key: "clothes", label: "Kläder" },
   { key: "bus_card", label: "Busskort" },
-  { key: "mobile_plan", label: "Mobil abonnemang" },
+  { key: "mobile_plan", label: "Mobilabonnemang" },
+  { key: "insurance", label: "Försäkring" },
   { key: "activity", label: "Aktivitet" },
   { key: "pocket_money", label: "Månadspeng" },
   { key: "birthday_gifts", label: "Födelsedagspresenter" },
@@ -5413,7 +5415,7 @@ const EXPENSE_COST_VARIABLE = "variable";
 const EXPENSE_COST_UNKNOWN = "unknown";
 
 /**
- * Hem: fast = återkommande boendekostnader; other = okänd tills egen typ (t.ex. hemförsäkring).
+ * Hem: fast = återkommande boendekostnader; other = okänd tills egen typ.
  * Nycklar = subcategory (HOME_EXPENSE_TYPES).
  */
 const HOME_SUBCATEGORY_COST_BEHAVIOR = {
@@ -5422,6 +5424,7 @@ const HOME_SUBCATEGORY_COST_BEHAVIOR = {
   water: EXPENSE_COST_FIXED,
   garbage: EXPENSE_COST_FIXED,
   internet: EXPENSE_COST_FIXED,
+  insurance: EXPENSE_COST_FIXED,
   parking_slot: EXPENSE_COST_FIXED,
   streaming: EXPENSE_COST_FIXED,
   digital_service: EXPENSE_COST_FIXED,
