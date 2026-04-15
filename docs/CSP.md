@@ -1,14 +1,20 @@
 # Content-Security-Policy (CSP)
 
-**Miljö:** Den publicerade appen (t.ex. GitHub Pages) behandlas som **produktion** — samma säkerhetskrav och samma användarupplevelse som vid lokal körning via HTTP-server.
+Den byggda appen som ligger på GitHub Pages är den enda driftsatta miljön: samma kod som i repot, samma beteende som vid lokal körning över HTTP.
 
-Appen laddar **endast externa skript** från samma ursprung (`theme-assets.js`, `vault.js`, `chart`, `app.js` som modul). Den använder **blob:-URL:er** för video/ikoner och **Web Crypto** i `vault.js`.
+## Resurser och ursprung
 
-## Rekommenderat utgångsläge
+- Skript laddas från samma ursprung (`'self'`): bland annat `app.js` (modul), `theme-assets.js`, `vault.js`, `vendor/chart.umd.min.js`.
+- Appen använder `blob:`-URL:er för media och ikoner där så är implementerat.
+- Kryptografi sker via Web Crypto API i `vault.js` (ingen tredjepartstjänst för nycklar i denna kodbas).
 
-Sätt CSP som **HTTP-svarheader** av värd (Cloudflare, Netlify `_headers`, nginx m.m.) i stället för meta om du kan — då går det att rotera policy utan ny deploy av `index.html`.
+## Var policy sätts
 
-Förslag (justera efter faktiska behov; verifiera mot den **publicerade** sidan eller med **Report-Only** innan du sätter enforce — särskilt om GitHub Pages är din enda miljö):
+CSP som **HTTP-svarheader** från värd (t.ex. Cloudflare, Netlify `_headers`, nginx) går att ändra utan ny deploy av `index.html`. Meta-taggen `http-equiv="Content-Security-Policy"` kräver deploy av HTML vid policyändring.
+
+## Referenspolicy (HTTP-header)
+
+Exempel på en komplett direktivrad (radbrytningar endast för läsbarhet; i produktion ska det vara en header per policy eller sammanslagen enligt värdens format):
 
 ```
 Content-Security-Policy:
@@ -27,22 +33,13 @@ Content-Security-Policy:
   upgrade-insecure-requests;
 ```
 
-### Om något blockeras
-
-- **Chart.js** (`vendor/chart.umd.min.js`): om konsolen visar CSP-fel vid diagram, kan vissa bundlar kräva `script-src 'wasm-unsafe-eval'` eller liknande — lägg till **minst möjliga** undantag.
-- **Blob för startfilm/ikoner**: `media-src` och `img-src` behöver `blob:` om ni ser blockeringar där.
-
-## Report-Only för infasning
-
-Använd först:
-
-`Content-Security-Policy-Report-Only: … samma direktiv …`
-
-…och en `report-to` / `report-uri` om du vill samla rapporter. Granska varningar innan du byter till **enforce**-header (samma URL som användarna använder = samma risk som “prod”).
+Infasning sker med `Content-Security-Policy-Report-Only` och samma direktivlista. Efter granskade rapporter byts headern till enforce-varianten. Verifiering ska ske mot exakt den URL som användarna laddar (GitHub Pages-domänen).
 
 ## GitHub Pages
 
-Vanlig GitHub Pages tillåter **inte** egna säkerhetsheaders. Då är alternativen:
+GitHub Pages tillåter inte anpassade säkerhetsheaders. CSP kan i så fall endast sättas via meta i `index.html`, eller genom att fronten hostas på en tjänst som stöder egna headers.
 
-- Meta-taggen `http-equiv="Content-Security-Policy"` (svårare att underhålla; testa noggrant), eller
-- Flytta fronten till en host med header-stöd.
+## Kända interaktioner
+
+- **Chart.js** (`vendor/chart.umd.min.js`): vissa byggen kräver `script-src 'wasm-unsafe-eval'` när diagram renderas; utöka `script-src` minimalt om konsolen rapporterar blockering där.
+- **Blob för media/ikoner:** `media-src` och `img-src` måste inkludera `blob:` om respektive resurs laddas som blob-URL.
