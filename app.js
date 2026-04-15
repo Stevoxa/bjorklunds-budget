@@ -1,6 +1,8 @@
 /* Björklunds - Budget (SPA/PWA)
    Budgetdata sparas krypterat i IndexedDB (se vault.js). */
 
+import { parseBudgetRouteFromHash } from "./lib/parseBudgetRouteFromHash.js";
+
 /** Endast för att ta bort äldre okrypterad data i localStorage efter migrering. */
 const STORAGE_KEY = "bjorklunds_budget_v1";
 
@@ -7423,41 +7425,7 @@ function openIncomeTaggedEditorFromMainList(cat, incomeId) {
 }
 
 function parseRouteFromHash() {
-  const h = (location.hash || "#/analysis").trim();
-  if (!h.startsWith("#/")) {
-    return { route: "analysis", incomeOverlay: null, helpSection: null };
-  }
-  const raw = h.slice(2).trim();
-  const qMark = raw.indexOf("?");
-  const pathPart = (qMark >= 0 ? raw.slice(0, qMark) : raw).trim();
-  const queryRaw = qMark >= 0 ? raw.slice(qMark + 1) : "";
-  let helpSection = null;
-  try {
-    const cand = (new URLSearchParams(queryRaw).get("section") || "").trim();
-    if (cand === "help-pwa-home-screen") helpSection = cand;
-  } catch {
-    /* ignore */
-  }
-  const segments = pathPart.split("/").filter(Boolean);
-  let route = segments[0] || "analysis";
-  if (route === "overview" || route === "old-analysis") route = "analysis";
-  if (route === "help") {
-    route = "settingsHelp";
-  } else if (route === "settings" && segments[1]) {
-    const s1 = String(segments[1]).toLowerCase();
-    if (s1 === "advanced") route = "settingsAdvanced";
-    else if (s1 === "help") route = "settingsHelp";
-    else route = "settings";
-  }
-  let incomeOverlay = null;
-  if (route === "incomes" && segments[1]) {
-    const s1 = String(segments[1]).toLowerCase();
-    if (s1 === "salary") incomeOverlay = "salary";
-    else if (s1 === "benefit") incomeOverlay = "benefit";
-    else if (s1 === "capital") incomeOverlay = "capital";
-    else if (s1 === "gift") incomeOverlay = "gift";
-  }
-  return { route, incomeOverlay, helpSection };
+  return parseBudgetRouteFromHash(location.hash || "#/analysis");
 }
 
 function initRouting() {
@@ -16135,7 +16103,6 @@ function initActions() {
 
   // Poll every ~30 minutes; prompt only if interval is due
   setInterval(() => {
-    // eslint-disable-next-line no-undef
     maybePromptBackup();
   }, 30 * 60 * 1000);
 
