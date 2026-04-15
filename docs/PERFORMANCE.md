@@ -15,4 +15,4 @@
 
 ## CI (valfritt)
 
-Ni kan senare köra Lighthouse i CI med t.ex. `npx lighthouse@11 …` mot en staging-URL; kräver bygg/deploy-steg och godkänd offentlig URL.
+Du kan köra Lighthouse i CI med t.ex. `npx lighthouse@11 …` mot din **publicerade GitHub Pages-URL** (samma som prod); kräver att jobbet har nätverksåtkomst till den adressen.

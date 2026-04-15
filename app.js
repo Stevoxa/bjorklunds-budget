@@ -10,6 +10,9 @@ const INTRO_LAST_PLAY_KEY = "bjk_intro_last_played_ymd";
 const INTRO_FILM_RARELY_KEY = "bjk_intro_film_rarely";
 const INTRO_LAST_PLAY_MS_KEY = "bjk_intro_last_play_ms";
 const PWA_BANNER_DISMISSED_KEY = "bjk_pwa_banner_dismissed_v1";
+/** Opt-in utvecklarläge: `localStorage.setItem("bjk_debug","1")` + ladda om, eller `?debug=1` i URL (session). */
+const DEBUG_LOCALSTORAGE_KEY = "bjk_debug";
+const DEBUG_SESSIONSTORAGE_KEY = "bjk_debug_session";
 const BUILTIN_START_VIDEO_URL = "./media/bjorklunds_budget_start.mp4";
 const BUILTIN_SPLASH_URL = "./media/bjorklunds_budget_start.png";
 const THEME_INTRO_DEFAULT_CACHE = "introDefaultCache";
@@ -63,7 +66,6 @@ function buildBackupExportFilename(ms = Date.now()) {
   return `bjorklunds_budget_${y}_${mm}_${dd}.json`;
 }
 const pad2 = (n) => String(n).padStart(2, "0");
-const DEBUG = true;
 
 const MONTH_NAMES = [
   "Januari",
@@ -428,8 +430,47 @@ function safeParseJson(text) {
   }
 }
 
-function showDebugToast(message) {
-  if (!DEBUG) return;
+function consumeDebugQueryParam() {
+  try {
+    const sp = new URLSearchParams(window.location.search || "");
+    if (sp.get("debug") !== "1") return;
+    window.sessionStorage.setItem(DEBUG_SESSIONSTORAGE_KEY, "1");
+    sp.delete("debug");
+    const q = sp.toString();
+    const path = window.location.pathname || "/";
+    const nextSearch = q ? `?${q}` : "";
+    window.history.replaceState(null, "", `${path}${nextSearch}${window.location.hash || ""}`);
+  } catch {
+    /* ignore */
+  }
+}
+
+function isAppDebugModeEnabled() {
+  try {
+    if (window.sessionStorage?.getItem(DEBUG_SESSIONSTORAGE_KEY) === "1") return true;
+    if (window.localStorage?.getItem(DEBUG_LOCALSTORAGE_KEY) === "1") return true;
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/**
+ * @param {string} message
+ * @param {{ kind?: "user" | "diagnostic" }} [opts]
+ * - **user**: alltid synlig (produktion — fel som påverkar användaren).
+ * - **diagnostic**: bara i utvecklarläge; annars `console.warn` så prod inte spammar UI.
+ */
+function showDebugToast(message, opts = {}) {
+  const kind = opts.kind === "user" ? "user" : "diagnostic";
+  if (kind === "diagnostic" && !isAppDebugModeEnabled()) {
+    try {
+      console.warn("[bjk]", String(message || ""));
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   const el = document.getElementById("debugToast");
   if (!el) return;
   el.hidden = false;
@@ -6049,7 +6090,8 @@ async function wipeAllLocalAppDataAndReload() {
       showDebugToast(
         r.error === "blocked"
           ? "Stäng andra flikar med appen och försök igen."
-          : "Kunde inte rensa all data. Försök igen."
+          : "Kunde inte rensa all data. Försök igen.",
+        { kind: "user" }
       );
       return;
     }
@@ -6087,7 +6129,7 @@ function saveState() {
     vaultSaveTimer = null;
     globalThis.BjorkVault.persistEncryptedState(state).catch((err) => {
       console.error("Vault save failed", err);
-      showDebugToast("Kunde inte spara krypterat. Försök igen.");
+      showDebugToast("Kunde inte spara krypterat. Försök igen.", { kind: "user" });
     });
   }, 400);
   updateOnboardingVisibility();
@@ -6112,7 +6154,7 @@ async function saveStateFlush() {
   }
   const r = await globalThis.BjorkVault.persistEncryptedState(state);
   if (!r.ok) {
-    showDebugToast("Kunde inte spara krypterat.");
+    showDebugToast("Kunde inte spara krypterat.", { kind: "user" });
     return false;
   }
   return true;
@@ -6143,7 +6185,7 @@ function initVaultIdleLock() {
 async function initVaultBootstrap() {
   const V = globalThis.BjorkVault;
   if (!V) {
-    showDebugToast("vault.js kunde inte laddas.");
+    showDebugToast("vault.js kunde inte laddas.", { kind: "user" });
     throw new Error("BjorkVault saknas");
   }
 
@@ -6228,7 +6270,7 @@ async function initVaultBootstrap() {
   if (typeof indexedDB === "undefined") {
     errEl.textContent = "IndexedDB saknas — appen kan inte spara krypterat i den här miljön.";
     errEl.hidden = false;
-    showDebugToast(errEl.textContent);
+    showDebugToast(errEl.textContent, { kind: "user" });
     throw new Error("No IndexedDB");
   }
 
@@ -7474,7 +7516,7 @@ function initRouting() {
     try {
       renderRoute(route, { incomeOverlay: incOv, enteringAnalysis, helpSection: parsed.helpSection });
     } catch (e) {
-      showDebugToast(`Routing-fel (${route}): ${e?.message || e}`);
+      showDebugToast(`Routing-fel (${route}): ${e?.message || e}`, { kind: "diagnostic" });
       throw e;
     }
   };
@@ -12344,7 +12386,7 @@ function reapplyCurrentRouteAfterStateImport() {
   try {
     renderRoute(route, { incomeOverlay: incOv, enteringAnalysis, helpSection: parsed.helpSection });
   } catch (e) {
-    showDebugToast(`Uppdatering efter import: ${e?.message || e}`);
+    showDebugToast(`Uppdatering efter import: ${e?.message || e}`, { kind: "diagnostic" });
   }
   updateOnboardingVisibility();
 }
@@ -16056,7 +16098,7 @@ function initActions() {
     const V = globalThis.BjorkVault;
     const env = V ? await V.exportEnvelopeJson(state) : null;
     if (!env) {
-      showDebugToast("Kunde inte exportera (session inte upplåst).");
+      showDebugToast("Kunde inte exportera (session inte upplåst).", { kind: "user" });
       return;
     }
     const exportAt = nowMs();
@@ -16073,7 +16115,7 @@ function initActions() {
     state.settings.lastBackupExportAt = exportAt;
     const flushOk = await saveStateFlush();
     if (!flushOk) {
-      showDebugToast("Exporten sparades, men tiden för ”senaste export” kunde inte skrivas till vault.");
+      showDebugToast("Exporten sparades, men tiden för ”senaste export” kunde inte skrivas till vault.", { kind: "user" });
     }
     updateSettingsLastExportUi();
   }
@@ -16704,10 +16746,12 @@ function initBottomNavScrollElevation() {
 
 async function initRoot() {
   window.addEventListener("error", (ev) => {
-    showDebugToast(`JS-fel: ${ev?.message || ev}`);
+    console.error("JS-fel", ev?.error || ev);
+    showDebugToast(`JS-fel: ${ev?.message || ev}`, { kind: "diagnostic" });
   });
   window.addEventListener("unhandledrejection", (ev) => {
-    showDebugToast(`Promise-fel: ${ev?.reason?.message || ev?.reason || ev}`);
+    console.error("Promise-fel", ev?.reason || ev);
+    showDebugToast(`Promise-fel: ${ev?.reason?.message || ev?.reason || ev}`, { kind: "diagnostic" });
   });
 
   initPwaInstallListeners();
@@ -16744,9 +16788,15 @@ async function initRoot() {
     setTimeout(() => maybeShowPwaInstallBanner(), 1800);
   } catch (e) {
     console.error("Init-fel", e);
-    showDebugToast(`Init-fel: ${e?.message || e}`);
+    showDebugToast(
+      isAppDebugModeEnabled()
+        ? `Init-fel: ${e?.message || e}`
+        : "Appen kunde inte startas fullt ut. Ladda om sidan. Aktivera utvecklarläge (?debug=1 i URL) för teknisk information.",
+      { kind: "user" }
+    );
   }
 }
 
+consumeDebugQueryParam();
 void initRoot();
 

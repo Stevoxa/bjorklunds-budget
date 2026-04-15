@@ -24,15 +24,15 @@ En budgetapp för att planera, registrera och följa upp privatekonomi. Designad
 
 ## Kom igång
 
-1. Öppna `index.html` i en webbläsare  
+1. Kör appen via en **lokal webbserver** (samma sätt som på GitHub Pages: statiska filer över HTTP), t.ex. `npx serve .`  
 2. Lägg till appen på hemskärmen  
 3. Skapa en budget eller importera data  
 4. Börja registrera intäkter och utgifter  
 
 ## Teknik
 
-- Vanilla JavaScript  
-- IndexedDB / LocalStorage  
+- Vanilla JavaScript (ES-modul för `app.js`)  
+- IndexedDB (krypterat valv + temaresurser); begränsad användning av `localStorage` för enstaka preferenser  
 - Service Worker (`sw.js`) för offline-stöd  
 - Responsiv design (mobil-först)  
 
@@ -50,41 +50,7 @@ Appen kan installeras på hemskärmen och fungerar offline via service worker.
 Appen kan hostas som statiska filer (t.ex. via GitHub Pages).  
 Se till att `index.html` och `sw.js` ligger i root.
 
+## Utvecklarläge (valfritt)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Björklunds - Budget (PWA)
-
-En enkel PWA (singlepage) för att hålla koll på:
-- Återkommande fasta utgifter (inkl. bil/boende via specialflikar)
-- Intäkter (lön/bidrag/ränteintäkter via återkommande poster)
-- Enstaka poster per månad
-- Matplanering månadsvis
-- Återkommande kostnader för barn
-- Översikt och “kvar för övriga utgifter” per månad
-
-## Lokalt
-
-Öppna `index.html` i en webbläsare. Appen sparar allt lokalt i `localStorage`.
-
-## PWA
-
-Appen registrerar en service worker (`sw.js`) för att möjliggöra offline.
-
-## GitHub Pages
-
-Hosta genom att lägga innehållet i repot som statiska filer (t.ex. via GitHub Pages). Se till att `index.html` och `sw.js` ligger i root.
+Appen kör **produktionsläge** som standard (inga tekniska diagnostik-toasts). För att se dem: `?debug=1` i URL eller `localStorage` enligt `docs/DEBUG.md`.
 

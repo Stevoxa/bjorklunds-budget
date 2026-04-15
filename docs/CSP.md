@@ -1,12 +1,14 @@
 # Content-Security-Policy (CSP)
 
+**Miljö:** Den publicerade appen (t.ex. GitHub Pages) behandlas som **produktion** — samma säkerhetskrav och samma användarupplevelse som vid lokal körning via HTTP-server.
+
 Appen laddar **endast externa skript** från samma ursprung (`theme-assets.js`, `vault.js`, `chart`, `app.js` som modul). Den använder **blob:-URL:er** för video/ikoner och **Web Crypto** i `vault.js`.
 
 ## Rekommenderat utgångsläge
 
 Sätt CSP som **HTTP-svarheader** av värd (Cloudflare, Netlify `_headers`, nginx m.m.) i stället för meta om du kan — då går det att rotera policy utan ny deploy av `index.html`.
 
-Förslag (justera efter faktiska behov; testa i staging):
+Förslag (justera efter faktiska behov; verifiera mot den **publicerade** sidan eller med **Report-Only** innan du sätter enforce — särskilt om GitHub Pages är din enda miljö):
 
 ```
 Content-Security-Policy:
@@ -36,7 +38,7 @@ Använd först:
 
 `Content-Security-Policy-Report-Only: … samma direktiv …`
 
-…och en `report-to` / `report-uri` om du vill samla rapporter. Granska varningar innan ni byter till **enforce**-header.
+…och en `report-to` / `report-uri` om du vill samla rapporter. Granska varningar innan du byter till **enforce**-header (samma URL som användarna använder = samma risk som “prod”).
 
 ## GitHub Pages
 
