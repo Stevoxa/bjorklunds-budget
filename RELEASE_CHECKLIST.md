@@ -25,7 +25,7 @@ GitHub Pages-versionen **är** produktion — samma kod och samma förväntninga
 
 ## Service worker-cache
 
-- [ ] **Höj `CACHE_NAME`** i `sw.js` vid varje release som ändrar cache-listan eller app shell (t.ex. `bjorklunds-budget-v30` → `v31`) så att klienter hämtar ny shell och gamla cache-versioner rensas vid aktivering.
+- [ ] **Höj `CACHE_NAME`** i `sw.js` vid varje release som ändrar cache-listan eller app shell (t.ex. `bjorklunds-budget-v32` → `v33`) så att klienter hämtar ny shell och gamla cache-versioner rensas vid aktivering.
 - [ ] **Nya statiska filer** som ska fungera offline: lägg dem i `ASSETS_TO_CACHE` och verifiera att `fetch`-hanteraren matchar dem om de ska vara network-first (se kommentar i `sw.js` vid `isAppShell`).
 
 ---

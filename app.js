@@ -112,6 +112,35 @@ function asNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/**
+ * Räntesats i procent från formulär eller serialiserad data.
+ * Stöder komma som decimalseparator (Safari / svenska tangentbord) och borttagning av %-tecken.
+ * @param {unknown} value
+ * @returns {number}
+ */
+function parseRatePercent(value) {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  let s = String(value)
+    .trim()
+    .replace(/%/g, "")
+    .replace(/\u00a0|\u202f|\u2007/g, " ")
+    .replace(/\s/g, "");
+  if (!s) return 0;
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    const lastC = s.lastIndexOf(",");
+    const lastD = s.lastIndexOf(".");
+    if (lastC > lastD) s = s.replace(/\./g, "").replace(",", ".");
+    else s = s.replace(/,/g, "");
+  } else if (hasComma) {
+    s = s.replace(",", ".");
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
 /** Tillåtna värden för backup-påminnelse (dagar). 0 = ingen automatisk påminnelse. */
 const BACKUP_REMINDER_DAY_STEPS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
@@ -8370,7 +8399,7 @@ function normalizeLoanItem(rawLoan) {
     name: String(rawLoan?.name || "").trim() || "Lån",
     bank: String(rawLoan?.bank || "").trim(),
     principal: asNumber(rawLoan?.principal),
-    rate: asNumber(rawLoan?.rate),
+    rate: parseRatePercent(rawLoan?.rate),
     amortization: asNumber(rawLoan?.amortization),
     firstPaymentDate,
     endDate
@@ -8504,7 +8533,7 @@ function enumerateLoanMonths(loan) {
 }
 
 function getLoanInterestAmount(loan) {
-  return (asNumber(loan.principal) * (asNumber(loan.rate) / 100)) / 12;
+  return (asNumber(loan.principal) * (parseRatePercent(loan.rate) / 100)) / 12;
 }
 
 function getLoanTotalPayment(loan) {
@@ -10208,7 +10237,10 @@ function formatKrLikeList(n) {
 }
 
 function parseKrLikeList(s) {
-  const raw = String(s || "").replace(/\s+/g, " ").trim();
+  const raw = String(s || "")
+    .replace(/\u00a0|\u202f|\u2007/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!raw) return 0;
   const digits = raw.replace(/[^\d]/g, "");
   const n = asNumber(digits);
@@ -15240,7 +15272,7 @@ function renderLoansPage() {
 function updateLoanDerivedFields() {
   const draft = {
     principal: parseKrLikeList(document.getElementById("loanPrincipal")?.value),
-    rate: asNumber(document.getElementById("loanRate")?.value),
+    rate: parseRatePercent(document.getElementById("loanRate")?.value),
     amortization: parseKrLikeList(document.getElementById("loanAmortization")?.value)
   };
   const interest = getLoanInterestAmount(draft);
@@ -15261,7 +15293,7 @@ function getLoanDraftFromInputs() {
     name: String(document.getElementById("loanNameInput")?.value || "").trim(),
     bank: String(document.getElementById("loanBankInput")?.value || "").trim(),
     principal: parseKrLikeList(document.getElementById("loanPrincipal")?.value),
-    rate: asNumber(document.getElementById("loanRate")?.value),
+    rate: parseRatePercent(document.getElementById("loanRate")?.value),
     amortization: parseKrLikeList(document.getElementById("loanAmortization")?.value),
     firstPaymentDate: fp ? `${fp.y}-${pad2(fp.m)}-${pad2(fp.d)}` : "",
     endDate: ep ? `${ep.y}-${pad2(ep.m)}-${pad2(ep.d)}` : null
@@ -15298,7 +15330,7 @@ function openLoanEditor(loanId = null) {
     existing && asNumber(existing.principal) > 0 ? formatKrLikeList(asNumber(existing.principal)) : "";
   document.getElementById("loanRate").value =
     existing && existing.rate !== undefined && existing.rate !== null && String(existing.rate).trim() !== ""
-      ? String(asNumber(existing.rate))
+      ? String(parseRatePercent(existing.rate))
       : "";
   document.getElementById("loanAmortization").value =
     existing && asNumber(existing.amortization) > 0 ? formatKrLikeList(asNumber(existing.amortization)) : "";
