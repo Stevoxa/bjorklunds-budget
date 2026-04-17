@@ -4,7 +4,7 @@
   "description": "En enkel PWA (singlepage) för att hålla koll på:\r - Återkommande fasta utgifter (inkl. bil/boende via specialflikar)\r - Intäkter (lön/bidrag/ränteintäkter via återkommande poster)\r - Enstaka poster per månad\r - Matplanering månadsvis\r - Återkommande kostnader för barn\r - Översikt och “kvar för övriga utgifter” per månad",
   "main": "app.js",
   "scripts": {
-    "lint": "eslint app.js sw.js vault.js theme-assets.js lib/parseBudgetRouteFromHash.js",
+    "lint": "eslint app.js sw.js vault.js theme-assets.js lib/parseBudgetRouteFromHash.js lib/parseLocaleDecimal.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

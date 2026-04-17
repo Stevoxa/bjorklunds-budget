@@ -2207,6 +2207,7 @@ html[data-theme="dark"] .modal-backdrop {
   box-shadow: var(--shadow-lg);
   z-index: 86;
   max-height: calc(100vh - var(--space-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - var(--space-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   animation: modal-in var(--motion-modal) var(--motion-modal-ease) both;
@@ -2275,6 +2276,7 @@ html[data-theme="dark"] .modal-backdrop {
   height: auto;
   min-height: 0;
   max-height: min(calc(100vh - var(--space-6) - env(safe-area-inset-top)), 85vh);
+  max-height: min(calc(100dvh - var(--space-6) - env(safe-area-inset-top)), 85dvh);
   padding: 0;
   /* Över intäkts-/utgiftsmodal (86) så scrim fångar klick; under datum-/periodark (95/96). */
   z-index: 93;
@@ -7014,6 +7016,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
     border-bottom: 1px solid var(--border-strong);
     bottom: max(12px, env(safe-area-inset-bottom, 0px));
     max-height: min(85vh, 600px);
+    max-height: min(85dvh, 600px);
     box-shadow: var(--shadow-lg);
   }
 
@@ -7035,6 +7038,7 @@ html[data-theme="dark"] .period-sheet-backdrop {
     border-bottom: 1px solid var(--border-strong);
     bottom: max(12px, env(safe-area-inset-bottom, 0px));
     max-height: min(85vh, 640px);
+    max-height: min(85dvh, 640px);
     box-shadow: var(--shadow-lg);
   }
 

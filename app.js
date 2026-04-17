@@ -2,6 +2,7 @@
    Budgetdata sparas krypterat i IndexedDB (se vault.js). */
 
 import { parseBudgetRouteFromHash } from "./lib/parseBudgetRouteFromHash.js";
+import { parseLocaleDecimalNumber, parseRatePercent } from "./lib/parseLocaleDecimal.js";
 
 /** Endast för att ta bort äldre okrypterad data i localStorage efter migrering. */
 const STORAGE_KEY = "bjorklunds_budget_v1";
@@ -109,35 +110,6 @@ const LIST_ROW_CHEVRON_LEFT_SVG =
 
 function asNumber(value) {
   const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
-
-/**
- * Räntesats i procent från formulär eller serialiserad data.
- * Stöder komma som decimalseparator (Safari / svenska tangentbord) och borttagning av %-tecken.
- * @param {unknown} value
- * @returns {number}
- */
-function parseRatePercent(value) {
-  if (value == null || value === "") return 0;
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  let s = String(value)
-    .trim()
-    .replace(/%/g, "")
-    .replace(/\u00a0|\u202f|\u2007/g, " ")
-    .replace(/\s/g, "");
-  if (!s) return 0;
-  const hasComma = s.includes(",");
-  const hasDot = s.includes(".");
-  if (hasComma && hasDot) {
-    const lastC = s.lastIndexOf(",");
-    const lastD = s.lastIndexOf(".");
-    if (lastC > lastD) s = s.replace(/\./g, "").replace(",", ".");
-    else s = s.replace(/,/g, "");
-  } else if (hasComma) {
-    s = s.replace(",", ".");
-  }
-  const n = Number(s);
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -5286,7 +5258,7 @@ function readSalaryByYearFromBandInputs() {
   const ids = ["incomeSalaryBandPrev", "incomeSalaryBandCur", "incomeSalaryBandNext"];
   const byYear = {};
   ids.forEach((id, i) => {
-    const v = asNumber(document.getElementById(id)?.value);
+    const v = parseLocaleDecimalNumber(document.getElementById(id)?.value);
     if (v > 0) byYear[String(ys[i])] = v;
   });
   return byYear;
@@ -8058,7 +8030,7 @@ function computeFoodWeekAmountAndLabels(config, weekStart, weekEnd) {
     const e = parseDateISO(dv?.endDate);
     if (!s || !e) continue;
     if (weekEnd.getTime() < s.getTime() || weekStart.getTime() > e.getTime()) continue;
-    const v = asNumber(dv.value);
+    const v = parseLocaleDecimalNumber(dv.value);
     if (Number.isFinite(v) && v >= 0) weekOverride = v;
     break;
   }
@@ -8313,7 +8285,7 @@ function computeFoodDailyCost(config, date) {
     if (!s || !e) continue;
     if (date.getTime() < s.getTime() || date.getTime() > e.getTime()) continue;
     if (dv.adjustmentType === "factor") {
-      const f = asNumber(dv.value);
+      const f = parseLocaleDecimalNumber(dv.value);
       if (Number.isFinite(f) && f > 0) daily = daily * f;
     }
     break;
@@ -11037,7 +11009,10 @@ function renderFoodPage() {
   document.getElementById("foodAdultsInput").oninput = () => { ui.foodConfigDraft.household.adults = Math.max(0, Math.floor(asNumber(document.getElementById("foodAdultsInput").value))); draw(); };
   document.getElementById("foodTeensInput").oninput = () => { ui.foodConfigDraft.household.teens = Math.max(0, Math.floor(asNumber(document.getElementById("foodTeensInput").value))); draw(); };
   document.getElementById("foodChildrenInput").oninput = () => { ui.foodConfigDraft.household.children = Math.max(0, Math.floor(asNumber(document.getElementById("foodChildrenInput").value))); draw(); };
-  document.getElementById("foodManualWeeklyInput").oninput = () => { ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(document.getElementById("foodManualWeeklyInput").value)); draw(); };
+  document.getElementById("foodManualWeeklyInput").oninput = () => {
+    ui.foodConfigDraft.manualWeeklyCost = Math.max(0, parseLocaleDecimalNumber(document.getElementById("foodManualWeeklyInput").value));
+    draw();
+  };
   document.getElementById("foodManualMinus500Btn").onclick = () => {
     ui.foodConfigDraft.manualWeeklyCost = Math.max(0, asNumber(ui.foodConfigDraft.manualWeeklyCost) - 500);
     draw();
@@ -13696,7 +13671,7 @@ function renderIncomesPage() {
     applyIncomeDefaultFieldToEditorRows("day");
   };
   defAmt.oninput = () => {
-    ui.incomeDefaults.amount = asNumber(defAmt.value);
+    ui.incomeDefaults.amount = parseLocaleDecimalNumber(defAmt.value);
     applyIncomeDefaultFieldToEditorRows("amount");
   };
 
@@ -13941,7 +13916,7 @@ function validateIncomePaymentParts({ year, month, day, amount }) {
 function getIncomeDefaultsFromUI() {
   const defYear = asNumber(document.getElementById("incomeDefaultYear")?.value || ui.incomeDefaults?.year);
   const defDay = asNumber(document.getElementById("incomeDefaultDay")?.value || ui.incomeDefaults?.day);
-  const defAmt = asNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
+  const defAmt = parseLocaleDecimalNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
   return {
     year: String(defYear || currentYearMonth().year),
     day: String(defDay || 25),
@@ -13993,7 +13968,7 @@ function applyIncomeDefaultsToEditorRows(overwriteExisting) {
 
   const defYear = asNumber(document.getElementById("incomeDefaultYear")?.value || ui.incomeDefaults?.year);
   const defDay = asNumber(document.getElementById("incomeDefaultDay")?.value || ui.incomeDefaults?.day);
-  const defAmt = asNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
+  const defAmt = parseLocaleDecimalNumber(document.getElementById("incomeDefaultAmount")?.value || ui.incomeDefaults?.amount);
 
   if (!Array.isArray(ui.incomeEditorPayments)) ui.incomeEditorPayments = [];
 
@@ -14121,7 +14096,7 @@ function renderIncomePaymentsEditorRows() {
   document.querySelectorAll("[data-inc-pay-amt]").forEach((el) => {
     el.oninput = () => {
       const idx = Number(el.getAttribute("data-inc-pay-amt"));
-      ui.incomeEditorPayments[idx].amount = asNumber(el.value);
+      ui.incomeEditorPayments[idx].amount = parseLocaleDecimalNumber(el.value);
       updateRowValidationUI(idx);
     };
   });
@@ -14452,7 +14427,7 @@ function renderExpensesSummaryPage() {
     applyExpenseDefaultFieldToEditorRows("day");
   };
   defAmt.oninput = () => {
-    ui.expenseDefaults.amount = asNumber(defAmt.value);
+    ui.expenseDefaults.amount = parseLocaleDecimalNumber(defAmt.value);
     applyExpenseDefaultFieldToEditorRows("amount");
   };
 
@@ -14598,7 +14573,7 @@ function renderExpensesList() {
 function getExpenseDefaultsFromUI() {
   const defYear = asNumber(document.getElementById("expenseDefaultYear")?.value || ui.expenseDefaults?.year);
   const defDay = asNumber(document.getElementById("expenseDefaultDay")?.value || ui.expenseDefaults?.day);
-  const defAmt = asNumber(document.getElementById("expenseDefaultAmount")?.value || ui.expenseDefaults?.amount);
+  const defAmt = parseLocaleDecimalNumber(document.getElementById("expenseDefaultAmount")?.value || ui.expenseDefaults?.amount);
   return { year: String(defYear || currentYearMonth().year), day: String(defDay || 25), amount: defAmt };
 }
 
@@ -15048,7 +15023,7 @@ function renderExpensePaymentsEditorRows() {
   document.querySelectorAll("[data-exp-pay-amt]").forEach((el) => {
     const idx = Number(el.getAttribute("data-exp-pay-amt"));
     el.oninput = () => {
-      ui.expenseEditorPayments[idx].amount = asNumber(el.value);
+      ui.expenseEditorPayments[idx].amount = parseLocaleDecimalNumber(el.value);
       update(idx);
     };
   });
