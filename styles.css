@@ -2012,10 +2012,10 @@ a.subnav-btn {
   width: 100%;
 }
 
-/* Utgifter: fem kategorier — grid så raden aldrig överskrider viewport (undvik sid-scroll / avklippta tiles). */
+/* Utgifter: sex kategorier — grid så raden aldrig överskrider viewport (undvik sid-scroll / avklippta tiles). */
 .subnav.subnav--expense-tiles {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   column-gap: 6px;
   row-gap: 0;
   margin: 0 0 var(--space-3);
@@ -4098,6 +4098,7 @@ input.input-readonly-like {
 .exp-overlay[data-expview="home"],
 .exp-overlay[data-expview="car"],
 .exp-overlay[data-expview="children"],
+.exp-overlay[data-expview="other"],
 .view[data-view="savings"],
 .exp-overlay[data-expview="loans"],
 .inc-overlay[data-incview="salary"],
@@ -6105,6 +6106,7 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary,
+.exp-overlay[data-expview="other"] > .bb-error-summary.tagged-editor-error-summary,
 .view[data-view="savings"] > .bb-error-summary.tagged-editor-error-summary,
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary,
 .inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary,
@@ -6121,6 +6123,7 @@ html[data-theme="dark"] .analysis-robin-chart__bar--risk-high {
 .exp-overlay[data-expview="home"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="car"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="children"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
+.exp-overlay[data-expview="other"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .view[data-view="savings"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .exp-overlay[data-expview="loans"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),
 .inc-overlay[data-incview="salary"] > .bb-error-summary.tagged-editor-error-summary:not([hidden]),

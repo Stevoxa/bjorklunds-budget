@@ -855,7 +855,7 @@ let periodSheetClosing = false;
 let periodSheetKind = "expenseFilter";
 let periodSheetDraftYearStr = "";
 let periodSheetDraftMonthStr = "";
-/** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Spara-vy som öppnade periodarket. */
+/** När periodSheetKind === "taggedList": vilken Hem/Bil/Barn/Övrigt/Spara-vy som öppnade periodarket. */
 let periodSheetTaggedCat = null;
 /** När periodSheetKind === "incomeTaggedList": benefit | capital | gift. */
 let periodSheetIncomeTaggedCat = null;
@@ -1261,10 +1261,7 @@ function appEdgeSwipeTryConsumeFromLeftEdge() {
       else {
         u.editorOpen = false;
         u.editingId = null;
-        if (cat === "car") renderCarPage();
-        else if (cat === "home") renderHomePage();
-        else if (cat === "children") renderChildrenPage();
-        else if (cat === "savings") renderSavingsPage();
+        if (TAGGED_CATEGORY_CONFIG[cat]) renderTaggedCategoryPage(cat);
       }
       return true;
     }
@@ -4121,7 +4118,7 @@ function findLastFixedCostPaymentInIsoRangeInclusive(root, startIso, endIso) {
 function salaryPeriodFixedCostDescriptionLine(exp) {
   if (!exp) return "Utgift";
   const cat = exp.category;
-  if (cat === "car" || cat === "home" || cat === "children") {
+  if (cat === "car" || cat === "home" || cat === "children" || cat === "other") {
     const key = exp.subcategory || "other";
     const tl = getTaggedTypeLabel(cat, key);
     const name = String(exp.name || "").trim() || tl;
@@ -5378,8 +5375,12 @@ function isMirroredLoanExpense(exp) {
   return Boolean(exp && exp.category === "loans" && exp.metadata?.loanId);
 }
 
+function isOtherTaggedExpense(exp) {
+  return Boolean(exp && exp.category === "other");
+}
+
 function isTaggedOverviewExpense(exp) {
-  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp) || isSavingsExpense(exp);
+  return isCarExpense(exp) || isHomeExpense(exp) || isChildrenExpense(exp) || isOtherTaggedExpense(exp) || isSavingsExpense(exp);
 }
 
 const HOME_EXPENSE_TYPES = [
@@ -5457,6 +5458,31 @@ const CHILDREN_SUBCATEGORY_COST_BEHAVIOR = Object.fromEntries(
   CHILDREN_EXPENSE_TYPES.map(({ key }) => [key, EXPENSE_COST_VARIABLE])
 );
 
+const OTHER_EXPENSE_TYPES = [
+  { key: "clothes", label: "Kläder" },
+  { key: "insurance", label: "Försäkring" },
+  { key: "association_fee", label: "Föreningsavgift" },
+  { key: "digital_service", label: "Digital tjänst" },
+  { key: "entertainment", label: "Nöje" },
+  { key: "health", label: "Hälsa" },
+  { key: "birthday_gifts", label: "Födelsedagspresenter" },
+  { key: "christmas_gifts", label: "Julklappar" },
+  { key: "other", label: "Annan" }
+];
+
+/** Övrigt: fast = försäkring, föreningsavgift; övriga typer rörliga; annan okänd. */
+const OTHER_SUBCATEGORY_COST_BEHAVIOR = {
+  clothes: EXPENSE_COST_VARIABLE,
+  insurance: EXPENSE_COST_FIXED,
+  association_fee: EXPENSE_COST_FIXED,
+  digital_service: EXPENSE_COST_VARIABLE,
+  entertainment: EXPENSE_COST_VARIABLE,
+  health: EXPENSE_COST_VARIABLE,
+  birthday_gifts: EXPENSE_COST_VARIABLE,
+  christmas_gifts: EXPENSE_COST_VARIABLE,
+  other: EXPENSE_COST_UNKNOWN
+};
+
 /**
  * Härleder fast vs rörlig utgift för analys (ingen användarklassning krävs).
  * Valfri override: metadata.analysis.costBehavior === "fixed" | "variable" (för import/felsök).
@@ -5494,12 +5520,16 @@ function getExpenseCostBehavior(exp) {
     return b != null ? b : EXPENSE_COST_VARIABLE;
   }
 
-  if (cat === "other") return EXPENSE_COST_UNKNOWN;
+  if (cat === "other") {
+    const key = String(exp.subcategory || "other").trim() || "other";
+    const b = OTHER_SUBCATEGORY_COST_BEHAVIOR[key];
+    return b != null ? b : EXPENSE_COST_UNKNOWN;
+  }
 
   return EXPENSE_COST_UNKNOWN;
 }
 
-/** Gemensam konfiguration för Bil / Hem / Barn (samma UI-flöde som Bil). */
+/** Gemensam konfiguration för Bil / Hem / Barn / Övrigt (samma UI-flöde som Bil). */
 const TAGGED_CATEGORY_CONFIG = {
   car: {
     overlayKey: "car",
@@ -5598,6 +5628,40 @@ const TAGGED_CATEGORY_CONFIG = {
       newItem: "Ny barnutgift",
       editItem: "Redigera barnutgift",
       emptyMonth: "Inga barnutgifter denna period."
+    }
+  },
+  other: {
+    overlayKey: "other",
+    category: "other",
+    subcategoryField: "subcategory",
+    types: OTHER_EXPENSE_TYPES,
+    ids: {
+      editorCard: "otherEditorCard",
+      editorTitle: "otherEditorPanelLegend",
+      editType: "otherEditType",
+      editName: "otherEditName",
+      editInterval: "otherEditInterval",
+      editFirstDate: "otherEditFirstDate",
+      endDateRow: "otherEndDateRow",
+      editEndDate: "otherEditEndDate",
+      editAmount: "otherEditAmount",
+      deleteBtn: "otherDeleteBtn",
+      saveBtn: "otherSaveBtn",
+      cancelBtn: "otherCancelEditorBtn",
+      note: "otherNote",
+      listYear: "otherListYear",
+      listMonth: "otherListMonth",
+      listMount: "otherListMount",
+      listLockRoot: "otherListLockRoot",
+      listMonthTitle: "otherListMonthTitle",
+      monthTotal: "otherMonthTotal",
+      addBtn: "otherAddBtn"
+    },
+    labels: {
+      newItem: "Ny övrig utgift",
+      editItem: "Redigera övrig utgift",
+      emptyMonth: "Inga övriga utgifter denna period.",
+      monthListTitlePrefix: "Övriga utgifter"
     }
   },
   savings: {
@@ -5974,6 +6038,7 @@ const ui = {
     car: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     home: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     children: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
+    other: { editorOpen: false, editingId: null, listYear: null, listMonth: null },
     savings: { editorOpen: false, editingId: null, listYear: null, listMonth: null }
   },
   incomeTagged: {
@@ -8519,6 +8584,7 @@ function overviewTableGroupForExpense(exp) {
     car: "Bil",
     home: "Hem",
     children: "Barn",
+    other: "Övrigt",
     savings: "Spara",
     loans: "Lån",
     one_off: "Enstaka utgifter",
@@ -8766,13 +8832,14 @@ function buildSalaryPeriodFixedVarLegendHtml(fvModel) {
   );
 }
 
-/** Löneår — utgiftsdonut: endast Hem, Lån, Bil, Mat, Barn; aldrig spar eller Robin-systemrader. */
+/** Löneår — utgiftsdonut: Hem, Lån, Bil, Mat, Barn, Övrigt; aldrig spar eller Robin-systemrader. */
 const SALARY_YEAR_SPEND_MAIN_ORDER = [
   { key: "home", label: "Hem", chartKey: "housing" },
   { key: "loans", label: "Lån", chartKey: "loans" },
   { key: "car", label: "Bil", chartKey: "car" },
   { key: "food", label: "Mat", chartKey: "foodGenerated" },
-  { key: "children", label: "Barn", chartKey: "children" }
+  { key: "children", label: "Barn", chartKey: "children" },
+  { key: "other", label: "Övrigt", chartKey: "recurringExpenses" }
 ];
 
 function loanSpendTypeLabel(typeKey) {
@@ -8792,6 +8859,7 @@ function salaryYearSpendMainKeyForExpense(exp) {
   if (cat === "loans") return "loans";
   if (cat === "car") return "car";
   if (cat === "children") return "children";
+  if (cat === "other") return "other";
   return null;
 }
 
@@ -9926,10 +9994,7 @@ function renderTaggedExpenseListMount(cat) {
     if (tapped && isRobinHoodGeneratedExpense(tapped)) return;
     ui.tagged[c].editingId = id;
     ui.tagged[c].editorOpen = true;
-    if (c === "car") renderCarPage();
-    else if (c === "home") renderHomePage();
-    else if (c === "children") renderChildrenPage();
-    else if (c === "savings") renderSavingsPage();
+    if (TAGGED_CATEGORY_CONFIG[c]) renderTaggedCategoryPage(c);
   };
 }
 
@@ -9940,7 +10005,18 @@ function renderTaggedCategoryPage(cat) {
   const ids = C.ids;
   const u = ui.tagged[cat];
 
-  const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
+  const summaryId =
+    cat === "car"
+      ? "carErrorSummary"
+      : cat === "home"
+        ? "homeErrorSummary"
+        : cat === "children"
+          ? "childrenErrorSummary"
+          : cat === "other"
+            ? "otherErrorSummary"
+            : cat === "savings"
+              ? "savingsErrorSummary"
+              : null;
   if (summaryId && !u.editorOpen) hideErrorSummaryById(summaryId);
   if (!u.editorOpen) clearTaggedEditorInlineErrors(cat);
 
@@ -9964,7 +10040,7 @@ function renderTaggedCategoryPage(cat) {
     (u.listMonth == null || !Number.isFinite(Number(u.listMonth)) || u.listMonth < 1 || u.listMonth > 12)
   ) {
     u.listMonth =
-      cat === "car" || cat === "home" || cat === "children" ? "all" : cur.month;
+      cat === "car" || cat === "home" || cat === "children" || cat === "other" ? "all" : cur.month;
   }
 
   if (listYearSel) {
@@ -10093,7 +10169,7 @@ function renderTaggedCategoryPage(cat) {
 }
 
 function taggedCategoryHasInlineFieldErrors(cat) {
-  return cat === "car" || cat === "home" || cat === "children" || cat === "savings";
+  return cat === "car" || cat === "home" || cat === "children" || cat === "other" || cat === "savings";
 }
 
 function clearTaggedEditorInlineErrors(cat) {
@@ -10245,7 +10321,18 @@ function saveTaggedCategoryFromEditor(cat) {
     if (ex && isRobinHoodGeneratedExpense(ex)) return;
   }
   const note = document.getElementById(ids.note);
-  const summaryId = cat === "car" ? "carErrorSummary" : cat === "home" ? "homeErrorSummary" : cat === "children" ? "childrenErrorSummary" : cat === "savings" ? "savingsErrorSummary" : null;
+  const summaryId =
+    cat === "car"
+      ? "carErrorSummary"
+      : cat === "home"
+        ? "homeErrorSummary"
+        : cat === "children"
+          ? "childrenErrorSummary"
+          : cat === "other"
+            ? "otherErrorSummary"
+            : cat === "savings"
+              ? "savingsErrorSummary"
+              : null;
   const summaryEl = summaryId ? document.getElementById(summaryId) : null;
   hideErrorSummaryByEl(summaryEl);
   clearTaggedEditorInlineErrors(cat);
@@ -12885,7 +12972,7 @@ function renderAnalysisPage() {
         <p class="note analysis-salary-year-spend__ingress">Fördelning av planerade utgifter över året</p>
         ${
           salaryYearSpendModel.empty
-            ? `<p class="note analysis-salary-year-spend__empty">Inga planerade utgifter i valt löneår inom Hem, Lån, Bil, Mat eller Barn.</p>`
+            ? `<p class="note analysis-salary-year-spend__empty">Inga planerade utgifter i valt löneår inom Hem, Lån, Bil, Mat, Barn eller Övrigt.</p>`
             : `<div class="analysis-salary-year-chart-wrap analysis-salary-year-spend__viz">
             <div class="analysis-salary-year-spend__body">
               <div class="analysis-salary-year-spend__canvas-wrap">
@@ -15136,7 +15223,8 @@ function openExpenseCategoryOverlay(key, opts = {}) {
     loans: renderLoansPage,
     car: renderCarPage,
     food: renderFoodPage,
-    children: renderChildrenPage
+    children: renderChildrenPage,
+    other: () => renderTaggedCategoryPage("other")
   };
   if (map[key]) map[key]();
   const target = document.querySelector(`[data-expview="${key}"]`);
@@ -15433,10 +15521,7 @@ function initActions() {
       addBtn.addEventListener("click", () => {
         u.editingId = null;
         u.editorOpen = true;
-        if (cat === "car") renderCarPage();
-        else if (cat === "home") renderHomePage();
-        else if (cat === "children") renderChildrenPage();
-        else if (cat === "savings") renderSavingsPage();
+        if (TAGGED_CATEGORY_CONFIG[cat]) renderTaggedCategoryPage(cat);
         const editorCard = document.getElementById(ids.editorCard);
         if (editorCard) editorCard.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -15453,16 +15538,14 @@ function initActions() {
         const note = document.getElementById(ids.note);
         if (note) note.textContent = "";
         clearTaggedEditorInlineErrors(cat);
-        if (cat === "car") renderCarPage();
-        else if (cat === "home") renderHomePage();
-        else if (cat === "children") renderChildrenPage();
-        else if (cat === "savings") renderSavingsPage();
+        if (TAGGED_CATEGORY_CONFIG[cat]) renderTaggedCategoryPage(cat);
       });
     }
   };
   wireTaggedCategoryActions("car");
   wireTaggedCategoryActions("home");
   wireTaggedCategoryActions("children");
+  wireTaggedCategoryActions("other");
   wireTaggedCategoryActions("savings");
 
   const wireIncomeTaggedCategoryActions = (cat) => {

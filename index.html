@@ -906,6 +906,14 @@
               </svg>
               <span class="subnav-tile-label">Barn</span>
             </button>
+            <button class="subnav-btn subnav-tile" type="button" data-exp-overlay="other">
+              <svg class="subnav-tile-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 4h10l1 2v14H6V6z" />
+                <path d="M6 8h12" />
+                <path d="M9 12h6M9 15h4M9 18h5" />
+              </svg>
+              <span class="subnav-tile-label">Övrigt</span>
+            </button>
           </div>
 
           <div class="table-card">
@@ -1894,6 +1902,137 @@
                 <div id="childrenListMount" class="tagged-expense-preview-list"></div>
                 <p class="tagged-omkostnader-total" id="childrenMonthTotal"></p>
                 <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="childrenAddBtn">
+                  <span class="food-mat-add-period-card__icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                  </span>
+                  <span class="food-mat-add-period-card__label">Lägg till</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- ÖVRIGT (kategori other) -->
+          <section class="exp-view exp-overlay" data-expview="other" hidden>
+            <div class="bb-error-summary tagged-editor-error-summary" id="otherErrorSummary" hidden role="alert" aria-live="polite"></div>
+            <div class="table-card car-omkostnader-card">
+              <div class="food-mat-panel-top">
+                <button
+                  type="button"
+                  class="food-mat-panel-back"
+                  data-exp-close
+                  aria-label="Tillbaka till Utgifter"
+                >Utgifter</button>
+              </div>
+              <div class="table-title">Övrigt</div>
+              <p class="note tagged-exp-overlay-intro">
+                Lägg in utgifter som Kläder, Försäkring eller andra löpande kostnader.
+              </p>
+              <div class="bb-notched-panel tagged-editor-panel" id="otherEditorCard" hidden role="group" aria-label="Lägg till utgift">
+                <div class="bb-notched-panel-legend" id="otherEditorPanelLegend">Lägg till utgift</div>
+                <div class="form-grid narrow">
+                  <div class="bb-notched-field" role="group" aria-label="Kategori">
+                    <div class="bb-notched-field-legend">Kategori</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="otherEditTypeOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="otherEditTypeSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="otherEditType" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Namn">
+                      <div class="bb-notched-field-legend">Namn</div>
+                      <input
+                        id="otherEditName"
+                        class="bb-notched-field-plain-input"
+                        type="text"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="otherErrName" hidden></div>
+                  </div>
+                  <label class="field">
+                    <input
+                      id="otherEditFirstDate"
+                      type="date"
+                      data-notch-label="Betaldatum"
+                    />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="otherErrFirstDate" hidden></div>
+                  <div class="bb-notched-field" role="group" aria-label="Betalningsintervall">
+                    <div class="bb-notched-field-legend">Betalningsintervall</div>
+                    <button
+                      type="button"
+                      class="bb-notched-field-btn"
+                      id="otherEditIntervalOpenBtn"
+                      aria-haspopup="dialog"
+                      aria-controls="listPickerSheet"
+                    >
+                      <span class="bb-notched-field-value" id="otherEditIntervalSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                  <select id="otherEditInterval" class="visually-hidden-select" tabindex="-1" aria-hidden="true">
+                    <option value="once">Inget</option>
+                    <option value="weekly">Veckovis</option>
+                    <option value="monthly">Månad</option>
+                    <option value="quarterly">Kvartal</option>
+                    <option value="yearly">År</option>
+                  </select>
+                  <label class="field" id="otherEndDateRow">
+                    <input
+                      id="otherEditEndDate"
+                      type="date"
+                      data-notch-label="Gäller till"
+                      data-date-clear
+                    />
+                  </label>
+                  <div class="field-error tagged-editor-field-error" id="otherErrEndDate" hidden></div>
+                  <div class="tagged-editor-field-wrap">
+                    <div class="bb-notched-field" role="group" aria-label="Belopp">
+                      <div class="bb-notched-field-legend">Belopp</div>
+                      <input
+                        id="otherEditAmount"
+                        class="bb-notched-field-plain-input"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="off"
+                      />
+                    </div>
+                    <div class="field-error tagged-editor-field-error" id="otherErrAmount" hidden></div>
+                  </div>
+                </div>
+                <div class="actions-row food-mat-save-actions tagged-category-editor-actions">
+                  <button class="primary" id="otherSaveBtn" type="button">Spara</button>
+                  <button class="danger" id="otherDeleteBtn" type="button" hidden>Ta bort</button>
+                  <button class="secondary" id="otherCancelEditorBtn" type="button">Avbryt</button>
+                </div>
+                <div class="note" id="otherNote"></div>
+              </div>
+              <div id="otherListLockRoot" class="bb-notched-panel tagged-omkostnader-panel" role="group" aria-label="Övriga utgifter">
+                <div class="bb-notched-panel-legend">Övriga utgifter</div>
+                <div class="picker-row picker-row--food-preview tagged-omkostnader-period-row">
+                  <div class="bb-notched-field" role="group" aria-label="Månad och år">
+                    <div class="bb-notched-field-legend">Månad och år</div>
+                    <button type="button" class="bb-notched-field-btn" id="otherListPeriodOpenBtn">
+                      <span class="bb-notched-field-value" id="otherListPeriodSummary">—</span>
+                      <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </div>
+                <select id="otherListYear" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <select id="otherListMonth" class="visually-hidden-select" tabindex="-1" aria-hidden="true"></select>
+                <h3 class="tagged-omkostnader-month-heading" id="otherListMonthTitle">Utgifter</h3>
+                <div id="otherListMount" class="tagged-expense-preview-list"></div>
+                <p class="tagged-omkostnader-total" id="otherMonthTotal"></p>
+                <button type="button" class="food-mat-add-period-card tagged-omkostnader-add-card" id="otherAddBtn">
                   <span class="food-mat-add-period-card__icon" aria-hidden="true">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
