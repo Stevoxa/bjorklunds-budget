@@ -12862,10 +12862,25 @@ function renderAnalysisPage() {
           })
           .join("")
       : "";
-    const firstDebt = syModel?.snaps?.length ? Math.max(0, asNumber(syModel.snaps[0]?.loanOpeningDebt)) : 0;
-    const lastDebt = syModel?.snaps?.length
-      ? Math.max(0, asNumber(syModel.snaps[syModel.snaps.length - 1]?.loanOpeningDebt))
-      : 0;
+    const loanTimeline = syModel?.snaps || [];
+    const firstDebtIdx = loanTimeline.findIndex((s) => Math.max(0, asNumber(s.loanOpeningDebt)) > 0.005);
+    const lastDebtIdx = (() => {
+      for (let i = loanTimeline.length - 1; i >= 0; i--) {
+        const opening = Math.max(0, asNumber(loanTimeline[i]?.loanOpeningDebt));
+        const amort = Math.max(0, asNumber(loanTimeline[i]?.loanAmortization));
+        if (opening > 0.005 || amort > 0.005) return i;
+      }
+      return -1;
+    })();
+    const firstDebt = firstDebtIdx >= 0 ? Math.max(0, asNumber(loanTimeline[firstDebtIdx]?.loanOpeningDebt)) : 0;
+    const lastDebt =
+      lastDebtIdx >= 0
+        ? Math.max(
+            0,
+            Math.max(0, asNumber(loanTimeline[lastDebtIdx]?.loanOpeningDebt)) -
+              Math.max(0, asNumber(loanTimeline[lastDebtIdx]?.loanAmortization))
+          )
+        : 0;
     const debtDrop = Math.max(0, firstDebt - lastDebt);
     const loanYearBlock = syModel?.hasAmortizingLoans
       ? `
@@ -13434,9 +13449,9 @@ function renderAnalysisPage() {
         ${rhAfterSetasideBlock}
       </div>
     </section>
-    ${salaryPeriodLoanBlock}
     ${fixedVarPeriodBlock}
     ${periodSpendBlock}
+    ${salaryPeriodLoanBlock}
     ${expenseListCard}
   `;
 
