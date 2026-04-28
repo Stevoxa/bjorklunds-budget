@@ -4239,9 +4239,11 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
       monthLabel: monthName(x.m)
     }));
   }
-  const snaps = periods.map((per) => {
+  const loanRows = computeLoanMetricsForPeriods(root, periods);
+  const snaps = periods.map((per, idx) => {
     const inc = sumIncomePaymentsInIsoRangeInclusive(root, per.startIso, per.endIso);
     const exp = sumExpensePaymentsInIsoRangeInclusive(root, per.startIso, per.endIso);
+    const loanRow = loanRows[idx] || { openingDebt: 0, amortization: 0, interest: 0, totalLoanCost: 0 };
     return {
       y: per.y,
       m: per.m,
@@ -4251,7 +4253,11 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
       payIso: per.payIso,
       inc,
       exp,
-      net: inc - exp
+      net: inc - exp,
+      loanOpeningDebt: loanRow.openingDebt,
+      loanAmortization: loanRow.amortization,
+      loanInterest: loanRow.interest,
+      loanTotalLoanCost: loanRow.totalLoanCost
     };
   });
   if (snaps.length === 0) {
@@ -4264,7 +4270,12 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
       totalInc: 0,
       totalExp: 0,
       avgMonthlyIncome: 0,
-      avgMonthlyExpense: 0
+      avgMonthlyExpense: 0,
+      loanOpeningDebtSum: 0,
+      loanAmortizationTotal: 0,
+      loanInterestTotal: 0,
+      loanTotalLoanCostTotal: 0,
+      hasAmortizingLoans: false
     };
   }
   let weakest = snaps[0];
@@ -4282,7 +4293,27 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
   const n = snaps.length;
   const avgMonthlyIncome = n > 0 ? totalInc / n : 0;
   const avgMonthlyExpense = n > 0 ? totalExp / n : 0;
-  return { snaps, yearNet, weakest, risks, bestSurplus, totalInc, totalExp, avgMonthlyIncome, avgMonthlyExpense };
+  const loanOpeningDebtSum = snaps.reduce((sum, s) => sum + asNumber(s.loanOpeningDebt), 0);
+  const loanAmortizationTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanAmortization), 0);
+  const loanInterestTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanInterest), 0);
+  const loanTotalLoanCostTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanTotalLoanCost), 0);
+  const hasAmortizingLoans = loanAmortizationTotal > 0.005;
+  return {
+    snaps,
+    yearNet,
+    weakest,
+    risks,
+    bestSurplus,
+    totalInc,
+    totalExp,
+    avgMonthlyIncome,
+    avgMonthlyExpense,
+    loanOpeningDebtSum,
+    loanAmortizationTotal,
+    loanInterestTotal,
+    loanTotalLoanCostTotal,
+    hasAmortizingLoans
+  };
 }
 
 /** Löneperioder utan underskott där utgifter/intäkter >= 0,85 (intäkter > 0). */
@@ -5194,6 +5225,62 @@ function renderSalaryYearMonthlyExpenseChartSvg(snaps, avgMonthlyIncomeFromYear,
       ${rects}
       ${refLineExp}
       ${refLineInc}
+      ${labels}
+    </svg>`;
+}
+
+function renderLoanOpeningDebtChartSvg(snaps) {
+  const rows = (snaps || []).map((s) => ({
+    m: s.m,
+    openingDebt: Math.max(0, asNumber(s.loanOpeningDebt))
+  }));
+  const n = rows.length;
+  if (!n) return "";
+  const W = 340;
+  const H = 236;
+  const padL = 46;
+  const padR = 12;
+  const padT = 30;
+  const padB = 32;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const axisY = padT + plotH;
+  const slot = plotW / n;
+  const bw = Math.max(4, Math.min(20, slot * 0.52));
+  const maxVal = Math.max(1, ...rows.map((r) => r.openingDebt));
+  const vMax = maxVal * 1.1;
+  const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
+  let rects = "";
+  let labels = "";
+  for (let i = 0; i < n; i++) {
+    const xMid = padL + slot * (i + 0.5);
+    const x = xMid - bw / 2;
+    const y = yPx(rows[i].openingDebt);
+    const h = Math.max(rows[i].openingDebt > 0.005 ? 1.2 : 0.8, axisY - y);
+    rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--loan-opening-debt" x="${x.toFixed(2)}" y="${(
+      axisY - h
+    ).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" />`;
+    labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(
+      salaryYearChartMonthShort(rows[i].m)
+    )}</text>`;
+  }
+  const yMid = (padT + axisY) / 2;
+  const x1 = padL + plotW;
+  const krLabel = `<text class="analysis-salary-year-chart__ylabel" x="12" y="${yMid.toFixed(1)}" transform="rotate(-90 12 ${yMid.toFixed(1)})">kr</text>`;
+  const yMaxTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--peak" x="${(padL - 5).toFixed(1)}" y="${(
+    padT + 11
+  ).toFixed(1)}" text-anchor="end">${escapeHtml(formatKr(maxVal))}</text>`;
+  const yZeroTick = `<text class="analysis-salary-year-chart__ytick analysis-salary-year-chart__ytick--zero" x="${(padL - 5).toFixed(1)}" y="${(
+    axisY - 2
+  ).toFixed(1)}" text-anchor="end">0</text>`;
+  return `
+    <svg class="analysis-salary-year-chart analysis-salary-year-chart--loan-debt" viewBox="0 0 ${W} ${H}" role="img" aria-label="Periodens ingående skuld per löneperiod.">
+      ${krLabel}
+      ${yMaxTick}
+      ${yZeroTick}
+      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${padT}" x2="${padL}" y2="${axisY}" />
+      <line class="analysis-salary-year-chart__axis" x1="${padL}" y1="${axisY}" x2="${x1}" y2="${axisY}" />
+      ${rects}
       ${labels}
     </svg>`;
 }
@@ -8459,6 +8546,87 @@ function getAllLoans() {
   return getAllLoansFromRoot(state);
 }
 
+function simulateLoanEntries(loan) {
+  const fp = datePartsFromIso(loan.firstPaymentDate);
+  if (!fp) return [];
+  const months = enumerateLoanMonths(loan);
+  if (!months.length) return [];
+  const ratePerMonth = parseRatePercent(loan.rate) / 100 / 12;
+  const requestedAmortization = Math.max(0, asNumber(loan.amortization));
+  let remainingDebt = Math.max(0, asNumber(loan.principal));
+  const out = [];
+  const due = fp.d;
+  for (const { year, month } of months) {
+    if (remainingDebt <= 0) break;
+    const openingDebt = remainingDebt;
+    const d = clampDay(year, month, due);
+    const iso = `${year}-${pad2(month)}-${pad2(d)}`;
+    const interest = openingDebt * ratePerMonth;
+    const amortization = Math.min(requestedAmortization, openingDebt);
+    const closingDebt = Math.max(0, openingDebt - amortization);
+    out.push({
+      loanId: String(loan.id || ""),
+      iso,
+      openingDebt,
+      amortization,
+      interest,
+      totalLoanCost: interest + amortization,
+      closingDebt
+    });
+    remainingDebt = closingDebt;
+  }
+  return out;
+}
+
+function buildLoanTimelineForRoot(root) {
+  const loans = getAllLoansFromRoot(root).filter((loan) => asNumber(loan.amortization) > 0);
+  const entries = [];
+  for (const loan of loans) entries.push(...simulateLoanEntries(loan));
+  entries.sort((a, b) => String(a.iso).localeCompare(String(b.iso)));
+  return { loans, entries };
+}
+
+function computeLoanMetricsForPeriods(root, periods) {
+  const periodRows = Array.isArray(periods) ? periods : [];
+  const { loans, entries } = buildLoanTimelineForRoot(root);
+  if (!loans.length || !periodRows.length) {
+    return periodRows.map(() => ({
+      openingDebt: 0,
+      amortization: 0,
+      interest: 0,
+      totalLoanCost: 0
+    }));
+  }
+  const balances = new Map(loans.map((loan) => [String(loan.id), Math.max(0, asNumber(loan.principal))]));
+  let ptr = 0;
+  const rows = [];
+  for (const per of periodRows) {
+    const startIso = String(per?.startIso || "");
+    const endIso = String(per?.endIso || "");
+    while (ptr < entries.length && entries[ptr].iso < startIso) {
+      balances.set(entries[ptr].loanId, entries[ptr].closingDebt);
+      ptr += 1;
+    }
+    const openingDebt = [...balances.values()].reduce((sum, v) => sum + Math.max(0, asNumber(v)), 0);
+    let amortization = 0;
+    let interest = 0;
+    while (ptr < entries.length && entries[ptr].iso <= endIso) {
+      const row = entries[ptr];
+      amortization += Math.max(0, asNumber(row.amortization));
+      interest += Math.max(0, asNumber(row.interest));
+      balances.set(row.loanId, row.closingDebt);
+      ptr += 1;
+    }
+    rows.push({
+      openingDebt,
+      amortization,
+      interest,
+      totalLoanCost: amortization + interest
+    });
+  }
+  return rows;
+}
+
 /** Tar bort speglade låneposter och bygger om från special.loans (masterdata). */
 function regenerateMirroredLoanExpenses(root) {
   if (!root || !Array.isArray(root.expenses)) return;
@@ -8467,20 +8635,15 @@ function regenerateMirroredLoanExpenses(root) {
   for (const loan of loans) {
     const fp = datePartsFromIso(loan.firstPaymentDate);
     if (!fp) continue;
-    const months = enumerateLoanMonths(loan);
-    if (months.length === 0) continue;
-    const interest = getLoanInterestAmount(loan);
-    const amort = asNumber(loan.amortization);
-    const due = fp.d;
+    const entries = simulateLoanEntries(loan);
+    if (!entries.length) continue;
     const nm = String(loan.name || "").trim() || "Lån";
     const loanMeta = { loanId: String(loan.id) };
     const interestPayments = [];
     const amortPayments = [];
-    for (const { year, month } of months) {
-      const d = clampDay(year, month, due);
-      const iso = `${year}-${pad2(month)}-${pad2(d)}`;
-      interestPayments.push({ id: uid(), date: iso, amount: interest });
-      amortPayments.push({ id: uid(), date: iso, amount: amort });
+    for (const row of entries) {
+      interestPayments.push({ id: uid(), date: row.iso, amount: row.interest });
+      amortPayments.push({ id: uid(), date: row.iso, amount: row.amortization });
     }
     root.expenses.push(
       canonicalizeExpenseRecord({
@@ -12700,6 +12863,55 @@ function renderAnalysisPage() {
         </div>
       </div>`
         : "";
+    const loanYearChartSvg = syModel?.hasAmortizingLoans ? renderLoanOpeningDebtChartSvg(syModel.snaps) : "";
+    const loanYearDetailRows = syModel?.hasAmortizingLoans
+      ? syModel.snaps
+          .map(
+            (s) =>
+              `<div class="analysis-salary-year-chart-detail-row"><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(
+                salaryYearChartMonthShort(s.m)
+              )}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(formatKr(s.loanOpeningDebt || 0))}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(
+                formatKr(s.loanAmortization || 0)
+              )}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(formatKr(s.loanInterest || 0))}</span></div>`
+          )
+          .join("")
+      : "";
+    const loanYearBlock = syModel?.hasAmortizingLoans
+      ? `
+      <div class="table-card analysis-loans-card">
+        <div class="table-title analysis-salary-year-title">Lån och amortering</div>
+        <div class="analysis-salary-hero__minis analysis-salary-hero__minis--year analysis-loans-kpis">
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Periodens ingående skuld</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.snaps[0]?.loanOpeningDebt || 0))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Amorteringsbeloppet</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanAmortizationTotal || 0))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Ränta under perioden</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanInterestTotal || 0))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Summa lånekostnad</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanTotalLoanCostTotal || 0))}</div>
+          </div>
+        </div>
+        <p class="note analysis-salary-year-ingress">Staplarna visar periodens ingående skuld per löneperiod.</p>
+        <div class="analysis-salary-year-chart-wrap">
+          <div class="analysis-salary-year-chart-head">
+            <span>Total lånesumma per löneperiod</span>
+            <span>${escapeHtml(payBreakpointHint)}</span>
+          </div>
+          ${loanYearChartSvg}
+          <div class="analysis-salary-year-chart-detail" aria-label="Lånedetaljer per löneperiod">
+            <div class="analysis-salary-year-chart-detail-head"><span>Period</span><span>Ingående skuld</span><span>Amortering</span><span>Ränta</span></div>
+            <div class="analysis-salary-year-chart-detail-rows">${loanYearDetailRows}</div>
+          </div>
+        </div>
+      </div>`
+      : "";
 
     let robinBlock = "";
     if (syModel && risks.length > 0 && bounds && gSnapsForRobin && gAllocForRobin) {
@@ -13010,6 +13222,7 @@ function renderAnalysisPage() {
         </div>
       </section>
       ${periodsBlock}
+      ${loanYearBlock}
       ${robinBlock}
       ${salaryYearSpendBlock}
     `;
@@ -13120,10 +13333,41 @@ function renderAnalysisPage() {
   const eventsMonthTitle = payP ? `Händelser i ${monthName(payP.m).toLowerCase()}` : "Händelser";
   let salaryPeriodDoughnutModel = null;
   let salaryPeriodFvModel = null;
+  let salaryPeriodLoanBlock = "";
   let periodSpendBlock = "";
   let expenseListCard = "";
   let fixedVarPeriodBlock = "";
   if (win?.startIso && win?.endIso) {
+    const loanPeriodRow = computeLoanMetricsForPeriods(state, [win])[0] || {
+      openingDebt: 0,
+      amortization: 0,
+      interest: 0,
+      totalLoanCost: 0
+    };
+    if (loanPeriodRow.amortization > 0.005) {
+      salaryPeriodLoanBlock = `
+      <div class="table-card analysis-loans-card">
+        <div class="table-title analysis-salary-year-title">Lån och amortering</div>
+        <div class="analysis-salary-hero__minis analysis-loans-kpis">
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Periodens ingående skuld</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.openingDebt))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Amorteringsbeloppet</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.amortization))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Ränta under perioden</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.interest))}</div>
+          </div>
+          <div class="analysis-salary-hero__mini">
+            <div class="analysis-salary-hero__mini-label">Summa lånekostnad</div>
+            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.totalLoanCost))}</div>
+          </div>
+        </div>
+      </div>`;
+    }
     salaryPeriodFvModel = buildSalaryPeriodFixedVariableWeekBarsSv(win.startIso, win.endIso);
     const fvLegendHtml = buildSalaryPeriodFixedVarLegendHtml(salaryPeriodFvModel);
     fixedVarPeriodBlock =
@@ -13215,6 +13459,7 @@ function renderAnalysisPage() {
         ${rhAfterSetasideBlock}
       </div>
     </section>
+    ${salaryPeriodLoanBlock}
     ${fixedVarPeriodBlock}
     ${periodSpendBlock}
     ${expenseListCard}

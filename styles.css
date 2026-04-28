@@ -5083,6 +5083,11 @@ html[data-theme="dark"] .analysis-salary-period-event-row--setaside .analysis-sa
   stroke-width: 0.45;
 }
 
+.analysis-salary-year-chart__bar--loan-opening-debt {
+  fill: color-mix(in srgb, var(--accent-strong, #255f33) 72%, #d2efd8);
+  stroke: none;
+}
+
 @media (prefers-color-scheme: dark) {
   .analysis-salary-year-chart__bar--deficit-income-slice,
   .analysis-salary-year-chart__bar--expense-within-income {
@@ -5113,6 +5118,14 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--expense-within-income 
 html[data-theme="dark"] .analysis-salary-year-chart__bar--surplus-on-income {
   fill: #a8f0c0;
   opacity: 1;
+}
+
+html[data-theme="dark"] .analysis-salary-year-chart__bar--loan-opening-debt {
+  fill: #5ea876;
+}
+
+.analysis-loans-card .analysis-salary-hero__minis {
+  margin-top: var(--space-2);
 }
 
 .analysis-salary-year-chart__ylabel {
