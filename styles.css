@@ -5128,6 +5128,23 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--loan-opening-debt {
   margin-top: var(--space-2);
 }
 
+.analysis-loans-card .analysis-salary-hero__mini {
+  background: color-mix(in srgb, var(--text) 4%, transparent);
+  border-color: var(--border);
+}
+
+.analysis-loans-card .analysis-salary-hero__mini-label {
+  color: var(--muted);
+}
+
+.analysis-loans-card .analysis-salary-hero__mini-value {
+  color: var(--text);
+}
+
+html[data-theme="dark"] .analysis-loans-card .analysis-salary-hero__mini {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
 .analysis-loan-period-list {
   margin-top: var(--space-3);
   border-top: 1px solid var(--border);
