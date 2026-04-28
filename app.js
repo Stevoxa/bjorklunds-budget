@@ -13212,9 +13212,9 @@ function renderAnalysisPage() {
         </div>
       </section>
       ${periodsBlock}
-      ${loanYearBlock}
       ${robinBlock}
       ${salaryYearSpendBlock}
+      ${loanYearBlock}
     `;
     playAnalysisViewDetailEnterAnimation(mount);
     document.getElementById("analysisSalaryYearPrevBtn")?.addEventListener("click", () => {
