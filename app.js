@@ -5250,6 +5250,7 @@ function renderLoanOpeningDebtChartSvg(snaps) {
   const maxVal = Math.max(1, ...rows.map((r) => r.openingDebt));
   const vMax = maxVal * 1.1;
   const yPx = (v) => axisY - (Math.max(0, Math.min(v, vMax)) / vMax) * plotH;
+  const loanFill = chartSegmentHex("loans");
   let rects = "";
   let labels = "";
   for (let i = 0; i < n; i++) {
@@ -5257,7 +5258,7 @@ function renderLoanOpeningDebtChartSvg(snaps) {
     const x = xMid - bw / 2;
     const y = yPx(rows[i].openingDebt);
     const h = Math.max(rows[i].openingDebt > 0.005 ? 1.2 : 0.8, axisY - y);
-    rects += `<rect class="analysis-salary-year-chart__bar analysis-salary-year-chart__bar--loan-opening-debt" x="${x.toFixed(2)}" y="${(
+    rects += `<rect class="analysis-salary-year-chart__bar" style="fill:${escapeHtml(loanFill)};stroke:none" x="${x.toFixed(2)}" y="${(
       axisY - h
     ).toFixed(2)}" width="${bw.toFixed(2)}" height="${h.toFixed(2)}" />`;
     labels += `<text class="analysis-salary-year-chart__xlabel" x="${xMid.toFixed(2)}" y="${H - 6}">${escapeHtml(
@@ -8588,8 +8589,8 @@ function buildLoanTimelineForRoot(root) {
 
 function computeLoanMetricsForPeriods(root, periods) {
   const periodRows = Array.isArray(periods) ? periods : [];
-  const { loans, entries } = buildLoanTimelineForRoot(root);
-  if (!loans.length || !periodRows.length) {
+  const { entries } = buildLoanTimelineForRoot(root);
+  if (!entries.length || !periodRows.length) {
     return periodRows.map(() => ({
       openingDebt: 0,
       amortization: 0,
@@ -8597,34 +8598,20 @@ function computeLoanMetricsForPeriods(root, periods) {
       totalLoanCost: 0
     }));
   }
-  const balances = new Map(loans.map((loan) => [String(loan.id), Math.max(0, asNumber(loan.principal))]));
-  let ptr = 0;
-  const rows = [];
-  for (const per of periodRows) {
-    const startIso = String(per?.startIso || "");
-    const endIso = String(per?.endIso || "");
-    while (ptr < entries.length && entries[ptr].iso < startIso) {
-      balances.set(entries[ptr].loanId, entries[ptr].closingDebt);
-      ptr += 1;
-    }
-    const openingDebt = [...balances.values()].reduce((sum, v) => sum + Math.max(0, asNumber(v)), 0);
-    let amortization = 0;
-    let interest = 0;
-    while (ptr < entries.length && entries[ptr].iso <= endIso) {
-      const row = entries[ptr];
-      amortization += Math.max(0, asNumber(row.amortization));
-      interest += Math.max(0, asNumber(row.interest));
-      balances.set(row.loanId, row.closingDebt);
-      ptr += 1;
-    }
-    rows.push({
+  return periodRows.map((per) => {
+    const startIso = String(per?.startIso || "").slice(0, 10);
+    const endIso = String(per?.endIso || "").slice(0, 10);
+    const rowsInPeriod = entries.filter((entry) => entry.iso >= startIso && entry.iso <= endIso);
+    const openingDebt = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.openingDebt)), 0);
+    const amortization = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.amortization)), 0);
+    const interest = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.interest)), 0);
+    return {
       openingDebt,
       amortization,
       interest,
       totalLoanCost: amortization + interest
-    });
-  }
-  return rows;
+    };
+  });
 }
 
 /** Tar bort speglade låneposter och bygger om från special.loans (masterdata). */
@@ -12864,40 +12851,26 @@ function renderAnalysisPage() {
       </div>`
         : "";
     const loanYearChartSvg = syModel?.hasAmortizingLoans ? renderLoanOpeningDebtChartSvg(syModel.snaps) : "";
-    const loanYearDetailRows = syModel?.hasAmortizingLoans
+    const loanYearPeriodRows = syModel?.hasAmortizingLoans
       ? syModel.snaps
-          .map(
-            (s) =>
-              `<div class="analysis-salary-year-chart-detail-row"><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(
-                salaryYearChartMonthShort(s.m)
-              )}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(formatKr(s.loanOpeningDebt || 0))}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(
-                formatKr(s.loanAmortization || 0)
-              )}</span><span class="analysis-salary-year-chart-detail-cell">${escapeHtml(formatKr(s.loanInterest || 0))}</span></div>`
-          )
+          .map((s) => {
+            const month = String(salaryYearChartMonthShort(s.m) || "").toLowerCase();
+            const openingDebt = Math.max(0, asNumber(s.loanOpeningDebt));
+            return `<li class="analysis-loan-period-list__item"><span class="analysis-loan-period-list__month">${escapeHtml(
+              month
+            )}</span><span class="analysis-loan-period-list__amount">${escapeHtml(formatKr(openingDebt))}</span></li>`;
+          })
           .join("")
       : "";
+    const firstDebt = syModel?.snaps?.length ? Math.max(0, asNumber(syModel.snaps[0]?.loanOpeningDebt)) : 0;
+    const lastDebt = syModel?.snaps?.length
+      ? Math.max(0, asNumber(syModel.snaps[syModel.snaps.length - 1]?.loanOpeningDebt))
+      : 0;
+    const debtDrop = Math.max(0, firstDebt - lastDebt);
     const loanYearBlock = syModel?.hasAmortizingLoans
       ? `
       <div class="table-card analysis-loans-card">
-        <div class="table-title analysis-salary-year-title">Lån och amortering</div>
-        <div class="analysis-salary-hero__minis analysis-salary-hero__minis--year analysis-loans-kpis">
-          <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Periodens ingående skuld</div>
-            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.snaps[0]?.loanOpeningDebt || 0))}</div>
-          </div>
-          <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Amorteringsbeloppet</div>
-            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanAmortizationTotal || 0))}</div>
-          </div>
-          <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Ränta under perioden</div>
-            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanInterestTotal || 0))}</div>
-          </div>
-          <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Summa lånekostnad</div>
-            <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(syModel.loanTotalLoanCostTotal || 0))}</div>
-          </div>
-        </div>
+        <div class="table-title">Lån och amortering</div>
         <p class="note analysis-salary-year-ingress">Staplarna visar periodens ingående skuld per löneperiod.</p>
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
@@ -12905,9 +12878,11 @@ function renderAnalysisPage() {
             <span>${escapeHtml(payBreakpointHint)}</span>
           </div>
           ${loanYearChartSvg}
-          <div class="analysis-salary-year-chart-detail" aria-label="Lånedetaljer per löneperiod">
-            <div class="analysis-salary-year-chart-detail-head"><span>Period</span><span>Ingående skuld</span><span>Amortering</span><span>Ränta</span></div>
-            <div class="analysis-salary-year-chart-detail-rows">${loanYearDetailRows}</div>
+          <div class="analysis-loan-period-list" aria-label="Periodens ingående skuld per löneperiod">
+            <ul class="analysis-loan-period-list__rows">${loanYearPeriodRows}</ul>
+            <p class="analysis-loan-period-list__summary">Dina lån minskar från ${escapeHtml(formatKr(firstDebt))} till ${escapeHtml(
+              formatKr(lastDebt)
+            )} under perioden (${escapeHtml(formatKr(debtDrop))}).</p>
           </div>
         </div>
       </div>`
@@ -13347,22 +13322,22 @@ function renderAnalysisPage() {
     if (loanPeriodRow.amortization > 0.005) {
       salaryPeriodLoanBlock = `
       <div class="table-card analysis-loans-card">
-        <div class="table-title analysis-salary-year-title">Lån och amortering</div>
+        <div class="table-title">Lån och amortering</div>
         <div class="analysis-salary-hero__minis analysis-loans-kpis">
           <div class="analysis-salary-hero__mini">
             <div class="analysis-salary-hero__mini-label">Periodens ingående skuld</div>
             <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.openingDebt))}</div>
           </div>
           <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Amorteringsbeloppet</div>
+            <div class="analysis-salary-hero__mini-label">Amorterings belopp</div>
             <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.amortization))}</div>
           </div>
           <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Ränta under perioden</div>
+            <div class="analysis-salary-hero__mini-label">Räntebelopp</div>
             <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.interest))}</div>
           </div>
           <div class="analysis-salary-hero__mini">
-            <div class="analysis-salary-hero__mini-label">Summa lånekostnad</div>
+            <div class="analysis-salary-hero__mini-label">Total lånekostnad</div>
             <div class="analysis-salary-hero__mini-value">${escapeHtml(formatKr(loanPeriodRow.totalLoanCost))}</div>
           </div>
         </div>

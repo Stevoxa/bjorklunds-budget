@@ -5128,6 +5128,44 @@ html[data-theme="dark"] .analysis-salary-year-chart__bar--loan-opening-debt {
   margin-top: var(--space-2);
 }
 
+.analysis-loan-period-list {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+.analysis-loan-period-list__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.analysis-loan-period-list__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.9375rem;
+}
+
+.analysis-loan-period-list__month {
+  color: var(--text);
+  text-transform: lowercase;
+}
+
+.analysis-loan-period-list__amount {
+  color: var(--text);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-loan-period-list__summary {
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+}
+
 .analysis-salary-year-chart__ylabel {
   fill: var(--muted);
   font-size: 11px;
