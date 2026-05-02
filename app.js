@@ -8589,22 +8589,36 @@ function buildLoanTimelineForRoot(root) {
 
 function computeLoanMetricsForPeriods(root, periods) {
   const periodRows = Array.isArray(periods) ? periods : [];
+  if (!periodRows.length) return [];
   const { entries } = buildLoanTimelineForRoot(root);
-  if (!entries.length || !periodRows.length) {
-    return periodRows.map(() => ({
-      openingDebt: 0,
-      amortization: 0,
-      interest: 0,
-      totalLoanCost: 0
-    }));
-  }
+  const loanExpenses = Array.isArray(root?.expenses)
+    ? root.expenses.filter((e) => e?.category === "loans" && e?.metadata?.loanId)
+    : [];
   return periodRows.map((per) => {
     const startIso = String(per?.startIso || "").slice(0, 10);
     const endIso = String(per?.endIso || "").slice(0, 10);
-    const rowsInPeriod = entries.filter((entry) => entry.iso >= startIso && entry.iso <= endIso);
-    const openingDebt = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.openingDebt)), 0);
-    const amortization = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.amortization)), 0);
-    const interest = rowsInPeriod.reduce((sum, row) => sum + Math.max(0, asNumber(row.interest)), 0);
+    let interest = 0;
+    let amortization = 0;
+    if (startIso && endIso) {
+      for (const exp of loanExpenses) {
+        const sub = String(exp.subcategory || "");
+        const isInterest = sub === "interest";
+        const isAmort = sub === "amortization";
+        if (!isInterest && !isAmort) continue;
+        for (const p of exp.payments || []) {
+          const d = String(p?.date || "").slice(0, 10);
+          if (!d || d < startIso || d > endIso) continue;
+          const amt = Math.max(0, asNumber(p?.amount));
+          if (isInterest) interest += amt;
+          else amortization += amt;
+        }
+      }
+    }
+    const openingDebt = entries.length && startIso && endIso
+      ? entries
+          .filter((entry) => entry.iso >= startIso && entry.iso <= endIso)
+          .reduce((sum, row) => sum + Math.max(0, asNumber(row.openingDebt)), 0)
+      : 0;
     return {
       openingDebt,
       amortization,
