@@ -6096,6 +6096,8 @@ const ui = {
   analysisSalaryPeriodOffset: 0,
   /** Löneår: filter för Lån och amortering ("all" eller specifik loan.id) */
   analysisSalaryYearLoanFilterId: "all",
+  /** Löneperiod: filter för Lån och amortering ("all" eller specifik loan.id) */
+  analysisSalaryPeriodLoanFilterId: "all",
   // Utgifter
   expensesYear: null,
   expensesTab: "summary",
@@ -13443,20 +13445,81 @@ function renderAnalysisPage() {
   let expenseListCard = "";
   let fixedVarPeriodBlock = "";
   if (win?.startIso && win?.endIso) {
-    const loanPeriodRow = computeLoanMetricsForPeriods(state, [win])[0] || {
+    const loanPeriodTotalsAll = computeLoanMetricsForPeriods(state, [win])[0] || {
       openingDebt: 0,
       amortization: 0,
       interest: 0,
       totalLoanCost: 0
     };
+    const allLoansForPeriodFilter = getAllLoansFromRoot(state).filter((l) => asNumber(l.principal) > 0);
+    const validPeriodLoanIdSet = new Set(allLoansForPeriodFilter.map((l) => String(l.id)));
     if (
-      loanPeriodRow.amortization > 0.005 ||
-      loanPeriodRow.interest > 0.005 ||
-      loanPeriodRow.openingDebt > 0.005
+      ui.analysisSalaryPeriodLoanFilterId &&
+      ui.analysisSalaryPeriodLoanFilterId !== "all" &&
+      !validPeriodLoanIdSet.has(String(ui.analysisSalaryPeriodLoanFilterId))
     ) {
+      ui.analysisSalaryPeriodLoanFilterId = "all";
+    }
+    const activePeriodLoanFilterId = ui.analysisSalaryPeriodLoanFilterId || "all";
+    const loanPeriodRow =
+      activePeriodLoanFilterId === "all"
+        ? loanPeriodTotalsAll
+        : computeLoanMetricsForPeriods(state, [win], activePeriodLoanFilterId)[0] || {
+            openingDebt: 0,
+            amortization: 0,
+            interest: 0,
+            totalLoanCost: 0
+          };
+    const showPeriodLoanCard =
+      loanPeriodTotalsAll.amortization > 0.005 ||
+      loanPeriodTotalsAll.interest > 0.005 ||
+      loanPeriodTotalsAll.openingDebt > 0.005;
+    if (showPeriodLoanCard) {
+      const periodLoanFilterOptions = [
+        { value: "all", label: "Alla lån" },
+        ...allLoansForPeriodFilter.map((l) => {
+          const id = String(l.id);
+          const label = String(l.name || "Lån").trim() || "Lån";
+          const bank = String(l.bank || "").trim();
+          return { value: id, label: bank ? `${label} · ${bank}` : label };
+        })
+      ];
+      const periodLoanFilterCurrent =
+        periodLoanFilterOptions.find((o) => o.value === activePeriodLoanFilterId) ||
+        periodLoanFilterOptions[0];
+      const periodLoanFilterHiddenOptionsHtml = periodLoanFilterOptions
+        .map(
+          (o) =>
+            `<option value="${escapeHtml(o.value)}"${
+              o.value === activePeriodLoanFilterId ? " selected" : ""
+            }>${escapeHtml(o.label)}</option>`
+        )
+        .join("");
+      const periodLoanFilterControlHtml =
+        allLoansForPeriodFilter.length > 1
+          ? `<div class="field analysis-loan-filter">
+              <div class="bb-notched-field" role="group" aria-label="Visa lån">
+                <div class="bb-notched-field-legend">Visa lån</div>
+                <button
+                  type="button"
+                  class="bb-notched-field-btn"
+                  id="analysisSalaryPeriodLoanFilterOpenBtn"
+                  aria-haspopup="dialog"
+                  aria-controls="listPickerSheet"
+                >
+                  <span class="bb-notched-field-value" id="analysisSalaryPeriodLoanFilterSummary">${escapeHtml(
+                    periodLoanFilterCurrent?.label || "Alla lån"
+                  )}</span>
+                  <span class="bb-notched-field-chev" aria-hidden="true"></span>
+                </button>
+              </div>
+              <select id="analysisSalaryPeriodLoanFilterSelect" class="visually-hidden-select" tabindex="-1" aria-hidden="true">${periodLoanFilterHiddenOptionsHtml}</select>
+            </div>`
+          : "";
       salaryPeriodLoanBlock = `
       <div class="table-card analysis-loans-card">
         <div class="table-title">Lån och amortering</div>
+        ${periodLoanFilterControlHtml}
         <div class="analysis-salary-hero__minis analysis-loans-kpis">
           <div class="analysis-salary-hero__mini">
             <div class="analysis-salary-hero__mini-label">Periodens ingående skuld</div>
@@ -13583,6 +13646,28 @@ function renderAnalysisPage() {
     ui.analysisSalaryPeriodOffset += 1;
     renderAnalysisPage();
   });
+  const periodLoanFilterOpenBtn = document.getElementById("analysisSalaryPeriodLoanFilterOpenBtn");
+  if (periodLoanFilterOpenBtn) {
+    periodLoanFilterOpenBtn.addEventListener("click", () => {
+      const sel = document.getElementById("analysisSalaryPeriodLoanFilterSelect");
+      if (!sel) return;
+      const options = Array.from(sel.options).map((o) => ({
+        value: o.value,
+        label: o.textContent || o.value
+      }));
+      openListPickerSheet({
+        title: "Visa lån",
+        options,
+        currentValue: String(sel.value || "all"),
+        onSelect: (value) => {
+          const v = String(value || "all");
+          if (ui.analysisSalaryPeriodLoanFilterId === v) return;
+          ui.analysisSalaryPeriodLoanFilterId = v;
+          renderAnalysisPage();
+        }
+      });
+    });
+  }
   wireSalaryPeriodSpendChart(salaryPeriodDoughnutModel);
   wireSalaryPeriodFixedVariableChart(salaryPeriodFvModel);
 }
@@ -16665,10 +16750,21 @@ async function registerServiceWorker() {
     });
 
     let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const triggerReload = () => {
       if (reloading) return;
       reloading = true;
-      window.location.reload();
+      try {
+        window.location.reload();
+      } catch {
+        /* ignore */
+      }
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", triggerReload);
+    navigator.serviceWorker.addEventListener("message", (ev) => {
+      const data = ev?.data;
+      if (data && data.type === "SW_ACTIVATED") {
+        triggerReload();
+      }
     });
 
     const triggerUpdate = () => {
@@ -16678,10 +16774,12 @@ async function registerServiceWorker() {
     };
 
     triggerUpdate();
-    setInterval(triggerUpdate, 60 * 1000);
+    setInterval(triggerUpdate, 30 * 1000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") triggerUpdate();
     });
+    window.addEventListener("focus", triggerUpdate);
+    window.addEventListener("online", triggerUpdate);
   } catch {
     // Silent
   }

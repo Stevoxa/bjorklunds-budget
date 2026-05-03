@@ -1,7 +1,7 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v43";
+const CACHE_NAME = "bjorklunds-budget-v45";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
@@ -64,6 +64,17 @@ self.addEventListener("activate", (event) => {
       .keys()
       .then((keys) => Promise.all(keys.map((k) => (k === CACHE_NAME ? null : caches.delete(k)))))
       .then(() => self.clients.claim())
+      .then(() =>
+        self.clients.matchAll({ type: "window" }).then((clients) => {
+          for (const client of clients) {
+            try {
+              client.postMessage({ type: "SW_ACTIVATED", cache: CACHE_NAME });
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+      )
   );
 });
 
