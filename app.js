@@ -4297,7 +4297,8 @@ function buildSalaryYearAnalysisModel(root, bounds, sortedPayIsos) {
   const loanAmortizationTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanAmortization), 0);
   const loanInterestTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanInterest), 0);
   const loanTotalLoanCostTotal = snaps.reduce((sum, s) => sum + asNumber(s.loanTotalLoanCost), 0);
-  const hasAmortizingLoans = loanAmortizationTotal > 0.005;
+  const hasAmortizingLoans =
+    loanAmortizationTotal > 0.005 || loanInterestTotal > 0.005 || loanOpeningDebtSum > 0.005;
   return {
     snaps,
     yearNet,
@@ -8580,7 +8581,7 @@ function simulateLoanEntries(loan) {
 }
 
 function buildLoanTimelineForRoot(root) {
-  const loans = getAllLoansFromRoot(root).filter((loan) => asNumber(loan.amortization) > 0);
+  const loans = getAllLoansFromRoot(root).filter((loan) => asNumber(loan.principal) > 0);
   const entries = [];
   for (const loan of loans) entries.push(...simulateLoanEntries(loan));
   entries.sort((a, b) => String(a.iso).localeCompare(String(b.iso)));
@@ -13348,7 +13349,11 @@ function renderAnalysisPage() {
       interest: 0,
       totalLoanCost: 0
     };
-    if (loanPeriodRow.amortization > 0.005) {
+    if (
+      loanPeriodRow.amortization > 0.005 ||
+      loanPeriodRow.interest > 0.005 ||
+      loanPeriodRow.openingDebt > 0.005
+    ) {
       salaryPeriodLoanBlock = `
       <div class="table-card analysis-loans-card">
         <div class="table-title">Lån och amortering</div>
