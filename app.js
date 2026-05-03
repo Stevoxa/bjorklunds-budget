@@ -12948,9 +12948,14 @@ function renderAnalysisPage() {
     ].join("");
     const loanFilterControlHtml =
       allLoansForFilter.length > 1
-        ? `<div class="analysis-loan-filter">
-            <label class="analysis-loan-filter__label" for="analysisSalaryYearLoanFilterSelect">Visa lån</label>
-            <select id="analysisSalaryYearLoanFilterSelect" class="analysis-loan-filter__select" aria-label="Filtrera lån i diagrammet">${loanFilterOptionsHtml}</select>
+        ? `<div class="analysis-loan-filter field">
+            <div class="bb-notched-field" role="group" aria-label="Visa lån">
+              <div class="bb-notched-field-legend">Visa lån</div>
+              <div class="bb-notched-field-select-wrap">
+                <select id="analysisSalaryYearLoanFilterSelect" class="bb-notched-field-select" aria-label="Filtrera lån i diagrammet">${loanFilterOptionsHtml}</select>
+                <span class="bb-notched-field-chev" aria-hidden="true"></span>
+              </div>
+            </div>
           </div>`
         : "";
     const loanYearBlock = syModel?.hasAmortizingLoans

@@ -5189,47 +5189,7 @@ html[data-theme="dark"] .analysis-loans-card .analysis-salary-hero__mini {
 }
 
 .analysis-loan-filter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin: var(--space-3) 0 var(--space-2);
-  flex-wrap: wrap;
-}
-
-.analysis-loan-filter__label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.analysis-loan-filter__select {
-  flex: 1;
-  min-width: 0;
-  appearance: none;
-  -webkit-appearance: none;
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 8px 36px 8px 12px;
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.9375rem;
-  line-height: 1.35;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%237a8a80'><path d='M5 7l5 6 5-6z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 14px 14px;
-  cursor: pointer;
-}
-
-.analysis-loan-filter__select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-html[data-theme="dark"] .analysis-loan-filter__select {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a8b6ad'><path d='M5 7l5 6 5-6z'/></svg>");
 }
 
 .analysis-salary-year-chart__ylabel {
