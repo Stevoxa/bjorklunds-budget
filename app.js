@@ -6094,6 +6094,8 @@ const ui = {
   analysisSalaryYearNav: 0,
   /** Löneperiod: offset från automatisk nuvarande period */
   analysisSalaryPeriodOffset: 0,
+  /** Löneår: filter för Lån och amortering ("all" eller specifik loan.id) */
+  analysisSalaryYearLoanFilterId: "all",
   // Utgifter
   expensesYear: null,
   expensesTab: "summary",
@@ -8588,12 +8590,19 @@ function buildLoanTimelineForRoot(root) {
   return { loans, entries };
 }
 
-function computeLoanMetricsForPeriods(root, periods) {
+function computeLoanMetricsForPeriods(root, periods, loanIdFilter = null) {
   const periodRows = Array.isArray(periods) ? periods : [];
   if (!periodRows.length) return [];
-  const { entries } = buildLoanTimelineForRoot(root);
+  const filterId = loanIdFilter && loanIdFilter !== "all" ? String(loanIdFilter) : null;
+  const { entries: rawEntries } = buildLoanTimelineForRoot(root);
+  const entries = filterId ? rawEntries.filter((entry) => String(entry.loanId) === filterId) : rawEntries;
   const loanExpenses = Array.isArray(root?.expenses)
-    ? root.expenses.filter((e) => e?.category === "loans" && e?.metadata?.loanId)
+    ? root.expenses.filter(
+        (e) =>
+          e?.category === "loans" &&
+          e?.metadata?.loanId &&
+          (!filterId || String(e.metadata.loanId) === filterId)
+      )
     : [];
   return periodRows.map((per) => {
     const startIso = String(per?.startIso || "").slice(0, 10);
@@ -12865,9 +12874,33 @@ function renderAnalysisPage() {
         </div>
       </div>`
         : "";
-    const loanYearChartSvg = syModel?.hasAmortizingLoans ? renderLoanOpeningDebtChartSvg(syModel.snaps) : "";
+    const allLoansForFilter = getAllLoansFromRoot(state).filter((l) => asNumber(l.principal) > 0);
+    const validLoanIdSet = new Set(allLoansForFilter.map((l) => String(l.id)));
+    if (
+      ui.analysisSalaryYearLoanFilterId &&
+      ui.analysisSalaryYearLoanFilterId !== "all" &&
+      !validLoanIdSet.has(String(ui.analysisSalaryYearLoanFilterId))
+    ) {
+      ui.analysisSalaryYearLoanFilterId = "all";
+    }
+    const activeLoanFilterId = ui.analysisSalaryYearLoanFilterId || "all";
+    const filteredLoanRows =
+      syModel?.hasAmortizingLoans && syModel.snaps?.length
+        ? computeLoanMetricsForPeriods(state, syModel.snaps, activeLoanFilterId)
+        : [];
+    const filteredLoanSnaps = (syModel?.snaps || []).map((s, idx) => {
+      const r = filteredLoanRows[idx] || { openingDebt: 0, amortization: 0, interest: 0, totalLoanCost: 0 };
+      return {
+        ...s,
+        loanOpeningDebt: r.openingDebt,
+        loanAmortization: r.amortization,
+        loanInterest: r.interest,
+        loanTotalLoanCost: r.totalLoanCost
+      };
+    });
+    const loanYearChartSvg = syModel?.hasAmortizingLoans ? renderLoanOpeningDebtChartSvg(filteredLoanSnaps) : "";
     const loanYearPeriodRows = syModel?.hasAmortizingLoans
-      ? syModel.snaps
+      ? filteredLoanSnaps
           .map((s) => {
             const month = String(salaryYearChartMonthShort(s.m) || "").toLowerCase();
             const openingDebt = Math.max(0, asNumber(s.loanOpeningDebt));
@@ -12877,31 +12910,55 @@ function renderAnalysisPage() {
           })
           .join("")
       : "";
-    const loanTimeline = syModel?.snaps || [];
-    const firstDebtIdx = loanTimeline.findIndex((s) => Math.max(0, asNumber(s.loanOpeningDebt)) > 0.005);
+    const firstDebtIdx = filteredLoanSnaps.findIndex((s) => Math.max(0, asNumber(s.loanOpeningDebt)) > 0.005);
     const lastDebtIdx = (() => {
-      for (let i = loanTimeline.length - 1; i >= 0; i--) {
-        const opening = Math.max(0, asNumber(loanTimeline[i]?.loanOpeningDebt));
-        const amort = Math.max(0, asNumber(loanTimeline[i]?.loanAmortization));
+      for (let i = filteredLoanSnaps.length - 1; i >= 0; i--) {
+        const opening = Math.max(0, asNumber(filteredLoanSnaps[i]?.loanOpeningDebt));
+        const amort = Math.max(0, asNumber(filteredLoanSnaps[i]?.loanAmortization));
         if (opening > 0.005 || amort > 0.005) return i;
       }
       return -1;
     })();
-    const firstDebt = firstDebtIdx >= 0 ? Math.max(0, asNumber(loanTimeline[firstDebtIdx]?.loanOpeningDebt)) : 0;
+    const firstDebt = firstDebtIdx >= 0 ? Math.max(0, asNumber(filteredLoanSnaps[firstDebtIdx]?.loanOpeningDebt)) : 0;
     const lastDebt =
       lastDebtIdx >= 0
         ? Math.max(
             0,
-            Math.max(0, asNumber(loanTimeline[lastDebtIdx]?.loanOpeningDebt)) -
-              Math.max(0, asNumber(loanTimeline[lastDebtIdx]?.loanAmortization))
+            Math.max(0, asNumber(filteredLoanSnaps[lastDebtIdx]?.loanOpeningDebt)) -
+              Math.max(0, asNumber(filteredLoanSnaps[lastDebtIdx]?.loanAmortization))
           )
         : 0;
     const debtDrop = Math.max(0, firstDebt - lastDebt);
+    const activeLoan =
+      activeLoanFilterId !== "all"
+        ? allLoansForFilter.find((l) => String(l.id) === String(activeLoanFilterId))
+        : null;
+    const summaryLeadLabel = activeLoan ? escapeHtml(activeLoan.name || "Lånet") : "Dina lån";
+    const loanFilterOptionsHtml = [
+      `<option value="all"${activeLoanFilterId === "all" ? " selected" : ""}>Alla lån</option>`,
+      ...allLoansForFilter.map((l) => {
+        const id = String(l.id);
+        const label = String(l.name || "Lån").trim() || "Lån";
+        const bank = String(l.bank || "").trim();
+        const text = bank ? `${label} · ${bank}` : label;
+        return `<option value="${escapeHtml(id)}"${
+          activeLoanFilterId === id ? " selected" : ""
+        }>${escapeHtml(text)}</option>`;
+      })
+    ].join("");
+    const loanFilterControlHtml =
+      allLoansForFilter.length > 1
+        ? `<div class="analysis-loan-filter">
+            <label class="analysis-loan-filter__label" for="analysisSalaryYearLoanFilterSelect">Visa lån</label>
+            <select id="analysisSalaryYearLoanFilterSelect" class="analysis-loan-filter__select" aria-label="Filtrera lån i diagrammet">${loanFilterOptionsHtml}</select>
+          </div>`
+        : "";
     const loanYearBlock = syModel?.hasAmortizingLoans
       ? `
       <div class="table-card analysis-loans-card">
         <div class="table-title">Lån och amortering</div>
         <p class="note analysis-salary-year-ingress">Staplarna visar periodens ingående skuld per löneperiod.</p>
+        ${loanFilterControlHtml}
         <div class="analysis-salary-year-chart-wrap">
           <div class="analysis-salary-year-chart-head">
             <span>Total lånesumma per löneperiod</span>
@@ -12910,9 +12967,9 @@ function renderAnalysisPage() {
           ${loanYearChartSvg}
           <div class="analysis-loan-period-list" aria-label="Periodens ingående skuld per löneperiod">
             <ul class="analysis-loan-period-list__rows">${loanYearPeriodRows}</ul>
-            <p class="analysis-loan-period-list__summary">Dina lån minskar från ${escapeHtml(formatKr(firstDebt))} till ${escapeHtml(
-              formatKr(lastDebt)
-            )} under perioden (${escapeHtml(formatKr(debtDrop))}).</p>
+            <p class="analysis-loan-period-list__summary">${summaryLeadLabel} minskar från ${escapeHtml(
+              formatKr(firstDebt)
+            )} till ${escapeHtml(formatKr(lastDebt))} under perioden (${escapeHtml(formatKr(debtDrop))}).</p>
           </div>
         </div>
       </div>`
@@ -13240,6 +13297,15 @@ function renderAnalysisPage() {
       ui.analysisSalaryYearNav = Math.min(1, ui.analysisSalaryYearNav + 1);
       renderAnalysisPage();
     });
+    const loanFilterEl = document.getElementById("analysisSalaryYearLoanFilterSelect");
+    if (loanFilterEl) {
+      loanFilterEl.addEventListener("change", (e) => {
+        const v = String(e.target?.value || "all");
+        if (ui.analysisSalaryYearLoanFilterId === v) return;
+        ui.analysisSalaryYearLoanFilterId = v;
+        renderAnalysisPage();
+      });
+    }
     wireSalaryYearSpendChart(salaryYearSpendModel);
     return;
   }
