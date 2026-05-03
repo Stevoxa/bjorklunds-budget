@@ -12934,28 +12934,44 @@ function renderAnalysisPage() {
         ? allLoansForFilter.find((l) => String(l.id) === String(activeLoanFilterId))
         : null;
     const summaryLeadLabel = activeLoan ? escapeHtml(activeLoan.name || "Lånet") : "Dina lån";
-    const loanFilterOptionsHtml = [
-      `<option value="all"${activeLoanFilterId === "all" ? " selected" : ""}>Alla lån</option>`,
+    const loanFilterOptions = [
+      { value: "all", label: "Alla lån" },
       ...allLoansForFilter.map((l) => {
         const id = String(l.id);
         const label = String(l.name || "Lån").trim() || "Lån";
         const bank = String(l.bank || "").trim();
-        const text = bank ? `${label} · ${bank}` : label;
-        return `<option value="${escapeHtml(id)}"${
-          activeLoanFilterId === id ? " selected" : ""
-        }>${escapeHtml(text)}</option>`;
+        return { value: id, label: bank ? `${label} · ${bank}` : label };
       })
-    ].join("");
+    ];
+    const loanFilterCurrent =
+      loanFilterOptions.find((o) => o.value === activeLoanFilterId) || loanFilterOptions[0];
+    const loanFilterHiddenOptionsHtml = loanFilterOptions
+      .map(
+        (o) =>
+          `<option value="${escapeHtml(o.value)}"${
+            o.value === activeLoanFilterId ? " selected" : ""
+          }>${escapeHtml(o.label)}</option>`
+      )
+      .join("");
     const loanFilterControlHtml =
       allLoansForFilter.length > 1
-        ? `<div class="analysis-loan-filter field">
+        ? `<div class="field analysis-loan-filter">
             <div class="bb-notched-field" role="group" aria-label="Visa lån">
               <div class="bb-notched-field-legend">Visa lån</div>
-              <div class="bb-notched-field-select-wrap">
-                <select id="analysisSalaryYearLoanFilterSelect" class="bb-notched-field-select" aria-label="Filtrera lån i diagrammet">${loanFilterOptionsHtml}</select>
+              <button
+                type="button"
+                class="bb-notched-field-btn"
+                id="analysisSalaryYearLoanFilterOpenBtn"
+                aria-haspopup="dialog"
+                aria-controls="listPickerSheet"
+              >
+                <span class="bb-notched-field-value" id="analysisSalaryYearLoanFilterSummary">${escapeHtml(
+                  loanFilterCurrent?.label || "Alla lån"
+                )}</span>
                 <span class="bb-notched-field-chev" aria-hidden="true"></span>
-              </div>
+              </button>
             </div>
+            <select id="analysisSalaryYearLoanFilterSelect" class="visually-hidden-select" tabindex="-1" aria-hidden="true">${loanFilterHiddenOptionsHtml}</select>
           </div>`
         : "";
     const loanYearBlock = syModel?.hasAmortizingLoans
@@ -13302,13 +13318,26 @@ function renderAnalysisPage() {
       ui.analysisSalaryYearNav = Math.min(1, ui.analysisSalaryYearNav + 1);
       renderAnalysisPage();
     });
-    const loanFilterEl = document.getElementById("analysisSalaryYearLoanFilterSelect");
-    if (loanFilterEl) {
-      loanFilterEl.addEventListener("change", (e) => {
-        const v = String(e.target?.value || "all");
-        if (ui.analysisSalaryYearLoanFilterId === v) return;
-        ui.analysisSalaryYearLoanFilterId = v;
-        renderAnalysisPage();
+    const loanFilterOpenBtn = document.getElementById("analysisSalaryYearLoanFilterOpenBtn");
+    if (loanFilterOpenBtn) {
+      loanFilterOpenBtn.addEventListener("click", () => {
+        const sel = document.getElementById("analysisSalaryYearLoanFilterSelect");
+        if (!sel) return;
+        const options = Array.from(sel.options).map((o) => ({
+          value: o.value,
+          label: o.textContent || o.value
+        }));
+        openListPickerSheet({
+          title: "Visa lån",
+          options,
+          currentValue: String(sel.value || "all"),
+          onSelect: (value) => {
+            const v = String(value || "all");
+            if (ui.analysisSalaryYearLoanFilterId === v) return;
+            ui.analysisSalaryYearLoanFilterId = v;
+            renderAnalysisPage();
+          }
+        });
       });
     }
     wireSalaryYearSpendChart(salaryYearSpendModel);
