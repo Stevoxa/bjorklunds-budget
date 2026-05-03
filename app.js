@@ -7632,6 +7632,21 @@ function parseRouteFromHash() {
   return parseBudgetRouteFromHash(location.hash || "#/analysis");
 }
 
+/** Scroll huvudskalet till toppen vid byte av vy (bottenmeny / hash-route). */
+function scrollMainShellToTop() {
+  window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  const main = document.querySelector(".app-main");
+  if (main) main.scrollTop = 0;
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    if (main) main.scrollTop = 0;
+  });
+}
+
 function initRouting() {
   const view = (name) => {
     ui.activeRoute = name;
@@ -7677,6 +7692,7 @@ function initRouting() {
     view(route);
     try {
       renderRoute(route, { incomeOverlay: incOv, enteringAnalysis, helpSection: parsed.helpSection });
+      if (prevNavRoute !== route) scrollMainShellToTop();
     } catch (e) {
       showDebugToast(`Routing-fel (${route}): ${e?.message || e}`, { kind: "diagnostic" });
       throw e;
