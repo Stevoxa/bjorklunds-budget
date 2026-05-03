@@ -1,7 +1,7 @@
 /* Minimal service worker for offline caching.
    Works with GitHub Pages as long as files are served from the same origin. */
 
-const CACHE_NAME = "bjorklunds-budget-v40";
+const CACHE_NAME = "bjorklunds-budget-v41";
 // Keep app shell URLs stable so file:// also works.
 const ASSETS_TO_CACHE = [
   "./",
@@ -67,6 +67,12 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
@@ -81,13 +87,10 @@ self.addEventListener("fetch", (event) => {
    */
   const isAppShell =
     url.pathname.endsWith("/") ||
-    url.pathname.endsWith("/index.html") ||
-    url.pathname.endsWith("/styles.css") ||
-    url.pathname.endsWith("/vault.js") ||
-    url.pathname.endsWith("/app.js") ||
-    url.pathname.endsWith("/parseBudgetRouteFromHash.js") ||
-    url.pathname.endsWith("/manifest.webmanifest") ||
-    url.pathname.endsWith("/chart.umd.min.js");
+    /\.html$/i.test(url.pathname) ||
+    /\.css$/i.test(url.pathname) ||
+    /\.js$/i.test(url.pathname) ||
+    /\.webmanifest$/i.test(url.pathname);
 
   event.respondWith(
     (isAppShell ? fetch(req).catch(() => null) : Promise.resolve(null)).then((netRes) => {

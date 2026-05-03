@@ -16565,10 +16565,89 @@ function initActions() {
   setTimeout(() => maybePromptBackup(), 2500);
 }
 
+let swUpdateBannerShown = false;
+let swReloadInFlight = false;
+
+function showSwUpdateAvailableBanner(waitingWorker) {
+  if (swUpdateBannerShown) return;
+  if (!waitingWorker) return;
+  swUpdateBannerShown = true;
+  const existing = document.getElementById("swUpdateBanner");
+  if (existing) existing.remove();
+  const banner = document.createElement("div");
+  banner.id = "swUpdateBanner";
+  banner.className = "sw-update-banner";
+  banner.setAttribute("role", "status");
+  banner.setAttribute("aria-live", "polite");
+  banner.innerHTML = `
+    <div class="sw-update-banner__inner">
+      <div class="sw-update-banner__text">
+        <strong>Ny version tillgänglig</strong>
+        <span>Ladda om för att hämta de senaste ändringarna.</span>
+      </div>
+      <div class="sw-update-banner__actions">
+        <button type="button" class="sw-update-banner__btn sw-update-banner__btn--secondary" data-sw-dismiss>Senare</button>
+        <button type="button" class="sw-update-banner__btn sw-update-banner__btn--primary" data-sw-reload>Uppdatera nu</button>
+      </div>
+    </div>`;
+  document.body.appendChild(banner);
+  banner.querySelector("[data-sw-dismiss]")?.addEventListener("click", () => {
+    banner.remove();
+    swUpdateBannerShown = false;
+  });
+  banner.querySelector("[data-sw-reload]")?.addEventListener("click", () => {
+    if (swReloadInFlight) return;
+    swReloadInFlight = true;
+    try {
+      waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    } catch {
+      window.location.reload();
+    }
+  });
+}
+
+function watchSwInstallingState(installingWorker) {
+  if (!installingWorker) return;
+  installingWorker.addEventListener("statechange", () => {
+    if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+      showSwUpdateAvailableBanner(installingWorker);
+    }
+  });
+}
+
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    await navigator.serviceWorker.register("./sw.js");
+    const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+
+    if (registration.waiting && navigator.serviceWorker.controller) {
+      showSwUpdateAvailableBanner(registration.waiting);
+    }
+    if (registration.installing) {
+      watchSwInstallingState(registration.installing);
+    }
+    registration.addEventListener("updatefound", () => {
+      watchSwInstallingState(registration.installing);
+    });
+
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+
+    const triggerUpdate = () => {
+      registration.update().catch(() => {
+        /* ignore */
+      });
+    };
+
+    triggerUpdate();
+    setInterval(triggerUpdate, 60 * 1000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") triggerUpdate();
+    });
   } catch {
     // Silent
   }
