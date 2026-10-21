@@ -8,15 +8,20 @@ All data krypteras och stannar på enheten: ingen server, inget konto, inga exte
 
 **[Öppna appen →](https://stevoxa.github.io/bjorklunds-budget/)**
 
-<!--
-Skärmbilder: lägg dem i docs/screenshots/ och ta bort kommentaren.
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/start.webp" alt="Startbilden med appens logotyp"><br><sub>Start</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/analys.webp" alt="Analys av löneperioden med överskott och planerade utgifter"><br><sub>Analys per löneperiod</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/fordelning.webp" alt="Ringdiagram över vad pengarna går till under året"><br><sub>Vad pengarna går till</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/aterkommande-utgift.webp" alt="Formulär för en återkommande utgift"><br><sub>Återkommande utgift</sub></td>
+    <td align="center"><img src="docs/screenshots/manad.webp" alt="Utgifter för oktober med enstaka poster"><br><sub>Månadens utgifter</sub></td>
+    <td align="center"><img src="docs/screenshots/handelser.webp" alt="Tidslinje över periodens intäkter och utgifter"><br><sub>Händelser i perioden</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="docs/screenshots/analys.png" width="260" alt="Analysvyn med diagram över månadens intäkter och utgifter">
-  <img src="docs/screenshots/aterkommande-post.png" width="260" alt="Registrering av en återkommande utgift">
-  <img src="docs/screenshots/manadsvy.png" width="260" alt="Månadsvy med enstaka utgifter">
-</p>
--->
+<sub>Skärmbilderna visar påhittad exempeldata.</sub>
 
 ## Säkerhet och integritet
 
